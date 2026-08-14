@@ -145,6 +145,65 @@ editor with your address. See `docs/SUPABASE_SETUP.md`.
 
 ---
 
+## Letting anyone sign in, without collecting their keys
+
+Google mints an ID token only for a registered **package name + signing SHA-1**
+pair. That is why a teammate who builds from source gets
+"تم إلغاء تسجيل الدخول": their machine has its own debug keystore, so the app
+they built is, to Google, a different app.
+
+Registering every developer's debug fingerprint does not scale and is not the
+fix. **Distribute a signed APK instead.** The signature travels inside the file,
+so one registered fingerprint covers every person who installs it — they never
+generate a key at all.
+
+```bat
+build_apk.bat                 release APK, signed, into apk\
+build_apk.bat --split         one per ABI, ~20 MB each
+```
+
+Signing is already wired: `app/android/app/build.gradle.kts` reads
+`app/android/key.properties`, and falls back to the debug key only when that
+file is absent. Neither the properties file nor the keystore is committed —
+both are gitignored, and the keystore lives outside the repository entirely.
+
+**Create the key once:**
+
+```bash
+keytool -genkeypair -v -alias upload -keyalg RSA -keysize 2048 -validity 10000 -keystore /path/outside/the/repo/upload.jks
+```
+
+Then `app/android/key.properties`:
+
+```properties
+storePassword=...
+keyPassword=...
+keyAlias=upload
+storeFile=/absolute/path/to/upload.jks
+```
+
+**Register its fingerprint** on the Android OAuth client, alongside the debug
+one so local `run_emulator.bat` runs keep working:
+
+```bash
+keytool -list -v -keystore /path/to/upload.jks -alias upload
+```
+
+**Back the keystore up somewhere that is not the build machine.** It is the
+app's identity: Android refuses to install an update signed by a different key,
+so losing it means every installed copy must be uninstalled before a new build
+will go on, and the OAuth client needs a new fingerprint.
+
+Verify what a built APK is actually signed with — the fallback to the debug key
+is silent, and a debug-signed "release" fails sign-in on every machine but the
+one that built it:
+
+```bash
+apksigner verify --print-certs apk/adayl-release.apk
+```
+
+---
+
 ## When it does not work
 
 **"لم يتم إعداد الدخول بحساب Google على الخادم بعد."**
