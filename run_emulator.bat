@@ -79,7 +79,7 @@ REM  SHA-1, or Google refuses to issue a token at all. It is just never named
 REM  here. A token minted for the Android client verifies on the device and is
 REM  then rejected by Supabase, which is the commonest way this fails.
 REM ---------------------------------------------------------------------------
-set "GOOGLE_SERVER_CLIENT_ID="
+set "GOOGLE_SERVER_CLIENT_ID=801235926523-8fotp0q1np1lvfgqgurtsfnomcd41h1p.apps.googleusercontent.com"
 
 REM ---- Refuse to run half-configured ----------------------------------------
 REM This project is a COPY of the Rhalla app with its credentials removed, so a
