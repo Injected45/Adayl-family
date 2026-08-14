@@ -55,8 +55,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pkg  = 'ly.adayl.family_app'
 
-$SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co'
-$SUPABASE_ANON_KEY = ''
+$SUPABASE_URL = 'https://wvryyidbjvvomurvfhpw.supabase.co'
+$SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk'
 # An ordinary email/password account. Its role still comes from public.profiles
 # like everyone else's; it exists so the app is usable before Google sign-in is
 # switched on. It is an approved admin, so this APK embeds an admin password.

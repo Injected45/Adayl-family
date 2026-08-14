@@ -1,6 +1,6 @@
 # Supabase migration plan — dropping Node and MySQL
 
-**Status:** LIVE. Applied to project `YOUR-PROJECT-REF` (eu-north-1) and verified
+**Status:** LIVE. Applied to project `wvryyidbjvvomurvfhpw` (eu-north-1) and verified
 end to end over HTTPS — `python supabase/tests/verify_live.py <pwfile>` → all 52
 checks pass. Phases 1–3 complete. Schema ported and proven, and the Flutter app now
 talks to Supabase — no Node, no MySQL, no Dio. Phase 4 (MariaDB data migration and

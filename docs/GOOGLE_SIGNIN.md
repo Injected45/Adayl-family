@@ -82,7 +82,7 @@ You do **not** need to download anything from this client. No
 |---|---|
 | Application type | Web application |
 | Name | anything, e.g. `family-app-supabase` |
-| Authorised redirect URI | `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback` |
+| Authorised redirect URI | `https://wvryyidbjvvomurvfhpw.supabase.co/auth/v1/callback` |
 
 Copy the **client ID** and the **client secret** from this one.
 

@@ -26,14 +26,15 @@ import sys
 import urllib.error
 import urllib.request
 
-# Fill both in from your own Supabase project (Settings - API) before running.
-# They are deliberately blank: this project is a COPY of the الرحالة app, and
-# shipping that association's URL and key here would point this suite - which
-# purges financial data before it seeds - at their live treasury.
-URL = 'https://YOUR-PROJECT-REF.supabase.co'
-ANON = ''
+# THIS association's own project. Not the one the app was forked from — this
+# suite calls purge_financial_data() before it seeds, so a stale URL here would
+# erase somebody else's books rather than merely reading the wrong ones.
+URL = 'https://wvryyidbjvvomurvfhpw.supabase.co'
+ANON = ('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6'
+        'Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3Mjgz'
+        'MzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk')
 
-if 'YOUR-PROJECT-REF' in URL or not ANON:
+if 'YOUR-PROJECT' in URL or not ANON:
     raise SystemExit(
         'verify_live.py is not configured yet.\n'
         'Set URL and ANON at the top of this file to THIS association\'s\n'

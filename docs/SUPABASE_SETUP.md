@@ -1,6 +1,6 @@
 # Connecting the app to Supabase
 
-**Done.** The schema is applied to project `YOUR-PROJECT-REF` (eu-north-1) and
+**Done.** The schema is applied to project `wvryyidbjvvomurvfhpw` (eu-north-1) and
 verified end to end over HTTPS:
 
 ```

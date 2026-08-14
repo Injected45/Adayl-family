@@ -14,8 +14,8 @@ set -euo pipefail
 
 DEVICE="${1:-chrome}"
 
-SUPABASE_URL="https://YOUR-PROJECT-REF.supabase.co"
-SUPABASE_ANON_KEY=""
+SUPABASE_URL="https://wvryyidbjvvomurvfhpw.supabase.co"
+SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk"
 
 exec flutter run -d "$DEVICE" \
   --dart-define=SUPABASE_URL="$SUPABASE_URL" \

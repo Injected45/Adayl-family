@@ -37,8 +37,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co"
-set "SUPABASE_ANON_KEY="
+set "SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co"
+set "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk"
 
 REM Development sign-in: an ordinary email/password account with NO special
 REM privilege of its own - its role still comes from public.profiles. It exists

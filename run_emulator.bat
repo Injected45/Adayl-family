@@ -52,8 +52,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co"
-set "SUPABASE_ANON_KEY="
+set "SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co"
+set "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk"
 
 REM Development sign-in: an ordinary email/password account with NO special
 REM privilege. Its role still comes from public.profiles like everyone else's. It
@@ -87,7 +87,7 @@ REM fresh clone has nothing to talk to. Without this guard the app builds, runs,
 REM shows the sign-in screen and fails every call with a network error that says
 REM nothing about the cause.
 if "%SUPABASE_ANON_KEY%"=="" goto not_configured
-echo %SUPABASE_URL% | findstr /c:"YOUR-PROJECT-REF" >nul
+echo %SUPABASE_URL% | findstr /c:"wvryyidbjvvomurvfhpw" >nul
 if not errorlevel 1 goto not_configured
 goto configured
 
@@ -263,7 +263,7 @@ echo   Checking the emulator can reach Supabase...
 set /a NET=0
 :wait_net
 set /a NET+=1
-"%ADB%" -s !DEVICE! shell ping -c 1 -W 2 YOUR-PROJECT-REF.supabase.co >nul 2>&1
+"%ADB%" -s !DEVICE! shell ping -c 1 -W 2 wvryyidbjvvomurvfhpw.supabase.co >nul 2>&1
 if not errorlevel 1 goto online
 if !NET! GEQ 10 (
   echo   WARNING: the emulator could not resolve the Supabase host.
