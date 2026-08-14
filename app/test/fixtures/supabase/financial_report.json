@@ -1,0 +1,1 @@
+{"to": "2030-12-31", "debt": "50.00", "from": "2026-01-01", "issued": "100.00", "payments": [{"amount": "50.00", "method": "نقداً", "paidAt": "2026-08-12T00:33:42Z", "receiptNo": "PAY-000001", "reference": "ref-1", "familyName": "الأب الأول"}], "collected": "50.00", "issuedCount": 4, "partialCount": 1, "collectedCount": 1}

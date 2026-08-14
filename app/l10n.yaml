@@ -1,0 +1,10 @@
+arb-dir: lib/l10n
+template-arb-file: app_ar.arb
+output-localization-file: app_localizations.dart
+output-class: L
+# Arabic is the template, not a translation of English: the association is
+# Libyan and every string originates in Arabic.
+preferred-supported-locales:
+  - ar
+  - en
+nullable-getter: false

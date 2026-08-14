@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>تطبيق جمعية العائلة</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#ffffff; --text:#172033; --muted:#6b7280; --line:#e5e7eb;
+      --brand:#0f766e; --brand2:#115e59; --brand-soft:#ccfbf1;
+      --red:#b91c1c; --red-soft:#fee2e2; --green:#166534; --green-soft:#dcfce7;
+      --amber:#a16207; --amber-soft:#fef3c7; --gray-soft:#f3f4f6; --blue:#1d4ed8; --blue-soft:#dbeafe;
+      --radius:18px; --shadow:0 10px 30px rgba(15,23,42,.08);
+    }
+    *{box-sizing:border-box} html,body,#root{margin:0;min-height:100%;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    body{min-height:100vh}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .app{min-height:100vh;display:grid;grid-template-columns:280px 1fr}
+    .sidebar{background:linear-gradient(180deg,#0f766e,#134e4a);color:#fff;padding:20px 16px;position:sticky;top:0;height:100vh;overflow:auto}
+    .brand{padding:10px 12px 22px;border-bottom:1px solid rgba(255,255,255,.15);margin-bottom:14px}
+    .brand h1{font-size:22px;margin:0 0 6px}.brand p{font-size:12px;opacity:.8;margin:0}
+    .nav{display:grid;gap:6px}
+    .nav button{border:0;background:transparent;color:#e7fffb;text-align:right;padding:12px 14px;border-radius:12px;display:flex;gap:10px;align-items:center}
+    .nav button:hover,.nav button.active{background:rgba(255,255,255,.13);color:#fff}
+    .main{min-width:0}
+    .topbar{height:72px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:20}
+    .top-title strong{display:block;font-size:17px}.top-title span{font-size:12px;color:var(--muted)}
+    .top-actions{display:flex;gap:10px;align-items:center}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .b-green{background:var(--green-soft);color:var(--green)} .b-red{background:var(--red-soft);color:var(--red)}
+    .b-amber{background:var(--amber-soft);color:var(--amber)} .b-gray{background:var(--gray-soft);color:#4b5563}
+    .b-blue{background:var(--blue-soft);color:var(--blue)}
+    .content{padding:24px;max-width:1600px;margin:auto}
+    .page-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:20px}
+    .page-head h2{margin:0 0 6px;font-size:24px}.page-head p{margin:0;color:var(--muted);font-size:13px}
+    .grid{display:grid;gap:16px}.cards{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:20px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .stat{padding:18px}.stat .label{font-size:12px;color:var(--muted);margin-bottom:8px}.stat .value{font-size:28px;font-weight:800}.stat .sub{font-size:11px;color:var(--muted);margin-top:6px}
+    .panel{padding:18px}.panel h3{margin:0 0 14px;font-size:16px}
+    .two{grid-template-columns:1.3fr .7fr}.three{grid-template-columns:repeat(3,1fr)}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+    .input,.select,.textarea{width:100%;border:1px solid #d1d5db;border-radius:12px;padding:11px 12px;background:#fff;outline:none}
+    .input:focus,.select:focus,.textarea:focus{border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.12)}
+    .search{max-width:340px}
+    .btn{border:0;border-radius:12px;padding:10px 14px;font-weight:700}
+    .btn-primary{background:var(--brand);color:#fff}.btn-primary:hover{background:var(--brand2)}
+    .btn-soft{background:var(--brand-soft);color:var(--brand2)}.btn-danger{background:var(--red-soft);color:var(--red)}
+    .btn-gray{background:#eef2f7;color:#334155}.btn:disabled{opacity:.45;cursor:not-allowed}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    table{width:100%;border-collapse:collapse;min-width:800px;background:#fff}
+    th,td{padding:12px 10px;text-align:right;border-bottom:1px solid #eef2f7;font-size:13px}
+    th{background:#f8fafc;color:#475569;position:sticky;top:0;z-index:2}
+    tr:last-child td{border-bottom:0} tr:hover td{background:#fcfcfd}
+    .actions{display:flex;gap:6px;flex-wrap:wrap}
+    .small{font-size:12px;color:var(--muted)} .money{font-variant-numeric:tabular-nums;font-weight:800}
+    .empty{padding:30px;text-align:center;color:var(--muted)}
+    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .form-grid .full{grid-column:1/-1}.field label{display:block;font-size:12px;color:#475569;font-weight:700;margin:0 0 6px}
+    .section-title{font-size:14px;font-weight:800;margin:18px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+    .modal-back{position:fixed;inset:0;background:rgba(15,23,42,.55);display:grid;place-items:center;padding:16px;z-index:100}
+    .modal{width:min(880px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+    .modal-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+    .modal-body{padding:20px}.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-start}
+    .close{border:0;background:#f1f5f9;width:36px;height:36px;border-radius:10px}
+    .alert{padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:10px}.alert.warn{background:var(--amber-soft);color:#854d0e}.alert.info{background:var(--blue-soft);color:#1e3a8a}.alert.danger{background:var(--red-soft);color:#991b1b}
+    .family-head{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:10px}
+    .family-head h4{margin:0 0 4px}.family-meta{display:flex;gap:8px;flex-wrap:wrap}
+    .detail-hero{padding:20px;background:linear-gradient(135deg,#ecfdf5,#f0fdfa);border:1px solid #a7f3d0;border-radius:18px;margin-bottom:16px}
+    .detail-hero h3{margin:0 0 8px}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+    .mini{background:#fff;border:1px solid #d1fae5;border-radius:12px;padding:12px}.mini span{display:block;font-size:11px;color:var(--muted)}.mini strong{font-size:18px}
+    .notice-list{display:grid;gap:8px}.notice{padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;display:flex;justify-content:space-between;gap:10px}
+    .notice strong{font-size:13px}.notice span{font-size:12px;color:var(--muted)}
+    .mobile-nav{display:none}
+    .danger-text{color:var(--red)} .good-text{color:var(--green)} .warn-text{color:var(--amber)}
+    .footer-note{font-size:11px;color:var(--muted);margin-top:14px}
+    .print-only{display:none}
+    @media (max-width:1100px){.cards{grid-template-columns:repeat(2,1fr)}.two,.three{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:820px){
+      .app{grid-template-columns:1fr}.sidebar{display:none}.topbar{padding:0 14px}.content{padding:14px 12px 85px}
+      .cards{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:14px}.stat .value{font-size:23px}
+      .form-grid{grid-template-columns:1fr}.mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:60;justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom))}
+      .mobile-nav button{border:0;background:transparent;color:#475569;font-size:11px;display:grid;gap:4px;place-items:center}.mobile-nav button.active{color:var(--brand);font-weight:800}
+      .page-head{flex-direction:column}.search{max-width:none}.kpis{grid-template-columns:1fr 1fr}.top-actions .badge{display:none}
+    }
+    @media (max-width:480px){.cards{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.page-head h2{font-size:21px}}
+    @media print{
+      .sidebar,.topbar,.mobile-nav,.no-print,.btn{display:none!important}.app{display:block}.content{padding:0}.card{box-shadow:none}.print-only{display:block}
+      body{background:#fff} table{min-width:0}
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const {useEffect,useMemo,useState} = React;
+
+const STORAGE_KEY = "family_association_v1";
+const money = n => new Intl.NumberFormat("ar-LY",{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n||0));
+const todayISO = () => new Date().toISOString().slice(0,10);
+const nowISO = () => new Date().toISOString();
+const uid = prefix => prefix+"-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
+
+const defaultSettings = {
+  associationName:"جمعية العائلة",
+  currency:"د.ل",
+  fatherFee:20,
+  sonFee:10,
+  eligibilityAge:16,
+  warningMonths:3,
+  systemStart:new Date().getFullYear()+"-01-01",
+  treasurer:{name:"",nationalId:"",phone:"",role:"أمين الصندوق"},
+  financeManager:{name:"",nationalId:"",phone:"",role:"المدير المالي"},
+  currentUser:"مدير النظام",
+  currentRole:"admin",
+  autoClosePreviousMonths:true
+};
+
+const emptyDB = {
+  settings:defaultSettings,
+  families:[],
+  receivables:[],
+  payments:[],
+  cashMoves:[],
+  audit:[]
+};
+
+function loadDB(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw) return emptyDB;
+    const d=JSON.parse(raw);
+    return {...emptyDB,...d,settings:{...defaultSettings,...(d.settings||{})}};
+  }catch(e){return emptyDB}
+}
+function saveDB(db){localStorage.setItem(STORAGE_KEY,JSON.stringify(db))}
+
+function ageOn(dob, atDate=new Date()){
+  if(!dob) return 0;
+  const b=new Date(dob+"T00:00:00");
+  let a=atDate.getFullYear()-b.getFullYear();
+  const m=atDate.getMonth()-b.getMonth();
+  if(m<0 || (m===0 && atDate.getDate()<b.getDate())) a--;
+  return Math.max(0,a);
+}
+function monthsUntilBirthdayAge(dob,targetAge,from=new Date()){
+  if(!dob) return Infinity;
+  const b=new Date(dob+"T00:00:00");
+  const target=new Date(b.getFullYear()+targetAge,b.getMonth(),b.getDate());
+  return Math.ceil((target-from)/(1000*60*60*24*30.4375));
+}
+function memberStatus(son,settings,atDate=new Date()){
+  if(son.status!=="نشط") return {key:"inactive",label:son.status||"غير نشط",cls:"b-gray"};
+  const age=ageOn(son.dob,atDate);
+  if(age>=Number(settings.eligibilityAge)) return {key:"eligible",label:"مستحق للاشتراك",cls:"b-blue"};
+  const months=monthsUntilBirthdayAge(son.dob,Number(settings.eligibilityAge),atDate);
+  if(months>=0 && months<=Number(settings.warningMonths)) return {key:"soon",label:"قريب من سن الاشتراك",cls:"b-amber"};
+  return {key:"under",label:"دون سن الاشتراك",cls:"b-gray"};
+}
+function periodEnd(period){
+  const [y,m]=period.split("-").map(Number);
+  return new Date(y,m,0,23,59,59);
+}
+function periodLabel(p){
+  const [y,m]=p.split("-").map(Number);
+  return new Intl.DateTimeFormat("ar",{month:"long",year:"numeric"}).format(new Date(y,m-1,1));
+}
+function currentPeriod(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function previousPeriod(){
+  const d=new Date(); d.setMonth(d.getMonth()-1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function periodsBetween(startDate,endPeriod){
+  const start=new Date((startDate||todayISO())+"T00:00:00");
+  const [ey,em]=endPeriod.split("-").map(Number);
+  let y=start.getFullYear(), m=start.getMonth()+1;
+  const out=[];
+  while(y<ey || (y===ey && m<=em)){
+    out.push(`${y}-${String(m).padStart(2,"0")}`);
+    m++; if(m>12){m=1;y++}
+  }
+  return out;
+}
+function receivableStatus(r){
+  if(r.status==="ملغي") return "ملغي";
+  if(Number(r.balance)<=0) return "مسدد بالكامل";
+  if(Number(r.paid)>0) return "مسدد جزئياً";
+  return "غير مسدد";
+}
+function statusBadge(label){
+  if(label==="مسدد بالكامل") return "b-green";
+  if(label==="مسدد جزئياً") return "b-amber";
+  if(label==="غير مسدد") return "b-red";
+  return "b-gray";
+}
+
+function App(){
+  const [db,setDB]=useState(loadDB);
+  const [page,setPage]=useState("dashboard");
+  const [modal,setModal]=useState(null);
+  const [toast,setToast]=useState("");
+  const [selectedFamily,setSelectedFamily]=useState(null);
+
+  useEffect(()=>saveDB(db),[db]);
+  useEffect(()=>{
+    if(db.settings.autoClosePreviousMonths){
+      autoCloseDueMonths();
+    }
+  },[]);
+
+  const flash=(msg)=>{setToast(msg);setTimeout(()=>setToast(""),2600)};
+  const updateDB=(fn)=>setDB(prev=>fn(structuredClone(prev)));
+  const addAudit=(draft,type,detail,ref="")=>{
+    draft.audit.unshift({id:uid("AUD"),type,detail,ref,user:draft.settings.currentUser||"مدير النظام",at:nowISO()});
+  };
+
+  const allMembers=useMemo(()=>db.families.flatMap(f=>[f.father,...f.sons]),[db.families]);
+  const nationalExists=(nid,excludeId="")=>allMembers.some(m=>m.nationalId && m.nationalId===nid && m.id!==excludeId);
+
+  const stats=useMemo(()=>{
+    const fathers=db.families.length;
+    const sons=db.families.reduce((n,f)=>n+f.sons.length,0);
+    let eligible=0,soon=0,under=0;
+    db.families.forEach(f=>f.sons.forEach(s=>{
+      const st=memberStatus(s,db.settings);
+      if(st.key==="eligible") eligible++;
+      else if(st.key==="soon") soon++;
+      else if(st.key==="under") under++;
+    }));
+    const debt=db.receivables.filter(r=>r.status!=="ملغي").reduce((n,r)=>n+Number(r.balance||0),0);
+    const collected=db.payments.filter(p=>p.status!=="ملغي").reduce((n,p)=>n+Number(p.amount||0),0);
+    const cash=db.payments.filter(p=>p.status!=="ملغي" && p.method==="نقداً").reduce((n,p)=>n+Number(p.amount||0),0);
+    const transfer=collected-cash;
+    const indebted=new Set(db.receivables.filter(r=>r.status!=="ملغي"&&Number(r.balance)>0).map(r=>r.familyId)).size;
+    return {fathers,sons,eligible,soon,under,debt,collected,cash,transfer,indebted};
+  },[db]);
+
+  function buildReceivable(draft,family,period){
+    if(draft.receivables.some(r=>r.familyId===family.id && r.period===period && r.status!=="ملغي")) return null;
+    const at=periodEnd(period);
+    const eligibleSons=family.sons.filter(s=>memberStatus(s,draft.settings,at).key==="eligible");
+    const fatherActive=family.father.status==="نشط";
+    const fatherFee=fatherActive?Number(draft.settings.fatherFee):0;
+    const sonFee=Number(draft.settings.sonFee);
+    const total=fatherFee+(eligibleSons.length*sonFee);
+    if(total<=0) return null;
+    return {
+      id:uid("REC"),familyId:family.id,period,
+      fatherFee,sonFee,
+      fatherId:family.father.id,fatherName:family.father.name,
+      eligibleSonIds:eligibleSons.map(s=>s.id),
+      eligibleSonNames:eligibleSons.map(s=>s.name),
+      total,paid:0,balance:total,status:"غير مسدد",
+      createdAt:nowISO(),createdBy:draft.settings.currentUser||"مدير النظام",
+      snapshot:{eligibilityAge:Number(draft.settings.eligibilityAge),warningMonths:Number(draft.settings.warningMonths)}
+    };
+  }
+
+  function generatePeriod(period,quiet=false){
+    let created=0;
+    updateDB(draft=>{
+      draft.families.forEach(f=>{
+        const r=buildReceivable(draft,f,period);
+        if(r){draft.receivables.push(r);created++}
+      });
+      if(created) addAudit(draft,"إنشاء استحقاقات",`تم إنشاء ${created} استحقاق لشهر ${periodLabel(period)}`,period);
+      return draft;
+    });
+    if(!quiet) flash(created?`تم إنشاء ${created} استحقاق لشهر ${periodLabel(period)}`:"لا توجد استحقاقات جديدة لهذا الشهر");
+  }
+
+  function autoCloseDueMonths(){
+    const start=db.settings.systemStart||todayISO();
+    const due=periodsBetween(start,previousPeriod());
+    let missing=due.filter(p=>!db.receivables.some(r=>r.period===p && r.status!=="ملغي"));
+    if(!missing.length) return;
+    updateDB(draft=>{
+      let created=0;
+      missing.forEach(period=>{
+        draft.families.forEach(f=>{
+          const r=buildReceivable(draft,f,period);
+          if(r){draft.receivables.push(r);created++}
+        });
+      });
+      if(created) addAudit(draft,"إقفال تلقائي",`تم إنشاء ${created} استحقاقاً للأشهر السابقة غير المقفلة`);
+      return draft;
+    });
+  }
+
+  function saveFamily(payload,editingId=null){
+    const father=payload.father;
+    const sons=payload.sons||[];
+    if(!father.name.trim()||!father.nationalId.trim()){flash("اسم الأب والرقم الوطني مطلوبان");return false}
+    if(nationalExists(father.nationalId, editingId?db.families.find(f=>f.id===editingId)?.father.id:"")){flash("الرقم الوطني للأب مستخدم مسبقاً");return false}
+    const ids=sons.map(s=>s.nationalId).filter(Boolean);
+    if(new Set(ids).size!==ids.length){flash("يوجد رقم وطني مكرر بين الأبناء");return false}
+    for(const s of sons){
+      if(!s.name.trim()||!s.nationalId.trim()){flash("اسم ورقم كل ابن مطلوبان");return false}
+      const existing=db.families.flatMap(f=>[f.father,...f.sons]).find(m=>m.nationalId===s.nationalId && m.id!==s.id);
+      if(existing){flash(`الرقم الوطني ${s.nationalId} مستخدم مسبقاً`);return false}
+      if(s.dob && new Date(s.dob)>new Date()){flash("لا يمكن أن يكون تاريخ الميلاد مستقبلياً");return false}
+    }
+    updateDB(draft=>{
+      if(editingId){
+        const i=draft.families.findIndex(f=>f.id===editingId);
+        const old=draft.families[i];
+        draft.families[i]={...old,...payload,id:editingId,updatedAt:nowISO()};
+        addAudit(draft,"تعديل عائلة",`تم تعديل بيانات عائلة ${father.name}`,editingId);
+      }else{
+        const family={...payload,id:uid("FAM"),familyCode:`F-${String(draft.families.length+1).padStart(4,"0")}`,createdAt:nowISO()};
+        draft.families.push(family);
+        addAudit(draft,"إضافة عائلة",`تم تسجيل عائلة ${father.name}`,family.id);
+      }
+      return draft;
+    });
+    flash(editingId?"تم تحديث العائلة":"تمت إضافة العائلة");
+    return true;
+  }
+
+  function registerPayment({familyId,amount,method,reference,receiver,notes}){
+    const value=Number(amount);
+    const open=db.receivables.filter(r=>r.familyId===familyId && r.status!=="ملغي" && Number(r.balance)>0).sort((a,b)=>a.period.localeCompare(b.period));
+    const debt=open.reduce((n,r)=>n+Number(r.balance),0);
+    if(!(value>0)){flash("قيمة السداد يجب أن تكون أكبر من صفر");return false}
+    if(value>debt+0.0001){flash(`قيمة السداد أكبر من المستحق، الحد الأقصى ${money(debt)} ${db.settings.currency}`);return false}
+    let remain=value,allocations=[];
+    updateDB(draft=>{
+      const sorted=draft.receivables.filter(r=>r.familyId===familyId && r.status!=="ملغي" && Number(r.balance)>0).sort((a,b)=>a.period.localeCompare(b.period));
+      for(const r of sorted){
+        if(remain<=0) break;
+        const take=Math.min(remain,Number(r.balance));
+        r.paid=Number(r.paid||0)+take;
+        r.balance=Number(r.total)-Number(r.paid);
+        if(Math.abs(r.balance)<0.0001) r.balance=0;
+        r.status=receivableStatus(r);
+        allocations.push({receivableId:r.id,period:r.period,amount:take});
+        remain-=take;
+      }
+      const family=draft.families.find(f=>f.id===familyId);
+      const payment={
+        id:uid("PAY"),familyId,amount:value,method,reference:reference||"",receiver:receiver||"",
+        notes:notes||"",allocations,status:"معتمد",at:nowISO(),createdBy:draft.settings.currentUser||"مدير النظام"
+      };
+      draft.payments.unshift(payment);
+      draft.cashMoves.unshift({id:uid("CASH"),paymentId:payment.id,familyId,amount:value,method,at:payment.at,type:"تحصيل",status:"معتمد"});
+      addAudit(draft,"تسجيل سداد",`سداد ${money(value)} ${draft.settings.currency} لعائلة ${family?.father.name||""}`,payment.id);
+      return draft;
+    });
+    flash("تم تسجيل السداد وتوزيعه على أقدم الاستحقاقات");
+    return true;
+  }
+
+  function cancelPayment(paymentId){
+    if(!confirm("سيتم إلغاء الدفعة وعكس أثرها على الاستحقاقات والصندوق مع بقاء السجل التاريخي. هل تريد المتابعة؟"))return;
+    updateDB(draft=>{
+      const p=draft.payments.find(x=>x.id===paymentId);
+      if(!p||p.status==="ملغي") return draft;
+      p.allocations.forEach(a=>{
+        const r=draft.receivables.find(x=>x.id===a.receivableId);
+        if(r){
+          r.paid=Math.max(0,Number(r.paid)-Number(a.amount));
+          r.balance=Number(r.total)-Number(r.paid);
+          r.status=receivableStatus(r);
+        }
+      });
+      p.status="ملغي";p.cancelledAt=nowISO();p.cancelledBy=draft.settings.currentUser;
+      const cm=draft.cashMoves.find(x=>x.paymentId===paymentId); if(cm) cm.status="ملغي";
+      addAudit(draft,"إلغاء دفعة",`تم إلغاء الدفعة ${paymentId} وعكس أثرها`,paymentId);
+      return draft;
+    });
+    flash("تم إلغاء الدفعة وعكس أثرها");
+  }
+
+  function exportBackup(){
+    const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`family-association-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);
+  }
+  function importBackup(file){
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const d=JSON.parse(rd.result);
+        if(!d.settings||!Array.isArray(d.families)) throw new Error();
+        setDB({...emptyDB,...d,settings:{...defaultSettings,...d.settings}});
+        flash("تم استيراد النسخة الاحتياطية");
+      }catch(e){flash("ملف النسخة الاحتياطية غير صالح")}
+    };
+    rd.readAsText(file);
+  }
+
+  const nav=[
+    ["dashboard","⌂","الرئيسية"],["families","👥","العائلات"],["members","♙","الأعضاء"],["receivables","▤","الاستحقاقات"],
+    ["payments","💰","التحصيل والسداد"],["cash","▣","الصندوق"],["statements","📑","كشوف الحساب"],["alerts","🔔","التنبيهات"],
+    ["reports","📊","التقارير"],["officials","♜","المسؤولون"],["audit","🕘","سجل العمليات"],["settings","⚙","الإعدادات"]
+  ];
+
+  const title=nav.find(n=>n[0]===page)?.[2]||"جمعية العائلة";
+  const go=(p)=>{setPage(p);setSelectedFamily(null);window.scrollTo(0,0)};
+
+  return <div className="app">
+    <aside className="sidebar">
+      <div className="brand"><h1>{db.settings.associationName}</h1><p>نظام إدارة العائلات والاشتراكات والصندوق</p></div>
+      <div className="nav">{nav.map(([id,ico,label])=><button key={id} className={page===id?"active":""} onClick={()=>go(id)}><span>{ico}</span>{label}</button>)}</div>
+    </aside>
+
+    <main className="main">
+      <header className="topbar">
+        <div className="top-title"><strong>{title}</strong><span>{new Intl.DateTimeFormat("ar-EG",{dateStyle:"full"}).format(new Date())}</span></div>
+        <div className="top-actions"><span className="badge b-blue">{db.settings.currentUser} • {db.settings.currentRole==="admin"?"مدير النظام":db.settings.currentRole}</span></div>
+      </header>
+      <div className="content">
+        {toast && <div className="alert info no-print">{toast}</div>}
+        {page==="dashboard" && <Dashboard db={db} stats={stats} go={go} generatePeriod={generatePeriod}/>}
+        {page==="families" && <Families db={db} settings={db.settings} setModal={setModal} setSelectedFamily={setSelectedFamily} setPage={setPage}/>}
+        {page==="members" && <Members db={db}/>}
+        {page==="receivables" && <Receivables db={db} generatePeriod={generatePeriod}/>}
+        {page==="payments" && <Payments db={db} setModal={setModal} cancelPayment={cancelPayment}/>}
+        {page==="cash" && <Cash db={db}/>}
+        {page==="statements" && <Statements db={db}/>}
+        {page==="alerts" && <Alerts db={db}/>}
+        {page==="reports" && <Reports db={db}/>}
+        {page==="officials" && <Officials db={db}/>}
+        {page==="audit" && <Audit db={db}/>}
+        {page==="settings" && <Settings db={db} setDB={setDB} flash={flash} exportBackup={exportBackup} importBackup={importBackup} addAudit={addAudit}/>}
+        {page==="familyDetail" && selectedFamily && <FamilyDetail db={db} familyId={selectedFamily} setModal={setModal}/>}
+      </div>
+    </main>
+
+    <nav className="mobile-nav">
+      {[["dashboard","⌂","الرئيسية"],["families","👥","العائلات"],["payments","💰","السداد"],["cash","▣","الصندوق"],["settings","⚙","الإعدادات"]].map(([id,ico,label])=>
+        <button key={id} className={page===id?"active":""} onClick={()=>go(id)}><span>{ico}</span><span>{label}</span></button>
+      )}
+    </nav>
+
+    {modal?.type==="family" && <FamilyModal db={db} family={modal.family} onClose={()=>setModal(null)} onSave={(p,id)=>{if(saveFamily(p,id))setModal(null)}}/>}
+    {modal?.type==="payment" && <PaymentModal db={db} preFamilyId={modal.familyId} onClose={()=>setModal(null)} onSave={p=>{if(registerPayment(p))setModal(null)}}/>}
+  </div>
+}
+
+function Dashboard({db,stats,go,generatePeriod}){
+  const dueSons=[];
+  db.families.forEach(f=>f.sons.forEach(s=>{if(memberStatus(s,db.settings).key==="soon")dueSons.push({family:f,son:s})}));
+  const currentDebtFamilies=db.families.map(f=>({f,debt:db.receivables.filter(r=>r.familyId===f.id&&r.status!=="ملغي").reduce((n,r)=>n+Number(r.balance),0)})).filter(x=>x.debt>0).sort((a,b)=>b.debt-a.debt);
+  const thisMonth=previousPeriod();
+  return <>
+    <div className="page-head"><div><h2>لوحة التحكم</h2><p>ملخص الوضع الإداري والمالي للجمعية.</p></div>
+      <div className="actions"><button className="btn btn-primary" onClick={()=>generatePeriod(thisMonth)}>إقفال {periodLabel(thisMonth)}</button></div>
+    </div>
+    <div className="grid cards">
+      <Stat label="عدد العائلات" value={stats.fathers} sub={`الأبناء ${stats.sons}`}/>
+      <Stat label="الأبناء المستحقون" value={stats.eligible} sub={`قريبون من الاستحقاق ${stats.soon}`}/>
+      <Stat label="إجمالي المديونية" value={`${money(stats.debt)} ${db.settings.currency}`} sub={`${stats.indebted} عائلة مدينة`}/>
+      <Stat label="إجمالي المحصل" value={`${money(stats.collected)} ${db.settings.currency}`} sub={`نقدي ${money(stats.cash)} • تحويل ${money(stats.transfer)}`}/>
+    </div>
+    <div className="grid two">
+      <div className="card panel"><h3>أعلى المديونيات</h3>
+        {currentDebtFamilies.length? <div className="notice-list">{currentDebtFamilies.slice(0,8).map(x=><div className="notice" key={x.f.id}><div><strong>{x.f.father.name}</strong><br/><span>{x.f.familyCode}</span></div><strong className="danger-text">{money(x.debt)} {db.settings.currency}</strong></div>)}</div>:<div className="empty">لا توجد مديونيات حالية</div>}
+      </div>
+      <div className="card panel"><h3>تنبيهات قريبة</h3>
+        {dueSons.length? <div className="notice-list">{dueSons.slice(0,8).map(x=><div className="notice" key={x.son.id}><div><strong>{x.son.name}</strong><br/><span>ابن {x.family.father.name}</span></div><span className="badge b-amber">قريب من السن</span></div>)}</div>:<div className="empty">لا توجد تنبيهات عمرية حالياً</div>}
+        <div className="footer-note">يمكن تعديل سن الاستحقاق وفترة التنبيه من الإعدادات.</div>
+      </div>
+    </div>
+  </>
+}
+function Stat({label,value,sub}){return <div className="card stat"><div className="label">{label}</div><div className="value">{value}</div><div className="sub">{sub}</div></div>}
+
+function Families({db,settings,setModal,setSelectedFamily,setPage}){
+  const [q,setQ]=useState("");
+  const rows=db.families.filter(f=>[f.father.name,f.father.nationalId,f.father.phone,f.father.subscriptionNo,f.father.workplace,...f.sons.flatMap(s=>[s.name,s.nationalId,s.phone,s.workplace])].join(" ").toLowerCase().includes(q.toLowerCase()));
+  return <>
+    <div className="page-head"><div><h2>العائلات</h2><p>كل عائلة تبدأ بالأب وتندرج تحتها أسماء الأبناء الذكور.</p></div><button className="btn btn-primary" onClick={()=>setModal({type:"family"})}>+ إضافة عائلة</button></div>
+    <div className="card panel">
+      <div className="toolbar"><input className="input search" value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث بالاسم، الرقم الوطني، الهاتف، الاكتتاب، جهة العمل..."/></div>
+      {rows.length?rows.map(f=>{
+        const debt=db.receivables.filter(r=>r.familyId===f.id&&r.status!=="ملغي").reduce((n,r)=>n+Number(r.balance),0);
+        const elig=f.sons.filter(s=>memberStatus(s,settings).key==="eligible").length;
+        return <div className="family-head" key={f.id}>
+          <div><h4>{f.father.name}</h4><div className="family-meta"><span className="badge b-gray">{f.familyCode}</span><span className="badge b-blue">{f.sons.length} أبناء</span><span className="badge b-green">{elig} مستحقون</span>{debt>0&&<span className="badge b-red">مديونية {money(debt)} {settings.currency}</span>}</div></div>
+          <div className="actions"><button className="btn btn-soft" onClick={()=>{setSelectedFamily(f.id);setPage("familyDetail")}}>فتح</button><button className="btn btn-gray" onClick={()=>setModal({type:"family",family:f})}>تعديل</button></div>
+        </div>
+      }):<div className="empty">لا توجد عائلات مسجلة بعد</div>}
+    </div>
+  </>
+}
+
+function FamilyModal({family,onClose,onSave}){
+  const makeFather=()=>({id:uid("MEM"),name:"",nationalId:"",phone:"",subscriptionNo:"",dob:"",nationality:"ليبي",workplace:"",registeredAt:todayISO(),status:"نشط",notes:""});
+  const makeSon=()=>({id:uid("MEM"),name:"",nationalId:"",phone:"",dob:"",nationality:"ليبي",workplace:"",registeredAt:todayISO(),status:"نشط",notes:""});
+  const [father,setFather]=useState(family?structuredClone(family.father):makeFather());
+  const [sons,setSons]=useState(family?structuredClone(family.sons):[]);
+  const setF=(k,v)=>setFather({...father,[k]:v});
+  const setS=(i,k,v)=>setSons(sons.map((s,idx)=>idx===i?{...s,[k]:v}:s));
+  return <div className="modal-back"><div className="modal">
+    <div className="modal-head"><strong>{family?"تعديل العائلة":"إضافة عائلة جديدة"}</strong><button className="close" onClick={onClose}>✕</button></div>
+    <div className="modal-body">
+      <div className="section-title">بيانات الأب</div>
+      <div className="form-grid">
+        <Field label="الاسم الكامل *"><input className="input" value={father.name} onChange={e=>setF("name",e.target.value)}/></Field>
+        <Field label="الرقم الوطني *"><input className="input" value={father.nationalId} onChange={e=>setF("nationalId",e.target.value)}/></Field>
+        <Field label="رقم الهاتف"><input className="input" value={father.phone} onChange={e=>setF("phone",e.target.value)}/></Field>
+        <Field label="رقم الاكتتاب بكتيب العائلة"><input className="input" value={father.subscriptionNo} onChange={e=>setF("subscriptionNo",e.target.value)}/></Field>
+        <Field label="تاريخ الميلاد"><input type="date" className="input" value={father.dob} onChange={e=>setF("dob",e.target.value)}/></Field>
+        <Field label="الجنسية"><input className="input" value={father.nationality} onChange={e=>setF("nationality",e.target.value)}/></Field>
+        <Field label="جهة العمل"><input className="input" value={father.workplace} onChange={e=>setF("workplace",e.target.value)}/></Field>
+        <Field label="تاريخ التسجيل"><input type="date" className="input" value={father.registeredAt} onChange={e=>setF("registeredAt",e.target.value)}/></Field>
+        <Field label="حالة العضوية"><select className="select" value={father.status} onChange={e=>setF("status",e.target.value)}><option>نشط</option><option>موقوف</option><option>متوفى</option></select></Field>
+        <Field label="ملاحظات"><input className="input" value={father.notes} onChange={e=>setF("notes",e.target.value)}/></Field>
+      </div>
+      <div className="section-title">الأبناء الذكور</div>
+      {sons.map((s,i)=><div key={s.id} className="card panel" style={{marginBottom:10,boxShadow:"none"}}>
+        <div className="actions" style={{justifyContent:"space-between",marginBottom:10}}><strong>الابن رقم {i+1}</strong><button className="btn btn-danger" onClick={()=>setSons(sons.filter((_,x)=>x!==i))}>حذف الابن</button></div>
+        <div className="form-grid">
+          <Field label="الاسم الكامل *"><input className="input" value={s.name} onChange={e=>setS(i,"name",e.target.value)}/></Field>
+          <Field label="الرقم الوطني *"><input className="input" value={s.nationalId} onChange={e=>setS(i,"nationalId",e.target.value)}/></Field>
+          <Field label="رقم الهاتف"><input className="input" value={s.phone} onChange={e=>setS(i,"phone",e.target.value)}/></Field>
+          <Field label="تاريخ الميلاد"><input type="date" className="input" value={s.dob} onChange={e=>setS(i,"dob",e.target.value)}/></Field>
+          <Field label="الجنسية"><input className="input" value={s.nationality} onChange={e=>setS(i,"nationality",e.target.value)}/></Field>
+          <Field label="جهة العمل"><input className="input" value={s.workplace} onChange={e=>setS(i,"workplace",e.target.value)}/></Field>
+          <Field label="تاريخ التسجيل"><input type="date" className="input" value={s.registeredAt} onChange={e=>setS(i,"registeredAt",e.target.value)}/></Field>
+          <Field label="الحالة"><select className="select" value={s.status} onChange={e=>setS(i,"status",e.target.value)}><option>نشط</option><option>موقوف</option><option>متوفى</option></select></Field>
+        </div>
+      </div>)}
+      <button className="btn btn-soft" onClick={()=>setSons([...sons,makeSon()])}>+ إضافة ابن</button>
+    </div>
+    <div className="modal-foot"><button className="btn btn-primary" onClick={()=>onSave({father,sons},family?.id)}>حفظ البيانات</button><button className="btn btn-gray" onClick={onClose}>إلغاء</button></div>
+  </div></div>
+}
+function Field({label,children}){return <div className="field"><label>{label}</label>{children}</div>}
+
+function FamilyDetail({db,familyId,setModal}){
+  const f=db.families.find(x=>x.id===familyId); if(!f)return <div className="empty">العائلة غير موجودة</div>;
+  const recs=db.receivables.filter(r=>r.familyId===familyId&&r.status!=="ملغي");
+  const debt=recs.reduce((n,r)=>n+Number(r.balance),0);
+  const paid=db.payments.filter(p=>p.familyId===familyId&&p.status!=="ملغي").reduce((n,p)=>n+Number(p.amount),0);
+  const elig=f.sons.filter(s=>memberStatus(s,db.settings).key==="eligible");
+  const soon=f.sons.filter(s=>memberStatus(s,db.settings).key==="soon");
+  const currentExpected=(f.father.status==="نشط"?Number(db.settings.fatherFee):0)+elig.length*Number(db.settings.sonFee);
+  return <>
+    <div className="page-head"><div><h2>{f.father.name}</h2><p>{f.familyCode} • الرقم الوطني {f.father.nationalId}</p></div><div className="actions"><button className="btn btn-primary" disabled={debt<=0} onClick={()=>setModal({type:"payment",familyId:f.id})}>تسجيل سداد</button><button className="btn btn-gray no-print" onClick={()=>window.print()}>طباعة</button></div></div>
+    <div className="detail-hero"><h3>ملخص العائلة</h3><div className="kpis">
+      <div className="mini"><span>عدد الأبناء</span><strong>{f.sons.length}</strong></div>
+      <div className="mini"><span>المستحقون</span><strong>{elig.length}</strong></div>
+      <div className="mini"><span>قريبون من السن</span><strong>{soon.length}</strong></div>
+      <div className="mini"><span>الاستحقاق الشهري الحالي</span><strong>{money(currentExpected)}</strong></div>
+      <div className="mini"><span>المديونية</span><strong className={debt?"danger-text":"good-text"}>{money(debt)}</strong></div>
+    </div></div>
+    <div className="card panel"><h3>بيانات الأب</h3><div className="grid three">
+      <Info k="الهاتف" v={f.father.phone||"—"}/><Info k="رقم الاكتتاب" v={f.father.subscriptionNo||"—"}/><Info k="تاريخ الميلاد" v={f.father.dob||"—"}/>
+      <Info k="الجنسية" v={f.father.nationality||"—"}/><Info k="جهة العمل" v={f.father.workplace||"—"}/><Info k="تاريخ التسجيل" v={f.father.registeredAt||"—"}/>
+    </div></div>
+    <div className="card panel" style={{marginTop:16}}><h3>الأبناء</h3><div className="table-wrap"><table><thead><tr><th>الاسم</th><th>الرقم الوطني</th><th>العمر</th><th>الميلاد</th><th>الهاتف</th><th>جهة العمل</th><th>حالة الاشتراك</th><th>القيمة الحالية</th></tr></thead><tbody>
+      {f.sons.map(s=>{const st=memberStatus(s,db.settings);return <tr key={s.id}><td><strong>{s.name}</strong></td><td>{s.nationalId}</td><td>{ageOn(s.dob)} سنة</td><td>{s.dob||"—"}</td><td>{s.phone||"—"}</td><td>{s.workplace||"—"}</td><td><span className={`badge ${st.cls}`}>{st.label}</span></td><td>{st.key==="eligible"?`${money(db.settings.sonFee)} ${db.settings.currency}`:"—"}</td></tr>})}
+    </tbody></table></div></div>
+    <div className="card panel" style={{marginTop:16}}><h3>كشف مختصر</h3><StatementTable db={db} familyId={f.id}/><div className="footer-note">إجمالي المدفوع المعتمد: {money(paid)} {db.settings.currency}</div></div>
+  </>
+}
+function Info({k,v}){return <div><div className="small">{k}</div><strong>{v}</strong></div>}
+
+function Members({db}){
+  const [q,setQ]=useState("");
+  const rows=db.families.flatMap(f=>[
+    {...f.father,type:"أب",family:f.father.name,familyCode:f.familyCode},
+    ...f.sons.map(s=>({...s,type:"ابن",family:f.father.name,familyCode:f.familyCode}))
+  ]).filter(x=>[x.name,x.nationalId,x.phone,x.workplace,x.family].join(" ").toLowerCase().includes(q.toLowerCase()));
+  return <><div className="page-head"><div><h2>الأعضاء</h2><p>بحث موحد في الآباء والأبناء الذكور.</p></div></div><div className="card panel"><div className="toolbar"><input className="input search" value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث بالاسم أو الرقم الوطني أو الهاتف أو جهة العمل..."/></div>
+    <div className="table-wrap"><table><thead><tr><th>الاسم</th><th>الصفة</th><th>العائلة</th><th>الرقم الوطني</th><th>الهاتف</th><th>جهة العمل</th><th>العمر</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><strong>{r.name}</strong></td><td>{r.type}</td><td>{r.family}</td><td>{r.nationalId}</td><td>{r.phone||"—"}</td><td>{r.workplace||"—"}</td><td>{r.dob?ageOn(r.dob)+" سنة":"—"}</td></tr>)}</tbody></table></div>
+  </div></>
+}
+
+function Receivables({db,generatePeriod}){
+  const [period,setPeriod]=useState(previousPeriod());
+  const rows=db.receivables.slice().sort((a,b)=>b.period.localeCompare(a.period));
+  return <><div className="page-head"><div><h2>الاستحقاقات الشهرية</h2><p>كل استحقاق يحتفظ بقيمه التاريخية كما كانت وقت الإنشاء.</p></div></div>
+    <div className="card panel">
+      <div className="toolbar"><input type="month" className="input" style={{maxWidth:220}} value={period} onChange={e=>setPeriod(e.target.value)}/><button className="btn btn-primary" onClick={()=>generatePeriod(period)}>إنشاء استحقاقات الشهر</button></div>
+      <div className="alert warn">لا يمكن إنشاء استحقاق مكرر لنفس العائلة والشهر، وتغيير الإعدادات مستقبلاً لا يغيّر هذه السجلات.</div>
+      <div className="table-wrap"><table><thead><tr><th>المرجع</th><th>الشهر</th><th>العائلة</th><th>اشتراك الأب</th><th>اشتراك الابن</th><th>الأبناء المحتسبون</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>
+        {rows.map(r=>{const f=db.families.find(x=>x.id===r.familyId);return <tr key={r.id}><td>{r.id}</td><td>{periodLabel(r.period)}</td><td>{f?.father.name||r.fatherName}</td><td>{money(r.fatherFee)}</td><td>{money(r.sonFee)}</td><td>{r.eligibleSonNames.join("، ")||"لا يوجد"}</td><td className="money">{money(r.total)}</td><td>{money(r.paid)}</td><td className="money">{money(r.balance)}</td><td><span className={`badge ${statusBadge(receivableStatus(r))}`}>{receivableStatus(r)}</span></td></tr>})}
+      </tbody></table></div>
+    </div>
+  </>
+}
+
+function Payments({db,setModal,cancelPayment}){
+  const rows=db.payments;
+  return <><div className="page-head"><div><h2>التحصيل والسداد</h2><p>السداد كامل أو جزئي فقط، ولا يمكن تجاوز المديونية.</p></div><button className="btn btn-primary" onClick={()=>setModal({type:"payment"})}>+ تسجيل سداد</button></div>
+    <div className="card panel">
+      <div className="alert info">يتم توزيع كل دفعة تلقائياً على أقدم الاستحقاقات أولاً FIFO، ويتم تسجيل أثرها في الصندوق في نفس اللحظة.</div>
+      <div className="table-wrap"><table><thead><tr><th>رقم العملية</th><th>التاريخ</th><th>العائلة</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th><th>التوزيع</th><th>الحالة</th><th></th></tr></thead><tbody>
+      {rows.map(p=>{const f=db.families.find(x=>x.id===p.familyId);return <tr key={p.id}><td>{p.id}</td><td>{new Date(p.at).toLocaleString("ar")}</td><td>{f?.father.name||"—"}</td><td className="money">{money(p.amount)} {db.settings.currency}</td><td>{p.method}</td><td>{p.reference||"—"}</td><td>{p.allocations.map(a=>`${a.period}: ${money(a.amount)}`).join(" | ")}</td><td><span className={`badge ${p.status==="ملغي"?"b-gray":"b-green"}`}>{p.status}</span></td><td>{p.status!=="ملغي"&&<button className="btn btn-danger" onClick={()=>cancelPayment(p.id)}>إلغاء وعكس</button>}</td></tr>})}
+      </tbody></table></div>
+    </div>
+  </>
+}
+function PaymentModal({db,preFamilyId,onClose,onSave}){
+  const [familyId,setFamilyId]=useState(preFamilyId||"");
+  const [amount,setAmount]=useState("");
+  const [method,setMethod]=useState("نقداً");
+  const [reference,setReference]=useState("");
+  const [receiver,setReceiver]=useState(db.settings.treasurer.name||db.settings.currentUser||"");
+  const [notes,setNotes]=useState("");
+  const debt=db.receivables.filter(r=>r.familyId===familyId&&r.status!=="ملغي").reduce((n,r)=>n+Number(r.balance),0);
+  return <div className="modal-back"><div className="modal" style={{maxWidth:620}}>
+    <div className="modal-head"><strong>تسجيل عملية سداد</strong><button className="close" onClick={onClose}>✕</button></div>
+    <div className="modal-body">
+      <div className="form-grid">
+        <Field label="العائلة"><select className="select" value={familyId} onChange={e=>setFamilyId(e.target.value)}><option value="">اختر العائلة</option>{db.families.map(f=><option key={f.id} value={f.id}>{f.father.name} • {f.familyCode}</option>)}</select></Field>
+        <Field label="المديونية الحالية"><input className="input" disabled value={`${money(debt)} ${db.settings.currency}`}/></Field>
+        <Field label="المبلغ المدفوع"><input type="number" min="0.01" max={debt} step="0.01" className="input" value={amount} onChange={e=>setAmount(e.target.value)}/></Field>
+        <Field label="طريقة الدفع"><select className="select" value={method} onChange={e=>setMethod(e.target.value)}><option>نقداً</option><option>تحويل مصرفي</option></select></Field>
+        {method==="تحويل مصرفي"&&<Field label="رقم مرجع التحويل"><input className="input" value={reference} onChange={e=>setReference(e.target.value)}/></Field>}
+        <Field label="المستلم"><input className="input" value={receiver} onChange={e=>setReceiver(e.target.value)}/></Field>
+        <div className="full"><Field label="ملاحظات"><textarea className="textarea" rows="3" value={notes} onChange={e=>setNotes(e.target.value)}/></Field></div>
+      </div>
+      {familyId&&debt<=0&&<div className="alert warn">هذه العائلة لا توجد عليها مديونية، لذلك لا يمكن تسجيل سداد.</div>}
+    </div>
+    <div className="modal-foot"><button className="btn btn-primary" disabled={!familyId||debt<=0||!(Number(amount)>0)} onClick={()=>onSave({familyId,amount,method,reference,receiver,notes})}>اعتماد السداد</button><button className="btn btn-gray" onClick={onClose}>إلغاء</button></div>
+  </div></div>
+}
+
+function Cash({db}){
+  const active=db.cashMoves.filter(x=>x.status!=="ملغي");
+  const total=active.reduce((n,x)=>n+Number(x.amount),0), cash=active.filter(x=>x.method==="نقداً").reduce((n,x)=>n+Number(x.amount),0), transfer=total-cash;
+  const today=todayISO(), month=currentPeriod(), year=new Date().getFullYear();
+  const day=active.filter(x=>x.at.slice(0,10)===today).reduce((n,x)=>n+Number(x.amount),0);
+  const mon=active.filter(x=>x.at.slice(0,7)===month).reduce((n,x)=>n+Number(x.amount),0);
+  const yr=active.filter(x=>x.at.slice(0,4)===String(year)).reduce((n,x)=>n+Number(x.amount),0);
+  return <><div className="page-head"><div><h2>الصندوق</h2><p>كل عملية تحصيل معتمدة تنعكس هنا تلقائياً.</p></div></div>
+  <div className="grid cards"><Stat label="إجمالي المحصل" value={`${money(total)} ${db.settings.currency}`} sub="جميع طرق السداد"/><Stat label="المحصل نقداً" value={`${money(cash)} ${db.settings.currency}`} sub={`اليوم ${money(day)}`}/><Stat label="التحويل المصرفي" value={`${money(transfer)} ${db.settings.currency}`} sub={`الشهر ${money(mon)}`}/><Stat label="تحصيل السنة" value={`${money(yr)} ${db.settings.currency}`} sub={String(year)}/></div>
+  <div className="card panel"><h3>حركة الصندوق</h3><div className="table-wrap"><table><thead><tr><th>المرجع</th><th>التاريخ</th><th>العائلة</th><th>القيمة</th><th>الطريقة</th><th>النوع</th><th>الحالة</th></tr></thead><tbody>{db.cashMoves.map(x=>{const f=db.families.find(y=>y.id===x.familyId);return <tr key={x.id}><td>{x.id}</td><td>{new Date(x.at).toLocaleString("ar")}</td><td>{f?.father.name||"—"}</td><td className="money">{money(x.amount)}</td><td>{x.method}</td><td>{x.type}</td><td>{x.status}</td></tr>})}</tbody></table></div></div></>
+}
+
+function Statements({db}){
+  const [familyId,setFamilyId]=useState(db.families[0]?.id||"");
+  return <><div className="page-head"><div><h2>كشوف الحساب</h2><p>عرض تسلسلي للاستحقاقات والدفعات والرصيد.</p></div><button className="btn btn-gray no-print" onClick={()=>window.print()}>طباعة</button></div>
+  <div className="card panel"><div className="toolbar"><select className="select" style={{maxWidth:360}} value={familyId} onChange={e=>setFamilyId(e.target.value)}><option value="">اختر العائلة</option>{db.families.map(f=><option key={f.id} value={f.id}>{f.father.name} • {f.familyCode}</option>)}</select></div>{familyId?<StatementTable db={db} familyId={familyId}/>:<div className="empty">اختر عائلة لعرض كشف الحساب</div>}</div></>
+}
+function StatementTable({db,familyId}){
+  let movements=[];
+  db.receivables.filter(r=>r.familyId===familyId&&r.status!=="ملغي").forEach(r=>movements.push({date:r.createdAt,ref:r.id,type:`استحقاق ${periodLabel(r.period)}`,debit:Number(r.total),credit:0,note:`الأبناء المحتسبون: ${r.eligibleSonNames.join("، ")||"لا يوجد"}`}));
+  db.payments.filter(p=>p.familyId===familyId&&p.status!=="ملغي").forEach(p=>movements.push({date:p.at,ref:p.id,type:`سداد ${p.method}`,debit:0,credit:Number(p.amount),note:p.reference?`مرجع ${p.reference}`:""}));
+  movements.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  let bal=0; movements=movements.map(m=>{bal+=m.debit-m.credit;return {...m,balance:bal}});
+  return <div className="table-wrap"><table><thead><tr><th>التاريخ</th><th>المرجع</th><th>الحركة</th><th>استحقاق</th><th>سداد</th><th>الرصيد</th><th>ملاحظات</th></tr></thead><tbody>{movements.map((m,i)=><tr key={m.ref+i}><td>{new Date(m.date).toLocaleDateString("ar")}</td><td>{m.ref}</td><td>{m.type}</td><td>{m.debit?money(m.debit):"—"}</td><td>{m.credit?money(m.credit):"—"}</td><td className="money">{money(m.balance)}</td><td>{m.note||"—"}</td></tr>)}</tbody></table></div>
+}
+
+function Alerts({db}){
+  let alerts=[];
+  db.families.forEach(f=>{
+    f.sons.forEach(s=>{
+      const st=memberStatus(s,db.settings);
+      if(st.key==="soon") alerts.push({type:"سن الاستحقاق",text:`${s.name} ابن ${f.father.name} اقترب من سن الاشتراك`,cls:"b-amber"});
+    });
+    const debt=db.receivables.filter(r=>r.familyId===f.id&&r.status!=="ملغي").reduce((n,r)=>n+Number(r.balance),0);
+    if(debt>0) alerts.push({type:"مديونية",text:`عائلة ${f.father.name} عليها ${money(debt)} ${db.settings.currency}`,cls:"b-red"});
+    const partial=db.receivables.filter(r=>r.familyId===f.id&&receivableStatus(r)==="مسدد جزئياً");
+    if(partial.length) alerts.push({type:"سداد جزئي",text:`عائلة ${f.father.name} لديها ${partial.length} استحقاق مسدد جزئياً`,cls:"b-amber"});
+  });
+  return <><div className="page-head"><div><h2>التنبيهات</h2><p>تنبيهات العمر والمديونيات والحالات المالية التي تحتاج متابعة.</p></div></div><div className="card panel">{alerts.length?<div className="notice-list">{alerts.map((a,i)=><div className="notice" key={i}><div><strong>{a.type}</strong><br/><span>{a.text}</span></div><span className={`badge ${a.cls}`}>{a.type}</span></div>)}</div>:<div className="empty">لا توجد تنبيهات حالية</div>}</div></>
+}
+
+function Reports({db}){
+  const [from,setFrom]=useState(new Date().getFullYear()+"-01-01"),[to,setTo]=useState(todayISO());
+  const pays=db.payments.filter(p=>p.status!=="ملغي"&&p.at.slice(0,10)>=from&&p.at.slice(0,10)<=to);
+  const recs=db.receivables.filter(r=>r.status!=="ملغي"&&r.createdAt.slice(0,10)>=from&&r.createdAt.slice(0,10)<=to);
+  const collected=pays.reduce((n,p)=>n+Number(p.amount),0), issued=recs.reduce((n,r)=>n+Number(r.total),0), debt=db.receivables.filter(r=>r.status!=="ملغي").reduce((n,r)=>n+Number(r.balance),0);
+  return <><div className="page-head"><div><h2>التقارير</h2><p>ملخص مالي حسب الفترة المحددة.</p></div><button className="btn btn-gray no-print" onClick={()=>window.print()}>طباعة التقرير</button></div>
+    <div className="card panel"><div className="toolbar"><input type="date" className="input" style={{maxWidth:200}} value={from} onChange={e=>setFrom(e.target.value)}/><input type="date" className="input" style={{maxWidth:200}} value={to} onChange={e=>setTo(e.target.value)}/></div>
+      <div className="grid cards"><Stat label="الاستحقاقات المنشأة" value={`${money(issued)} ${db.settings.currency}`} sub={`${recs.length} سجل`}/><Stat label="المحصل خلال الفترة" value={`${money(collected)} ${db.settings.currency}`} sub={`${pays.length} دفعة`}/><Stat label="المديونية الحالية" value={`${money(debt)} ${db.settings.currency}`} sub="الرصيد القائم حالياً"/><Stat label="السداد الجزئي" value={db.receivables.filter(r=>receivableStatus(r)==="مسدد جزئياً").length} sub="استحقاقات مفتوحة جزئياً"/></div>
+      <h3>تفصيل التحصيل</h3><div className="table-wrap"><table><thead><tr><th>التاريخ</th><th>العائلة</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th></tr></thead><tbody>{pays.map(p=>{const f=db.families.find(x=>x.id===p.familyId);return <tr key={p.id}><td>{new Date(p.at).toLocaleDateString("ar")}</td><td>{f?.father.name||"—"}</td><td>{money(p.amount)}</td><td>{p.method}</td><td>{p.reference||p.id}</td></tr>})}</tbody></table></div>
+    </div>
+  </>
+}
+
+function Officials({db}){
+  const list=[db.settings.treasurer,db.settings.financeManager];
+  return <><div className="page-head"><div><h2>المسؤولون</h2><p>البيانات المعرفة من إعدادات الجمعية.</p></div></div><div className="grid two">{list.map((x,i)=><div className="card panel" key={i}><h3>{x.role}</h3><Info k="الاسم" v={x.name||"غير محدد"}/><br/><Info k="الرقم الوطني" v={x.nationalId||"—"}/><br/><Info k="الهاتف" v={x.phone||"—"}/></div>)}</div></>
+}
+
+function Audit({db}){
+  return <><div className="page-head"><div><h2>سجل العمليات</h2><p>أثر رقابي لجميع العمليات الإدارية والمالية المهمة.</p></div></div><div className="card panel"><div className="table-wrap"><table><thead><tr><th>التاريخ والوقت</th><th>نوع العملية</th><th>التفاصيل</th><th>المستخدم</th><th>المرجع</th></tr></thead><tbody>{db.audit.map(a=><tr key={a.id}><td>{new Date(a.at).toLocaleString("ar")}</td><td>{a.type}</td><td>{a.detail}</td><td>{a.user}</td><td>{a.ref||"—"}</td></tr>)}</tbody></table></div></div></>
+}
+
+function Settings({db,setDB,flash,exportBackup,importBackup,addAudit}){
+  const [s,setS]=useState(structuredClone(db.settings));
+  const ch=(k,v)=>setS({...s,[k]:v});
+  const sub=(grp,k,v)=>setS({...s,[grp]:{...s[grp],[k]:v}});
+  function save(){
+    if(Number(s.fatherFee)<0||Number(s.sonFee)<0||Number(s.eligibilityAge)<0){flash("تحقق من القيم المالية والعمر");return}
+    setDB(prev=>{
+      const d=structuredClone(prev);
+      const old=structuredClone(d.settings);
+      d.settings={...s,fatherFee:Number(s.fatherFee),sonFee:Number(s.sonFee),eligibilityAge:Number(s.eligibilityAge),warningMonths:Number(s.warningMonths)};
+      addAudit(d,"تعديل الإعدادات","تم تحديث إعدادات الجمعية. القيم الجديدة تطبق على الاستحقاقات المستقبلية فقط.");
+      return d;
+    });
+    flash("تم حفظ الإعدادات، ولن تتغير الاستحقاقات التاريخية");
+  }
+  return <><div className="page-head"><div><h2>الإعدادات</h2><p>تتحكم هذه القيم في المستقبل فقط، ولا تعيد حساب الاستحقاقات القديمة.</p></div></div>
+    <div className="card panel">
+      <div className="alert warn">قاعدة محاسبية: تعديل قيمة الاشتراك أو سن الاستحقاق هنا لا يغيّر أي استحقاق سبق إنشاؤه.</div>
+      <div className="section-title">الإعدادات العامة</div>
+      <div className="form-grid">
+        <Field label="اسم الجمعية"><input className="input" value={s.associationName} onChange={e=>ch("associationName",e.target.value)}/></Field>
+        <Field label="العملة"><input className="input" value={s.currency} onChange={e=>ch("currency",e.target.value)}/></Field>
+        <Field label="اشتراك الأب الشهري"><input type="number" min="0" step="0.01" className="input" value={s.fatherFee} onChange={e=>ch("fatherFee",e.target.value)}/></Field>
+        <Field label="اشتراك الابن الشهري"><input type="number" min="0" step="0.01" className="input" value={s.sonFee} onChange={e=>ch("sonFee",e.target.value)}/></Field>
+        <Field label="سن بداية الاشتراك"><input type="number" min="0" className="input" value={s.eligibilityAge} onChange={e=>ch("eligibilityAge",e.target.value)}/></Field>
+        <Field label="التنبيه قبل الاستحقاق بالأشهر"><input type="number" min="0" className="input" value={s.warningMonths} onChange={e=>ch("warningMonths",e.target.value)}/></Field>
+        <Field label="تاريخ بداية العمل بالنظام"><input type="date" className="input" value={s.systemStart} onChange={e=>ch("systemStart",e.target.value)}/></Field>
+        <Field label="المستخدم الحالي"><input className="input" value={s.currentUser} onChange={e=>ch("currentUser",e.target.value)}/></Field>
+      </div>
+      <div className="section-title">أمين الصندوق</div>
+      <div className="form-grid"><Field label="الاسم"><input className="input" value={s.treasurer.name} onChange={e=>sub("treasurer","name",e.target.value)}/></Field><Field label="الرقم الوطني"><input className="input" value={s.treasurer.nationalId} onChange={e=>sub("treasurer","nationalId",e.target.value)}/></Field><Field label="الهاتف"><input className="input" value={s.treasurer.phone} onChange={e=>sub("treasurer","phone",e.target.value)}/></Field></div>
+      <div className="section-title">المدير المالي</div>
+      <div className="form-grid"><Field label="الاسم"><input className="input" value={s.financeManager.name} onChange={e=>sub("financeManager","name",e.target.value)}/></Field><Field label="الرقم الوطني"><input className="input" value={s.financeManager.nationalId} onChange={e=>sub("financeManager","nationalId",e.target.value)}/></Field><Field label="الهاتف"><input className="input" value={s.financeManager.phone} onChange={e=>sub("financeManager","phone",e.target.value)}/></Field></div>
+      <div className="actions" style={{marginTop:18}}><button className="btn btn-primary" onClick={save}>حفظ الإعدادات</button></div>
+    </div>
+    <div className="card panel" style={{marginTop:16}}><h3>النسخ الاحتياطي للبيانات</h3><div className="actions"><button className="btn btn-soft" onClick={exportBackup}>تصدير نسخة JSON</button><label className="btn btn-gray">استيراد نسخة<input type="file" accept=".json,application/json" style={{display:"none"}} onChange={e=>e.target.files?.[0]&&importBackup(e.target.files[0])}/></label></div><div className="footer-note">البيانات محفوظة محلياً في متصفح هذا الجهاز عبر localStorage.</div></div>
+  </>
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(perl -0pi -e \"s/-- The fixture has two families, so \\\\\"he sees one family\\\\\" is a real assertion and\\\\n-- not an accident of there being only one\\\\./-- Several families exist by the time this file runs, so \\\\\"he sees one family\\\\\" is\\\\n-- a real assertion and not an accident of there being only one./s\" supabase/tests/45_family_portal.sql)",
+      "Bash(bash supabase/tests/bundle.sh)",
+      "Bash(bash supabase/tests/probe.sh)"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+# Oneshot unit driven by family-app-reconcile.timer.
+#
+# Exits non-zero when the ledger does not add up. That is the signal to STOP and
+# investigate before taking further payments — continuing makes it harder to
+# unwind whatever diverged.
+
+[Unit]
+Description=Ledger reconciliation for the family association
+After=mysql.service
+
+[Service]
+Type=oneshot
+User=familyapp
+Group=familyapp
+WorkingDirectory=/srv/family-app/api
+ExecStart=/usr/bin/npm run reconcile
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=family-app-reconcile
+
+OnFailure=status-email@%n.service

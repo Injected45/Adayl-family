@@ -1,0 +1,20 @@
+# Copy to android/key.properties and fill in. NEVER commit the real file or the
+# keystore it points at — both are gitignored.
+#
+# Create the keystore first:
+#
+#   keytool -genkey -v -keystore upload-keystore.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Keep upload-keystore.jks somewhere backed up and OUTSIDE the repository. If it
+# is lost, the app can never be updated on Google Play under the same identity.
+#
+# Then register that keystore's SHA-1 with your Google OAuth client, or
+# sign-in will work in development and fail in the store build:
+#
+#   keytool -list -v -keystore upload-keystore.jks -alias upload
+
+storePassword=
+keyPassword=
+keyAlias=upload
+storeFile=../../upload-keystore.jks

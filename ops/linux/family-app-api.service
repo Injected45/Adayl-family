@@ -1,0 +1,52 @@
+# systemd unit for the API. Install on a VPS:
+#
+#   sudo cp family-app-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now family-app-api
+#   sudo systemctl status family-app-api
+#   journalctl -u family-app-api -f
+#
+# Adjust User, WorkingDirectory and the node path to match your server.
+
+[Unit]
+Description=Family association API (جمعية العائلة)
+Documentation=file:///srv/family-app/docs/OPERATIONS.md
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=familyapp
+Group=familyapp
+WorkingDirectory=/srv/family-app/api
+
+# --env-file-if-exists reads .env, so no EnvironmentFile= is needed. Keeping the
+# secrets in one place means one file to lock down.
+ExecStart=/usr/bin/node --env-file-if-exists=.env src/server.ts
+
+Restart=always
+RestartSec=3
+
+# The API answers SIGTERM by draining connections and closing the pool.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=family-app-api
+
+# Hardening. The process needs to read its own directory, write backups, and
+# reach the database — nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/family-app/api/backups
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

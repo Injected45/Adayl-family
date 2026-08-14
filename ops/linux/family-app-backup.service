@@ -1,0 +1,20 @@
+# Oneshot unit driven by family-app-backup.timer.
+
+[Unit]
+Description=Database backup for the family association
+After=mysql.service
+
+[Service]
+Type=oneshot
+User=familyapp
+Group=familyapp
+WorkingDirectory=/srv/family-app/api
+ExecStart=/usr/bin/npm run backup
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=family-app-backup
+
+# A backup that fails silently is worse than none. If a local MTA exists this
+# mails the administrator; otherwise the failure is still visible in
+# `systemctl status family-app-backup`.
+OnFailure=status-email@%n.service

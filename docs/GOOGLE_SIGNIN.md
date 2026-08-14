@@ -1,0 +1,174 @@
+# Turning on Google sign-in
+
+Everything below is done once. Total time is about fifteen minutes, most of it
+waiting for the Google Cloud console.
+
+## What you are actually setting up
+
+This app does **not** use the browser redirect flow, so nothing here involves a
+redirect URL or a deep link. It calls `signInWithIdToken`: `google_sign_in`
+obtains an ID token on the device, hands it to Supabase, and Supabase verifies
+it against Google directly.
+
+That means three identities have to line up:
+
+| Thing | Where it lives | Why |
+|---|---|---|
+| **Android OAuth client** | Google Cloud | Google will not issue a token to your app at all unless it recognises the package name + signing certificate |
+| **Web OAuth client** | Google Cloud | Names the *audience* of the token — the backend allowed to verify it. This is Supabase |
+| **Client ID + secret** | Supabase dashboard | How Supabase proves it is that audience |
+
+The single most common failure: using the **Android** client ID as the server
+client ID. The token is issued, the device is happy, and Supabase rejects it —
+because the token says "for the Android app" and Supabase is not the Android
+app. **Always use the web client ID.**
+
+The client **secret** never leaves the Supabase dashboard. It must not appear in
+`run_emulator.bat`, in a `--dart-define`, or anywhere in this repository —
+anything there ships inside the APK.
+
+---
+
+## 1. Google Cloud — create the two OAuth clients
+
+<https://console.cloud.google.com/apis/credentials>
+
+Create a project first if you have none.
+
+If the console asks you to configure the **OAuth consent screen** before it will
+let you create credentials:
+
+- User type **External**
+- App name, your support email, your developer email — that is all that is
+  required
+- Scopes: leave the defaults. The app asks only for `email` and `profile`
+- Test users: while the app is in *Testing*, only addresses listed here can sign
+  in. **Add every family-association account that will use the app**, or publish
+  the app once you are ready
+
+Now **Create Credentials → OAuth client ID**, twice.
+
+### a. Android
+
+| Field | Value |
+|---|---|
+| Application type | Android |
+| Name | anything, e.g. `family-app-android` |
+| Package name | `ly.adayl.family_app` |
+| SHA-1 | `58:C5:F7:AB:55:07:55:97:13:FA:02:87:C5:95:6C:E9:87:C0:5E:8A` |
+
+That SHA-1 is **this machine's debug keystore**
+(`C:\Users\ahmed\.android\debug.keystore`). It is what debug builds are signed
+with, so it is what you need for testing on the emulator.
+
+A release APK is signed with a different key and Google will refuse it until you
+add that fingerprint too. Get it with:
+
+```bash
+keytool -list -v -alias <your-alias> -keystore <your-release.keystore>
+```
+
+You can add several SHA-1s to one Android client, so debug and release can
+coexist. If you ever ship through Google Play with Play App Signing, add the
+SHA-1 that Play shows you under *Release → Setup → App signing* as well —
+that is the key Play re-signs with, and it is not yours.
+
+You do **not** need to download anything from this client. No
+`google-services.json` is required; the app does not use Firebase.
+
+### b. Web
+
+| Field | Value |
+|---|---|
+| Application type | Web application |
+| Name | anything, e.g. `family-app-supabase` |
+| Authorised redirect URI | `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback` |
+
+Copy the **client ID** and the **client secret** from this one.
+
+---
+
+## 2. Supabase — enable the provider
+
+Dashboard → **Authentication → Providers → Google**
+
+- Toggle **Enable Sign in with Google**
+- **Client ID** — the *web* client ID from step 1b
+- **Client Secret** — the *web* client secret
+- Save
+
+Under **Authentication → URL Configuration**, add
+`ly.adayl.family_app://login-callback` to *Redirect URLs*. The current flow
+never uses it, but it costs nothing and it is what a future browser-based flow
+would need.
+
+---
+
+## 3. The app — paste the web client ID
+
+Open `run_emulator.bat` and fill in the line near the top:
+
+```bat
+set "GOOGLE_SERVER_CLIENT_ID=123456789-abcdefg.apps.googleusercontent.com"
+```
+
+The **web** client ID, on Android too. See the table at the top for why.
+
+Then:
+
+```bat
+run_emulator.bat
+```
+
+For web builds, pass the same value to `app/run_supabase.sh`:
+
+```bash
+flutter run -d chrome \
+  --dart-define=GOOGLE_SERVER_CLIENT_ID=... \
+  --dart-define=GOOGLE_CLIENT_ID=...          # web needs this one as well
+```
+
+---
+
+## 4. First sign-in
+
+Tap **الدخول بحساب Google**. You will land on
+**"في انتظار الموافقة"** — awaiting approval. This is correct: every new profile
+is created `viewer` / `pending`, and the router sends pending accounts to that
+screen.
+
+An existing admin approves the account under **الإشراف → المستخدمون**.
+
+If you have no admin yet, that is the bootstrap problem — the first person has
+nobody to approve them. Run `supabase/bootstrap_first_admin.sql` in the SQL
+editor with your address. See `docs/SUPABASE_SETUP.md`.
+
+---
+
+## When it does not work
+
+**"لم يتم إعداد الدخول بحساب Google على الخادم بعد."**
+`GOOGLE_SERVER_CLIENT_ID` is empty, so `AppConfig.isGoogleConfigured` is false
+and `auth_controller.dart` refuses before it ever reaches Google. Step 3.
+
+**`ApiException: Unacceptable audience in id_token`** — or Supabase returns 400
+after the account chooser closes.
+You used the Android client ID. Use the web one.
+
+**`PlatformException(sign_in_failed, ... 10: )`**
+Error 10 is `DEVELOPER_ERROR`, and it means Google does not recognise the
+package name + SHA-1 pair. Either the Android OAuth client is missing, the SHA-1
+is from a different keystore than the build you are running, or the package name
+is not exactly `ly.adayl.family_app`.
+
+**`Error 403: access_denied`.**
+The consent screen is in *Testing* and this address is not on the test-user
+list.
+
+**Sign-in succeeds and the app sits on "awaiting approval".**
+Working as designed. Approve the account (step 4).
+
+**It worked yesterday and not today.**
+Check whether the debug keystore was regenerated — it expires, and Android
+Studio silently creates a new one, which changes the SHA-1. Re-run the `keytool`
+command above and compare.

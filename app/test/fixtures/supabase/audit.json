@@ -1,0 +1,5 @@
+[{"id":1,"eventType":"receivables.generate","detail":"إنشاء استحقاقات 2026-02: 2 سجل","ref":"2026-02","actorName":"المدير المالي","occurredAt":"2026-08-12T00:33:42.181Z"}, 
+ {"id":2,"eventType":"receivables.generate","detail":"إنشاء استحقاقات 2026-03: 2 سجل","ref":"2026-03","actorName":"المدير المالي","occurredAt":"2026-08-12T00:33:42.186Z"}, 
+ {"id":3,"eventType":"payment.register","detail":"تحصيل 50.00 من العائلة 1","ref":"PAY-000001","actorName":"أمين الصندوق","occurredAt":"2026-08-12T00:33:42.198Z"}, 
+ {"id":4,"eventType":"payment.register","detail":"تحصيل 5.00 من العائلة 2","ref":"PAY-000002","actorName":"أمين الصندوق","occurredAt":"2026-08-12T00:33:42.200Z"}, 
+ {"id":5,"eventType":"payment.cancel","detail":"إلغاء PAY-000002: تصحيح إدخال","ref":"PAY-000002","actorName":"المدير المالي","occurredAt":"2026-08-12T00:33:42.203Z"}]

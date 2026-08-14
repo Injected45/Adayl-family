@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly ledger reconciliation for the family association
+
+[Timer]
+# Half an hour after the backup, so a reconciliation failure is always
+# investigated with a fresh dump already on disk.
+OnCalendar=*-*-* 02:45:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

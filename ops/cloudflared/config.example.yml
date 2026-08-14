@@ -1,0 +1,25 @@
+# Cloudflare Tunnel configuration.
+#
+# Copy to the cloudflared config directory:
+#   Windows  %USERPROFILE%\.cloudflared\config.yml
+#   Linux    /etc/cloudflared/config.yml
+#
+# Replace TUNNEL-UUID and the hostname with your own. See
+# docs/DEPLOYMENT.md for the full walkthrough.
+
+tunnel: TUNNEL-UUID
+credentials-file: C:\Users\YOU\.cloudflared\TUNNEL-UUID.json
+
+ingress:
+  # The API and the built web app are served by the same origin, so the browser
+  # makes same-origin requests and CORS never enters the picture.
+  - hostname: jamiya.example.ly
+    service: http://localhost:3000
+
+  # Everything else is refused rather than falling through to something else on
+  # the machine.
+  - service: http_status:404
+
+# Cloudflare terminates TLS and forwards over the tunnel, so the API sees one
+# proxy hop. Set TRUST_PROXY=1 in api/.env to match — otherwise every client
+# shares a single rate-limit bucket.

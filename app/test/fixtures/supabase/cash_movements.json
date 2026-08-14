@@ -1,0 +1,2 @@
+[{"id":1,"receiptNo":"PAY-000001","familyName":"الأب الأول","familyId":1,"amount":"50.00","method":"نقداً","movementType":"تحصيل","status":"معتمد","occurredAt":"2026-08-12T00:33:42Z"}, 
+ {"id":2,"receiptNo":"PAY-000002","familyName":"الأب الثاني","familyId":2,"amount":"5.00","method":"تحويل مصرفي","movementType":"تحصيل","status":"ملغي","occurredAt":"2026-08-12T00:33:42Z"}]

@@ -1,0 +1,2 @@
+[{"id":1,"familyCode":"F-0001","fatherName":"الأب الأول","fatherNationalId":"1000000000001","sonsCount":3,"eligibleCount":2,"soonCount":0,"debt":"30.00","paid":"50.00","issued":"80.00","monthlyExpected":"40.00"}, 
+ {"id":2,"familyCode":"F-0002","fatherName":"الأب الثاني","fatherNationalId":"1000000000005","sonsCount":1,"eligibleCount":1,"soonCount":0,"debt":"20.00","paid":"0.00","issued":"20.00","monthlyExpected":"10.00"}]

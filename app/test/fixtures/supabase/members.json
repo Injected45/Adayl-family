@@ -1,0 +1,6 @@
+[{"id":1,"familyId":1,"fullName":"الأب الأول","relation":"الأب","familyName":"الأب الأول","nationalId":"1000000000001","phone":"","workplace":"","age":51,"eligibility":"eligible","membershipStatus":"نشط"}, 
+ {"id":2,"familyId":1,"fullName":"ابن بالغ ١","relation":"ابن","familyName":"الأب الأول","nationalId":"1000000000002","phone":"","workplace":"","age":21,"eligibility":"eligible","membershipStatus":"نشط"}, 
+ {"id":3,"familyId":1,"fullName":"ابن بالغ ٢","relation":"ابن","familyName":"الأب الأول","nationalId":"1000000000003","phone":"","workplace":"","age":18,"eligibility":"eligible","membershipStatus":"نشط"}, 
+ {"id":4,"familyId":1,"fullName":"ابن صغير","relation":"ابن","familyName":"الأب الأول","nationalId":"1000000000004","phone":"","workplace":"","age":7,"eligibility":"under","membershipStatus":"نشط"}, 
+ {"id":5,"familyId":2,"fullName":"الأب الثاني","relation":"الأب","familyName":"الأب الثاني","nationalId":"1000000000005","phone":"","workplace":"","age":55,"eligibility":"inactive","membershipStatus":"موقوف"}, 
+ {"id":6,"familyId":2,"fullName":"ابن الثاني","relation":"ابن","familyName":"الأب الثاني","nationalId":"1000000000006","phone":"","workplace":"","age":22,"eligibility":"eligible","membershipStatus":"نشط"}]

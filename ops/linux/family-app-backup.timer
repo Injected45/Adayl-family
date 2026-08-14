@@ -1,0 +1,20 @@
+# Nightly backup and reconciliation, as systemd timers.
+#
+#   sudo cp family-app-*.service family-app-*.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now family-app-backup.timer family-app-reconcile.timer
+#   systemctl list-timers 'family-app-*'
+#
+# A failing run is visible in `systemctl status`, and OnFailure= below mails it
+# if you have a local MTA. Both scripts exit non-zero on any problem.
+
+[Unit]
+Description=Nightly database backup for the family association
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

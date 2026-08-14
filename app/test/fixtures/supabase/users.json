@@ -1,0 +1,6 @@
+[{"id":"00000000-0000-0000-0000-0000000000a1","email":"admin@fam.test","displayName":"مدير النظام","role":"admin","status":"approved","lastLoginAt":null,"approvedByName":null}, 
+ {"id":"00000000-0000-0000-0000-0000000000a2","email":"finance@fam.test","displayName":"المدير المالي","role":"financeManager","status":"approved","lastLoginAt":null,"approvedByName":null}, 
+ {"id":"00000000-0000-0000-0000-0000000000a5","email":"pending@fam.test","displayName":"قيد الموافقة","role":"viewer","status":"pending","lastLoginAt":null,"approvedByName":null}, 
+ {"id":"00000000-0000-0000-0000-0000000000a6","email":"suspended@fam.test","displayName":"موقوف","role":"admin","status":"suspended","lastLoginAt":null,"approvedByName":null}, 
+ {"id":"00000000-0000-0000-0000-0000000000a3","email":"treasurer@fam.test","displayName":"أمين الصندوق","role":"treasurer","status":"approved","lastLoginAt":null,"approvedByName":null}, 
+ {"id":"00000000-0000-0000-0000-0000000000a4","email":"viewer@fam.test","displayName":"مطالع","role":"viewer","status":"approved","lastLoginAt":null,"approvedByName":null}]
