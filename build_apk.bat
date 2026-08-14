@@ -49,8 +49,8 @@ set "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 REM Development sign-in: an ordinary email/password account with NO special
 REM privilege of its own - its role still comes from public.profiles. It exists
 REM so the app is usable before the Google provider is switched on.
-set "DEV_LOGIN_EMAIL=admin@fam.test"
-set "DEV_LOGIN_PASSWORD="
+set "DEV_LOGIN_EMAIL=admin@adayl.test"
+set "DEV_LOGIN_PASSWORD=Adayl-Dev-7Kq2mXe4Rt"
 
 REM ---- Google sign-in --------------------------------------------------------
 REM Fill GOOGLE_SERVER_CLIENT_ID with the WEB client ID from Google Cloud - the
