@@ -87,7 +87,7 @@ REM fresh clone has nothing to talk to. Without this guard the app builds, runs,
 REM shows the sign-in screen and fails every call with a network error that says
 REM nothing about the cause.
 if "%SUPABASE_ANON_KEY%"=="" goto not_configured
-echo %SUPABASE_URL% | findstr /c:"wvryyidbjvvomurvfhpw" >nul
+echo %SUPABASE_URL% | findstr /c:"YOUR-PROJECT" >nul
 if not errorlevel 1 goto not_configured
 goto configured
 
@@ -173,14 +173,18 @@ if not defined AVD (
   REM update, so no AVD was ever chosen and this script wrongly reported that
   REM none existed. Anchor on a row that STARTS with an id token and lists the
   REM android platform, which also skips the header, blanks and the help URLs.
-  REM Prefer this project's own AVD if it exists. The generic Medium_Phone AVD
-  REM sorts first and ships a 6 GB data partition, which a 151 MB Flutter DEBUG
-  REM apk fills - the install then dies with
+  REM Prefer an AVD whose name says it is for testing this app. The stock
+  REM Medium_Phone AVD sorts first and ships a 6 GB data partition, which a
+  REM ~160 MB Flutter DEBUG apk fills - the install then dies with
   REM   java.io.IOException: Requested internal only, but not enough space
-  REM which names neither the emulator nor the partition. Rahalla_Test_API36 has
-  REM 16 GB.
-  findstr /r /c:"^Rahalla_Test_API36 " "%AVDLIST%" >nul 2>&1
-  if not errorlevel 1 set "AVD=Rahalla_Test_API36"
+  REM which names neither the emulator nor the partition.
+  REM
+  REM Matched by pattern rather than one fixed name so this works on any machine.
+  REM If nothing matches, the free-space check further down still catches a full
+  REM emulator and says so in words.
+  for /f "tokens=1" %%A in ('findstr /r /c:"^[A-Za-z0-9_]*_Test_[A-Za-z0-9_]* .* android" "%AVDLIST%"') do (
+    if not defined AVD set "AVD=%%A"
+  )
   if not defined AVD (
     for /f "tokens=1" %%A in ('findstr /r /c:"^[A-Za-z0-9_].* android" "%AVDLIST%"') do (
       if not defined AVD set "AVD=%%A"
@@ -251,8 +255,9 @@ if defined FREEKB (
     echo   Free some up:
     echo     "%ADB%" shell pm uninstall ly.adayl.family_app
     echo     "%ADB%" shell pm trim-caches 999G
-    echo   Or run on the roomier AVD:
-    echo     run_emulator.bat Rahalla_Test_API36
+    echo   Or run on a roomier AVD - see which exist with:
+    echo     run_emulator.bat --list
+    echo   then:  run_emulator.bat ^<avd name^>
     echo   Or wipe it: Device Manager - the AVD's menu - Wipe Data.
     exit /b 1
   )
@@ -276,11 +281,22 @@ goto wait_net
 :online
 
 echo.
+REM Dev sign-in is an ordinary email/password account with no privilege of its
+REM own - its role still comes from public.profiles. Offered only when a password
+REM is set, because DEV_LOGIN=true with an empty one shows a button that cannot
+REM work and reports DEV_LOGIN_NOT_CONFIGURED when tapped.
+set "DEVDEFINES="
+set "DEVNOTE=off - no DEV_LOGIN_PASSWORD set in this script"
+if not "%DEV_LOGIN_PASSWORD%"=="" (
+  set "DEVDEFINES=--dart-define=DEV_LOGIN=true --dart-define=DEV_LOGIN_EMAIL=%DEV_LOGIN_EMAIL% --dart-define=DEV_LOGIN_PASSWORD=%DEV_LOGIN_PASSWORD%"
+  set "DEVNOTE=%DEV_LOGIN_EMAIL%"
+)
+
 echo   ============================================================
 echo    device   !DEVICE!
 echo    mode     !MODE!
 echo    project  %SUPABASE_URL%
-echo    dev user %DEV_LOGIN_EMAIL%
+echo    dev user !DEVNOTE!
 echo   ============================================================
 echo.
 echo    On the sign-in screen use the SECOND button - the outlined one below
@@ -294,9 +310,7 @@ echo.
 call flutter run %MODE% -d !DEVICE! ^
   --dart-define=SUPABASE_URL=%SUPABASE_URL% ^
   --dart-define=SUPABASE_ANON_KEY=%SUPABASE_ANON_KEY% ^
-  --dart-define=DEV_LOGIN=true ^
-  --dart-define=DEV_LOGIN_EMAIL=%DEV_LOGIN_EMAIL% ^
-  --dart-define=DEV_LOGIN_PASSWORD=%DEV_LOGIN_PASSWORD% ^
+  %DEVDEFINES% ^
   --dart-define=GOOGLE_SERVER_CLIENT_ID=%GOOGLE_SERVER_CLIENT_ID%
 
 set "RC=%ERRORLEVEL%"

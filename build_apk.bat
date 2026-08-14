@@ -31,6 +31,12 @@ REM  --no-dev-login for a build without it (sign-in then needs Google set up).
 REM ============================================================================
 setlocal EnableDelayedExpansion
 
+REM Capture the script directory BEFORE the cd below. When cmd is given a
+REM relative %~0, %~dp0 is resolved against the CURRENT directory every time it
+REM is expanded - so after cd-ing into the app folder, a later %~dp0 points
+REM there instead, and the apk folder was created one level too deep.
+set "ROOT=%~dp0"
+
 cd /d "%~dp0app"
 if errorlevel 1 (
   echo Could not find the app folder next to this script.
@@ -108,6 +114,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM An apk built with no project behind it is a working app that fails every
+REM call, with a message that names no cause. Refuse instead.
+if "%SUPABASE_ANON_KEY%"=="" (
+  echo.
+  echo   SUPABASE_ANON_KEY is empty - fill it in near the top of this file,
+  echo   from the dashboard under Settings - API. See docs/SUPABASE_SETUP.md.
+  exit /b 1
+)
+
 REM ---- Assemble the build-time --dart-define values -------------------------
 REM Built as one variable and expanded on the command line so cmd word-splits it
 REM back into separate arguments. The anon key contains no cmd metacharacters, so
@@ -155,16 +170,48 @@ if not "%RC%"=="0" (
 )
 
 set "OUTDIR=%CD%\build\app\outputs\flutter-apk"
+
+REM ---- Copy the result somewhere findable -----------------------------------
+REM flutter leaves the apk six directories down, in a build tree that
+REM `flutter clean` deletes. Copy it next to this script instead.
+REM
+REM Fixed names, overwritten each build, rather than timestamped ones: the point
+REM is a path you can predict without looking. Batch date formatting is also
+REM locale-dependent, so a timestamp would render differently on another machine.
+set "APKDIR=%ROOT%apk"
+if not exist "%APKDIR%" mkdir "%APKDIR%"
+
+set /a COPIED=0
+for %%F in ("%OUTDIR%\*%MODENAME%*.apk") do (
+  REM --split emits app-arm64-v8a-release.apk and friends, so the ABI stays in
+  REM the name and the three do not overwrite one another.
+  set "BASE=%%~nF"
+  set "DEST=%APKDIR%\adayl-!BASE:app-=!.apk"
+  copy /y "%%~fF" "!DEST!" >nul
+  if errorlevel 1 (
+    echo   WARNING: could not copy %%~fF
+  ) else (
+    set /a COPIED+=1
+  )
+)
+
 echo.
-echo   Build finished. APK(s) produced:
+if !COPIED! EQU 0 (
+  echo   Build finished, but nothing matched *%MODENAME%*.apk under
+  echo     %OUTDIR%
+  endlocal ^& exit /b 1
+)
+
+echo   Build finished. !COPIED! APK file^(s^) here:
 echo.
-for %%F in ("%OUTDIR%\*%MODENAME%*.apk") do echo     %%~fF   (%%~zF bytes)
+echo     %APKDIR%
+echo.
+for %%F in ("%APKDIR%\*.apk") do echo     %%~nxF   (%%~zF bytes)
 echo.
 echo   Install on a connected device or running emulator with:
-echo     adb install -r "%OUTDIR%\app-%MODENAME%.apk"
+echo     adb install -r "%APKDIR%\adayl-%MODENAME%.apk"
 echo.
 endlocal & exit /b 0
-
 :help
 echo.
 echo   build_apk.bat - build an Android APK for the family app

@@ -50,6 +50,11 @@ app/.idea/
 # supabase/tests/local_pg.sh recreates it on any machine.
 .localpg/
 
+# Where build_apk.bat drops the finished APK, so it is findable without
+# digging through app/build. A debug apk is ~160 MB and GitHub rejects files
+# over 100 MB outright; `flutter build` regenerates it in seconds anyway.
+apk/
+
 # OS noise.
 Thumbs.db
 .DS_Store
