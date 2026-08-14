@@ -170,6 +170,39 @@ class AuthRepository {
       );
     }
     final AppUser user = await me();
+
+    // Approval is decided HERE, and it has to be: `auth_controller` maps
+    // ACCOUNT_PENDING and ACCOUNT_SUSPENDED onto AuthStage.pending/.suspended,
+    // and the router sends those stages to their own screens — but nothing was
+    // raising either code, so both stages were unreachable through sign-in and a
+    // pending account landed on the dashboard.
+    //
+    // The old Node tier returned these as HTTP errors, which is where the codes
+    // came from. GoTrue has no opinion on approval: it issues a session for any
+    // real credential, and the profile row is what says whether the association
+    // has let this person in. So the check moved here and was then lost.
+    //
+    // What the user saw was an association with no families and zero in the
+    // treasury — because RLS gave a pending caller nothing, exactly as designed.
+    // The database was never the weak point; the app was just describing a
+    // refusal as an empty book.
+    //
+    // The session is deliberately LEFT ALIVE. restore() already routes a pending
+    // account to the waiting screen while keeping its session, and
+    // refreshProfile() promotes it the moment an admin approves — signing out
+    // here would force a fresh Google round trip to learn the same thing, and
+    // would make the two paths disagree about what a pending account is.
+    if (!user.isApproved) {
+      throw ApiException(
+        kind: ApiFailureKind.server,
+        code: user.status == AccountStatus.suspended
+            ? 'ACCOUNT_SUSPENDED'
+            : 'ACCOUNT_PENDING',
+        statusCode: 403,
+        details: user.email,
+      );
+    }
+
     try {
       await _db.rpc<dynamic>('api_touch_login');
     } on Object {
