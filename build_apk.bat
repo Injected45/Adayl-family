@@ -66,7 +66,7 @@ REM
 REM Leave it empty and the app hides the Google button rather than offering one
 REM that cannot work. Android needs no GOOGLE_CLIENT_ID: it is derived from the
 REM signing certificate registered in the Google Cloud console.
-set "GOOGLE_SERVER_CLIENT_ID=801235926523-8fotp0q1np1lvfgqgurtsfnomcd41h1p.apps.googleusercontent.com"
+set "GOOGLE_SERVER_CLIENT_ID=891008495666-6bl9gctfge1rku7fd79421auqjikor12.apps.googleusercontent.com"
 set "GOOGLE_CLIENT_ID="
 
 set "MODE=--release"
