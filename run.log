@@ -82,3 +82,12 @@ D/FlutterJNI(31940): Sending viewport metrics to the engine.
 D/InsetsController(31940): hide(ime(), fromIme=false)
 I/ImeTracker(31940): ly.adayl.family_app:8426a5e0: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
 W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
+D/ProfileInstaller(31940): Installing profile for ly.adayl.family_app
+W/Choreographer(31940): Frame time is 0.163782 ms in the future!  Check that graphics HAL is generating vsync timestamps using the correct timebase.
+W/Choreographer(31940): Frame time is 0.566847 ms in the future!  Check that graphics HAL is generating vsync timestamps using the correct timebase.
+W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
+W/Choreographer(31940): Frame time is 0.392676 ms in the future!  Check that graphics HAL is generating vsync timestamps using the correct timebase.
+W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
+W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
+W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
+I/dayl.family_app(31940): AssetManager2(0x79eae9b76b78) locale list changing from [] to [en-US]
