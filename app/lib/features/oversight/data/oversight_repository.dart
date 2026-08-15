@@ -158,39 +158,4 @@ class OversightRepository {
         );
         return PurgeResult.fromJson(_obj(payload));
       });
-
-  Future<int> createFamily({
-    required MemberInput father,
-    required List<MemberInput> sons,
-  }) => SupabaseFailures.guard(() async {
-    final dynamic result = await _db.rpc<dynamic>(
-      'save_family',
-      params: <String, dynamic>{
-        'p_family_id': null,
-        'p_father': father.toJson(),
-        'p_sons': sons.map((MemberInput s) => s.toJson()).toList(),
-      },
-    );
-    return (_obj(result)['familyId'] as num).toInt();
-  });
-
-  Future<void> updateFamily({
-    required int familyId,
-    required MemberInput father,
-    required List<MemberInput> sons,
-  }) => SupabaseFailures.guard(() async {
-    // One call for the father, every son, and every removal. The remove-then-
-    // insert ordering that lets a departed son's national ID be reused lives
-    // inside save_family, in the same transaction — which is where it has to be,
-    // because doing it as separate client calls is exactly how that bug appeared
-    // the first time.
-    await _db.rpc<dynamic>(
-      'save_family',
-      params: <String, dynamic>{
-        'p_family_id': familyId,
-        'p_father': father.toJson(),
-        'p_sons': sons.map((MemberInput s) => s.toJson()).toList(),
-      },
-    );
-  });
 }

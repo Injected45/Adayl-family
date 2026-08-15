@@ -23,7 +23,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA probe TO anon, authenticated;
 SET ROLE anon;
 SELECT probe.become(NULL, 'anon');
 
-SELECT probe.raises('rls/anon', 'cannot read the register (names, phones, workplaces)',
+SELECT probe.raises('rls/anon', 'cannot read the register (names, phones, dates of birth)',
   'SELECT * FROM public.adeels', '42501');
 SELECT probe.raises('rls/anon', 'cannot read receivables',
   'SELECT * FROM public.receivables', '42501');

@@ -1,6 +1,6 @@
   adb: C:\Users\HASAN\AppData\Local\Android\Sdk\platform-tools\adb.exe
   Using the emulator already running: emulator-5554
-  Free space on the emulator: 2809 MB
+  Free space on the emulator: 739 MB
   Checking the emulator can reach Supabase...
 
   ============================================================
@@ -40,20 +40,16 @@ Got dependencies!
 17 packages have newer versions incompatible with dependency constraints.
 Try `flutter pub outdated` for more information.
 Launching lib\main.dart on sdk gphone64 x86 64 in debug mode...
-Running Gradle task 'assembleDebug'...                             25.6s
+Running Gradle task 'assembleDebug'...                             19.0s
 √ Built build\app\outputs\flutter-apk\app-debug.apk
-Installing build\app\outputs\flutter-apk\app-debug.apk...        1,118ms
-D/FlutterJNI(31940): Beginning load of flutter...
-D/FlutterJNI(31940): flutter (null) was loaded normally!
-I/flutter (31940): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
-D/com.llfbandit.app_links(31940): Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x30000000 xflg=0x4 cmp=ly.adayl.family_app/.MainActivity (has extras) }
-D/nativeloader(31940): Load /data/app/~~b0-F_xqKFDKXUjNzgkwKRg==/ly.adayl.family_app-PTYVlwPjHH6KuzMkn52UBg==/base.apk!/lib/x86_64/libdartjni.so using class loader ns clns-9 (caller=/data/app/~~b0-F_xqKFDKXUjNzgkwKRg==/ly.adayl.family_app-PTYVlwPjHH6KuzMkn52UBg==/base.apk!classes5.dex): ok
+Installing build\app\outputs\flutter-apk\app-debug.apk...           6.0s
+D/FlutterJNI( 5864): Beginning load of flutter...
+D/FlutterJNI( 5864): flutter (null) was loaded normally!
+I/flutter ( 5864): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+D/FlutterRenderer( 5864): Width is zero. 0,0
 Syncing files to device sdk gphone64 x86 64...                  
-I/dayl.family_app(31940): hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityNodeInfo;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported,test-api) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
-I/dayl.family_app(31940): hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityRecord;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
-I/dayl.family_app(31940): hiddenapi: Accessing hidden field Landroid/view/accessibility/AccessibilityNodeInfo;->mChildNodeIds:Landroid/util/LongArray; (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
-I/dayl.family_app(31940): hiddenapi: Accessing hidden method Landroid/util/LongArray;->get(I)J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
-Syncing files to device sdk gphone64 x86 64...                     101ms
+W/HWUI    ( 5864): Unknown dataspace 0
+Syncing files to device sdk gphone64 x86 64...                     112ms
 
 Flutter run key commands.
 r Hot reload. 
@@ -63,31 +59,134 @@ d Detach (terminate "flutter run" but leave application running).
 c Clear the screen
 q Quit (terminate the application on the device).
 
-A Dart VM Service on sdk gphone64 x86 64 is available at: http://127.0.0.1:52752/qtJ3U3VUpIg=/
-The Flutter DevTools debugger and profiler on sdk gphone64 x86 64 is available at: http://127.0.0.1:52752/qtJ3U3VUpIg=/devtools/?uri=ws://127.0.0.1:52752/qtJ3U3VUpIg=/ws
-D/FlutterRenderer(31940): Width is zero. 0,0
-D/CompatChangeReporter(31940): Compat change id reported: 377864165; UID 10224; state: ENABLED
-W/HWUI    (31940): Unknown dataspace 0
-I/Choreographer(31940): Skipped 223 frames!  The application may be doing too much work on its main thread.
-I/WindowExtensionsImpl(31940): Initializing Window Extensions, vendor API level=9, activity embedding enabled=true
-D/FlutterRenderer(31940): Width is zero. 0,0
-D/FlutterJNI(31940): Sending viewport metrics to the engine.
-I/dayl.family_app(31940): Compiler allocated 5042KB to compile void android.view.ViewRootImpl.performTraversals()
-I/Choreographer(31940): Skipped 66 frames!  The application may be doing too much work on its main thread.
-D/WindowLayoutComponentImpl(31940): Register WindowLayoutInfoListener on Context=ly.adayl.family_app.MainActivity@ce0274c, of which baseContext=android.app.ContextImpl@287cb77
-D/FlutterJNI(31940): Sending viewport metrics to the engine.
-I/flutter (31940): supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
-I/Choreographer(31940): Skipped 44 frames!  The application may be doing too much work on its main thread.
-D/FlutterJNI(31940): Sending viewport metrics to the engine.
-D/InsetsController(31940): hide(ime(), fromIme=false)
-I/ImeTracker(31940): ly.adayl.family_app:8426a5e0: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
-W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
-D/ProfileInstaller(31940): Installing profile for ly.adayl.family_app
-W/Choreographer(31940): Frame time is 0.163782 ms in the future!  Check that graphics HAL is generating vsync timestamps using the correct timebase.
-W/Choreographer(31940): Frame time is 0.566847 ms in the future!  Check that graphics HAL is generating vsync timestamps using the correct timebase.
-W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
-W/Choreographer(31940): Frame time is 0.392676 ms in the future!  Check that graphics HAL is generating vsync timestamps using the correct timebase.
-W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
-W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
-W/WindowOnBackDispatcher(31940): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@9ccd45a
-I/dayl.family_app(31940): AssetManager2(0x79eae9b76b78) locale list changing from [] to [en-US]
+A Dart VM Service on sdk gphone64 x86 64 is available at: http://127.0.0.1:56389/Bj9utzw4qGU=/
+The Flutter DevTools debugger and profiler on sdk gphone64 x86 64 is available at: http://127.0.0.1:56389/Bj9utzw4qGU=/devtools/?uri=ws://127.0.0.1:56389/Bj9utzw4qGU=/ws
+I/Choreographer( 5864): Skipped 71 frames!  The application may be doing too much work on its main thread.
+I/WindowExtensionsImpl( 5864): Initializing Window Extensions, vendor API level=9, activity embedding enabled=true
+D/FlutterRenderer( 5864): Width is zero. 0,0
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+I/dayl.family_app( 5864): Compiler allocated 5042KB to compile void android.view.ViewRootImpl.performTraversals()
+I/Choreographer( 5864): Skipped 220 frames!  The application may be doing too much work on its main thread.
+D/WindowLayoutComponentImpl( 5864): Register WindowLayoutInfoListener on Context=ly.adayl.family_app.MainActivity@6a13ad0, of which baseContext=android.app.ContextImpl@2f4f90b
+D/ProfileInstaller( 5864): Installing profile for ly.adayl.family_app
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+I/flutter ( 5864): supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
+I/Choreographer( 5864): Skipped 165 frames!  The application may be doing too much work on its main thread.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/InsetsController( 5864): hide(ime(), fromIme=false)
+I/ImeTracker( 5864): ly.adayl.family_app:853eb567: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+I/dayl.family_app( 5864): AssetManager2(0x7adbcb457638) locale list changing from [] to [en-US]
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+D/ActivityThread( 5864): Package [com.google.android.youtube] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.youtube] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.maps] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.maps] reported as REPLACED, but missing application info. Assuming REMOVED.
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+D/ActivityThread( 5864): Package [com.google.android.gm] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.gm] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.inputmethod.latin] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.inputmethod.latin] reported as REPLACED, but missing application info. Assuming REMOVED.
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@545aef5
+D/ActivityThread( 5864): Package [com.google.android.calendar] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.calendar] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.accessibility.voiceaccess] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.accessibility.voiceaccess] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.restore] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.restore] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.tts] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.tts] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.photos] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.photos] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.wellbeing] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.wellbeing] reported as REPLACED, but missing application info. Assuming REMOVED.
+I/ImeTracker( 5864): ly.adayl.family_app:7c066505: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false
+D/InsetsController( 5864): show(ime(), fromIme=false)
+D/InsetsController( 5864): Setting requestedVisibleTypes to -1 (was -9)
+I/AssistStructure( 5864): Flattened final assist data: 420 bytes, containing 1 windows, 3 views
+I/ImeTracker( 5864): ly.adayl.family_app:89776de: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false
+D/InsetsController( 5864): show(ime(), fromIme=false)
+I/ImeTracker( 5864): ly.adayl.family_app:89776de: onCancelled at PHASE_CLIENT_REPORT_REQUESTED_VISIBLE_TYPES
+
+══╡ EXCEPTION CAUGHT BY SERVICES LIBRARY ╞══════════════════════════════════════════════════════════
+The following assertion was thrown while processing the key message handler:
+'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not
+true.
+
+Either the assertion indicates an error in the framework itself, or we should provide substantially
+more information in this error message to help you determine and fix the underlying cause.
+In either case, please report this assertion by filing a bug on GitHub:
+  https://github.com/flutter/flutter/issues/new?template=02_bug.yml
+
+When the exception was thrown, this was the stack:
+#2      VerticalCaretMovementRun.moveNext (package:flutter/src/rendering/editable.dart:199:12)
+#3      _UpdateTextSelectionVerticallyAction.invoke (package:flutter/src/widgets/editable_text.dart:6618:22)
+#4      _OverridableContextAction.invokeDefaultAction (package:flutter/src/widgets/actions.dart:1808:28)
+#5      _OverridableActionMixin.invoke (package:flutter/src/widgets/actions.dart:1668:11)
+#6      Action._invoke (package:flutter/src/widgets/actions.dart:334:45)
+#7      ActionDispatcher.invokeActionIfEnabled (package:flutter/src/widgets/actions.dart:665:28)
+#8      ShortcutManager.handleKeypress (package:flutter/src/widgets/shortcuts.dart:934:9)
+#9      _ShortcutsState._handleOnKeyEvent (package:flutter/src/widgets/shortcuts.dart:1134:20)
+#10     _HighlightModeManager.handleKeyMessage (package:flutter/src/widgets/focus_manager.dart:2243:72)
+#11     KeyEventManager._dispatchKeyMessage (package:flutter/src/services/hardware_keyboard.dart:1122:34)
+#12     KeyEventManager.handleRawKeyMessage (package:flutter/src/services/hardware_keyboard.dart:1198:17)
+#13     BasicMessageChannel.setMessageHandler.<anonymous closure> (package:flutter/src/services/platform_channel.dart:258:49)
+#14     _DefaultBinaryMessenger.setMessageHandler.<anonymous closure> (package:flutter/src/services/binding.dart:663:35)
+#15     _invoke2 (dart:ui/hooks.dart:388:13)
+#16     _ChannelCallbackRecord.invoke (dart:ui/channel_buffers.dart:45:5)
+#17     _Channel.push (dart:ui/channel_buffers.dart:136:31)
+#18     ChannelBuffers.push (dart:ui/channel_buffers.dart:344:17)
+#19     PlatformDispatcher._dispatchPlatformMessage (dart:ui/platform_dispatcher.dart:819:22)
+#20     _dispatchPlatformMessage (dart:ui/hooks.dart:302:31)
+(elided 2 frames from class _AssertionError)
+
+KeyMessage: KeyMessage([KeyDownEvent#1ae87(physicalKey: PhysicalKeyboardKey#556a0(usbHidUsage:
+  "0x00070051", debugName: "Arrow Down"), logicalKey: LogicalKeyboardKey#80d00(keyId: "0x100000301",
+  keyLabel: "Arrow Down", debugName: "Arrow Down"), character: null, timeStamp: 0:00:00.388544)])
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not true.
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not true.
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not true.
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not true.
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not true.
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 199 pos 12: 'isValid': is not true.
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 214 pos 12: 'isValid': is not true.
+D/InputConnectionAdaptor( 5864): The input method toggled cursor monitoring on
+Another exception was thrown: 'package:flutter/src/rendering/editable.dart': Failed assertion: line 214 pos 12: 'isValid': is not true.
+W/InteractionJankMonitor( 5864): Initializing without READ_DEVICE_CONFIG permission. enabled=false, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=ly.adayl.family_app
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+I/ImeTracker( 5864): system_server:bad67231: onShown
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+I/ImeTracker( 5864): ly.adayl.family_app:d8015638: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+D/InsetsController( 5864): hide(ime(), fromIme=false)
+W/WindowOnBackDispatcher( 5864): sendCancelIfRunning: isInProgress=false callback=android.view.ImeBackAnimationController@9acc253
+D/InsetsController( 5864): Setting requestedVisibleTypes to -9 (was -1)
+D/CompatChangeReporter( 5864): Compat change id reported: 395521150; UID 10224; state: ENABLED
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+D/FlutterJNI( 5864): Sending viewport metrics to the engine.
+I/ImeTracker( 5864): system_server:631e352: onCancelled at PHASE_CLIENT_ON_CONTROLS_CHANGED
+D/ActivityThread( 5864): Package [com.google.android.apps.docs] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.apps.docs] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.deskclock] reported as REPLACED, but missing application info. Assuming REMOVED.
+D/ActivityThread( 5864): Package [com.google.android.deskclock] reported as REPLACED, but missing application info. Assuming REMOVED.
+
+  flutter run exited with -1.
+  If that was an INSTALL_FAILED, the emulator may be out of space:
+    adb shell pm uninstall ly.adayl.family_app
+  then try again.

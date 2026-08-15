@@ -40,9 +40,7 @@ abstract final class PaymentMethodWire {
 // invitation to reintroduce the two-tier model by accident.
 
 abstract final class MemberDefaults {
-  /// Every عديل defaults to Libyan and to active. These are stored values, not
-  /// display text.
-  static const String nationality = 'ليبي';
+  /// Every عديل defaults to active. A stored value, not display text.
   static const String status = MembershipStatusWire.active;
 }
 

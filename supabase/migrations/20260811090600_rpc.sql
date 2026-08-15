@@ -365,14 +365,12 @@ BEGIN
 
   IF v_id IS NULL THEN
     INSERT INTO public.adeels (
-      full_name, phone, subscription_no, dob, nationality,
-      workplace, registered_at, status, notes, created_by, updated_by)
+      full_name, phone, dob, registered_at, status, notes,
+      created_by, updated_by)
     VALUES (
       p_adeel ->> 'fullName',
-      p_adeel ->> 'phone', p_adeel ->> 'subscriptionNo',
+      p_adeel ->> 'phone',
       nullif(p_adeel ->> 'dob', '')::date,
-      coalesce(nullif(p_adeel ->> 'nationality', ''), 'ليبي'),
-      p_adeel ->> 'workplace',
       coalesce(nullif(p_adeel ->> 'registeredAt', '')::date, current_date),
       coalesce(nullif(p_adeel ->> 'status', '')::member_status, 'نشط'),
       p_adeel ->> 'notes',
@@ -380,18 +378,15 @@ BEGIN
     RETURNING id INTO v_id;
   ELSE
     UPDATE public.adeels SET
-      full_name       = p_adeel ->> 'fullName',
-      phone           = p_adeel ->> 'phone',
-      subscription_no = p_adeel ->> 'subscriptionNo',
-      dob             = nullif(p_adeel ->> 'dob', '')::date,
-      nationality     = coalesce(nullif(p_adeel ->> 'nationality', ''), 'ليبي'),
-      workplace       = p_adeel ->> 'workplace',
-      registered_at   = coalesce(nullif(p_adeel ->> 'registeredAt', '')::date,
-                                 registered_at),
-      status          = coalesce(nullif(p_adeel ->> 'status', '')::member_status,
-                                 status),
-      notes           = p_adeel ->> 'notes',
-      updated_by      = auth.uid()
+      full_name     = p_adeel ->> 'fullName',
+      phone         = p_adeel ->> 'phone',
+      dob           = nullif(p_adeel ->> 'dob', '')::date,
+      registered_at = coalesce(nullif(p_adeel ->> 'registeredAt', '')::date,
+                               registered_at),
+      status        = coalesce(nullif(p_adeel ->> 'status', '')::member_status,
+                               status),
+      notes         = p_adeel ->> 'notes',
+      updated_by    = auth.uid()
      WHERE id = v_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'ADEEL_NOT_FOUND' USING ERRCODE = 'RUL10';

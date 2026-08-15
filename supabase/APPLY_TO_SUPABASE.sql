@@ -385,21 +385,21 @@ ON CONFLICT (id) DO NOTHING;
 -- `adeel_code` does not close that hole: it is GENERATED from the identity, so a
 -- second row for the same man simply gets a second code.
 --
--- If the association wants the guarantee back without the national ID, the ready
--- candidate is `subscription_no` (رقم الاكتتاب), which already exists and which
--- the association issues itself. It would need NOT NULL and a UNIQUE constraint;
--- it has neither today, deliberately, because making it the key was not asked
--- for.
+-- Nor is there anything left to promote INTO a key. `subscription_no` was the
+-- one candidate the association issued itself, and it was removed at their
+-- request along with `nationality` and `workplace`. Restoring the guarantee now
+-- means adding a column back first, not adding a constraint.
+--
+-- WHAT A ROW HOLDS, and it is deliberately little: a name, a phone, a date of
+-- birth, a registration date, a status and free-text notes. Everything else the
+-- association decided it does not collect.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.adeels (
   id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   adeel_code      text          GENERATED ALWAYS AS ('A-' || lpad(id::text, 4, '0')) STORED,
   full_name       text          NOT NULL,
   phone           text,
-  subscription_no text,
   dob             date,
-  nationality     text          NOT NULL DEFAULT 'ليبي',
-  workplace       text,
   registered_at   date          NOT NULL,
   status          member_status NOT NULL DEFAULT 'نشط',
   notes           text,
@@ -1356,14 +1356,12 @@ BEGIN
 
   IF v_id IS NULL THEN
     INSERT INTO public.adeels (
-      full_name, phone, subscription_no, dob, nationality,
-      workplace, registered_at, status, notes, created_by, updated_by)
+      full_name, phone, dob, registered_at, status, notes,
+      created_by, updated_by)
     VALUES (
       p_adeel ->> 'fullName',
-      p_adeel ->> 'phone', p_adeel ->> 'subscriptionNo',
+      p_adeel ->> 'phone',
       nullif(p_adeel ->> 'dob', '')::date,
-      coalesce(nullif(p_adeel ->> 'nationality', ''), 'ليبي'),
-      p_adeel ->> 'workplace',
       coalesce(nullif(p_adeel ->> 'registeredAt', '')::date, current_date),
       coalesce(nullif(p_adeel ->> 'status', '')::member_status, 'نشط'),
       p_adeel ->> 'notes',
@@ -1371,18 +1369,15 @@ BEGIN
     RETURNING id INTO v_id;
   ELSE
     UPDATE public.adeels SET
-      full_name       = p_adeel ->> 'fullName',
-      phone           = p_adeel ->> 'phone',
-      subscription_no = p_adeel ->> 'subscriptionNo',
-      dob             = nullif(p_adeel ->> 'dob', '')::date,
-      nationality     = coalesce(nullif(p_adeel ->> 'nationality', ''), 'ليبي'),
-      workplace       = p_adeel ->> 'workplace',
-      registered_at   = coalesce(nullif(p_adeel ->> 'registeredAt', '')::date,
-                                 registered_at),
-      status          = coalesce(nullif(p_adeel ->> 'status', '')::member_status,
-                                 status),
-      notes           = p_adeel ->> 'notes',
-      updated_by      = auth.uid()
+      full_name     = p_adeel ->> 'fullName',
+      phone         = p_adeel ->> 'phone',
+      dob           = nullif(p_adeel ->> 'dob', '')::date,
+      registered_at = coalesce(nullif(p_adeel ->> 'registeredAt', '')::date,
+                               registered_at),
+      status        = coalesce(nullif(p_adeel ->> 'status', '')::member_status,
+                               status),
+      notes         = p_adeel ->> 'notes',
+      updated_by    = auth.uid()
      WHERE id = v_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'ADEEL_NOT_FOUND' USING ERRCODE = 'RUL10';
@@ -2086,9 +2081,6 @@ SELECT
   a.adeel_code                            AS "adeelCode",
   a.full_name                             AS "fullName",
   coalesce(a.phone, '')                   AS "phone",
-  coalesce(a.subscription_no, '')         AS "subscriptionNo",
-  coalesce(a.workplace, '')               AS "workplace",
-  coalesce(a.nationality, '')             AS "nationality",
   coalesce(a.notes, '')                   AS "notes",
   to_char(a.registered_at, 'YYYY-MM-DD')  AS "registeredAt",
   to_char(a.dob, 'YYYY-MM-DD')            AS "dob",

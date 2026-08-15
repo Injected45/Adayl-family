@@ -241,6 +241,24 @@ abstract class L {
   /// **'تم تحديث البيانات من قاعدة البيانات'**
   String get refreshedData;
 
+  /// No description provided for @restartApp.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة تشغيل التطبيق'**
+  String get restartApp;
+
+  /// No description provided for @restartAppBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيبدأ التطبيق من جديد: تُمسح كل البيانات المحمَّلة وتُعاد قراءتها، وتعود إلى الشاشة الأولى، وما لم تحفظه يضيع. ملاحظة: هذا لا يجلب تعديلات الكود — تلك تحتاج إعادة تحميل ساخن من VS Code.'**
+  String get restartAppBody;
+
+  /// No description provided for @restartConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة التشغيل'**
+  String get restartConfirm;
+
   /// No description provided for @cancel.
   ///
   /// In ar, this message translates to:
@@ -463,29 +481,11 @@ abstract class L {
   /// **'الهاتف'**
   String get phone;
 
-  /// No description provided for @subscriptionNo.
-  ///
-  /// In ar, this message translates to:
-  /// **'رقم الاكتتاب'**
-  String get subscriptionNo;
-
   /// No description provided for @dateOfBirth.
   ///
   /// In ar, this message translates to:
   /// **'تاريخ الميلاد'**
   String get dateOfBirth;
-
-  /// No description provided for @nationality.
-  ///
-  /// In ar, this message translates to:
-  /// **'الجنسية'**
-  String get nationality;
-
-  /// No description provided for @workplace.
-  ///
-  /// In ar, this message translates to:
-  /// **'جهة العمل'**
-  String get workplace;
 
   /// No description provided for @registeredAt.
   ///

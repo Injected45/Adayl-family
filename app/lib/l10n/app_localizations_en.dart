@@ -88,6 +88,16 @@ class LEn extends L {
   String get refreshedData => 'Data refreshed from the database';
 
   @override
+  String get restartApp => 'Restart the app';
+
+  @override
+  String get restartAppBody =>
+      'The app will start over: every loaded figure is discarded and re-read, you return to the first screen, and anything unsaved is lost. Note: this does NOT pick up code changes — those need a hot reload from the host.';
+
+  @override
+  String get restartConfirm => 'Restart';
+
+  @override
   String get cancel => 'Cancel';
 
   @override
@@ -204,16 +214,7 @@ class LEn extends L {
   String get phone => 'Phone';
 
   @override
-  String get subscriptionNo => 'Subscription no.';
-
-  @override
   String get dateOfBirth => 'Date of birth';
-
-  @override
-  String get nationality => 'Nationality';
-
-  @override
-  String get workplace => 'Workplace';
 
   @override
   String get registeredAt => 'Registered on';

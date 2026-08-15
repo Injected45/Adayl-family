@@ -114,26 +114,4 @@ void main() {
     });
   });
 
-  group('MemberInput', () {
-    test('omits a null id so the server treats it as a new member', () {
-      const MemberInput fresh = MemberInput(
-        fullName: 'ابن جديد',
-      );
-      expect(fresh.toJson().containsKey('id'), isFalse);
-
-      const MemberInput existing = MemberInput(
-        id: 7,
-        fullName: 'ابن قائم',
-      );
-      expect(existing.toJson()['id'], 7);
-    });
-
-    test('an empty date of birth is sent as null, not an empty string', () {
-      const MemberInput member = MemberInput(
-        fullName: 'x',
-        dob: '',
-      );
-      expect(member.toJson()['dob'], isNull);
-    });
-  });
 }

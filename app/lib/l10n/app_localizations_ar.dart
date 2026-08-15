@@ -87,6 +87,16 @@ class LAr extends L {
   String get refreshedData => 'تم تحديث البيانات من قاعدة البيانات';
 
   @override
+  String get restartApp => 'إعادة تشغيل التطبيق';
+
+  @override
+  String get restartAppBody =>
+      'سيبدأ التطبيق من جديد: تُمسح كل البيانات المحمَّلة وتُعاد قراءتها، وتعود إلى الشاشة الأولى، وما لم تحفظه يضيع. ملاحظة: هذا لا يجلب تعديلات الكود — تلك تحتاج إعادة تحميل ساخن من VS Code.';
+
+  @override
+  String get restartConfirm => 'إعادة التشغيل';
+
+  @override
   String get cancel => 'إلغاء';
 
   @override
@@ -203,16 +213,7 @@ class LAr extends L {
   String get phone => 'الهاتف';
 
   @override
-  String get subscriptionNo => 'رقم الاكتتاب';
-
-  @override
   String get dateOfBirth => 'تاريخ الميلاد';
-
-  @override
-  String get nationality => 'الجنسية';
-
-  @override
-  String get workplace => 'جهة العمل';
 
   @override
   String get registeredAt => 'تاريخ التسجيل';

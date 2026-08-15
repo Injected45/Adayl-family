@@ -72,21 +72,21 @@ ON CONFLICT (id) DO NOTHING;
 -- `adeel_code` does not close that hole: it is GENERATED from the identity, so a
 -- second row for the same man simply gets a second code.
 --
--- If the association wants the guarantee back without the national ID, the ready
--- candidate is `subscription_no` (رقم الاكتتاب), which already exists and which
--- the association issues itself. It would need NOT NULL and a UNIQUE constraint;
--- it has neither today, deliberately, because making it the key was not asked
--- for.
+-- Nor is there anything left to promote INTO a key. `subscription_no` was the
+-- one candidate the association issued itself, and it was removed at their
+-- request along with `nationality` and `workplace`. Restoring the guarantee now
+-- means adding a column back first, not adding a constraint.
+--
+-- WHAT A ROW HOLDS, and it is deliberately little: a name, a phone, a date of
+-- birth, a registration date, a status and free-text notes. Everything else the
+-- association decided it does not collect.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.adeels (
   id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   adeel_code      text          GENERATED ALWAYS AS ('A-' || lpad(id::text, 4, '0')) STORED,
   full_name       text          NOT NULL,
   phone           text,
-  subscription_no text,
   dob             date,
-  nationality     text          NOT NULL DEFAULT 'ليبي',
-  workplace       text,
   registered_at   date          NOT NULL,
   status          member_status NOT NULL DEFAULT 'نشط',
   notes           text,

@@ -29,8 +29,9 @@ $sql$);
 -- ⚠ DUPLICATES ARE NOW POSSIBLE, and this asserts it rather than leaving it to
 -- be discovered. The same name, the same date of birth, a second row, billed a
 -- second time. Nothing in the schema refuses it; there is no natural key left.
--- If a UNIQUE constraint is ever added back (subscription_no is the candidate),
--- THIS is the check that will fail and tell you the guarantee returned.
+-- If a UNIQUE constraint is ever added back — which now needs a column added
+-- first, since subscription_no went too — THIS is the check that will fail and
+-- tell you the guarantee returned.
 SELECT probe.succeeds('rule10', 'a duplicate عديل is ACCEPTED — no natural key', $sql$
   INSERT INTO public.adeels (full_name, dob, registered_at)
   VALUES ('عديل جديد', '2010-01-01', '2026-01-01')

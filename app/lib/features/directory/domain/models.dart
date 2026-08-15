@@ -58,7 +58,6 @@ class AdeelListItem {
     required this.adeelCode,
     required this.fullName,
     required this.phone,
-    required this.workplace,
     required this.age,
     required this.membershipStatus,
     required this.debt,
@@ -70,7 +69,6 @@ class AdeelListItem {
   final String adeelCode;
   final String fullName;
   final String phone;
-  final String workplace;
   final int? age;
 
   /// نشط / موقوف / متوفى — the only thing that decides whether he is billed.
@@ -88,7 +86,6 @@ class AdeelListItem {
     adeelCode: _string(json['adeelCode']),
     fullName: _string(json['fullName']),
     phone: _string(json['phone']),
-    workplace: _string(json['workplace']),
     age: json['age'] is num ? (json['age'] as num).toInt() : null,
     membershipStatus: _string(json['membershipStatus']),
     debt: _string(json['debt']),
@@ -109,11 +106,8 @@ class AdeelView {
     required this.adeelCode,
     required this.fullName,
     required this.phone,
-    required this.subscriptionNo,
     required this.dob,
     required this.age,
-    required this.nationality,
-    required this.workplace,
     required this.notes,
     required this.registeredAt,
     required this.membershipStatus,
@@ -127,11 +121,8 @@ class AdeelView {
   final String adeelCode;
   final String fullName;
   final String phone;
-  final String subscriptionNo;
   final String dob;
   final int? age;
-  final String nationality;
-  final String workplace;
   final String notes;
   final String registeredAt;
   final String membershipStatus;
@@ -147,11 +138,8 @@ class AdeelView {
     adeelCode: _string(json['adeelCode']),
     fullName: _string(json['fullName']),
     phone: _string(json['phone']),
-    subscriptionNo: _string(json['subscriptionNo']),
     dob: _string(json['dob']),
     age: json['age'] is num ? (json['age'] as num).toInt() : null,
-    nationality: _string(json['nationality']),
-    workplace: _string(json['workplace']),
     notes: _string(json['notes']),
     registeredAt: _string(json['registeredAt']),
     membershipStatus: _string(json['membershipStatus']),

@@ -9,6 +9,7 @@ import '../config/glass.dart';
 import '../config/theme.dart';
 import '../router/destinations.dart';
 import '../state/refresh.dart';
+import '../state/restart.dart';
 import 'app_background.dart';
 import 'stat_card.dart';
 
@@ -66,6 +67,7 @@ class AppScaffold extends ConsumerWidget {
     // wondering when they were last fetched.
     final List<Widget> barActions = <Widget>[
       _RefreshAction(),
+      _RestartAction(),
       ...?actions,
     ];
 
@@ -230,6 +232,48 @@ class _RefreshAction extends ConsumerWidget {
               duration: const Duration(seconds: 2),
             ),
           );
+      },
+    );
+  }
+}
+
+/// Restarts the app in place — the whole tree, every provider, from scratch.
+///
+/// Behind a confirmation, unlike the refresh beside it: this throws away
+/// whatever the user was in the middle of, and a stray tap on a toolbar icon
+/// should not be able to do that silently. The dialog also states the one thing
+/// the button cannot do, because "I pressed restart and my change is still not
+/// there" is the misunderstanding it would otherwise invite.
+class _RestartAction extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    return IconButton(
+      tooltip: l.restartApp,
+      icon: const Icon(Icons.restart_alt),
+      onPressed: () async {
+        final bool? go = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => GlassDialog(
+            title: Text(l.restartApp),
+            content: Text(
+              l.restartAppBody,
+              style: const TextStyle(fontSize: 12, height: 1.6),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l.restartConfirm),
+              ),
+            ],
+          ),
+        );
+        if (go != true || !context.mounted) return;
+        RestartWidget.restart(context);
       },
     );
   }

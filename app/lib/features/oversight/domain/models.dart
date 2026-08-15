@@ -1,7 +1,6 @@
 /// Dashboard, alerts, reports, audit trail, users, and editable settings.
 library;
 
-import '../../../core/domain/wire_values.dart';
 import '../../auth/domain/app_user.dart';
 
 String _string(Object? value) => value == null ? '' : value.toString();
@@ -380,39 +379,3 @@ class PurgeResult {
   );
 }
 
-/// One member as the family form submits it.
-class MemberInput {
-  const MemberInput({
-    this.id,
-    required this.fullName,
-    this.phone = '',
-    this.subscriptionNo = '',
-    this.dob,
-    this.nationality = MemberDefaults.nationality,
-    this.workplace = '',
-    this.status = MemberDefaults.status,
-    this.notes = '',
-  });
-
-  final int? id;
-  final String fullName;
-  final String phone;
-  final String subscriptionNo;
-  final String? dob;
-  final String nationality;
-  final String workplace;
-  final String status;
-  final String notes;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'id': ?id,
-    'fullName': fullName,
-    'phone': phone,
-    'subscriptionNo': subscriptionNo,
-    'dob': dob != null && dob!.isNotEmpty ? dob : null,
-    'nationality': nationality,
-    'workplace': workplace,
-    'status': status,
-    'notes': notes,
-  };
-}

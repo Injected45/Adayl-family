@@ -54,10 +54,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
 
   late final TextEditingController _fullName;
   late final TextEditingController _phone;
-  late final TextEditingController _subscriptionNo;
   late final TextEditingController _dob;
-  late final TextEditingController _workplace;
-  late final TextEditingController _nationality;
   late String _status;
 
   bool _saving = false;
@@ -69,16 +66,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
     final AdeelView? existing = widget.existing;
     _fullName = TextEditingController(text: existing?.fullName ?? '');
     _phone = TextEditingController(text: existing?.phone ?? '');
-    _subscriptionNo = TextEditingController(
-      text: existing?.subscriptionNo ?? '',
-    );
     _dob = TextEditingController(text: existing?.dob ?? '');
-    _workplace = TextEditingController(text: existing?.workplace ?? '');
-    _nationality = TextEditingController(
-      text: existing?.nationality.isNotEmpty ?? false
-          ? existing!.nationality
-          : MemberDefaults.nationality,
-    );
     _status = existing?.membershipStatus ?? MemberDefaults.status;
   }
 
@@ -86,10 +74,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
   void dispose() {
     _fullName.dispose();
     _phone.dispose();
-    _subscriptionNo.dispose();
     _dob.dispose();
-    _workplace.dispose();
-    _nationality.dispose();
     super.dispose();
   }
 
@@ -108,10 +93,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
             fields: <String, String>{
               'fullName': _fullName.text.trim(),
               'phone': _phone.text.trim(),
-              'subscriptionNo': _subscriptionNo.text.trim(),
               'dob': _dob.text.trim(),
-              'workplace': _workplace.text.trim(),
-              'nationality': _nationality.text.trim(),
               'status': _status,
             },
           );
@@ -258,10 +240,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                       (value == null || value.trim().isEmpty) ? required : null,
                 ),
                 _Input(label: l.phone, controller: _phone),
-                _Input(label: l.subscriptionNo, controller: _subscriptionNo),
                 _DobInput(label: l.dateOfBirth, controller: _dob),
-                _Input(label: l.nationality, controller: _nationality),
-                _Input(label: l.workplace, controller: _workplace),
                 Padding(
                   padding: const EdgeInsetsDirectional.only(
                     bottom: AppSpacing.md,

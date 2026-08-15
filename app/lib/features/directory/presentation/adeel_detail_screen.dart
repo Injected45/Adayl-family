@@ -190,20 +190,11 @@ class AdeelDetailScreen extends ConsumerWidget {
                   runSpacing: AppSpacing.lg,
                   children: <Widget>[
                     LabelledValue(label: l.phone, value: adeel.phone),
-                    LabelledValue(
-                      label: l.subscriptionNo,
-                      value: adeel.subscriptionNo,
-                    ),
                     LabelledValue(label: l.dateOfBirth, value: adeel.dob),
                     LabelledValue(
                       label: l.age,
                       value: adeel.age == null ? '' : l.ageYears(adeel.age!),
                     ),
-                    LabelledValue(
-                      label: l.nationality,
-                      value: adeel.nationality,
-                    ),
-                    LabelledValue(label: l.workplace, value: adeel.workplace),
                     LabelledValue(
                       label: l.registeredAt,
                       value: adeel.registeredAt,
