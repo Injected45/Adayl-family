@@ -61,8 +61,16 @@ That SHA-1 is **this machine's debug keystore**
 (`C:\Users\ahmed\.android\debug.keystore`). It is what debug builds are signed
 with, so it is what you need for testing on the emulator.
 
-A release APK is signed with a different key and Google will refuse it until you
-add that fingerprint too. Get it with:
+**Add the release fingerprint too**, and it is the one that matters — the APK in
+`apk/` is what people install, and it is signed with `adayl-upload.jks`, not the
+debug key:
+
+| Which build | SHA-1 |
+|---|---|
+| `run_emulator.bat`, `flutter run` | `58:C5:F7:AB:55:07:55:97:13:FA:02:87:C5:95:6C:E9:87:C0:5E:8A` |
+| `build_apk.bat` (the distributed APK) | `EC:C6:C8:07:6B:E2:38:6A:DD:4F:9B:86:6E:29:12:A2:22:0C:99:61` |
+
+Both go on the **same** Android client. Confirm either at any time with:
 
 ```bash
 keytool -list -v -alias <your-alias> -keystore <your-release.keystore>
@@ -148,9 +156,15 @@ editor with your address. See `docs/SUPABASE_SETUP.md`.
 ## Letting anyone sign in, without collecting their keys
 
 Google mints an ID token only for a registered **package name + signing SHA-1**
-pair. That is why a teammate who builds from source gets
-"تم إلغاء تسجيل الدخول": their machine has its own debug keystore, so the app
-they built is, to Google, a different app.
+pair. A teammate who builds from source therefore cannot sign in: their machine
+has its own debug keystore, so the app they built is, to Google, a different app.
+
+That failure shows as the **generic** error, not as a cancellation. Under
+`google_sign_in` 7.x an unrecognised signature comes back as `NO_CREDENTIAL`,
+which `authenticate()` turns into `unknownError` — so the app falls to
+`LocalAuthError.googleFailed`. Do not go looking at keystores when the screen
+says "تم إلغاء تسجيل الدخول"; that message means something else entirely, and
+the table at the end of this file says what.
 
 Registering every developer's debug fingerprint does not scale and is not the
 fix. **Distribute a signed APK instead.** The signature travels inside the file,
@@ -214,11 +228,38 @@ and `auth_controller.dart` refuses before it ever reaches Google. Step 3.
 after the account chooser closes.
 You used the Android client ID. Use the web one.
 
+**"تم إلغاء تسجيل الدخول" when you did not cancel anything.**
+This is the **consent screen refusing the account**, not a signing problem. The
+message is only ever shown for `GoogleSignInExceptionCode.canceled`, and under
+`google_sign_in` 7.x reaching that code proves the Android OAuth client already
+matched the package name and the signature — a mismatch would have arrived as
+`NO_CREDENTIAL`. What is left is the consent screen:
+
+- **Audience = Internal**, and the account is outside the organisation. A
+  personal Gmail is always outside.
+- **Publishing status = Testing**, and the account is not on the test-user list.
+  This is the default for a new Cloud project, so it is what a freshly created
+  project does to everyone except the addresses you list. It is the likely
+  answer whenever sign-in works for you and fails for the family.
+
+Fix at <https://console.cloud.google.com/auth/audience> for project
+`891008495666`: add every association address under **Test users**, or set the
+app to **In production**. Publishing needs no Google verification here — the app
+requests only `email` and `profile`, which are not sensitive scopes.
+
+Google's own wording for the refusal is written to logcat on every occurrence,
+release builds included:
+
+```bash
+adb logcat -s flutter | findstr "canceled"
+```
+
 **`PlatformException(sign_in_failed, ... 10: )`**
 Error 10 is `DEVELOPER_ERROR`, and it means Google does not recognise the
 package name + SHA-1 pair. Either the Android OAuth client is missing, the SHA-1
 is from a different keystore than the build you are running, or the package name
-is not exactly `ly.adayl.family_app`.
+is not exactly `ly.adayl.family_app`. This is the `google_sign_in` 6.x shape; on
+7.x the same cause reads as the app's generic error instead.
 
 **`Error 403: access_denied`.**
 The consent screen is in *Testing* and this address is not on the test-user

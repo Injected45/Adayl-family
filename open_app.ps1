@@ -68,8 +68,11 @@ $DEV_PASS  = ''
 # and is then rejected by Supabase, which looks like a Google failure and is not.
 # NOT a secret; it ships in every app offering Google sign-in. The client SECRET
 # is a different string and belongs only in the Supabase dashboard.
-# Empty => the app hides the Google button rather than offering a broken one.
-$GOOGLE_SERVER_CLIENT_ID = ''
+# Empty => the app hides the Google button rather than offering a broken one,
+# which is how this script silently built Google-less APKs after the move to the
+# Adayl Cloud project: that commit updated run_emulator.bat and build_apk.bat and
+# left this line blank. Keep all three in step.
+$GOOGLE_SERVER_CLIENT_ID = '891008495666-6bl9gctfge1rku7fd79421auqjikor12.apps.googleusercontent.com'
 
 function Say($m) { Write-Host "  $m" }
 

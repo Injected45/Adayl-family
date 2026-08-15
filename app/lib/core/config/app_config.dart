@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Build-time configuration for GOOGLE SIGN-IN only.
 ///
 /// Everything else that used to live here is gone, and it is worth naming what:
@@ -35,7 +33,4 @@ abstract final class AppConfig {
 
   static bool get isGoogleConfigured =>
       googleServerClientId.isNotEmpty || googleClientId.isNotEmpty;
-
-  /// Debug-only diagnostics, kept off release builds.
-  static bool get verbose => kDebugMode;
 }

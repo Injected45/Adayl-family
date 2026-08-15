@@ -91,11 +91,26 @@ class GoogleAuthService {
         // for all the world like a cancellation, and the true reason existed
         // only in logcat under the Auth tag.
         //
-        // `description` carries the reason when there is one. A genuine dismissal
-        // has none, so logging it costs nothing and turns the next occurrence
-        // into one console line instead of an adb session.
+        // WHAT REACHING THIS BRANCH RULES OUT. From google_sign_in_android
+        // 7.2.11: an unregistered SHA-1 or a wrong package name arrives as
+        // NO_CREDENTIAL, and `authenticate()` passes throwForNoAuth, so it
+        // surfaces as unknownError — it is rethrown below, never here. A
+        // missing serverClientId is clientConfigurationError, likewise. So if
+        // this branch runs, the Android OAuth client MATCHED and the refusal
+        // came afterwards, from the consent screen: audience Internal, or
+        // Testing with the signing-in account not on the test-user list.
+        //
+        // The dismissal and the refusal cannot be told apart here. Credential
+        // Manager supplies a `description` for an ordinary back-press too, so
+        // the earlier "a genuine dismissal has none" is not a safe test — the
+        // reason is logged and the outcome is still treated as a dismissal,
+        // because showing an error on every back-press is the worse mistake.
+        //
+        // Logged in release as well, deliberately: the APK people actually run
+        // is a release build, so a kDebugMode gate here meant the one
+        // occurrence that mattered produced no evidence at all.
         final String? why = error.description;
-        if (AppConfig.verbose && why != null && why.isNotEmpty) {
+        if (why != null && why.isNotEmpty) {
           debugPrint('Google sign-in reported "canceled": $why');
         }
         return false;
