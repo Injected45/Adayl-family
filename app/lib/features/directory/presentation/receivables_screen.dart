@@ -66,7 +66,7 @@ Future<void> _generate(
         .read(financeRepositoryProvider)
         .generatePeriod(period);
     ref.invalidate(receivablesProvider(selectedPeriod));
-    ref.invalidate(familiesProvider(''));
+    ref.invalidate(adeelsProvider(''));
     messenger.showSnackBar(
       SnackBar(
         content: Text(
@@ -88,7 +88,7 @@ Future<void> _autoClose(BuildContext context, WidgetRef ref, L l) async {
   try {
     final int created = await ref.read(financeRepositoryProvider).autoClose();
     ref.invalidate(receivablesProvider(''));
-    ref.invalidate(familiesProvider(''));
+    ref.invalidate(adeelsProvider(''));
     messenger.showSnackBar(
       SnackBar(
         content: Text(
@@ -312,11 +312,11 @@ class _ReceivableCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        item.familyName,
+                        item.adeelName,
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${item.familyCode} • ${item.periodLabel}',
+                        '${item.adeelCode} • ${item.periodLabel}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.muted,
@@ -348,20 +348,14 @@ class _ReceivableCard extends StatelessWidget {
                   label: l.remainingAmount,
                   value: formatMoney(item.balance),
                 ),
-                LabelledValue(
-                  label: l.fatherFee,
-                  value: formatMoney(item.fatherFee),
-                ),
-                LabelledValue(label: l.sonFee, value: formatMoney(item.sonFee)),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            LabelledValue(
-              label: l.billedSons,
-              value: item.billedSonNames.isEmpty
-                  ? l.noneBilled
-                  : item.billedSonNames.join(ArabicPunctuation.listSeparator),
-            ),
+            // The father's and son's fee rates, and the list of billed sons, are
+            // gone from a receivable: it charges ONE عديل at ONE rate, so the
+            // rate IS the total and the only name worth showing is the
+            // snapshotted one in the heading above.
+            LabelledValue(label: l.nationalId, value: item.adeelNationalId),
           ],
         ),
       ),

@@ -63,20 +63,23 @@ class DashboardScreen extends ConsumerWidget {
               StatCardGrid(
                 children: <Widget>[
                   _Stat(
-                    label: l.statFamilies,
-                    value: '${data.stats.families}',
-                    sub: l.subSons(data.stats.sons),
+                    label: l.statAdeels,
+                    value: '${data.stats.adeels}',
+                    sub: l.subActive(data.stats.active),
                   ),
+                  // Was "eligible sons / approaching the age". Membership status
+                  // is the whole answer now, so the second card counts who is
+                  // NOT being billed rather than who is about to be.
                   _Stat(
-                    label: l.statEligibleSons,
-                    value: '${data.stats.eligible}',
-                    sub: l.subApproaching(data.stats.soon),
+                    label: l.statInactive,
+                    value: '${data.stats.suspended + data.stats.deceased}',
+                    sub: l.subDeceased(data.stats.deceased),
                     tone: AppColors.info,
                   ),
                   _Stat(
                     label: l.statTotalDebt,
                     value: formatMoney(data.stats.debt),
-                    sub: l.subIndebtedFamilies(data.stats.indebtedFamilies),
+                    sub: l.subIndebtedAdeels(data.stats.indebtedAdeels),
                     tone: AppColors.danger,
                   ),
                   _Stat(
@@ -105,16 +108,16 @@ class DashboardScreen extends ConsumerWidget {
                             ListTile(
                               contentPadding: EdgeInsets.zero,
                               onTap: () => context.go(
-                                '${AppRoutes.families}/${debtor.familyId}',
+                                '${AppRoutes.adeels}/${debtor.adeelId}',
                               ),
                               title: Text(
-                                debtor.fatherName,
+                                debtor.adeelName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                               subtitle: Text(
-                                debtor.familyCode,
+                                debtor.adeelCode,
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: AppColors.muted,
@@ -131,44 +134,12 @@ class DashboardScreen extends ConsumerWidget {
                         ],
                       ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-
-              _Panel(
-                title: l.upcomingAlerts,
-                child: data.upcomingSons.isEmpty
-                    ? EmptyStateView(
-                        icon: Icons.cake_outlined,
-                        title: l.noAgeAlerts,
-                      )
-                    : Column(
-                        children: <Widget>[
-                          for (final UpcomingSon son in data.upcomingSons)
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () => context.go(
-                                '${AppRoutes.families}/${son.familyId}',
-                              ),
-                              title: Text(
-                                son.sonName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              subtitle: Text(
-                                l.sonOf(son.fatherName),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.muted,
-                                ),
-                              ),
-                              trailing: StatusBadge(
-                                label: l.approachingBadge,
-                                tone: AppColors.warning,
-                              ),
-                            ),
-                        ],
-                      ),
-              ),
+              // The "قريب من السن" panel stood here, listing sons whose
+              // sixteenth birthday fell within warning_months so a treasurer
+              // could see a charge coming. There is no age gate and therefore
+              // nothing to see coming — an عديل is billed from the day he is
+              // registered نشط — so the panel is gone rather than left showing a
+              // permanently empty list.
             ],
           ),
         ),
@@ -208,7 +179,7 @@ Future<void> _closeMonth(
         .read(financeRepositoryProvider)
         .generatePeriod(period);
     ref.invalidate(dashboardProvider);
-    ref.invalidate(familiesProvider(''));
+    ref.invalidate(adeelsProvider(''));
     ref.invalidate(receivablesProvider(''));
     messenger.showSnackBar(
       SnackBar(

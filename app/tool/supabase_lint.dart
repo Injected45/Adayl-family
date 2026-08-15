@@ -35,10 +35,9 @@ import 'dart:io';
 const Set<String> baseTables = <String>{
   'profiles',
   'association_settings',
-  'families',
-  'members',
+  'adeels',
+  'adeel_access_codes',
   'receivables',
-  'receivable_lines',
   'payments',
   'payment_allocations',
   'cash_movements',
@@ -47,10 +46,9 @@ const Set<String> baseTables = <String>{
 
 /// Which RPC replaces a direct write, so the error says what to do instead.
 const Map<String, String> writeReplacement = <String, String>{
-  'families': 'save_family()',
-  'members': 'save_family()',
+  'adeels': 'save_adeel() / delete_adeel()',
+  'adeel_access_codes': 'issue_adeel_code() / redeem_adeel_code()',
   'receivables': 'generate_period() / auto_close_periods()',
-  'receivable_lines': 'generate_period()',
   'payments': 'register_payment() / cancel_payment()',
   'payment_allocations': 'register_payment()',
   'cash_movements': 'register_payment() / cancel_payment()',

@@ -66,16 +66,14 @@ void main() {
       'cash',
       'collected',
       'credit',
-      'currentFee',
       'debit',
       'debt',
-      'fatherFee',
       'issued',
+      'memberFee',
       'monthlyExpected',
       'month',
       'outstanding',
       'paid',
-      'sonFee',
       'today',
       'total',
       'transfer',
@@ -86,12 +84,11 @@ void main() {
       'settings.json',
       'settings_view.json',
       'dashboard.json',
-      'family_detail.json',
-      'family_statement.json',
+      'adeel_detail.json',
+      'adeel_statement.json',
       'receivables.json',
       'financial_report.json',
-      'families.json',
-      'members.json',
+      'adeels.json',
       'payments.json',
       'cash_movements.json',
       'cash_summary.json',
@@ -139,7 +136,7 @@ void main() {
     test('the money strings are exact to the minor unit', () {
       // Not merely "a string" — the right string. A cast that produced
       // "40.0000000001" would satisfy the type check above and still be wrong.
-      final Map<String, dynamic> detail = _obj('family_detail.json');
+      final Map<String, dynamic> detail = _obj('adeel_detail.json');
       final Map<String, dynamic> kpis = (detail['kpis'] as Map)
           .cast<String, dynamic>();
       for (final String key in <String>['debt', 'paid', 'monthlyExpected']) {
@@ -158,10 +155,11 @@ void main() {
         _obj('settings_view.json'),
       );
       expect(s.currency, isNotEmpty);
-      expect(s.fatherFee, '20.00');
-      expect(s.sonFee, '10.00');
-      expect(s.eligibilityAge, 16);
-      expect(s.warningMonths, 3);
+      // ONE rate. fatherFee/sonFee and the eligibilityAge/warningMonths pair are
+      // gone from the wire entirely — if a view ever reintroduced them this
+      // model would not carry them and the assertion below would be the first
+      // thing to notice.
+      expect(s.memberFee, '20.00');
     });
 
     test('officials parse, both roles present', () {
@@ -175,81 +173,77 @@ void main() {
       );
     });
 
-    test('families list parses with its computed counts', () {
-      final List<FamilyListItem> families = _list(
-        'families.json',
-      ).map(FamilyListItem.fromJson).toList();
-      expect(families, hasLength(2));
+    test('the register parses with its computed money columns', () {
+      final List<AdeelListItem> adeels = _list(
+        'adeels.json',
+      ).map(AdeelListItem.fromJson).toList();
+      expect(adeels, hasLength(4));
 
-      final FamilyListItem first = families.firstWhere(
-        (FamilyListItem f) => f.familyCode == 'F-0001',
+      final AdeelListItem first = adeels.firstWhere(
+        (AdeelListItem a) => a.adeelCode == 'A-0001',
       );
-      expect(first.fatherName, 'الأب الأول');
-      // Three sons in the fixture, two of them over 16.
-      expect(first.sonsCount, 3);
-      expect(first.eligibleCount, 2);
-      // Father (20) + two eligible sons (10 each) at CURRENT settings.
-      expect(first.monthlyExpected, '40.00');
+      expect(first.fullName, 'العديل الأول');
+      // One flat rate, and it is what he would be charged today.
+      expect(first.monthlyExpected, '20.00');
     });
 
-    test('members list parses, fathers and sons distinguished', () {
-      final List<MemberListItem> members = _list(
-        'members.json',
-      ).map(MemberListItem.fromJson).toList();
-      expect(members, hasLength(6));
-      expect(
-        members.where((MemberListItem m) => m.relation == 'الأب').length,
-        2,
+    test('membership status, not age, decides what is charged', () {
+      final List<AdeelListItem> adeels = _list(
+        'adeels.json',
+      ).map(AdeelListItem.fromJson).toList();
+
+      // THE assertion that pins the whole model change. A-0002 is seven years
+      // old in the fixture and has been billed exactly like the 51-year-old, so
+      // no age gate survives anywhere between the settings table and this model.
+      final AdeelListItem child = adeels.firstWhere(
+        (AdeelListItem a) => a.adeelCode == 'A-0002',
       );
+      expect(child.age, lessThan(16));
+      expect(child.monthlyExpected, '20.00');
+      expect(child.issued, isNot('0.00'));
+
+      // And the two who are not نشط were charged nothing, whatever their age.
+      for (final String code in <String>['A-0003', 'A-0004']) {
+        final AdeelListItem inactive = adeels.firstWhere(
+          (AdeelListItem a) => a.adeelCode == code,
+        );
+        expect(inactive.membershipStatus, isNot('نشط'));
+        expect(inactive.monthlyExpected, '0.00');
+        expect(inactive.issued, '0.00');
+      }
+    });
+
+    test('adeel detail parses its nested adeel/kpis/receivables', () {
+      final AdeelDetail d = AdeelDetail.fromJson(_obj('adeel_detail.json'));
+      expect(d.adeel.id, 1);
+      expect(d.adeel.adeelCode, 'A-0001');
+      expect(d.adeel.fullName, 'العديل الأول');
+      // 40 issued across two periods, 30 collected, so 10 outstanding.
+      expect(d.issued, '40.00');
+      expect(d.paid, '30.00');
+      expect(d.debt, '10.00');
+      expect(d.openPeriods, 1);
+      expect(d.receivables, isNotEmpty);
+    });
+
+    test('a receivable carries the name it was raised against', () {
+      final AdeelDetail d = AdeelDetail.fromJson(_obj('adeel_detail.json'));
+      // Snapshot columns, not a join: a receipt printed years later must read
+      // the same even if the register is edited afterwards.
       expect(
-        members.every((MemberListItem m) => m.fullName.isNotEmpty),
+        d.receivables.every((ReceivableItem r) => r.adeelName.isNotEmpty),
         isTrue,
       );
       expect(
-        members.every((MemberListItem m) => m.familyName.isNotEmpty),
+        d.receivables.every(
+          (ReceivableItem r) => r.adeelNationalId.isNotEmpty,
+        ),
         isTrue,
-        reason: 'every member should resolve its family via the father name',
-      );
-    });
-
-    test('family detail parses its nested family/father/sons/kpis', () {
-      final FamilyDetail d = FamilyDetail.fromJson(_obj('family_detail.json'));
-      expect(d.id, 1);
-      expect(d.familyCode, 'F-0001');
-      expect(d.father, isNotNull);
-      expect(d.father!.fullName, 'الأب الأول');
-      expect(d.sons, hasLength(3));
-      expect(d.sonsCount, 3);
-      expect(d.eligibleCount, 2);
-      // 80 issued across two periods, 50 collected, so 30 outstanding.
-      expect(d.paid, '50.00');
-      expect(d.debt, '30.00');
-    });
-
-    test('member eligibility comes through as the app expects', () {
-      final FamilyDetail d = FamilyDetail.fromJson(_obj('family_detail.json'));
-      final Set<String> keys = d.sons
-          .map((MemberView m) => m.eligibility.name)
-          .toSet();
-      // Whatever the values are, they must map onto the enum rather than
-      // silently degrading — EligibilityKey.fromWire has a fallback, so an
-      // unrecognised string would look like valid data.
-      expect(keys, isNotEmpty);
-      expect(
-        d.sons.map((MemberView m) => m.eligibilityLabel),
-        everyElement(isNotEmpty),
-      );
-      // Two of the three sons are over 16 in the fixture.
-      expect(
-        d.sons
-            .where((MemberView m) => m.eligibility == EligibilityKey.eligible)
-            .length,
-        2,
       );
     });
 
     test('statement parses as an ordered running balance', () {
-      final Map<String, dynamic> raw = _obj('family_statement.json');
+      final Map<String, dynamic> raw = _obj('adeel_statement.json');
       final List<StatementMovement> movements =
           (raw['movements'] as List<dynamic>)
               .map(
@@ -259,7 +253,7 @@ void main() {
               )
               .toList();
       expect(movements, isNotEmpty);
-      expect(raw['closingBalance'], '30.00');
+      expect(raw['closingBalance'], '10.00');
 
       // Rule 11: the running balance must actually run. Recomputing it from the
       // debits and credits has to reproduce the column exactly, or the window
@@ -332,13 +326,13 @@ void main() {
       expect(payments, hasLength(2));
 
       final PaymentView split = payments.firstWhere(
-        (PaymentView p) => p.amount == '50.00',
+        (PaymentView p) => p.amount == '30.00',
       );
-      // 50 against 40 owed for February and 40 for March: February fills, March
+      // 30 against 20 owed for February and 20 for March: February fills, March
       // takes the remaining 10.
       expect(split.allocations, hasLength(2));
       expect(split.allocations.first.period, '2026-02');
-      expect(split.allocations.first.amount, '40.00');
+      expect(split.allocations.first.amount, '20.00');
       expect(split.allocations.last.period, '2026-03');
       expect(split.allocations.last.amount, '10.00');
       expect(split.receiptNo, startsWith('PAY-'));
@@ -374,24 +368,24 @@ void main() {
       final CashSummaryView summary = CashSummaryView.fromJson(
         _obj('cash_summary.json'),
       );
-      // 50 collected, 5 cancelled → 50 in the treasury.
-      expect(summary.total, '50.00');
-      expect(summary.cash, '50.00');
+      // 30 collected, 5 cancelled → 30 in the treasury.
+      expect(summary.total, '30.00');
+      expect(summary.cash, '30.00');
       expect(summary.transfer, '0.00');
     });
   });
 
   group('oversight', () {
-    test('dashboard parses stats, debtors and upcoming sons', () {
+    test('dashboard parses stats and debtors', () {
       final DashboardData d = DashboardData.fromJson(_obj('dashboard.json'));
-      // Association-wide, across BOTH seeded families: 3 sons in F-0001 plus 1
-      // in F-0002. An earlier version of this test asserted 3 and 35.00, which
-      // were family-1 figures — the fixture is the whole association.
-      expect(d.stats.families, 2);
-      expect(d.stats.sons, 4);
-      expect(d.stats.eligible, 3);
-      expect(d.stats.collected, '50.00');
-      // 100 issued across two periods, 50 collected → 50 outstanding.
+      // Association-wide: four عدايل on the register, two of them نشط and
+      // therefore the only two billed.
+      expect(d.stats.adeels, 4);
+      expect(d.stats.active, 2);
+      expect(d.stats.suspended, 1);
+      expect(d.stats.deceased, 1);
+      expect(d.stats.collected, '30.00');
+      // 2 active × 2 periods × 20.00 = 80 issued, 30 collected → 50 outstanding.
       expect(d.stats.debt, '50.00');
       expect(
         d.stats.transfer,
@@ -415,13 +409,13 @@ void main() {
       expect(debts.every((double v) => v > 0), isTrue);
     });
 
-    test('alerts parse and carry a family to navigate to', () {
+    test('alerts parse and carry an عديل to navigate to', () {
       final List<AlertItem> alerts = _list(
         'alerts.json',
       ).map(AlertItem.fromJson).toList();
       expect(alerts, isNotEmpty);
       expect(alerts.every((AlertItem a) => a.text.isNotEmpty), isTrue);
-      expect(alerts.every((AlertItem a) => a.familyId > 0), isTrue);
+      expect(alerts.every((AlertItem a) => a.adeelId > 0), isTrue);
       expect(alerts.map((AlertItem a) => a.type).toSet(), isNot(contains('')));
     });
 
@@ -429,15 +423,15 @@ void main() {
       final FinancialReport r = FinancialReport.fromJson(
         _obj('financial_report.json'),
       );
-      // Two periods x two families = four receivables: 40+40 for F-0001 and
-      // 10+10 for F-0002.
-      expect(r.issued, '100.00');
-      expect(r.collected, '50.00');
+      // Two periods x two ACTIVE عدايل = four receivables at 20.00 each. The
+      // موقوف and المتوفى are billed nothing, so they contribute none.
+      expect(r.issued, '80.00');
+      expect(r.collected, '30.00');
       expect(r.issuedCount, 4);
       // The cancelled payment is out of the collected figure and out of the list.
       expect(r.collectedCount, 1);
       expect(r.payments, hasLength(1));
-      expect(r.payments.first.amount, '50.00');
+      expect(r.payments.first.amount, '30.00');
     });
 
     test('audit entries parse, newest-first orderable', () {

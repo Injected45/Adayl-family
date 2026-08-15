@@ -204,9 +204,9 @@ Future<void> _confirmCancel(
     ref.invalidate(paymentsProvider);
     ref.invalidate(cashSummaryProvider);
     ref.invalidate(cashMovementsProvider);
-    ref.invalidate(familiesProvider(''));
-    ref.invalidate(familyDetailProvider(payment.familyId));
-    ref.invalidate(statementProvider(payment.familyId));
+    ref.invalidate(adeelsProvider(''));
+    ref.invalidate(adeelDetailProvider(payment.adeelId));
+    ref.invalidate(statementProvider(payment.adeelId));
     messenger.showSnackBar(SnackBar(content: Text(l.paymentCancelled)));
   } on ApiException catch (failure) {
     messenger.showSnackBar(

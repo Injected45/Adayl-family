@@ -33,14 +33,15 @@ abstract final class PaymentMethodWire {
   static const String bankTransfer = 'تحويل مصرفي';
 }
 
-abstract final class MemberRelationWire {
-  static const String father = 'أب';
-  static const String son = 'ابن';
-}
+// MemberRelationWire ('أب' / 'ابن') is GONE. It labelled a person's place inside
+// a household, and the association stopped billing households: every عديل is
+// billed in his own right, so there is no relation left to state. Removing it
+// rather than leaving it unused is deliberate — an unused wire enum is an
+// invitation to reintroduce the two-tier model by accident.
 
 abstract final class MemberDefaults {
-  /// index.html:496 defaults every member to Libyan and to active. These are
-  /// stored values, not display text.
+  /// Every عديل defaults to Libyan and to active. These are stored values, not
+  /// display text.
   static const String nationality = 'ليبي';
   static const String status = MembershipStatusWire.active;
 }
@@ -56,11 +57,11 @@ abstract final class PurgeWire {
   static const String confirmPhrase = 'مسح نهائي';
 
   /// What `purge_all_data(p_confirm)` demands — the wider purge that takes the
-  /// families and members with it.
+  /// register of عدايل with it.
   ///
   /// Deliberately NOT a superstring of [confirmPhrase]: the two phrases are
   /// compared with `<>`, so an admin who typed the financial phrase into the
-  /// wrong dialog is refused rather than emptying the directory. That property
+  /// wrong dialog is refused rather than emptying the register. That property
   /// is the reason there are two functions instead of one with a flag.
   static const String confirmPhraseAll = 'مسح كل البيانات';
 }

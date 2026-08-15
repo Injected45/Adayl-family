@@ -34,8 +34,9 @@ SELECT set_config('request.jwt.claims', '{"sub":"$FM","role":"authenticated"}', 
 SELECT public.generate_period('2026-02');
 SELECT public.generate_period('2026-03');
 SELECT set_config('request.jwt.claims', '{"sub":"$TR","role":"authenticated"}', false);
--- Spans two periods, so the FIFO allocation array has more than one element.
-SELECT public.register_payment(1, 50, 'نقداً', 'ref-1', 'أمين الصندوق', 'ملاحظة');
+-- Two periods at 20.00 each = 40.00 outstanding, so 30.00 fills February and
+-- spills into March: the FIFO allocation array has more than one element.
+SELECT public.register_payment(1, 30, 'نقداً', 'ref-1', 'أمين الصندوق', 'ملاحظة');
 SELECT public.register_payment(2, 5, 'تحويل مصرفي', 'TRX-9');
 SELECT set_config('request.jwt.claims', '{"sub":"$FM","role":"authenticated"}', false);
 -- One cancelled payment, so the fixtures include a voided row.
@@ -70,15 +71,14 @@ capture settings.json          "SELECT public.api_settings();"
 capture me.json                "SELECT public.api_me();"
 capture dashboard.json         "SELECT public.api_dashboard();"
 capture alerts.json            "SELECT public.api_alerts();"
-capture family_detail.json     "SELECT public.api_family_detail(1);"
-capture family_statement.json  "SELECT public.api_family_statement(1);"
+capture adeel_detail.json      "SELECT public.api_adeel_detail(1);"
+capture adeel_statement.json   "SELECT public.api_adeel_statement(1);"
 capture receivables.json       "SELECT public.api_receivables(NULL);"
 capture financial_report.json  "SELECT public.api_financial_report('2026-01-01','2030-12-31');"
 
 # Views arrive from PostgREST as a JSON array of row objects — json_agg over the
 # view is that exact encoding.
-capture families.json      "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_families ORDER BY \"id\") t;"
-capture members.json       "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_members ORDER BY \"id\") t;"
+capture adeels.json        "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_adeels ORDER BY \"id\") t;"
 capture payments.json      "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_payments ORDER BY \"id\") t;"
 capture cash_movements.json "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_cash_movements ORDER BY \"id\") t;"
 capture cash_summary.json  "SELECT to_json(t) FROM (SELECT * FROM public.v_cash_summary) t;"

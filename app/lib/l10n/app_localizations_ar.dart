@@ -12,7 +12,7 @@ class LAr extends L {
   String get appTitle => 'مشروع جمعية العدايل';
 
   @override
-  String get appTagline => 'نظام إدارة العائلات والاشتراكات والصندوق';
+  String get appTagline => 'نظام إدارة المشتركين والاشتراكات والصندوق';
 
   @override
   String get loginTitle => 'أهلاً بك';
@@ -112,12 +112,6 @@ class LAr extends L {
   String get navHome => 'الرئيسية';
 
   @override
-  String get navFamilies => 'العائلات';
-
-  @override
-  String get navMembers => 'الأعضاء';
-
-  @override
   String get navReceivables => 'الاستحقاقات';
 
   @override
@@ -172,38 +166,7 @@ class LAr extends L {
   String get comingSoonBody => 'سيتم بناء هذه الشاشة في مرحلة لاحقة.';
 
   @override
-  String get searchFamiliesHint =>
-      'بحث بالاسم، الرقم الوطني، الهاتف، الاكتتاب، جهة العمل...';
-
-  @override
-  String get searchMembersHint =>
-      'بحث بالاسم أو الرقم الوطني أو الهاتف أو جهة العمل...';
-
-  @override
-  String get noFamilies => 'لا توجد عائلات مسجلة بعد';
-
-  @override
   String get noSearchResults => 'لا توجد نتائج لبحثك';
-
-  @override
-  String get noMembers => 'لا يوجد أعضاء مسجلون';
-
-  @override
-  String get familiesIntro =>
-      'كل عائلة تبدأ بالأب وتندرج تحتها أسماء الأبناء الذكور.';
-
-  @override
-  String get membersIntro => 'بحث موحد في الآباء والأبناء الذكور.';
-
-  @override
-  String sonsBadge(int count) {
-    return '$count أبناء';
-  }
-
-  @override
-  String eligibleBadge(int count) {
-    return '$count مستحقون';
-  }
 
   @override
   String debtBadge(String amount) {
@@ -216,19 +179,7 @@ class LAr extends L {
   }
 
   @override
-  String get familySummary => 'ملخص العائلة';
-
-  @override
-  String get sonsCount => 'عدد الأبناء';
-
-  @override
-  String get eligibleCount => 'المستحقون';
-
-  @override
-  String get soonCount => 'قريبون من السن';
-
-  @override
-  String get monthlyExpected => 'الاستحقاق الشهري الحالي';
+  String get familySummary => 'ملخص المشترك';
 
   @override
   String get debt => 'المديونية';
@@ -237,13 +188,10 @@ class LAr extends L {
   String get totalPaid => 'إجمالي المدفوع المعتمد';
 
   @override
-  String get fatherData => 'بيانات الأب';
+  String get personalData => 'البيانات الشخصية';
 
   @override
-  String get sonsSection => 'الأبناء';
-
-  @override
-  String get statementShort => 'كشف مختصر';
+  String get totalDue => 'المستحق';
 
   @override
   String get phone => 'الهاتف';
@@ -270,16 +218,7 @@ class LAr extends L {
   String get age => 'العمر';
 
   @override
-  String get relation => 'الصفة';
-
-  @override
-  String get family => 'العائلة';
-
-  @override
   String get notProvided => '—';
-
-  @override
-  String get currentValue => 'القيمة الحالية';
 
   @override
   String get receivablesIntro =>
@@ -304,18 +243,6 @@ class LAr extends L {
   String get statusLabel => 'الحالة';
 
   @override
-  String get billedSons => 'الأبناء المحتسبون';
-
-  @override
-  String get noneBilled => 'لا يوجد';
-
-  @override
-  String get fatherFee => 'اشتراك الأب';
-
-  @override
-  String get sonFee => 'اشتراك الابن';
-
-  @override
   String get issuedTotal => 'الاستحقاقات المنشأة';
 
   @override
@@ -331,10 +258,10 @@ class LAr extends L {
   String get statementsIntro => 'عرض تسلسلي للاستحقاقات والدفعات والرصيد.';
 
   @override
-  String get selectFamily => 'اختر العائلة';
+  String get selectFamily => 'اختر المشترك';
 
   @override
-  String get selectFamilyToView => 'اختر عائلة لعرض كشف الحساب';
+  String get selectFamilyToView => 'اختر مشتركاً لعرض كشف الحساب';
 
   @override
   String get noMovements => 'لا توجد حركات';
@@ -423,7 +350,7 @@ class LAr extends L {
 
   @override
   String get noDebtForFamily =>
-      'هذه العائلة لا توجد عليها مديونية، لذلك لا يمكن تسجيل سداد.';
+      'هذا المشترك لا توجد عليه مديونية، لذلك لا يمكن تسجيل سداد.';
 
   @override
   String amountTooHigh(String amount) {
@@ -492,7 +419,7 @@ class LAr extends L {
 
   @override
   String get generateConfirmBody =>
-      'سيتم إنشاء استحقاق لكل عائلة عليها اشتراك مستحق لهذا الشهر. لا يمكن إنشاء استحقاق مكرر لنفس العائلة والشهر.';
+      'سيتم إنشاء استحقاق لكل مشترك نشط لهذا الشهر. لا يمكن إنشاء استحقاق مكرر لنفس المشترك والشهر.';
 
   @override
   String get generateConfirm => 'إنشاء';
@@ -517,10 +444,10 @@ class LAr extends L {
   String get dashboardIntro => 'ملخص الوضع الإداري والمالي للجمعية.';
 
   @override
-  String get statFamilies => 'عدد العائلات';
+  String get statAdeels => 'عدد المشتركين';
 
   @override
-  String get statEligibleSons => 'الأبناء المستحقون';
+  String get statInactive => 'غير المحاسَبين';
 
   @override
   String get statTotalDebt => 'إجمالي المديونية';
@@ -529,18 +456,18 @@ class LAr extends L {
   String get statTotalCollected => 'إجمالي المحصل';
 
   @override
-  String subSons(int count) {
-    return 'الأبناء $count';
+  String subActive(int count) {
+    return '$count نشط';
   }
 
   @override
-  String subApproaching(int count) {
-    return 'قريبون من الاستحقاق $count';
+  String subDeceased(int count) {
+    return '$count متوفى';
   }
 
   @override
-  String subIndebtedFamilies(int count) {
-    return '$count عائلة مدينة';
+  String subIndebtedAdeels(int count) {
+    return '$count مشترك مدين';
   }
 
   @override
@@ -552,25 +479,11 @@ class LAr extends L {
   String get topDebtors => 'أعلى المديونيات';
 
   @override
-  String get upcomingAlerts => 'تنبيهات قريبة';
-
-  @override
   String get noDebtsNow => 'لا توجد مديونيات حالية';
-
-  @override
-  String get noAgeAlerts => 'لا توجد تنبيهات عمرية حالياً';
 
   @override
   String closeMonth(String period) {
     return 'إقفال $period';
-  }
-
-  @override
-  String get approachingBadge => 'قريب من السن';
-
-  @override
-  String sonOf(String father) {
-    return 'ابن $father';
   }
 
   @override
@@ -690,40 +603,36 @@ class LAr extends L {
   String get noChanges => 'لا توجد تغييرات';
 
   @override
-  String get familyCodeTitle => 'لديك رمز عائلة؟';
+  String get familyCodeTitle => 'لديك رمز اشتراك؟';
 
   @override
   String get familyCodeBody =>
-      'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بعائلتك، اكتبه هنا لترى بيانات عائلتك مباشرة.';
+      'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، اكتبه هنا لترى بيانات اشتراكك مباشرة.';
 
   @override
-  String get familyCodeField => 'رمز العائلة';
+  String get familyCodeField => 'رمز الاشتراك';
 
   @override
   String get familyCodeHint => 'XXXX-XXXX-XXXX';
 
   @override
-  String get familyCodeAction => 'دخول بحساب العائلة';
+  String get familyCodeAction => 'دخول برمز الاشتراك';
 
   @override
-  String get myFamilyTitle => 'عائلتي';
+  String get myFamilyTitle => 'اشتراكي';
 
   @override
-  String get myFamilyIntro =>
-      'بيانات عائلتك واشتراكاتك ومدفوعاتك. للاطلاع فقط.';
-
-  @override
-  String get myMembersSection => 'أفراد العائلة';
+  String get myFamilyIntro => 'بيانات اشتراكك ومدفوعاتك. للاطلاع فقط.';
 
   @override
   String get myStatementSection => 'كشف الحساب';
 
   @override
-  String get issueCodeTitle => 'رمز دخول العائلة';
+  String get issueCodeTitle => 'رمز دخول المشترك';
 
   @override
   String get issueCodeBody =>
-      'أعطِ هذا الرمز لرب العائلة ليدخل ويرى بيانات عائلته فقط. إصدار رمز جديد يلغي القديم.';
+      'أعطِ هذا الرمز للمشترك ليدخل ويرى بياناته فقط. إصدار رمز جديد يلغي القديم.';
 
   @override
   String get issueCodeAction => 'إصدار رمز دخول';
@@ -746,7 +655,7 @@ class LAr extends L {
 
   @override
   String get purgeKeeps =>
-      'لا يُحذف: العائلات والأعضاء وإعدادات الجمعية وحسابات المستخدمين.';
+      'لا يُحذف: المشتركون وإعدادات الجمعية وحسابات المستخدمين.';
 
   @override
   String get purgeIrreversible =>
@@ -778,15 +687,15 @@ class LAr extends L {
   String get purgeNothingToDo => 'لا توجد بيانات مالية لمسحها';
 
   @override
-  String get purgeAllTitle => 'مسح بيانات العائلات والأعضاء';
+  String get purgeAllTitle => 'مسح بيانات المشتركين';
 
   @override
   String get purgeAllIntro =>
-      'يحذف نهائياً كل العائلات والأعضاء، ومعها كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.';
+      'يحذف نهائياً كل المشتركين، ومعهم كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.';
 
   @override
   String get purgeAllWhyFinancial =>
-      'لماذا تُحذف البيانات المالية معها: كل استحقاق وكل إيصال مرتبط بعائلة، فلا يمكن حذف العائلة وإبقاء إيصالها.';
+      'لماذا تُحذف البيانات المالية معهم: كل استحقاق وكل إيصال مرتبط بمشترك، فلا يمكن حذف المشترك وإبقاء إيصاله.';
 
   @override
   String get purgeAllKeeps =>
@@ -841,27 +750,7 @@ class LAr extends L {
   String get cannotModifySelfNote => 'لا يمكنك تعديل حسابك الشخصي';
 
   @override
-  String get addFamily => 'إضافة عائلة';
-
-  @override
-  String get editFamily => 'تعديل العائلة';
-
-  @override
-  String get addSon => 'إضافة ابن';
-
-  @override
-  String get removeSon => 'حذف الابن';
-
-  @override
-  String sonNumber(int number) {
-    return 'الابن رقم $number';
-  }
-
-  @override
   String get requiredField => 'هذا الحقل مطلوب';
-
-  @override
-  String get familySaved => 'تم حفظ بيانات العائلة';
 
   @override
   String get membershipStatusField => 'حالة العضوية';
@@ -884,4 +773,55 @@ class LAr extends L {
 
   @override
   String get discard => 'تجاهل';
+
+  @override
+  String get delete => 'حذف';
+
+  @override
+  String get navRegister => 'المشتركين';
+
+  @override
+  String get addAdeel => 'إضافة مشترك';
+
+  @override
+  String get editAdeel => 'تعديل مشترك';
+
+  @override
+  String get searchAdeelsHint => 'بحث بالاسم أو الرقم الوطني أو الرمز...';
+
+  @override
+  String get noAdeels => 'لا يوجد مشتركون مسجلون بعد';
+
+  @override
+  String get registerIntro => 'كل مشترك يُسجَّل باسمه ويُحاسَب باشتراكه.';
+
+  @override
+  String get adeelSaved => 'تم حفظ بيانات المشترك';
+
+  @override
+  String get adeelDeleted => 'تم حذف المشترك';
+
+  @override
+  String get deleteAdeelTitle => 'حذف المشترك؟';
+
+  @override
+  String get deleteAdeelBody =>
+      'لا يمكن التراجع. المشترك الذي له سجل مالي لا يُحذف — غيّر حالته إلى موقوف بدلاً من ذلك.';
+
+  @override
+  String get monthlyFeeLabel => 'الاشتراك الشهري';
+
+  @override
+  String openPeriodsBadge(int count) {
+    return '$count فترة مفتوحة';
+  }
+
+  @override
+  String get issuedLabel => 'إجمالي المستحق';
+
+  @override
+  String get myDuesTitle => 'اشتراكاتي';
+
+  @override
+  String get duesSection => 'الاشتراكات';
 }

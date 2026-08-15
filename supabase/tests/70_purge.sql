@@ -1,7 +1,7 @@
 -- 70_purge.sql — the two purges, the deliberate exceptions to rule 9.
 --
---   purge_financial_data  the figures only; the directory survives
---   purge_all_data        the directory too, and therefore the figures with it
+--   purge_financial_data  the figures only; the register survives
+--   purge_all_data        the register too, and therefore the figures with it
 --
 -- Both are exercised here, narrow first, because the wide one's starting state
 -- is whatever the narrow one leaves behind — which is the state a real admin is
@@ -19,10 +19,10 @@
 --     ledger;
 --   * it refuses an admin who did not type the phrase, and a refusal leaves the
 --     data untouched — a half-purge would be worse than either outcome;
---   * it erases exactly six tables and NOTHING else. The before/after counts on
---     families, members and profiles are the checks that matter most: a stray
---     CASCADE in the TRUNCATE list would take the whole directory with it and
---     the function would still report success;
+--   * it erases exactly five tables and NOTHING else. The before/after counts on
+--     adeels and profiles are the checks that matter most: a stray CASCADE in the
+--     TRUNCATE list would take the whole register with it and the function would
+--     still report success;
 --   * the rule-9 and rule-12 guards are still armed afterwards. TRUNCATE was
 --     chosen over DISABLE TRIGGER + DELETE precisely so no path can leave them
 --     off, and this is the assertion that pins that choice;
@@ -37,8 +37,7 @@ SET client_min_messages = warning;
 -- comparing against the before-state proves the purge left them alone whatever
 -- the preceding four files did to them.
 CREATE TEMP TABLE purge_before AS
-  SELECT (SELECT count(*) FROM public.families) AS families,
-         (SELECT count(*) FROM public.members)  AS members,
+  SELECT (SELECT count(*) FROM public.adeels)   AS adeels,
          (SELECT count(*) FROM public.profiles) AS profiles,
          (SELECT count(*) FROM public.payments) AS payments;
 
@@ -85,8 +84,6 @@ RESET ROLE;
 
 SELECT probe.eq('purge', 'receivables are gone',
   $sql$ SELECT count(*)::text FROM public.receivables $sql$, '0');
-SELECT probe.eq('purge', 'receivable lines are gone',
-  $sql$ SELECT count(*)::text FROM public.receivable_lines $sql$, '0');
 SELECT probe.eq('purge', 'payments are gone',
   $sql$ SELECT count(*)::text FROM public.payments $sql$, '0');
 SELECT probe.eq('purge', 'allocations are gone',
@@ -100,12 +97,9 @@ SELECT probe.eq('purge', 'the audit trail is gone, and nothing records the purge
   $sql$ SELECT count(*)::text FROM public.audit_log $sql$, '0');
 
 -- ═════ And nothing else ══════════════════════════════════════════════════════
-SELECT probe.eq('purge', 'every family survived',
-  $sql$ SELECT ((SELECT count(*) FROM public.families)
-              = (SELECT families FROM purge_before))::text $sql$, 'true');
-SELECT probe.eq('purge', 'every member survived',
-  $sql$ SELECT ((SELECT count(*) FROM public.members)
-              = (SELECT members FROM purge_before))::text $sql$, 'true');
+SELECT probe.eq('purge', 'every عديل survived',
+  $sql$ SELECT ((SELECT count(*) FROM public.adeels)
+              = (SELECT adeels FROM purge_before))::text $sql$, 'true');
 SELECT probe.eq('purge', 'every user account survived',
   $sql$ SELECT ((SELECT count(*) FROM public.profiles)
               = (SELECT profiles FROM purge_before))::text $sql$, 'true');
@@ -114,13 +108,12 @@ SELECT probe.eq('purge', 'the association settings survived',
 
 -- ═════ The database still works, and starts from one ═════════════════════════
 -- Inserted as postgres rather than raised through generate_period(): the four
--- preceding files suspend and reinstate members, so which families are billable
--- by now is not something this file should have to know.
+-- preceding files suspend and reinstate عدايل, so which of them are billable by
+-- now is not something this file should have to know.
 SELECT probe.succeeds('purge', 'the financial tables accept new rows again', $sql$
-  INSERT INTO public.receivables (family_id, period, period_end, father_fee,
-                                  son_fee, father_name, eligibility_age_snapshot,
-                                  warning_months_snapshot, total)
-  VALUES (1, '2027-01', '2027-01-31', 20.00, 0.00, 'الأب الأول', 16, 3, 20.00)
+  INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
+                                  adeel_national_id, total)
+  VALUES (1, '2027-01', '2027-01-31', 'العديل الأول', '1000000000001', 20.00)
 $sql$);
 SELECT probe.eq('purge', 'RESTART IDENTITY: the first receivable is id 1',
   $sql$ SELECT min(id)::text FROM public.receivables $sql$, '1');
@@ -151,8 +144,8 @@ SELECT probe.raises('purge', 'the rule 12 audit guard is still armed',
 SELECT probe.eq('purge', 'no client role can TRUNCATE the financial tables itself',
   $sql$ SELECT bool_or(has_table_privilege(r, t, 'TRUNCATE'))::text
           FROM unnest(ARRAY['anon','authenticated']) r,
-               unnest(ARRAY['public.receivables','public.receivable_lines',
-                            'public.payments','public.payment_allocations',
+               unnest(ARRAY['public.receivables','public.payments',
+                            'public.payment_allocations',
                             'public.cash_movements','public.audit_log']) t $sql$,
   'false');
 
@@ -165,12 +158,12 @@ SELECT probe.eq('purge', 'anon cannot reach the purge function at all',
           'public.purge_financial_data(text)', 'EXECUTE')::text $sql$, 'false');
 
 -- ═════════════════════════════════════════════════════════════════════════════
--- purge_all_data — the wider purge, which takes the directory too.
+-- purge_all_data — the wider purge, which takes the register too.
 --
 -- Runs after the narrow one on purpose: the state it starts from is the one the
--- narrow purge leaves behind (a fresh receivable, one receipt, the directory
+-- narrow purge leaves behind (a fresh receivable, one receipt, the register
 -- untouched), which is exactly the state an admin is in when he decides the
--- figures were not enough and the families have to go as well.
+-- figures were not enough and the عدايل have to go as well.
 --
 -- The check that carries the design is 'the financial phrase does NOT satisfy
 -- it'. Two admin-only truncating functions are only safely distinct if the
@@ -178,24 +171,22 @@ SELECT probe.eq('purge', 'anon cannot reach the purge function at all',
 -- ═════════════════════════════════════════════════════════════════════════════
 
 CREATE TEMP TABLE purge_all_before AS
-  SELECT (SELECT count(*) FROM public.families) AS families,
-         (SELECT count(*) FROM public.members)  AS members,
-         (SELECT count(*) FROM public.profiles WHERE family_id IS NULL) AS staff;
+  SELECT (SELECT count(*) FROM public.adeels) AS adeels,
+         (SELECT count(*) FROM public.profiles WHERE adeel_id IS NULL) AS staff;
 
-SELECT probe.eq('purge_all', 'the directory is still standing before the wider purge',
-  $sql$ SELECT ((SELECT count(*) FROM public.families) > 0
-            AND (SELECT count(*) FROM public.members)  > 0)::text $sql$, 'true');
+SELECT probe.eq('purge_all', 'the register is still standing before the wider purge',
+  $sql$ SELECT ((SELECT count(*) FROM public.adeels) > 0)::text $sql$, 'true');
 
 SET ROLE authenticated;
 
 SELECT probe.become('00000000-0000-0000-0000-0000000000a3');  -- treasurer
-SELECT probe.raises('purge_all', 'a treasurer cannot purge the directory',
+SELECT probe.raises('purge_all', 'a treasurer cannot purge the register',
   $sql$ SELECT public.purge_all_data('مسح كل البيانات') $sql$, 'RUL00');
 
 SELECT probe.become('00000000-0000-0000-0000-0000000000a1');  -- admin
 
 -- THE check. An admin who meant to clear the figures, and typed the phrase he
--- knows, must not empty the directory instead.
+-- knows, must not empty the register instead.
 SELECT probe.raises('purge_all', 'the financial phrase does NOT satisfy the wider purge',
   $sql$ SELECT public.purge_all_data('مسح نهائي') $sql$, 'RUL13');
 -- And the reverse, so neither phrase is a superset of the other.
@@ -203,22 +194,19 @@ SELECT probe.raises('purge_all', 'the wider phrase does NOT satisfy the financia
   $sql$ SELECT public.purge_financial_data('مسح كل البيانات') $sql$, 'RUL13');
 
 RESET ROLE;
-SELECT probe.eq('purge_all', 'the refused attempts left the directory alone',
-  $sql$ SELECT ((SELECT count(*) FROM public.families)
-              = (SELECT families FROM purge_all_before))::text $sql$, 'true');
+SELECT probe.eq('purge_all', 'the refused attempts left the register alone',
+  $sql$ SELECT ((SELECT count(*) FROM public.adeels)
+              = (SELECT adeels FROM purge_all_before))::text $sql$, 'true');
 
 SET ROLE authenticated;
 SELECT probe.succeeds('purge_all', 'an admin with the wider phrase purges everything',
   $sql$ SELECT public.purge_all_data('مسح كل البيانات') $sql$);
 RESET ROLE;
 
-SELECT probe.eq('purge_all', 'families are gone',
-  $sql$ SELECT count(*)::text FROM public.families $sql$, '0');
-SELECT probe.eq('purge_all', 'members are gone',
-  $sql$ SELECT count(*)::text FROM public.members $sql$, '0');
-SELECT probe.eq('purge_all', 'the financial tables went with them',
+SELECT probe.eq('purge_all', 'the register is gone',
+  $sql$ SELECT count(*)::text FROM public.adeels $sql$, '0');
+SELECT probe.eq('purge_all', 'the financial tables went with it',
   $sql$ SELECT ((SELECT count(*) FROM public.receivables)
-              + (SELECT count(*) FROM public.receivable_lines)
               + (SELECT count(*) FROM public.payments)
               + (SELECT count(*) FROM public.payment_allocations)
               + (SELECT count(*) FROM public.cash_movements)
@@ -228,24 +216,25 @@ SELECT probe.eq('purge_all', 'the financial tables went with them',
 -- app, and settings are configuration rather than data.
 SELECT probe.eq('purge_all', 'the association settings survived',
   $sql$ SELECT count(*)::text FROM public.association_settings $sql$, '1');
--- STAFF accounts specifically. A head of family is deliberately NOT among the
--- survivors: his family is being erased, so leaving his profile would leave a
--- scope pointing at nothing, and my_family_id() would answer with a dead id.
--- His auth.users identity survives, so the same person can redeem a fresh code
--- once the directory is rebuilt.
+-- STAFF accounts specifically. A portal account is deliberately NOT among the
+-- survivors: his عديل row is being erased, so leaving his profile would leave a
+-- scope pointing at nothing, and my_adeel_id() would answer with a dead id. His
+-- auth.users identity survives, so the same person can redeem a fresh code once
+-- the register is rebuilt.
 SELECT probe.eq('purge_all', 'every STAFF account survived',
-  $sql$ SELECT ((SELECT count(*) FROM public.profiles WHERE family_id IS NULL)
+  $sql$ SELECT ((SELECT count(*) FROM public.profiles WHERE adeel_id IS NULL)
               = (SELECT staff FROM purge_all_before))::text $sql$, 'true');
-SELECT probe.eq('purge_all', 'and no family-head profile is left pointing at nothing',
+SELECT probe.eq('purge_all', 'and no portal profile is left pointing at nothing',
   $sql$ SELECT count(*)::text FROM public.profiles
-         WHERE family_id IS NOT NULL $sql$, '0');
+         WHERE adeel_id IS NOT NULL $sql$, '0');
 
--- RESTART IDENTITY reaches families too, so the association's first real family
--- is F-0001 rather than a continuation of the trial run's codes.
-SELECT probe.succeeds('purge_all', 'a family can be created again after the purge',
-  $sql$ INSERT INTO public.families DEFAULT VALUES $sql$);
-SELECT probe.eq('purge_all', 'RESTART IDENTITY: the first family is F-0001',
-  $sql$ SELECT family_code FROM public.families ORDER BY id LIMIT 1 $sql$, 'F-0001');
+-- RESTART IDENTITY reaches adeels too, so the association's first real عديل is
+-- A-0001 rather than a continuation of the trial run's codes.
+SELECT probe.succeeds('purge_all', 'an عديل can be created again after the purge',
+  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
+        VALUES ('العديل الأول بعد المسح', '1000000000001', current_date) $sql$);
+SELECT probe.eq('purge_all', 'RESTART IDENTITY: the first عديل is A-0001',
+  $sql$ SELECT adeel_code FROM public.adeels ORDER BY id LIMIT 1 $sql$, 'A-0001');
 
 SELECT probe.eq('purge_all', 'anon cannot reach the wider purge either',
   $sql$ SELECT has_function_privilege('anon',

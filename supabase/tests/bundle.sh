@@ -73,32 +73,32 @@ DECLARE
 BEGIN
   SELECT count(*) INTO v_tables FROM pg_tables
    WHERE schemaname = 'public'
-     AND tablename IN ('profiles','association_settings','families','members',
-                       'receivables','receivable_lines','payments',
-                       'payment_allocations','cash_movements','audit_log',
-                       'family_access_codes');
-  IF v_tables <> 11 THEN
-    RAISE EXCEPTION 'expected 11 tables, found %', v_tables;
+     AND tablename IN ('profiles','association_settings','adeels',
+                       'receivables','payments','payment_allocations',
+                       'cash_movements','audit_log','adeel_access_codes');
+  IF v_tables <> 9 THEN
+    RAISE EXCEPTION 'expected 9 tables, found %', v_tables;
   END IF;
 
   SELECT count(*) INTO v_views FROM pg_views
    WHERE schemaname = 'public' AND viewname LIKE 'v\_%';
-  IF v_views < 11 THEN
-    RAISE EXCEPTION 'expected at least 11 v_* views, found %', v_views;
+  IF v_views < 9 THEN
+    RAISE EXCEPTION 'expected at least 9 v_* views, found %', v_views;
   END IF;
 
   SELECT count(*) INTO v_funcs FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public'
      AND p.proname IN ('register_payment','cancel_payment','generate_period',
-                       'auto_close_periods','save_family','update_settings',
-                       'set_user_access','purge_financial_data','purge_all_data',
-                       'issue_family_code','redeem_family_code','my_family_id',
-                       'api_dashboard','api_family_detail','api_family_statement',
+                       'auto_close_periods','save_adeel','delete_adeel',
+                       'update_settings','set_user_access',
+                       'purge_financial_data','purge_all_data',
+                       'issue_adeel_code','redeem_adeel_code','my_adeel_id',
+                       'api_dashboard','api_adeel_detail','api_adeel_statement',
                        'api_receivables','api_alerts','api_financial_report',
                        'api_settings','api_me');
-  IF v_funcs <> 20 THEN
-    RAISE EXCEPTION 'expected 20 API functions, found %', v_funcs;
+  IF v_funcs <> 21 THEN
+    RAISE EXCEPTION 'expected 21 API functions, found %', v_funcs;
   END IF;
 
   -- Every table must have RLS ON. A table without it is readable by anyone

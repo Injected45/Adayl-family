@@ -10,9 +10,10 @@ import '../domain/models.dart';
 ///   Flat lists come straight from a `v_*` VIEW. PostgREST filters, orders and
 ///   limits them, so there is no query-building RPC to keep in step with the UI.
 ///
-///   Nested shapes come from an `api_*` FUNCTION returning jsonb. Family detail
-///   wraps family/father/sons/kpis and the statement needs a running balance
-///   established over an ordered merge — neither is expressible as a flat row.
+///   Nested shapes come from an `api_*` FUNCTION returning jsonb. An عديل's
+///   detail wraps his record, his KPIs and his dues, and the statement needs a
+///   running balance established over an ordered merge — neither is expressible
+///   as a flat row.
 ///
 /// EVERY read goes through a `v_*` view or an `api_*` function and NEVER through a
 /// base table. That is not style: the views cast money to text, and a base table
@@ -41,47 +42,46 @@ class DirectoryRepository {
     return _rows(rows).map(Official.fromJson).toList();
   });
 
-  Future<List<FamilyListItem>> families({
-    String query = '',
-  }) => SupabaseFailures.guard(() async {
-    // The search covers the father's name, his national ID and the family
-    // code, which is what the Node route's LIKE clause covered. `or` takes
-    // PostgREST filter syntax, so the pattern is interpolated — safe because
-    // the value never reaches SQL as code, but commas and parentheses would
-    // break the filter grammar, so they are stripped.
-    final String safe = query.replaceAll(RegExp(r'[(),*]'), ' ').trim();
-    final PostgrestFilterBuilder<dynamic> base = _db
-        .from('v_families')
-        .select();
-    final dynamic rows = safe.isEmpty
-        ? await base.order('id')
-        : await base
-              .or(
-                'fatherName.ilike.%$safe%,'
-                'fatherNationalId.ilike.%$safe%,'
-                'familyCode.ilike.%$safe%',
-              )
-              .order('id');
-    return _rows(rows).map(FamilyListItem.fromJson).toList();
-  });
+  /// The register. One list where there were two — families and members.
+  Future<List<AdeelListItem>> adeels({String query = ''}) =>
+      SupabaseFailures.guard(() async {
+        // The search covers his name, his national ID and his code. `or` takes
+        // PostgREST filter syntax, so the pattern is interpolated — safe because
+        // the value never reaches SQL as code, but commas and parentheses would
+        // break the filter grammar, so they are stripped.
+        final String safe = query.replaceAll(RegExp(r'[(),*]'), ' ').trim();
+        final PostgrestFilterBuilder<dynamic> base = _db
+            .from('v_adeels')
+            .select();
+        final dynamic rows = safe.isEmpty
+            ? await base.order('id')
+            : await base
+                  .or(
+                    'fullName.ilike.%$safe%,'
+                    'nationalId.ilike.%$safe%,'
+                    'adeelCode.ilike.%$safe%',
+                  )
+                  .order('id');
+        return _rows(rows).map(AdeelListItem.fromJson).toList();
+      });
 
-  Future<FamilyDetail> family(int id) => SupabaseFailures.guard(() async {
+  Future<AdeelDetail> adeel(int id) => SupabaseFailures.guard(() async {
     final dynamic payload = await _db.rpc<dynamic>(
-      'api_family_detail',
-      params: <String, dynamic>{'p_family_id': id},
+      'api_adeel_detail',
+      params: <String, dynamic>{'p_adeel_id': id},
     );
     if (payload == null) {
-      // The function returns NULL for a family the caller cannot see, which is
+      // The function returns NULL for an عديل the caller cannot see, which is
       // what RLS produces for an unapproved account — distinct from an error.
       throw const ApiExceptionNotFound();
     }
-    return FamilyDetail.fromJson(_obj(payload));
+    return AdeelDetail.fromJson(_obj(payload));
   });
 
-  Future<Statement> statement(int familyId) => SupabaseFailures.guard(() async {
+  Future<Statement> statement(int adeelId) => SupabaseFailures.guard(() async {
     final dynamic payload = await _db.rpc<dynamic>(
-      'api_family_statement',
-      params: <String, dynamic>{'p_family_id': familyId},
+      'api_adeel_statement',
+      params: <String, dynamic>{'p_adeel_id': adeelId},
     );
     final Map<String, dynamic> body = _obj(payload);
     return Statement(
@@ -91,24 +91,6 @@ class DirectoryRepository {
       closingBalance: body['closingBalance'] as String? ?? '0.00',
     );
   });
-
-  Future<List<MemberListItem>> members({String query = ''}) =>
-      SupabaseFailures.guard(() async {
-        final String safe = query.replaceAll(RegExp(r'[(),*]'), ' ').trim();
-        final PostgrestFilterBuilder<dynamic> base = _db
-            .from('v_members')
-            .select();
-        final dynamic rows = safe.isEmpty
-            ? await base.order('id')
-            : await base
-                  .or(
-                    'fullName.ilike.%$safe%,'
-                    'nationalId.ilike.%$safe%,'
-                    'familyName.ilike.%$safe%',
-                  )
-                  .order('id');
-        return _rows(rows).map(MemberListItem.fromJson).toList();
-      });
 
   Future<ReceivablesPage> receivables({String? period}) =>
       SupabaseFailures.guard(() async {
@@ -129,22 +111,51 @@ class DirectoryRepository {
         );
       });
 
-  /// Generates a fresh access code for a family and returns it in plaintext,
-  /// once — the admin then sends it to the head of family himself.
+  /// Creates or updates one عديل. `id` NULL creates.
+  ///
+  /// The payload is a flat object, where `save_family` took a father plus an
+  /// array of sons and had to delete the absent ones before inserting the
+  /// present ones. One call writes one row now, and that ordering hazard cannot
+  /// arise.
+  Future<int> saveAdeel({
+    int? id,
+    required Map<String, String> fields,
+  }) => SupabaseFailures.guard(() async {
+    final dynamic payload = await _db.rpc<dynamic>(
+      'save_adeel',
+      params: <String, dynamic>{'p_adeel_id': id, 'p_adeel': fields},
+    );
+    return (_obj(payload)['adeelId'] as num).toInt();
+  });
+
+  /// Removes an عديل from the register outright.
+  ///
+  /// Refused server-side the moment he has any financial history, because a
+  /// receipt must never point at nobody. Retiring someone with a ledger is a
+  /// status change (موقوف / متوفى), which stops the billing and keeps the debt.
+  Future<void> deleteAdeel(int id) => SupabaseFailures.guard(() async {
+    await _db.rpc<dynamic>(
+      'delete_adeel',
+      params: <String, dynamic>{'p_adeel_id': id},
+    );
+  });
+
+  /// Generates a fresh access code for an عديل and returns it in plaintext,
+  /// once — the admin then sends it to him.
   ///
   /// Admin-only server-side. The screen hides the button for everyone else, so
   /// the refusal never has to be explained to a finance manager who could not
   /// have known.
   ///
-  /// Issuing REVOKES the family's previous code — there is one row per family
-  /// and it is overwritten — but it does NOT sign out a head of family who has
-  /// already redeemed one, because by then the binding lives on his profile.
-  /// So an admin can reissue freely when a message is lost.
-  Future<String> issueFamilyCode(int familyId) =>
+  /// Issuing REVOKES his previous code — there is one row each and it is
+  /// overwritten — but it does NOT sign out someone who has already redeemed
+  /// one, because by then the binding lives on his profile. So an admin can
+  /// reissue freely when a message is lost.
+  Future<String> issueAdeelCode(int adeelId) =>
       SupabaseFailures.guard(() async {
         final dynamic payload = await _db.rpc<dynamic>(
-          'issue_family_code',
-          params: <String, dynamic>{'p_family_id': familyId},
+          'issue_adeel_code',
+          params: <String, dynamic>{'p_adeel_id': adeelId},
         );
         return _obj(payload)['code'] as String;
       });
@@ -152,7 +163,7 @@ class DirectoryRepository {
 
 /// Raised when a read returns nothing for an id the caller asked for by name.
 ///
-/// Distinct from an empty list: a missing family is either gone or invisible to
+/// Distinct from an empty list: a missing عديل is either gone or invisible to
 /// this role, and both should land on the same "not found" screen rather than an
 /// empty detail page that looks like a loading bug.
 class ApiExceptionNotFound implements Exception {

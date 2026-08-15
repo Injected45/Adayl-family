@@ -44,41 +44,45 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'role_rank(app_role)',
     'my_role()',
     'has_role(app_role)',
-    -- Answers only for the caller's own family binding, and the family-scoped
+    -- Answers only for the caller's own عديل binding, and the عديل-scoped
     -- policies call it, so the caller whose policy is being evaluated must hold
     -- EXECUTE — otherwise every one of those policies ERRORS instead of denying,
-    -- and the failure surfaces as "permission denied for function my_family_id"
-    -- on screens that have nothing to do with the family portal.
-    'my_family_id()',
+    -- and the failure surfaces as "permission denied for function my_adeel_id"
+    -- on screens that have nothing to do with the portal.
+    'my_adeel_id()',
 
-    -- Writes. Eleven functions, each require_role()-gated, each one transaction.
+    -- Writes. Each require_role()-gated, each one transaction.
     'register_payment(bigint,numeric,pay_method,text,text,text)',
     'cancel_payment(bigint,text)',
     'generate_period(character)',
     'auto_close_periods()',
-    'save_family(bigint,jsonb,jsonb)',
+    'save_adeel(bigint,jsonb)',
+    -- The only hard delete outside the purges, and it refuses any عديل who has
+    -- ever been billed or has ever paid. Retiring someone with history is a
+    -- status change, not a deletion.
+    'delete_adeel(bigint)',
     'update_settings(jsonb)',
     'set_user_access(uuid,app_role,app_status)',
     -- The two destructive ones. admin-only, and each refuses without its OWN
     -- typed phrase, so the phrase that clears the figures cannot clear the
-    -- directory. They are on the list because Settings calls them directly; the
-    -- reason that is safe is the same reason the other seven are — the gate is
-    -- inside the body, not in who can reach it.
+    -- register. They are on the list because Settings calls them directly; the
+    -- reason that is safe is the same reason the others are — the gate is inside
+    -- the body, not in who can reach it.
     'purge_financial_data(text)',
     'purge_all_data(text)',
 
-    -- The family portal. issue_ is admin-gated; redeem_ deliberately is NOT —
-    -- it is the one write a signed-in stranger may call, because until he
-    -- redeems a code he has no role and no family, and the code itself is the
+    -- The عديل portal. issue_ is admin-gated; redeem_ deliberately is NOT — it
+    -- is the one write a signed-in stranger may call, because until he redeems a
+    -- code he has no role and no binding, and the code itself is the
     -- authorisation. It refuses anyone who is already staff.
-    'issue_family_code(bigint)',
-    'redeem_family_code(text)',
+    'issue_adeel_code(bigint)',
+    'redeem_adeel_code(text)',
 
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',
-    'member_json(bigint)',
-    'api_family_detail(bigint)',
-    'api_family_statement(bigint)',
+    'adeel_json(bigint)',
+    'api_adeel_detail(bigint)',
+    'api_adeel_statement(bigint)',
     'api_dashboard()',
     'api_alerts()',
     'api_financial_report(date,date)',

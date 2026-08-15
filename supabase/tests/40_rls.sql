@@ -23,10 +23,8 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA probe TO anon, authenticated;
 SET ROLE anon;
 SELECT probe.become(NULL, 'anon');
 
-SELECT probe.raises('rls/anon', 'cannot read families',
-  'SELECT * FROM public.families', '42501');
-SELECT probe.raises('rls/anon', 'cannot read members (names, national IDs)',
-  'SELECT * FROM public.members', '42501');
+SELECT probe.raises('rls/anon', 'cannot read the register (names, national IDs)',
+  'SELECT * FROM public.adeels', '42501');
 SELECT probe.raises('rls/anon', 'cannot read receivables',
   'SELECT * FROM public.receivables', '42501');
 SELECT probe.raises('rls/anon', 'cannot read payments',
@@ -39,14 +37,17 @@ SELECT probe.raises('rls/anon', 'cannot read profiles',
   'SELECT * FROM public.profiles', '42501');
 SELECT probe.raises('rls/anon', 'cannot read settings',
   'SELECT * FROM public.association_settings', '42501');
-SELECT probe.raises('rls/anon', 'cannot read the families view',
-  'SELECT * FROM public.v_families', '42501');
+SELECT probe.raises('rls/anon', 'cannot read access codes',
+  'SELECT * FROM public.adeel_access_codes', '42501');
+SELECT probe.raises('rls/anon', 'cannot read the register view',
+  'SELECT * FROM public.v_adeels', '42501');
 SELECT probe.raises('rls/anon', 'cannot register a payment',
   'SELECT public.register_payment(1, 10, ''نقداً'')', '42501');
-SELECT probe.raises('rls/anon', 'cannot insert a family',
-  'INSERT INTO public.families DEFAULT VALUES', '42501');
+SELECT probe.raises('rls/anon', 'cannot insert an عديل',
+  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
+        VALUES ('x','9999',current_date) $sql$, '42501');
 SELECT probe.raises('rls/anon', 'cannot insert a payment directly',
-  'INSERT INTO public.payments (family_id, amount, method) VALUES (1,1,''نقداً'')', '42501');
+  'INSERT INTO public.payments (adeel_id, amount, method) VALUES (1,1,''نقداً'')', '42501');
 RESET ROLE;
 
 -- ═════ pending: signed in, never approved ════════════════════════════════════
@@ -55,10 +56,8 @@ RESET ROLE;
 SET ROLE authenticated;
 SELECT probe.become('00000000-0000-0000-0000-0000000000a5');
 
-SELECT probe.eq('rls/pending', 'sees zero families',
-  'SELECT count(*)::text FROM public.families', '0');
-SELECT probe.eq('rls/pending', 'sees zero members',
-  'SELECT count(*)::text FROM public.members', '0');
+SELECT probe.eq('rls/pending', 'sees zero عدايل',
+  'SELECT count(*)::text FROM public.adeels', '0');
 SELECT probe.eq('rls/pending', 'sees zero receivables',
   'SELECT count(*)::text FROM public.receivables', '0');
 SELECT probe.eq('rls/pending', 'sees zero payments',
@@ -81,7 +80,7 @@ SELECT probe.raises('rls/pending', 'cannot self-approve',
 -- The behavioural half of the security_invoker guarantee, and it MUST sit before
 -- the RESET ROLE below. A view created without security_invoker runs with its
 -- OWNER's rights and reads straight past RLS, so a pending user would see the
--- whole ledger through v_families while seeing nothing through the table itself.
+-- whole ledger through v_adeels while seeing nothing through the table itself.
 -- Introspecting reloptions cannot demonstrate that; this can.
 --
 -- Placed after RESET ROLE in the first draft, these ran as postgres — the table
@@ -91,12 +90,12 @@ SELECT probe.raises('rls/pending', 'cannot self-approve',
 -- role it names is worse than no test.
 SELECT probe.eq('rls/pending', 'is really running as authenticated, not as owner',
   'SELECT current_user', 'authenticated');
-SELECT probe.eq('rls/pending', 'sees zero rows through the families VIEW too',
-  'SELECT count(*)::text FROM public.v_families', '0');
+SELECT probe.eq('rls/pending', 'sees zero rows through the register VIEW too',
+  'SELECT count(*)::text FROM public.v_adeels', '0');
 SELECT probe.eq('rls/pending', 'sees zero rows through the receivables VIEW',
   'SELECT count(*)::text FROM public.v_receivables', '0');
-SELECT probe.eq('rls/pending', 'sees zero rows through the members VIEW',
-  'SELECT count(*)::text FROM public.v_members', '0');
+SELECT probe.eq('rls/pending', 'sees zero rows through the payments VIEW',
+  'SELECT count(*)::text FROM public.v_payments', '0');
 SELECT probe.eq('rls/pending', 'the treasury summary reads zero, not the real total',
   -- '0.00', not '0'. Every money value is two decimal places now: the aggregate
   -- is cast to numeric(12,2) before text, so an empty bucket formats like every
@@ -108,7 +107,7 @@ RESET ROLE;
 SET ROLE authenticated;
 SELECT probe.become('00000000-0000-0000-0000-0000000000a6');
 SELECT probe.eq('rls/suspended', 'an admin role with suspended status sees nothing',
-  'SELECT count(*)::text FROM public.families', '0');
+  'SELECT count(*)::text FROM public.adeels', '0');
 SELECT probe.raises('rls/suspended', 'and cannot use admin RPCs',
   $sql$ SELECT public.update_settings('{"currency":"HACKED"}'::jsonb) $sql$, 'RUL00');
 RESET ROLE;
@@ -118,15 +117,18 @@ SET ROLE authenticated;
 SELECT probe.become('00000000-0000-0000-0000-0000000000a4');
 SELECT probe.eq('rls/viewer', 'is running as authenticated', 'SELECT current_user', 'authenticated');
 
-SELECT probe.eq('rls/viewer', 'CAN read families',
-  'SELECT count(*)::text FROM public.families', '2');
-SELECT probe.eq('rls/viewer', 'CAN read the families view',
-  'SELECT count(*)::text FROM public.v_families', '2');
+SELECT probe.eq('rls/viewer', 'CAN read the register',
+  'SELECT count(*)::text FROM public.adeels', '4');
+SELECT probe.eq('rls/viewer', 'CAN read the register view',
+  'SELECT count(*)::text FROM public.v_adeels', '4');
 SELECT probe.eq('rls/viewer', 'CAN read the treasury summary',
   'SELECT count(*)::text FROM public.v_cash_summary', '1');
 -- audit is financeManager+, so a viewer sees an empty trail rather than an error
 SELECT probe.eq('rls/viewer', 'sees an EMPTY audit trail',
   'SELECT count(*)::text FROM public.audit_log', '0');
+-- Access codes are admin-only: the code IS the credential.
+SELECT probe.eq('rls/viewer', 'sees no access codes',
+  'SELECT count(*)::text FROM public.adeel_access_codes', '0');
 
 SELECT probe.raises('rls/viewer', 'cannot register a payment',
   'SELECT public.register_payment(1, 10, ''نقداً'')', 'RUL00');
@@ -134,23 +136,28 @@ SELECT probe.raises('rls/viewer', 'cannot cancel a payment',
   'SELECT public.cancel_payment(1, ''x'')', 'RUL00');
 SELECT probe.raises('rls/viewer', 'cannot generate receivables',
   'SELECT public.generate_period(''2026-05'')', 'RUL00');
-SELECT probe.raises('rls/viewer', 'cannot save a family',
-  'SELECT public.save_family(NULL, ''{"fullName":"x","nationalId":"9"}''::jsonb)', 'RUL00');
+SELECT probe.raises('rls/viewer', 'cannot save an عديل',
+  'SELECT public.save_adeel(NULL, ''{"fullName":"x","nationalId":"9"}''::jsonb)', 'RUL00');
+SELECT probe.raises('rls/viewer', 'cannot delete an عديل',
+  'SELECT public.delete_adeel(1)', 'RUL00');
 SELECT probe.raises('rls/viewer', 'cannot change settings',
   'SELECT public.update_settings(''{"currency":"X"}''::jsonb)', 'RUL00');
 SELECT probe.raises('rls/viewer', 'cannot grant themselves a role',
   $sql$ SELECT public.set_user_access('00000000-0000-0000-0000-0000000000a4','admin','approved') $sql$,
   'RUL00');
+SELECT probe.raises('rls/viewer', 'cannot issue an access code',
+  'SELECT public.issue_adeel_code(1)', 'RUL00');
 
 -- Direct table writes: no privilege at all, so these never even reach a policy.
-SELECT probe.raises('rls/viewer', 'cannot INSERT a family',
-  'INSERT INTO public.families DEFAULT VALUES', '42501');
+SELECT probe.raises('rls/viewer', 'cannot INSERT an عديل',
+  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
+        VALUES ('x','8888',current_date) $sql$, '42501');
 SELECT probe.raises('rls/viewer', 'cannot UPDATE a receivable balance',
   'UPDATE public.receivables SET paid = 0 WHERE id = 1', '42501');
 SELECT probe.raises('rls/viewer', 'cannot DELETE a payment',
   'DELETE FROM public.payments WHERE id = 1', '42501');
 SELECT probe.raises('rls/viewer', 'cannot INSERT into the treasury',
-  'INSERT INTO public.cash_movements (payment_id, family_id, amount, method, occurred_at)
+  'INSERT INTO public.cash_movements (payment_id, adeel_id, amount, method, occurred_at)
    VALUES (1,1,1,''نقداً'',now())', '42501');
 SELECT probe.raises('rls/viewer', 'cannot forge an audit entry',
   'INSERT INTO public.audit_log (event_type, detail, actor_name) VALUES (''x'',''y'',''z'')', '42501');
@@ -184,16 +191,17 @@ SELECT probe.succeeds('rls/finance', 'CAN cancel a payment',
   'SELECT public.cancel_payment(2, ''تصحيح'')');
 SELECT probe.succeeds('rls/finance', 'CAN generate receivables',
   'SELECT public.generate_period(''2026-05'')');
-SELECT probe.succeeds('rls/finance', 'CAN save a family', $sql$
-  SELECT public.save_family(NULL,
-    '{"fullName":"أب جديد","nationalId":"1000000000200","dob":"1980-01-01"}'::jsonb,
-    '[{"fullName":"ابن جديد","nationalId":"1000000000201","dob":"2006-01-01"}]'::jsonb)
+SELECT probe.succeeds('rls/finance', 'CAN save an عديل', $sql$
+  SELECT public.save_adeel(NULL,
+    '{"fullName":"عديل جديد","nationalId":"1000000000200","dob":"1980-01-01"}'::jsonb)
 $sql$);
 SELECT probe.raises('rls/finance', 'cannot change settings',
   'SELECT public.update_settings(''{"currency":"X"}''::jsonb)', 'RUL00');
 SELECT probe.raises('rls/finance', 'cannot grant roles',
   $sql$ SELECT public.set_user_access('00000000-0000-0000-0000-0000000000a4','admin','approved') $sql$,
   'RUL00');
+SELECT probe.raises('rls/finance', 'cannot issue an access code',
+  'SELECT public.issue_adeel_code(1)', 'RUL00');
 SELECT probe.eq('rls/finance', 'CAN read the audit trail',
   'SELECT (count(*) > 0)::text FROM public.audit_log', 'true');
 RESET ROLE;
@@ -213,7 +221,8 @@ SELECT probe.raises('rls/admin', 'cannot change their OWN role',
   $sql$ SELECT public.set_user_access('00000000-0000-0000-0000-0000000000a1','viewer','approved') $sql$,
   'RUL00');
 SELECT probe.raises('rls/admin', 'cannot still write tables directly',
-  'INSERT INTO public.families DEFAULT VALUES', '42501');
+  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
+        VALUES ('x','7777',current_date) $sql$, '42501');
 RESET ROLE;
 
 -- ═════ The last-admin guard, exercised as postgres ═══════════════════════════
@@ -251,7 +260,7 @@ SELECT probe.succeeds('lockdown', 'a clean schema passes the security_invoker ch
 
 -- A view without security_invoker reads straight past RLS — the single most
 -- likely way this schema could be opened up by accident.
-CREATE VIEW public._planted_bypass AS SELECT id FROM public.families;
+CREATE VIEW public._planted_bypass AS SELECT id FROM public.adeels;
 SELECT probe.raises_like('lockdown',
   'a view that would bypass RLS is CAUGHT',
   'SELECT public.assert_views_security_invoker()', 'P0001', '%_planted_bypass%');

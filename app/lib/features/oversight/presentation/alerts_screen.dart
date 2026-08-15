@@ -94,7 +94,7 @@ class AlertsScreen extends ConsumerWidget {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadius.card),
                         onTap: () => context.go(
-                          '${AppRoutes.families}/${alert.familyId}',
+                          '${AppRoutes.adeels}/${alert.adeelId}',
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.md),

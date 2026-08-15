@@ -45,7 +45,8 @@ END $revoke$;
 -- earlier files, so this one file is the complete answer to "what can a client
 -- call?".
 GRANT EXECUTE ON FUNCTION
-  public.role_rank(app_role), public.my_role(), public.has_role(app_role)
+  public.role_rank(app_role), public.my_role(), public.has_role(app_role),
+  public.my_adeel_id()
 TO authenticated;
 
 GRANT EXECUTE ON FUNCTION
@@ -53,9 +54,14 @@ GRANT EXECUTE ON FUNCTION
   public.cancel_payment(bigint, text),
   public.generate_period(char),
   public.auto_close_periods(),
-  public.save_family(bigint, jsonb, jsonb),
+  public.save_adeel(bigint, jsonb),
+  public.delete_adeel(bigint),
   public.update_settings(jsonb),
-  public.set_user_access(uuid, app_role, app_status)
+  public.set_user_access(uuid, app_role, app_status),
+  public.purge_financial_data(text),
+  public.purge_all_data(text),
+  public.issue_adeel_code(bigint),
+  public.redeem_adeel_code(text)
 TO authenticated;
 
 -- Deliberately NOT granted to anyone: write_audit (forgeable trail entries),

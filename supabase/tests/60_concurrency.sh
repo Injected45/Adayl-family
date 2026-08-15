@@ -10,7 +10,7 @@
 # It cannot be tested from one connection: a single session never contends with
 # itself. Two psql processes, deliberately overlapped.
 #
-# Fixture: a family owing exactly 100.00 in one receivable. Both sessions try to
+# Fixture: an عديل owing exactly 100.00 in one receivable. Both sessions try to
 # pay 60.00. Correct outcome is one success and one RUL07 — never two successes,
 # because 120 collected against 100 owed is money invented from nothing.
 set -uo pipefail
@@ -25,16 +25,15 @@ TREASURER='00000000-0000-0000-0000-0000000000a3'
 CLAIMS="{\"sub\":\"$TREASURER\",\"role\":\"authenticated\"}"
 
 # ── Fixture ───────────────────────────────────────────────────────────────────
-FID=$(Q <<SQL
-INSERT INTO public.families DEFAULT VALUES RETURNING id;
+AID=$(Q <<SQL
+INSERT INTO public.adeels (full_name, national_id, dob, registered_at)
+VALUES ('عديل التزامن', '1000000009000', '1980-01-01', current_date) RETURNING id;
 SQL
 )
 Q -v ON_ERROR_STOP=1 <<SQL
-INSERT INTO public.members (family_id, kind, full_name, national_id, dob, registered_at)
-VALUES ($FID, 'father', 'أب التزامن', '1000000009000', '1980-01-01', current_date);
-INSERT INTO public.receivables (family_id, period, period_end, father_fee, son_fee,
-  father_name, eligibility_age_snapshot, warning_months_snapshot, total)
-VALUES ($FID, '2027-01', '2027-01-31', 100, 0, 'أب التزامن', 16, 3, 100.00);
+INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
+  adeel_national_id, total)
+VALUES ($AID, '2027-01', '2027-01-31', 'عديل التزامن', '1000000009000', 100.00);
 SQL
 
 race_session() {
@@ -45,7 +44,7 @@ SELECT set_config('request.jwt.claims', '$CLAIMS', true);
 -- Both sessions reach the locking SELECT inside the same window. The staggered
 -- sleep is INSIDE the transaction but BEFORE the call, so both are open at once.
 SELECT pg_sleep($delay);
-SELECT 'RESULT=' || (public.register_payment($FID, 60.00, 'نقداً') ->> 'receiptNo');
+SELECT 'RESULT=' || (public.register_payment($AID, 60.00, 'نقداً') ->> 'receiptNo');
 COMMIT;
 SQL
 }
@@ -62,7 +61,7 @@ OK_B=$(grep -c 'RESULT=PAY-' "$B" || true)
 WINNERS=$(( OK_A + OK_B ))
 LOSER_MSG="$(cat "$A" "$B" | grep -i 'Rule 7' | head -1 || true)"
 
-PAID=$(Q -c "SELECT paid::text FROM public.receivables WHERE family_id = $FID;")
+PAID=$(Q -c "SELECT paid::text FROM public.receivables WHERE adeel_id = $AID;")
 # c.amount, qualified. Both cash_movements and payments have an `amount` column,
 # so the bare name was ambiguous — the query errored, COLLECTED came back empty,
 # and the two notes below it never ran. The suite still reported 169 checks,
@@ -75,10 +74,10 @@ PAID=$(Q -c "SELECT paid::text FROM public.receivables WHERE family_id = $FID;")
 COLLECTED=$(Q <<SQL
 SELECT coalesce(sum(c.amount),0)::text FROM public.cash_movements c
   JOIN public.payments p ON p.id = c.payment_id
- WHERE p.family_id = $FID AND c.status <> 'ملغي';
+ WHERE p.adeel_id = $AID AND c.status <> 'ملغي';
 SQL
 )
-NPAY=$(Q -c "SELECT count(*)::text FROM public.payments WHERE family_id = $FID;")
+NPAY=$(Q -c "SELECT count(*)::text FROM public.payments WHERE adeel_id = $AID;")
 
 echo "  session A: $(tr -d '\r' < "$A" | tail -2 | tr '\n' ' ')"
 echo "  session B: $(tr -d '\r' < "$B" | tail -2 | tr '\n' ' ')"

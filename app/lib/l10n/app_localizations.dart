@@ -106,7 +106,7 @@ abstract class L {
   /// No description provided for @appTagline.
   ///
   /// In ar, this message translates to:
-  /// **'نظام إدارة العائلات والاشتراكات والصندوق'**
+  /// **'نظام إدارة المشتركين والاشتراكات والصندوق'**
   String get appTagline;
 
   /// No description provided for @loginTitle.
@@ -289,18 +289,6 @@ abstract class L {
   /// **'الرئيسية'**
   String get navHome;
 
-  /// No description provided for @navFamilies.
-  ///
-  /// In ar, this message translates to:
-  /// **'العائلات'**
-  String get navFamilies;
-
-  /// No description provided for @navMembers.
-  ///
-  /// In ar, this message translates to:
-  /// **'الأعضاء'**
-  String get navMembers;
-
   /// No description provided for @navReceivables.
   ///
   /// In ar, this message translates to:
@@ -409,59 +397,11 @@ abstract class L {
   /// **'سيتم بناء هذه الشاشة في مرحلة لاحقة.'**
   String get comingSoonBody;
 
-  /// No description provided for @searchFamiliesHint.
-  ///
-  /// In ar, this message translates to:
-  /// **'بحث بالاسم، الرقم الوطني، الهاتف، الاكتتاب، جهة العمل...'**
-  String get searchFamiliesHint;
-
-  /// No description provided for @searchMembersHint.
-  ///
-  /// In ar, this message translates to:
-  /// **'بحث بالاسم أو الرقم الوطني أو الهاتف أو جهة العمل...'**
-  String get searchMembersHint;
-
-  /// No description provided for @noFamilies.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد عائلات مسجلة بعد'**
-  String get noFamilies;
-
   /// No description provided for @noSearchResults.
   ///
   /// In ar, this message translates to:
   /// **'لا توجد نتائج لبحثك'**
   String get noSearchResults;
-
-  /// No description provided for @noMembers.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا يوجد أعضاء مسجلون'**
-  String get noMembers;
-
-  /// No description provided for @familiesIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'كل عائلة تبدأ بالأب وتندرج تحتها أسماء الأبناء الذكور.'**
-  String get familiesIntro;
-
-  /// No description provided for @membersIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'بحث موحد في الآباء والأبناء الذكور.'**
-  String get membersIntro;
-
-  /// No description provided for @sonsBadge.
-  ///
-  /// In ar, this message translates to:
-  /// **'{count} أبناء'**
-  String sonsBadge(int count);
-
-  /// No description provided for @eligibleBadge.
-  ///
-  /// In ar, this message translates to:
-  /// **'{count} مستحقون'**
-  String eligibleBadge(int count);
 
   /// No description provided for @debtBadge.
   ///
@@ -478,32 +418,8 @@ abstract class L {
   /// No description provided for @familySummary.
   ///
   /// In ar, this message translates to:
-  /// **'ملخص العائلة'**
+  /// **'ملخص المشترك'**
   String get familySummary;
-
-  /// No description provided for @sonsCount.
-  ///
-  /// In ar, this message translates to:
-  /// **'عدد الأبناء'**
-  String get sonsCount;
-
-  /// No description provided for @eligibleCount.
-  ///
-  /// In ar, this message translates to:
-  /// **'المستحقون'**
-  String get eligibleCount;
-
-  /// No description provided for @soonCount.
-  ///
-  /// In ar, this message translates to:
-  /// **'قريبون من السن'**
-  String get soonCount;
-
-  /// No description provided for @monthlyExpected.
-  ///
-  /// In ar, this message translates to:
-  /// **'الاستحقاق الشهري الحالي'**
-  String get monthlyExpected;
 
   /// No description provided for @debt.
   ///
@@ -517,23 +433,17 @@ abstract class L {
   /// **'إجمالي المدفوع المعتمد'**
   String get totalPaid;
 
-  /// No description provided for @fatherData.
+  /// No description provided for @personalData.
   ///
   /// In ar, this message translates to:
-  /// **'بيانات الأب'**
-  String get fatherData;
+  /// **'البيانات الشخصية'**
+  String get personalData;
 
-  /// No description provided for @sonsSection.
+  /// No description provided for @totalDue.
   ///
   /// In ar, this message translates to:
-  /// **'الأبناء'**
-  String get sonsSection;
-
-  /// No description provided for @statementShort.
-  ///
-  /// In ar, this message translates to:
-  /// **'كشف مختصر'**
-  String get statementShort;
+  /// **'المستحق'**
+  String get totalDue;
 
   /// No description provided for @phone.
   ///
@@ -583,29 +493,11 @@ abstract class L {
   /// **'العمر'**
   String get age;
 
-  /// No description provided for @relation.
-  ///
-  /// In ar, this message translates to:
-  /// **'الصفة'**
-  String get relation;
-
-  /// No description provided for @family.
-  ///
-  /// In ar, this message translates to:
-  /// **'العائلة'**
-  String get family;
-
   /// No description provided for @notProvided.
   ///
   /// In ar, this message translates to:
   /// **'—'**
   String get notProvided;
-
-  /// No description provided for @currentValue.
-  ///
-  /// In ar, this message translates to:
-  /// **'القيمة الحالية'**
-  String get currentValue;
 
   /// No description provided for @receivablesIntro.
   ///
@@ -649,30 +541,6 @@ abstract class L {
   /// **'الحالة'**
   String get statusLabel;
 
-  /// No description provided for @billedSons.
-  ///
-  /// In ar, this message translates to:
-  /// **'الأبناء المحتسبون'**
-  String get billedSons;
-
-  /// No description provided for @noneBilled.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا يوجد'**
-  String get noneBilled;
-
-  /// No description provided for @fatherFee.
-  ///
-  /// In ar, this message translates to:
-  /// **'اشتراك الأب'**
-  String get fatherFee;
-
-  /// No description provided for @sonFee.
-  ///
-  /// In ar, this message translates to:
-  /// **'اشتراك الابن'**
-  String get sonFee;
-
   /// No description provided for @issuedTotal.
   ///
   /// In ar, this message translates to:
@@ -706,13 +574,13 @@ abstract class L {
   /// No description provided for @selectFamily.
   ///
   /// In ar, this message translates to:
-  /// **'اختر العائلة'**
+  /// **'اختر المشترك'**
   String get selectFamily;
 
   /// No description provided for @selectFamilyToView.
   ///
   /// In ar, this message translates to:
-  /// **'اختر عائلة لعرض كشف الحساب'**
+  /// **'اختر مشتركاً لعرض كشف الحساب'**
   String get selectFamilyToView;
 
   /// No description provided for @noMovements.
@@ -886,7 +754,7 @@ abstract class L {
   /// No description provided for @noDebtForFamily.
   ///
   /// In ar, this message translates to:
-  /// **'هذه العائلة لا توجد عليها مديونية، لذلك لا يمكن تسجيل سداد.'**
+  /// **'هذا المشترك لا توجد عليه مديونية، لذلك لا يمكن تسجيل سداد.'**
   String get noDebtForFamily;
 
   /// No description provided for @amountTooHigh.
@@ -1012,7 +880,7 @@ abstract class L {
   /// No description provided for @generateConfirmBody.
   ///
   /// In ar, this message translates to:
-  /// **'سيتم إنشاء استحقاق لكل عائلة عليها اشتراك مستحق لهذا الشهر. لا يمكن إنشاء استحقاق مكرر لنفس العائلة والشهر.'**
+  /// **'سيتم إنشاء استحقاق لكل مشترك نشط لهذا الشهر. لا يمكن إنشاء استحقاق مكرر لنفس المشترك والشهر.'**
   String get generateConfirmBody;
 
   /// No description provided for @generateConfirm.
@@ -1051,17 +919,17 @@ abstract class L {
   /// **'ملخص الوضع الإداري والمالي للجمعية.'**
   String get dashboardIntro;
 
-  /// No description provided for @statFamilies.
+  /// No description provided for @statAdeels.
   ///
   /// In ar, this message translates to:
-  /// **'عدد العائلات'**
-  String get statFamilies;
+  /// **'عدد المشتركين'**
+  String get statAdeels;
 
-  /// No description provided for @statEligibleSons.
+  /// No description provided for @statInactive.
   ///
   /// In ar, this message translates to:
-  /// **'الأبناء المستحقون'**
-  String get statEligibleSons;
+  /// **'غير المحاسَبين'**
+  String get statInactive;
 
   /// No description provided for @statTotalDebt.
   ///
@@ -1075,23 +943,23 @@ abstract class L {
   /// **'إجمالي المحصل'**
   String get statTotalCollected;
 
-  /// No description provided for @subSons.
+  /// No description provided for @subActive.
   ///
   /// In ar, this message translates to:
-  /// **'الأبناء {count}'**
-  String subSons(int count);
+  /// **'{count} نشط'**
+  String subActive(int count);
 
-  /// No description provided for @subApproaching.
+  /// No description provided for @subDeceased.
   ///
   /// In ar, this message translates to:
-  /// **'قريبون من الاستحقاق {count}'**
-  String subApproaching(int count);
+  /// **'{count} متوفى'**
+  String subDeceased(int count);
 
-  /// No description provided for @subIndebtedFamilies.
+  /// No description provided for @subIndebtedAdeels.
   ///
   /// In ar, this message translates to:
-  /// **'{count} عائلة مدينة'**
-  String subIndebtedFamilies(int count);
+  /// **'{count} مشترك مدين'**
+  String subIndebtedAdeels(int count);
 
   /// No description provided for @subCashTransfer.
   ///
@@ -1105,41 +973,17 @@ abstract class L {
   /// **'أعلى المديونيات'**
   String get topDebtors;
 
-  /// No description provided for @upcomingAlerts.
-  ///
-  /// In ar, this message translates to:
-  /// **'تنبيهات قريبة'**
-  String get upcomingAlerts;
-
   /// No description provided for @noDebtsNow.
   ///
   /// In ar, this message translates to:
   /// **'لا توجد مديونيات حالية'**
   String get noDebtsNow;
 
-  /// No description provided for @noAgeAlerts.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد تنبيهات عمرية حالياً'**
-  String get noAgeAlerts;
-
   /// No description provided for @closeMonth.
   ///
   /// In ar, this message translates to:
   /// **'إقفال {period}'**
   String closeMonth(String period);
-
-  /// No description provided for @approachingBadge.
-  ///
-  /// In ar, this message translates to:
-  /// **'قريب من السن'**
-  String get approachingBadge;
-
-  /// No description provided for @sonOf.
-  ///
-  /// In ar, this message translates to:
-  /// **'ابن {father}'**
-  String sonOf(String father);
 
   /// No description provided for @alertsIntro.
   ///
@@ -1360,19 +1204,19 @@ abstract class L {
   /// No description provided for @familyCodeTitle.
   ///
   /// In ar, this message translates to:
-  /// **'لديك رمز عائلة؟'**
+  /// **'لديك رمز اشتراك؟'**
   String get familyCodeTitle;
 
   /// No description provided for @familyCodeBody.
   ///
   /// In ar, this message translates to:
-  /// **'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بعائلتك، اكتبه هنا لترى بيانات عائلتك مباشرة.'**
+  /// **'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، اكتبه هنا لترى بيانات اشتراكك مباشرة.'**
   String get familyCodeBody;
 
   /// No description provided for @familyCodeField.
   ///
   /// In ar, this message translates to:
-  /// **'رمز العائلة'**
+  /// **'رمز الاشتراك'**
   String get familyCodeField;
 
   /// No description provided for @familyCodeHint.
@@ -1384,26 +1228,20 @@ abstract class L {
   /// No description provided for @familyCodeAction.
   ///
   /// In ar, this message translates to:
-  /// **'دخول بحساب العائلة'**
+  /// **'دخول برمز الاشتراك'**
   String get familyCodeAction;
 
   /// No description provided for @myFamilyTitle.
   ///
   /// In ar, this message translates to:
-  /// **'عائلتي'**
+  /// **'اشتراكي'**
   String get myFamilyTitle;
 
   /// No description provided for @myFamilyIntro.
   ///
   /// In ar, this message translates to:
-  /// **'بيانات عائلتك واشتراكاتك ومدفوعاتك. للاطلاع فقط.'**
+  /// **'بيانات اشتراكك ومدفوعاتك. للاطلاع فقط.'**
   String get myFamilyIntro;
-
-  /// No description provided for @myMembersSection.
-  ///
-  /// In ar, this message translates to:
-  /// **'أفراد العائلة'**
-  String get myMembersSection;
 
   /// No description provided for @myStatementSection.
   ///
@@ -1414,13 +1252,13 @@ abstract class L {
   /// No description provided for @issueCodeTitle.
   ///
   /// In ar, this message translates to:
-  /// **'رمز دخول العائلة'**
+  /// **'رمز دخول المشترك'**
   String get issueCodeTitle;
 
   /// No description provided for @issueCodeBody.
   ///
   /// In ar, this message translates to:
-  /// **'أعطِ هذا الرمز لرب العائلة ليدخل ويرى بيانات عائلته فقط. إصدار رمز جديد يلغي القديم.'**
+  /// **'أعطِ هذا الرمز للمشترك ليدخل ويرى بياناته فقط. إصدار رمز جديد يلغي القديم.'**
   String get issueCodeBody;
 
   /// No description provided for @issueCodeAction.
@@ -1462,7 +1300,7 @@ abstract class L {
   /// No description provided for @purgeKeeps.
   ///
   /// In ar, this message translates to:
-  /// **'لا يُحذف: العائلات والأعضاء وإعدادات الجمعية وحسابات المستخدمين.'**
+  /// **'لا يُحذف: المشتركون وإعدادات الجمعية وحسابات المستخدمين.'**
   String get purgeKeeps;
 
   /// No description provided for @purgeIrreversible.
@@ -1516,19 +1354,19 @@ abstract class L {
   /// No description provided for @purgeAllTitle.
   ///
   /// In ar, this message translates to:
-  /// **'مسح بيانات العائلات والأعضاء'**
+  /// **'مسح بيانات المشتركين'**
   String get purgeAllTitle;
 
   /// No description provided for @purgeAllIntro.
   ///
   /// In ar, this message translates to:
-  /// **'يحذف نهائياً كل العائلات والأعضاء، ومعها كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.'**
+  /// **'يحذف نهائياً كل المشتركين، ومعهم كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.'**
   String get purgeAllIntro;
 
   /// No description provided for @purgeAllWhyFinancial.
   ///
   /// In ar, this message translates to:
-  /// **'لماذا تُحذف البيانات المالية معها: كل استحقاق وكل إيصال مرتبط بعائلة، فلا يمكن حذف العائلة وإبقاء إيصالها.'**
+  /// **'لماذا تُحذف البيانات المالية معهم: كل استحقاق وكل إيصال مرتبط بمشترك، فلا يمكن حذف المشترك وإبقاء إيصاله.'**
   String get purgeAllWhyFinancial;
 
   /// No description provided for @purgeAllKeeps.
@@ -1633,47 +1471,11 @@ abstract class L {
   /// **'لا يمكنك تعديل حسابك الشخصي'**
   String get cannotModifySelfNote;
 
-  /// No description provided for @addFamily.
-  ///
-  /// In ar, this message translates to:
-  /// **'إضافة عائلة'**
-  String get addFamily;
-
-  /// No description provided for @editFamily.
-  ///
-  /// In ar, this message translates to:
-  /// **'تعديل العائلة'**
-  String get editFamily;
-
-  /// No description provided for @addSon.
-  ///
-  /// In ar, this message translates to:
-  /// **'إضافة ابن'**
-  String get addSon;
-
-  /// No description provided for @removeSon.
-  ///
-  /// In ar, this message translates to:
-  /// **'حذف الابن'**
-  String get removeSon;
-
-  /// No description provided for @sonNumber.
-  ///
-  /// In ar, this message translates to:
-  /// **'الابن رقم {number}'**
-  String sonNumber(int number);
-
   /// No description provided for @requiredField.
   ///
   /// In ar, this message translates to:
   /// **'هذا الحقل مطلوب'**
   String get requiredField;
-
-  /// No description provided for @familySaved.
-  ///
-  /// In ar, this message translates to:
-  /// **'تم حفظ بيانات العائلة'**
-  String get familySaved;
 
   /// No description provided for @membershipStatusField.
   ///
@@ -1716,6 +1518,102 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'تجاهل'**
   String get discard;
+
+  /// No description provided for @delete.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف'**
+  String get delete;
+
+  /// No description provided for @navRegister.
+  ///
+  /// In ar, this message translates to:
+  /// **'المشتركين'**
+  String get navRegister;
+
+  /// No description provided for @addAdeel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة مشترك'**
+  String get addAdeel;
+
+  /// No description provided for @editAdeel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل مشترك'**
+  String get editAdeel;
+
+  /// No description provided for @searchAdeelsHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'بحث بالاسم أو الرقم الوطني أو الرمز...'**
+  String get searchAdeelsHint;
+
+  /// No description provided for @noAdeels.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد مشتركون مسجلون بعد'**
+  String get noAdeels;
+
+  /// No description provided for @registerIntro.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل مشترك يُسجَّل باسمه ويُحاسَب باشتراكه.'**
+  String get registerIntro;
+
+  /// No description provided for @adeelSaved.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم حفظ بيانات المشترك'**
+  String get adeelSaved;
+
+  /// No description provided for @adeelDeleted.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم حذف المشترك'**
+  String get adeelDeleted;
+
+  /// No description provided for @deleteAdeelTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف المشترك؟'**
+  String get deleteAdeelTitle;
+
+  /// No description provided for @deleteAdeelBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يمكن التراجع. المشترك الذي له سجل مالي لا يُحذف — غيّر حالته إلى موقوف بدلاً من ذلك.'**
+  String get deleteAdeelBody;
+
+  /// No description provided for @monthlyFeeLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاشتراك الشهري'**
+  String get monthlyFeeLabel;
+
+  /// No description provided for @openPeriodsBadge.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} فترة مفتوحة'**
+  String openPeriodsBadge(int count);
+
+  /// No description provided for @issuedLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي المستحق'**
+  String get issuedLabel;
+
+  /// No description provided for @myDuesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اشتراكاتي'**
+  String get myDuesTitle;
+
+  /// No description provided for @duesSection.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاشتراكات'**
+  String get duesSection;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

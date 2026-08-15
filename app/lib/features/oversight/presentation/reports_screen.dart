@@ -164,7 +164,7 @@ class ReportsScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                row.familyName,
+                                row.adeelName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                 ),

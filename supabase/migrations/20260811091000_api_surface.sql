@@ -1,20 +1,23 @@
 -- 20260811091000_api_surface.sql — the shape the Flutter app actually consumes.
 --
--- This file replaces the snake_case views from 20260811090700 with ones whose
--- column names are the EXACT keys the Dart models parse. PostgREST returns a
--- view's column names verbatim, so quoting camelCase identifiers here means the
--- existing `fromJson` factories work untouched — no mapping layer, no model
--- rewrites, and the wire contract stays defined in SQL exactly as it was when the
--- Node API owned it.
+-- Column names here are the EXACT keys the Dart models parse. PostgREST returns a
+-- view's column names verbatim, so quoting camelCase identifiers means the
+-- `fromJson` factories need no mapping layer, and the wire contract stays defined
+-- in SQL exactly as it was when the Node API owned it.
+--
+-- This used to be the SECOND set of views: 20260811090700 defined a snake_case
+-- set, and this file dropped all twelve and redefined them. That file is gone.
+-- Every view was being written twice, only one of the two was ever reachable, and
+-- an edit to the wrong copy was silently a no-op.
 --
 -- Two mechanisms, chosen per shape:
 --
 --   VIEWS for flat lists. PostgREST filters, orders and paginates them, so the
 --   Dart side needs no query-building RPCs.
 --
---   FUNCTIONS returning jsonb for nested shapes — family detail wraps
---   family/father/sons/kpis, the dashboard wraps stats/topDebtors/upcomingSons.
---   A flat view cannot express that.
+--   FUNCTIONS returning jsonb for nested shapes — an عديل's detail wraps his row
+--   with his dues and receipts; the dashboard wraps stats and top debtors. A flat
+--   view cannot express that. They live in 20260811091100.
 --
 -- The read functions are STABLE and SECURITY INVOKER, deliberately. They run with
 -- the caller's rights, so every RLS policy from 20260811090500 still applies. Only
@@ -48,67 +51,12 @@ LANGUAGE sql IMMUTABLE AS $$
          END || ' ' || substring(p_period FROM 1 FOR 4)
 $$;
 
-DROP VIEW IF EXISTS public.v_top_debtors;
-DROP VIEW IF EXISTS public.v_dashboard_stats;
-DROP VIEW IF EXISTS public.v_cash_summary;
-DROP VIEW IF EXISTS public.v_cash_movements;
-DROP VIEW IF EXISTS public.v_payment_allocations;
-DROP VIEW IF EXISTS public.v_payments;
-DROP VIEW IF EXISTS public.v_receivable_lines;
-DROP VIEW IF EXISTS public.v_receivables;
-DROP VIEW IF EXISTS public.v_members;
-DROP VIEW IF EXISTS public.v_families;
-DROP VIEW IF EXISTS public.v_officials;
-DROP VIEW IF EXISTS public.v_settings;
-
--- ── Eligibility, derived once ────────────────────────────────────────────────
--- Rule 1 and rule 2 in one place. Every view and function that needs a member's
--- status reads it from here rather than repeating the arithmetic, which is how
--- the prototype's memberStatus() ended up disagreeing with itself.
-CREATE VIEW public.v_member_status WITH (security_invoker = on) AS
-SELECT
-  m.id,
-  m.family_id,
-  m.kind,
-  m.full_name,
-  m.national_id,
-  m.phone,
-  m.subscription_no,
-  m.dob,
-  m.nationality,
-  m.workplace,
-  m.registered_at,
-  m.status,
-  CASE
-    WHEN m.dob IS NULL THEN NULL
-    ELSE extract(year FROM age(current_date, m.dob))::int
-  END AS age_years,
-  CASE
-    WHEN m.status <> 'نشط' THEN 'inactive'
-    WHEN m.dob IS NULL THEN 'under'
-    WHEN extract(year FROM age(current_date, m.dob)) >= s.eligibility_age
-      THEN 'eligible'
-    -- "قريب من السن": the eligibility birthday is in the future but within
-    -- warning_months of today.
-    WHEN (m.dob + make_interval(years => s.eligibility_age::int)) > current_date
-     AND (m.dob + make_interval(years => s.eligibility_age::int))
-         <= (current_date + make_interval(months => s.warning_months::int))
-      THEN 'soon'
-    ELSE 'under'
-  END AS eligibility,
-  CASE WHEN m.kind = 'father' THEN s.father_fee ELSE s.son_fee END AS fee
-FROM public.members m
-CROSS JOIN public.association_settings s;
-
 -- ── Settings (AssociationSettingsView) ───────────────────────────────────────
 CREATE VIEW public.v_settings WITH (security_invoker = on) AS
 SELECT
   association_name        AS "associationName",
   currency                AS "currency",
-  father_fee::text        AS "fatherFee",
-  son_fee::text           AS "sonFee",
-  eligibility_age::int    AS "eligibilityAge",
-  warning_months::int     AS "warningMonths",
+  member_fee::text        AS "memberFee",
   to_char(system_start, 'YYYY-MM-DD') AS "systemStart",
   auto_close_previous_months          AS "autoClosePreviousMonths"
 FROM public.association_settings;
@@ -127,97 +75,75 @@ SELECT 'financeManager'::text,
        finance_manager_phone
   FROM public.association_settings;
 
--- ── Families list (FamilyListItem) ───────────────────────────────────────────
-CREATE VIEW public.v_families WITH (security_invoker = on) AS
+-- ── The register (AdeelListItem) ─────────────────────────────────────────────
+-- ONE list view where there used to be two — v_families (a household with its
+-- father's name and a count of sons) and v_members (every person, with a
+-- relation label and the family they hung off). The عديل IS the unit now, so the
+-- two collapsed and the LEFT JOIN to find "the father of this family" that both
+-- carried disappeared with them.
+--
+-- `monthlyExpected` is what he WOULD be charged today, from current settings —
+-- distinct from any receivable's snapshot, which is frozen at creation. It is the
+-- fee when he is نشط and zero otherwise, because status is now the only thing
+-- that decides whether a charge is raised.
+CREATE VIEW public.v_adeels WITH (security_invoker = on) AS
 SELECT
-  f.id                                   AS "id",
-  f.family_code                          AS "familyCode",
-  coalesce(father.full_name, '')          AS "fatherName",
-  -- Kept out of the model but needed for search: PostgREST filters on columns,
-  -- so anything the app searches by has to be selectable.
-  coalesce(father.national_id, '')        AS "fatherNationalId",
-  (SELECT count(*) FROM public.members m
-    WHERE m.family_id = f.id AND m.kind = 'son')::int AS "sonsCount",
-  (SELECT count(*) FROM public.v_member_status v
-    WHERE v.family_id = f.id AND v.kind = 'son'
-      AND v.eligibility = 'eligible')::int            AS "eligibleCount",
-  (SELECT count(*) FROM public.v_member_status v
-    WHERE v.family_id = f.id AND v.kind = 'son'
-      AND v.eligibility = 'soon')::int                AS "soonCount",
-  coalesce(agg.debt, 0)::numeric(12,2)::text            AS "debt",
-  coalesce(agg.paid, 0)::numeric(12,2)::text            AS "paid",
-  coalesce(agg.issued, 0)::numeric(12,2)::text          AS "issued",
-  -- What the family WOULD be charged today, from current settings — distinct
-  -- from any receivable's snapshot. index.html shows both side by side.
-  (
-    coalesce((SELECT v.fee FROM public.v_member_status v
-               WHERE v.family_id = f.id AND v.kind = 'father'
-                 AND v.status = 'نشط'), 0)
-    + coalesce((SELECT sum(v.fee) FROM public.v_member_status v
-                 WHERE v.family_id = f.id AND v.kind = 'son'
-                   AND v.eligibility = 'eligible'), 0)
-  )::text                                AS "monthlyExpected"
-FROM public.families f
-LEFT JOIN public.members father
-       ON father.family_id = f.id AND father.kind = 'father'
+  a.id                                    AS "id",
+  a.adeel_code                            AS "adeelCode",
+  a.full_name                             AS "fullName",
+  a.national_id                           AS "nationalId",
+  coalesce(a.phone, '')                   AS "phone",
+  coalesce(a.subscription_no, '')         AS "subscriptionNo",
+  coalesce(a.workplace, '')               AS "workplace",
+  coalesce(a.nationality, '')             AS "nationality",
+  coalesce(a.notes, '')                   AS "notes",
+  to_char(a.registered_at, 'YYYY-MM-DD')  AS "registeredAt",
+  to_char(a.dob, 'YYYY-MM-DD')            AS "dob",
+  CASE WHEN a.dob IS NULL THEN NULL
+       ELSE extract(year FROM age(current_date, a.dob))::int END AS "age",
+  a.status::text                          AS "membershipStatus",
+  coalesce(agg.debt,   0)::numeric(12,2)::text AS "debt",
+  coalesce(agg.paid,   0)::numeric(12,2)::text AS "paid",
+  coalesce(agg.issued, 0)::numeric(12,2)::text AS "issued",
+  (CASE WHEN a.status = 'نشط' THEN s.member_fee ELSE 0 END)::numeric(12,2)::text
+                                          AS "monthlyExpected"
+FROM public.adeels a
+CROSS JOIN public.association_settings s
 LEFT JOIN LATERAL (
   SELECT sum(r.balance) AS debt, sum(r.paid) AS paid, sum(r.total) AS issued
     FROM public.receivables r
-   WHERE r.family_id = f.id AND r.status <> 'ملغي'
+   WHERE r.adeel_id = a.id AND r.status <> 'ملغي'
 ) agg ON true;
 
--- ── Members list (MemberListItem) ────────────────────────────────────────────
-CREATE VIEW public.v_members WITH (security_invoker = on) AS
-SELECT
-  v.id                          AS "id",
-  v.family_id                   AS "familyId",
-  v.full_name                   AS "fullName",
-  CASE WHEN v.kind = 'father' THEN 'الأب' ELSE 'ابن' END AS "relation",
-  coalesce(father.full_name, '') AS "familyName",
-  v.national_id                 AS "nationalId",
-  coalesce(v.phone, '')         AS "phone",
-  coalesce(v.workplace, '')     AS "workplace",
-  v.age_years                   AS "age",
-  v.eligibility                 AS "eligibility",
-  v.status::text                AS "membershipStatus"
-FROM public.v_member_status v
-LEFT JOIN public.members father
-       ON father.family_id = v.family_id AND father.kind = 'father';
-
 -- ── Receivables (ReceivableItem) ─────────────────────────────────────────────
+-- `billedSonNames` is gone with the household. A receivable bills one man, and
+-- his name is a snapshot column on the row itself rather than a jsonb array
+-- assembled from a line table that no longer exists.
 CREATE VIEW public.v_receivables WITH (security_invoker = on) AS
 SELECT
-  r.id                    AS "id",
-  r.family_id             AS "familyId",
-  r.father_name           AS "familyName",
-  f.family_code           AS "familyCode",
-  r.period                AS "period",
+  r.id                          AS "id",
+  r.adeel_id                    AS "adeelId",
+  r.adeel_name                  AS "adeelName",
+  r.adeel_national_id           AS "adeelNationalId",
+  a.adeel_code                  AS "adeelCode",
+  r.period                      AS "period",
   public.period_label(r.period) AS "periodLabel",
-  r.father_fee::text      AS "fatherFee",
-  r.son_fee::text         AS "sonFee",
-  -- A JSON ARRAY, not a joined string: ReceivableItem reads billedSonNames as a
-  -- List. Joining here would also decide the separator on the client's behalf,
-  -- which is a presentation choice the screen should keep.
-  coalesce(
-    (SELECT jsonb_agg(l.member_name ORDER BY l.id)
-       FROM public.receivable_lines l
-      WHERE l.receivable_id = r.id AND l.member_kind = 'son'),
-    '[]'::jsonb
-  )                       AS "billedSonNames",
-  r.total::text           AS "total",
-  r.paid::text            AS "paid",
-  r.balance::text         AS "balance",
-  r.status::text          AS "status"
+  to_char(r.period_end, 'YYYY-MM-DD') AS "periodEnd",
+  r.total::text                 AS "total",
+  r.paid::text                  AS "paid",
+  r.balance::text               AS "balance",
+  r.status::text                AS "status"
 FROM public.receivables r
-JOIN public.families f ON f.id = r.family_id;
+JOIN public.adeels a ON a.id = r.adeel_id;
 
 -- ── Payments (PaymentView, allocations nested) ───────────────────────────────
 CREATE VIEW public.v_payments WITH (security_invoker = on) AS
 SELECT
   p.id                       AS "id",
   p.receipt_no               AS "receiptNo",
-  p.family_id                AS "familyId",
-  coalesce(father.full_name, f.family_code) AS "familyName",
+  p.adeel_id                 AS "adeelId",
+  a.full_name                AS "adeelName",
+  a.adeel_code               AS "adeelCode",
   p.amount::text             AS "amount",
   p.method::text             AS "method",
   coalesce(p.reference, '')  AS "reference",
@@ -228,26 +154,25 @@ SELECT
   coalesce(
     (SELECT jsonb_agg(
               jsonb_build_object(
-                'receivableId', a.receivable_id,
-                'period', a.period,
-                'amount', a.amount::text)
-              ORDER BY a.sequence_no)
-       FROM public.payment_allocations a
-      WHERE a.payment_id = p.id),
+                'receivableId', al.receivable_id,
+                'period', al.period,
+                'amount', al.amount::text)
+              ORDER BY al.sequence_no)
+       FROM public.payment_allocations al
+      WHERE al.payment_id = p.id),
     '[]'::jsonb
   )                          AS "allocations"
 FROM public.payments p
-JOIN public.families f ON f.id = p.family_id
-LEFT JOIN public.members father
-       ON father.family_id = p.family_id AND father.kind = 'father';
+JOIN public.adeels a ON a.id = p.adeel_id;
 
 -- ── Treasury (CashMovementView, CashSummaryView) ─────────────────────────────
 CREATE VIEW public.v_cash_movements WITH (security_invoker = on) AS
 SELECT
   c.id                       AS "id",
   p.receipt_no               AS "receiptNo",
-  coalesce(father.full_name, f.family_code) AS "familyName",
-  c.family_id                AS "familyId",
+  a.full_name                AS "adeelName",
+  a.adeel_code               AS "adeelCode",
+  c.adeel_id                 AS "adeelId",
   c.amount::text             AS "amount",
   c.method::text             AS "method",
   c.movement_type::text      AS "movementType",
@@ -255,9 +180,7 @@ SELECT
   to_char(c.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "occurredAt"
 FROM public.cash_movements c
 JOIN public.payments p ON p.id = c.payment_id
-JOIN public.families f ON f.id = c.family_id
-LEFT JOIN public.members father
-       ON father.family_id = c.family_id AND father.kind = 'father';
+JOIN public.adeels a   ON a.id = c.adeel_id;
 
 -- Cancelled movements are excluded from every total but stay visible in the list
 -- above, struck through — rule 9 requires them shown, never hidden.
@@ -303,17 +226,17 @@ SELECT
   to_char(p.last_login_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
                         AS "lastLoginAt",
   approver.display_name AS "approvedByName",
-  -- NULL for staff. Non-NULL marks a head of family, who stores `viewer` in
+  -- NULL for staff. Non-NULL marks a portal account, which stores `viewer` in
   -- `role` and would otherwise be indistinguishable on the users screen from a
   -- real viewer — while actually seeing far less, and something different.
-  fam.family_code       AS "familyCode"
+  ad.adeel_code         AS "adeelCode"
 FROM public.profiles p
 LEFT JOIN public.profiles approver ON approver.id = p.approved_by
-LEFT JOIN public.families fam ON fam.id = p.family_id;
+LEFT JOIN public.adeels ad ON ad.id = p.adeel_id;
 
 GRANT SELECT ON
-  public.v_member_status, public.v_settings, public.v_officials,
-  public.v_families, public.v_members, public.v_receivables,
-  public.v_payments, public.v_cash_movements, public.v_cash_summary,
+  public.v_settings, public.v_officials, public.v_adeels,
+  public.v_receivables, public.v_payments,
+  public.v_cash_movements, public.v_cash_summary,
   public.v_audit, public.v_users
 TO authenticated;

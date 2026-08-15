@@ -359,17 +359,16 @@ class _DangerZoneState extends ConsumerState<_DangerZone> {
     }
   }
 
-  /// The same set for both purges. The narrow one leaves the directory standing,
-  /// but a family row carries its own debt, so those lists are stale either way.
+  /// The same set for both purges. The narrow one leaves the register standing,
+  /// but an عديل row carries his own debt, so those lists are stale either way.
   void _invalidateEverything() {
     ref.invalidate(dashboardProvider);
     ref.invalidate(alertsProvider);
     ref.invalidate(auditProvider);
     ref.invalidate(reportProvider);
-    ref.invalidate(directory.familiesProvider);
-    ref.invalidate(directory.familyDetailProvider);
+    ref.invalidate(directory.adeelsProvider);
+    ref.invalidate(directory.adeelDetailProvider);
     ref.invalidate(directory.statementProvider);
-    ref.invalidate(directory.membersProvider);
     ref.invalidate(directory.receivablesProvider);
     ref.invalidate(finance.paymentsProvider);
     ref.invalidate(finance.cashSummaryProvider);

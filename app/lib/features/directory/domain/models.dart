@@ -12,27 +12,21 @@ class AssociationSettingsView {
   const AssociationSettingsView({
     required this.associationName,
     required this.currency,
-    required this.fatherFee,
-    required this.sonFee,
-    required this.eligibilityAge,
-    required this.warningMonths,
+    required this.memberFee,
   });
 
   final String associationName;
   final String currency;
-  final String fatherFee;
-  final String sonFee;
-  final int eligibilityAge;
-  final int warningMonths;
+
+  /// One rate for everyone. There were two — a father's and a son's — until the
+  /// association stopped billing households through their head.
+  final String memberFee;
 
   factory AssociationSettingsView.fromJson(Map<String, dynamic> json) =>
       AssociationSettingsView(
         associationName: _string(json['associationName']),
         currency: _string(json['currency']),
-        fatherFee: _string(json['fatherFee']),
-        sonFee: _string(json['sonFee']),
-        eligibilityAge: _int(json['eligibilityAge']),
-        warningMonths: _int(json['warningMonths']),
+        memberFee: _string(json['memberFee']),
       );
 }
 
@@ -57,51 +51,68 @@ class Official {
   );
 }
 
-class FamilyListItem {
-  const FamilyListItem({
+/// One row of the register.
+///
+/// Replaces both `FamilyListItem` and `MemberListItem`. They described a
+/// household and a person inside it; there is only one kind of thing now.
+class AdeelListItem {
+  const AdeelListItem({
     required this.id,
-    required this.familyCode,
-    required this.fatherName,
-    required this.sonsCount,
-    required this.eligibleCount,
+    required this.adeelCode,
+    required this.fullName,
+    required this.nationalId,
+    required this.phone,
+    required this.workplace,
+    required this.age,
+    required this.membershipStatus,
     required this.debt,
+    required this.issued,
     required this.monthlyExpected,
   });
 
   final int id;
-  final String familyCode;
-  final String fatherName;
-  final int sonsCount;
-  final int eligibleCount;
+  final String adeelCode;
+  final String fullName;
+  final String nationalId;
+  final String phone;
+  final String workplace;
+  final int? age;
+
+  /// نشط / موقوف / متوفى — the only thing that decides whether he is billed.
+  final String membershipStatus;
   final String debt;
+
+  /// Everything ever charged to him, cancelled receivables excluded.
+  final String issued;
   final String monthlyExpected;
 
   bool get hasDebt => (double.tryParse(debt) ?? 0) > 0;
 
-  factory FamilyListItem.fromJson(Map<String, dynamic> json) => FamilyListItem(
+  factory AdeelListItem.fromJson(Map<String, dynamic> json) => AdeelListItem(
     id: _int(json['id']),
-    familyCode: _string(json['familyCode']),
-    fatherName: _string(json['fatherName']),
-    sonsCount: _int(json['sonsCount']),
-    eligibleCount: _int(json['eligibleCount']),
+    adeelCode: _string(json['adeelCode']),
+    fullName: _string(json['fullName']),
+    nationalId: _string(json['nationalId']),
+    phone: _string(json['phone']),
+    workplace: _string(json['workplace']),
+    age: json['age'] is num ? (json['age'] as num).toInt() : null,
+    membershipStatus: _string(json['membershipStatus']),
     debt: _string(json['debt']),
+    issued: _string(json['issued']),
     monthlyExpected: _string(json['monthlyExpected']),
   );
 }
 
-/// The four states index.html shows for a son's subscription eligibility.
-enum EligibilityKey { eligible, soon, under, inactive }
-
-EligibilityKey _eligibilityFromWire(String? value) => switch (value) {
-  'eligible' => EligibilityKey.eligible,
-  'soon' => EligibilityKey.soon,
-  'under' => EligibilityKey.under,
-  _ => EligibilityKey.inactive,
-};
-
-class MemberView {
-  const MemberView({
+/// The full record, as the detail screen and the portal read it.
+///
+/// `EligibilityKey` used to live here — مستحق / قريب من السن / غير مستحق /
+/// موقوف, derived from a son's age against the eligibility age. There is no age
+/// gate, so there is no eligibility: `membershipStatus` carries the whole
+/// answer.
+class AdeelView {
+  const AdeelView({
     required this.id,
+    required this.adeelCode,
     required this.fullName,
     required this.nationalId,
     required this.phone,
@@ -110,14 +121,17 @@ class MemberView {
     required this.age,
     required this.nationality,
     required this.workplace,
+    required this.notes,
     required this.registeredAt,
     required this.membershipStatus,
-    required this.eligibility,
-    required this.eligibilityLabel,
-    required this.currentFee,
+    required this.monthlyExpected,
+    required this.debt,
+    required this.paid,
+    required this.issued,
   });
 
   final int id;
+  final String adeelCode;
   final String fullName;
   final String nationalId;
   final String phone;
@@ -126,138 +140,86 @@ class MemberView {
   final int? age;
   final String nationality;
   final String workplace;
+  final String notes;
   final String registeredAt;
   final String membershipStatus;
-  final EligibilityKey eligibility;
-
-  /// The server sends the Arabic label so it can never disagree with the badge
-  /// the prototype showed for the same member.
-  final String eligibilityLabel;
-  final String? currentFee;
-
-  factory MemberView.fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic> eligibility =
-        (json['eligibility'] as Map?)?.cast<String, dynamic>() ??
-        <String, dynamic>{};
-    return MemberView(
-      id: _int(json['id']),
-      fullName: _string(json['fullName']),
-      nationalId: _string(json['nationalId']),
-      phone: _string(json['phone']),
-      subscriptionNo: _string(json['subscriptionNo']),
-      dob: _string(json['dob']),
-      age: json['age'] is num ? (json['age'] as num).toInt() : null,
-      nationality: _string(json['nationality']),
-      workplace: _string(json['workplace']),
-      registeredAt: _string(json['registeredAt']),
-      membershipStatus: _string(json['membershipStatus']),
-      eligibility: _eligibilityFromWire(eligibility['key'] as String?),
-      eligibilityLabel: _string(eligibility['label']),
-      currentFee: json['currentFee'] as String?,
-    );
-  }
-}
-
-class FamilyDetail {
-  const FamilyDetail({
-    required this.id,
-    required this.familyCode,
-    required this.father,
-    required this.sons,
-    required this.sonsCount,
-    required this.eligibleCount,
-    required this.soonCount,
-    required this.monthlyExpected,
-    required this.debt,
-    required this.paid,
-  });
-
-  final int id;
-  final String familyCode;
-  final MemberView? father;
-  final List<MemberView> sons;
-  final int sonsCount;
-  final int eligibleCount;
-  final int soonCount;
   final String monthlyExpected;
   final String debt;
   final String paid;
+  final String issued;
 
-  factory FamilyDetail.fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic> family = (json['family'] as Map)
-        .cast<String, dynamic>();
-    final Map<String, dynamic> kpis = (json['kpis'] as Map)
-        .cast<String, dynamic>();
-    return FamilyDetail(
-      id: _int(family['id']),
-      familyCode: _string(family['familyCode']),
-      father: json['father'] == null
-          ? null
-          : MemberView.fromJson(
-              (json['father'] as Map).cast<String, dynamic>(),
-            ),
-      sons: (json['sons'] as List<dynamic>)
-          .map(
-            (dynamic e) =>
-                MemberView.fromJson((e as Map).cast<String, dynamic>()),
-          )
-          .toList(),
-      sonsCount: _int(kpis['sonsCount']),
-      eligibleCount: _int(kpis['eligibleCount']),
-      soonCount: _int(kpis['soonCount']),
-      monthlyExpected: _string(kpis['monthlyExpected']),
-      debt: _string(kpis['debt']),
-      paid: _string(kpis['paid']),
-    );
-  }
-}
+  bool get hasDebt => (double.tryParse(debt) ?? 0) > 0;
 
-class MemberListItem {
-  const MemberListItem({
-    required this.id,
-    required this.familyId,
-    required this.fullName,
-    required this.relation,
-    required this.familyName,
-    required this.nationalId,
-    required this.phone,
-    required this.workplace,
-    required this.age,
-  });
-
-  final int id;
-  final int familyId;
-  final String fullName;
-  final String relation;
-  final String familyName;
-  final String nationalId;
-  final String phone;
-  final String workplace;
-  final int? age;
-
-  factory MemberListItem.fromJson(Map<String, dynamic> json) => MemberListItem(
+  factory AdeelView.fromJson(Map<String, dynamic> json) => AdeelView(
     id: _int(json['id']),
-    familyId: _int(json['familyId']),
+    adeelCode: _string(json['adeelCode']),
     fullName: _string(json['fullName']),
-    relation: _string(json['relation']),
-    familyName: _string(json['familyName']),
     nationalId: _string(json['nationalId']),
     phone: _string(json['phone']),
-    workplace: _string(json['workplace']),
+    subscriptionNo: _string(json['subscriptionNo']),
+    dob: _string(json['dob']),
     age: json['age'] is num ? (json['age'] as num).toInt() : null,
+    nationality: _string(json['nationality']),
+    workplace: _string(json['workplace']),
+    notes: _string(json['notes']),
+    registeredAt: _string(json['registeredAt']),
+    membershipStatus: _string(json['membershipStatus']),
+    monthlyExpected: _string(json['monthlyExpected']),
+    debt: _string(json['debt']),
+    paid: _string(json['paid']),
+    issued: _string(json['issued']),
   );
+}
+
+/// `api_adeel_detail` — his record, his KPIs, his dues and his receipts.
+class AdeelDetail {
+  const AdeelDetail({
+    required this.adeel,
+    required this.monthlyExpected,
+    required this.issued,
+    required this.debt,
+    required this.paid,
+    required this.openPeriods,
+    required this.receivables,
+  });
+
+  final AdeelView adeel;
+  final String monthlyExpected;
+  final String issued;
+  final String debt;
+  final String paid;
+  final int openPeriods;
+  final List<ReceivableItem> receivables;
+
+  factory AdeelDetail.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> kpis = (json['kpis'] as Map)
+        .cast<String, dynamic>();
+    return AdeelDetail(
+      adeel: AdeelView.fromJson((json['adeel'] as Map).cast<String, dynamic>()),
+      monthlyExpected: _string(kpis['monthlyExpected']),
+      issued: _string(kpis['issued']),
+      debt: _string(kpis['debt']),
+      paid: _string(kpis['paid']),
+      openPeriods: _int(kpis['openPeriods']),
+      receivables: (json['receivables'] as List<dynamic>? ?? <dynamic>[])
+          .map(
+            (dynamic e) =>
+                ReceivableItem.fromJson((e as Map).cast<String, dynamic>()),
+          )
+          .toList(),
+    );
+  }
 }
 
 class ReceivableItem {
   const ReceivableItem({
     required this.id,
-    required this.familyName,
-    required this.familyCode,
+    required this.adeelId,
+    required this.adeelName,
+    required this.adeelNationalId,
+    required this.adeelCode,
     required this.period,
     required this.periodLabel,
-    required this.fatherFee,
-    required this.sonFee,
-    required this.billedSonNames,
     required this.total,
     required this.paid,
     required this.balance,
@@ -265,13 +227,17 @@ class ReceivableItem {
   });
 
   final int id;
-  final String familyName;
-  final String familyCode;
+  final int adeelId;
+
+  /// Snapshotted onto the receivable when it was raised, so a receipt printed
+  /// years later still shows the name as it stood then.
+  final String adeelName;
+
+  /// Snapshotted too, for the same reason the name is.
+  final String adeelNationalId;
+  final String adeelCode;
   final String period;
   final String periodLabel;
-  final String fatherFee;
-  final String sonFee;
-  final List<String> billedSonNames;
   final String total;
   final String paid;
   final String balance;
@@ -279,15 +245,12 @@ class ReceivableItem {
 
   factory ReceivableItem.fromJson(Map<String, dynamic> json) => ReceivableItem(
     id: _int(json['id']),
-    familyName: _string(json['familyName']),
-    familyCode: _string(json['familyCode']),
+    adeelId: _int(json['adeelId']),
+    adeelName: _string(json['adeelName']),
+    adeelNationalId: _string(json['adeelNationalId']),
+    adeelCode: _string(json['adeelCode']),
     period: _string(json['period']),
     periodLabel: _string(json['periodLabel']),
-    fatherFee: _string(json['fatherFee']),
-    sonFee: _string(json['sonFee']),
-    billedSonNames: (json['billedSonNames'] as List<dynamic>? ?? <dynamic>[])
-        .map(_string)
-        .toList(),
     total: _string(json['total']),
     paid: _string(json['paid']),
     balance: _string(json['balance']),

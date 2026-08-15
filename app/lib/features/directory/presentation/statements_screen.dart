@@ -17,18 +17,18 @@ class StatementsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
-    final int? selected = ref.watch(selectedStatementFamilyProvider);
-    final AsyncValue<List<FamilyListItem>> families = ref.watch(
-      familiesProvider(''),
+    final int? selected = ref.watch(selectedStatementAdeelProvider);
+    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
+      adeelsProvider(''),
     );
 
     return AppScaffold(
       title: l.navStatements,
       currentRoute: AppRoutes.statements,
-      body: AsyncView<List<FamilyListItem>>(
-        value: families,
-        onRetry: () => ref.invalidate(familiesProvider('')),
-        builder: (List<FamilyListItem> options) => Column(
+      body: AsyncView<List<AdeelListItem>>(
+        value: adeels,
+        onRetry: () => ref.invalidate(adeelsProvider('')),
+        builder: (List<AdeelListItem> options) => Column(
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -37,17 +37,17 @@ class StatementsScreen extends ConsumerWidget {
                 isExpanded: true,
                 decoration: InputDecoration(labelText: l.selectFamily),
                 items: <DropdownMenuItem<int>>[
-                  for (final FamilyListItem family in options)
+                  for (final AdeelListItem adeel in options)
                     DropdownMenuItem<int>(
-                      value: family.id,
+                      value: adeel.id,
                       child: Text(
-                        '${family.fatherName} • ${family.familyCode}',
+                        '${adeel.fullName} • ${adeel.adeelCode}',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                 ],
                 onChanged: (int? value) =>
-                    ref.read(selectedStatementFamilyProvider.notifier).state =
+                    ref.read(selectedStatementAdeelProvider.notifier).state =
                         value,
               ),
             ),
@@ -58,7 +58,7 @@ class StatementsScreen extends ConsumerWidget {
                       title: l.selectFamilyToView,
                       message: l.statementsIntro,
                     )
-                  : _StatementBody(familyId: selected),
+                  : _StatementBody(adeelId: selected),
             ),
           ],
         ),
@@ -68,20 +68,20 @@ class StatementsScreen extends ConsumerWidget {
 }
 
 class _StatementBody extends ConsumerWidget {
-  const _StatementBody({required this.familyId});
+  const _StatementBody({required this.adeelId});
 
-  final int familyId;
+  final int adeelId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
     final AsyncValue<Statement> statement = ref.watch(
-      statementProvider(familyId),
+      statementProvider(adeelId),
     );
 
     return AsyncView<Statement>(
       value: statement,
-      onRetry: () => ref.invalidate(statementProvider(familyId)),
+      onRetry: () => ref.invalidate(statementProvider(adeelId)),
       builder: (Statement data) {
         if (data.movements.isEmpty) {
           return EmptyStateView(

@@ -4,15 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Flutter app on Supabase for a Libyan family association (جمعية العائلة): member
-directory, monthly subscription receivables, FIFO payment collection, a treasury
-ledger, and an append-only audit trail. **Arabic, right-to-left, forced locale.**
-The Flutter project lives in `app/`; the database lives in `supabase/`.
+A Flutter app on Supabase for a Libyan family association (جمعية العدايل): a
+register of عدايل, monthly subscription receivables, FIFO payment collection, a
+treasury ledger, and an append-only audit trail. **Arabic, right-to-left, forced
+locale.** The Flutter project lives in `app/`; the database lives in `supabase/`.
+
+## The عديل is the unit, and the family is gone
+
+Every عديل is billed in his own right, for the same monthly fee, and **age
+decides nothing**. There is one `adeels` table where there were `families` +
+`members`, one `member_fee` where there were `father_fee` + `son_fee`, and
+membership status (نشط / موقوف / متوفى) is the ONLY thing that gates a charge.
+
+What that removed, deliberately and completely:
+
+- the `member_kind` enum, the one-father-per-family index, and the father/sons
+  shape of `save_family` (now `save_adeel`, one row per call);
+- `receivable_lines` — a receivable bills one man for one month, so the rate IS
+  the total and a line table would always hold exactly one row;
+- `eligibility_age` and `warning_months`, and with them the whole
+  مستحق / قريب من السن / غير مستحق concept: the eligibility badge, the
+  "approaching age" dashboard panel, and the age alert.
 
 `index.html` at the repo root is the original single-file React/localStorage
-prototype. It is unmodified and kept **as the behavioural parity oracle** — the
-twelve business rules were transcribed from it and are verified against it. When a
-rule's intent is unclear, `index.html` is the source of truth.
+prototype, kept unmodified. It is **no longer the parity oracle for billing** —
+it still encodes father/son fees and the age gate, which the association
+abandoned. It remains useful for the rules that did not change (FIFO collection,
+cancellation, the treasury, the audit trail); for anything about who is charged
+and how much, this file and `supabase/tests/` are the source of truth.
 
 ## The one architectural fact everything follows from
 
@@ -33,27 +52,38 @@ This dictates the data-access shape — do not deviate from it:
   N allocations, N receivable updates, and a cash movement, all-or-nothing. A
   function body is one transaction; a PostgREST call is not.
 
-  The nine RPCs (in `supabase/migrations/…_rpc.sql`): `register_payment`,
-  `cancel_payment`, `generate_period`, `auto_close_periods`, `save_family`,
-  `update_settings`, `set_user_access`, `purge_financial_data`,
-  `purge_all_data`. (`write_audit` exists but is called by triggers, never the
-  client.)
+  The twelve RPCs (in `supabase/migrations/…_rpc.sql`): `register_payment`,
+  `cancel_payment`, `generate_period`, `auto_close_periods`, `save_adeel`,
+  `delete_adeel`, `update_settings`, `set_user_access`, `purge_financial_data`,
+  `purge_all_data`, `issue_adeel_code`, `redeem_adeel_code`. (`write_audit`
+  exists but is called by triggers, never the client.)
+  `20260811091200_function_lockdown.sql` holds the allow-list and asserts it is
+  EXACT — a function added without being listed there is unreachable, and one
+  listed but ungranted fails the migration.
 
-  The two purges are the odd ones out and the only way to hard-delete anything.
-  Both are admin-only, both TRUNCATE with `RESTART IDENTITY`, and each refuses
-  without its own typed phrase from `PurgeWire` — `مسح نهائي` and
-  `مسح كل البيانات`. Neither phrase satisfies the other function, which is the
-  entire reason there are two rather than one with a flag, and
-  `supabase/tests/70_purge.sql` asserts that in both directions.
+  `delete_adeel` is the escape hatch for a mistyped entry: it refuses the moment
+  he has any receivable or payment, because a receipt must never point at
+  nobody. Retiring someone with a ledger is a status change, not a deletion.
 
-  - `purge_financial_data` takes the six financial tables (receivables,
-    receivable_lines, payments, payment_allocations, cash_movements **and
-    audit_log**) and leaves families, members, settings and profiles standing.
-  - `purge_all_data` is a strict SUPERSET: those six plus members and families.
-    It cannot be narrower — every receivable and receipt references a family
-    `ON DELETE RESTRICT`, so the directory cannot go while a receipt survives.
-    Settings and profiles still survive; wiping profiles would strand the
+  The two purges are the other way to hard-delete anything. Both are admin-only,
+  both TRUNCATE with `RESTART IDENTITY`, and each refuses without its own typed
+  phrase from `PurgeWire` — `مسح نهائي` and `مسح كل البيانات`. Neither phrase
+  satisfies the other function, which is the entire reason there are two rather
+  than one with a flag, and `supabase/tests/70_purge.sql` asserts that in both
+  directions.
+
+  - `purge_financial_data` takes the five financial tables (receivables,
+    payments, payment_allocations, cash_movements **and audit_log**) and leaves
+    adeels, settings and profiles standing.
+  - `purge_all_data` is a strict SUPERSET: those five plus `adeels`. It cannot
+    be narrower — every receivable and receipt references an عديل
+    `ON DELETE RESTRICT`, so the register cannot go while a receipt survives.
+    Settings and staff profiles still survive; wiping profiles would strand the
     association outside its own app.
+
+    Order matters inside it: the TRUNCATE runs BEFORE the profile delete,
+    because `receivables.created_by` references profiles `ON DELETE SET NULL`
+    and that SET NULL is an UPDATE the rule-5 snapshot trigger rejects.
 
   TRUNCATE rather than DELETE because it fires no `BEFORE DELETE` trigger, so
   the rule-9 guards never have to be disarmed and no code path can leave them
@@ -90,7 +120,8 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
 `domain/` (models), `presentation/` (screens + Riverpod providers).
 
 - `features/auth` — Google + dev email/password sign-in, role/approval state.
-- `features/directory` — families, members, receivables, statements, officials.
+- `features/directory` — the register (`adeels_screen`), an عديل's detail and
+  form, receivables, statements, officials, and the portal.
 - `features/finance` — payments, cash/treasury. `finance_repository.dart` is the
   canonical example of the read-via-view / write-via-RPC pattern.
 - `features/oversight` — dashboard, alerts, reports, audit, settings, users.
@@ -105,28 +136,28 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
 (`features/auth/domain/app_user.dart`); unknown roles fall back to `viewer`. Hiding a
 button is presentation — the same check is always re-enforced server-side.
 
-**The family portal is a second, disjoint way in.** A head of family signs in with
-Google, types the access code an admin issued him, and thereafter sees his own
-family's members, dues, receipts and statement — read-only, nothing of the
-association's. The discriminator is `profiles.family_id`, deliberately a column
-rather than a new `app_role` value (`ALTER TYPE … ADD VALUE` cannot be used in the
-transaction that adds it, and the schema applies as one transaction).
+**The عديل portal is a second, disjoint way in.** An عديل signs in with Google,
+types the access code an admin issued him, and thereafter sees his own record,
+dues, receipts and statement — read-only, nothing of the association's. The
+discriminator is `profiles.adeel_id`, deliberately a column rather than a new
+`app_role` value (`ALTER TYPE … ADD VALUE` cannot be used in the transaction that
+adds it, and the schema applies as one transaction).
 
 The whole separation rests on one clause: **`my_role()` returns NULL once
-`family_id` is set.** Every staff policy goes through `has_role()`, so a head of
-family is excluded from all eight without any of them being edited; and
-`my_family_id()` is NULL for staff, so they never match the seven family-scoped
-policies. Both directions are asserted in `supabase/tests/45_family_portal.sql`
-— they are silent failure modes, not visible ones.
+`adeel_id` is set.** Every staff policy goes through `has_role()`, so an عديل is
+excluded from all of them without any being edited; and `my_adeel_id()` is NULL
+for staff, so they never match the عديل-scoped policies. Both directions are
+asserted in `supabase/tests/45_adeel_portal.sql` — they are silent failure modes,
+not visible ones.
 
-`issue_family_code(bigint)` is admin-only and overwrites (one row per family, so
+`issue_adeel_code(bigint)` is admin-only and overwrites (one row each, so
 regenerating revokes the old code without signing out anyone already bound).
-`redeem_family_code(text)` is the one write a signed-in stranger may call: until
-he redeems, he has no role and no family, so the code IS the authorisation. It
+`redeem_adeel_code(text)` is the one write a signed-in stranger may call: until
+he redeems, he has no role and no binding, so the code IS the authorisation. It
 refuses anyone already on the staff ladder — an admin who redeemed would set his
-own `family_id`, lose `my_role()`, and lock himself out with no other guard
-noticing. In Dart, `AppUser.isFamilyHead` pins him to `/my-family` in the router
-guard; `FamilyPortalScreen` reuses `api_family_detail` / `api_family_statement`
+own `adeel_id`, lose `my_role()`, and lock himself out with no other guard
+noticing. In Dart, `AppUser.isAdeelPortal` pins him to `/my-dues` in the router
+guard; `AdeelPortalScreen` reuses `api_adeel_detail` / `api_adeel_statement`
 rather than adding portal-only endpoints, because those are SECURITY INVOKER and
 RLS already scopes them.
 
@@ -153,13 +184,27 @@ bash supabase/tests/probe.sh            # runs every business rule with a PASS a
 python supabase/tests/verify_live.py <db-password>   # PostgREST/GoTrue/JSON layer over HTTPS
 ```
 
+`supabase/VERIFY_INSTALL.sql` is the one to paste into a project's SQL Editor
+after applying the bundle. Read-only, and it answers the question the apply
+itself cannot: the bundle is one transaction so there is no half-applied state
+to find, but a project still holding the OLD family/member schema, one where the
+bundle was never run, and one where `bootstrap_first_admin.sql` was skipped all
+look identical from the app — a login screen that goes nowhere. It names which.
+
 ## Testing model — two layers, both required
 
-- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL. Each of the
-  twelve rules runs with a passing case *and a failing case* (the failing case is what
-  proves the rule bites). It also races two psql sessions on one balance to prove FIFO
-  allocation can't double-spend, and injects a mid-transaction failure to prove
-  rollback.
+- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 260
+  checks. Each rule runs with a passing case *and a failing case* (the failing
+  case is what proves the rule bites). It also races two psql sessions on one
+  balance to prove FIFO allocation can't double-spend, and injects a
+  mid-transaction failure to prove rollback. `EXPECTED_CHECKS` at the top of the
+  script must match, so a check whose SQL errors before recording anything
+  cannot hide.
+
+  Rules 1 and 2 are GONE from it, not merely untested — they described the age
+  gate. What replaced rule 1 is asserted under `rule03`: a seven-year-old عديل
+  in the fixture is billed exactly like the fifty-one-year-old, which is the
+  check that fails first if an age gate is ever reintroduced.
 - **`supabase/tests/verify_live.py`** proves the layer the local suite can't reach:
   PostgREST status codes, GoTrue JWTs, actual JSON encoding. A privilege-escalation
   bug once passed every local check and was caught only here.

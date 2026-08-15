@@ -15,7 +15,7 @@ import '../domain/models.dart';
 import 'providers.dart';
 
 /// Opens the payment form. Returns true when a payment was recorded.
-Future<bool> showPaymentSheet(BuildContext context, {int? familyId}) async {
+Future<bool> showPaymentSheet(BuildContext context, {int? adeelId}) async {
   final bool? saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -26,15 +26,15 @@ Future<bool> showPaymentSheet(BuildContext context, {int? familyId}) async {
     // to separate it from, and the tap-to-dismiss area looks inert.
     barrierColor: AppColors.ink.withValues(alpha: 0.22),
     builder: (BuildContext sheetContext) =>
-        GlassSheet(child: _PaymentSheet(initialFamilyId: familyId)),
+        GlassSheet(child: _PaymentSheet(initialAdeelId: adeelId)),
   );
   return saved ?? false;
 }
 
 class _PaymentSheet extends ConsumerStatefulWidget {
-  const _PaymentSheet({this.initialFamilyId});
+  const _PaymentSheet({this.initialAdeelId});
 
-  final int? initialFamilyId;
+  final int? initialAdeelId;
 
   @override
   ConsumerState<_PaymentSheet> createState() => _PaymentSheetState();
@@ -46,7 +46,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   final TextEditingController _receiver = TextEditingController();
   final TextEditingController _notes = TextEditingController();
 
-  int? _familyId;
+  int? _adeelId;
   String _method = PaymentMethodWire.cash;
   bool _submitting = false;
   String? _error;
@@ -54,7 +54,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   @override
   void initState() {
     super.initState();
-    _familyId = widget.initialFamilyId;
+    _adeelId = widget.initialAdeelId;
   }
 
   @override
@@ -66,9 +66,9 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
     super.dispose();
   }
 
-  FamilyListItem? _selected(List<FamilyListItem> families) {
-    for (final FamilyListItem family in families) {
-      if (family.id == _familyId) return family;
+  AdeelListItem? _selected(List<AdeelListItem> adeels) {
+    for (final AdeelListItem adeel in adeels) {
+      if (adeel.id == _adeelId) return adeel;
     }
     return null;
   }
@@ -76,20 +76,20 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   /// Mirrors the server's guard so the button can be disabled before a round
   /// trip. The server re-reads the balance under a row lock and is the only
   /// authority; this is an affordance, not a rule.
-  String? _validate(L l, FamilyListItem? family) {
-    if (family == null) return null;
-    final double debt = double.tryParse(family.debt) ?? 0;
+  String? _validate(L l, AdeelListItem? adeel) {
+    if (adeel == null) return null;
+    final double debt = double.tryParse(adeel.debt) ?? 0;
     if (debt <= 0) return l.noDebtForFamily;
 
     final String raw = _amount.text.trim();
     if (raw.isEmpty) return null;
     final double? value = double.tryParse(raw);
     if (value == null || value <= 0) return l.errorGeneric;
-    if (value > debt) return l.amountTooHigh(formatMoney(family.debt));
+    if (value > debt) return l.amountTooHigh(formatMoney(adeel.debt));
     return null;
   }
 
-  Future<void> _submit(L l, FamilyListItem family) async {
+  Future<void> _submit(L l, AdeelListItem adeel) async {
     setState(() {
       _submitting = true;
       _error = null;
@@ -98,7 +98,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       final PaymentView payment = await ref
           .read(financeRepositoryProvider)
           .registerPayment(
-            familyId: family.id,
+            adeelId: adeel.id,
             amount: _amount.text.trim(),
             method: _method,
             reference: _reference.text.trim(),
@@ -110,9 +110,9 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       ref.invalidate(paymentsProvider);
       ref.invalidate(cashSummaryProvider);
       ref.invalidate(cashMovementsProvider);
-      ref.invalidate(familiesProvider(''));
-      ref.invalidate(familyDetailProvider(family.id));
-      ref.invalidate(statementProvider(family.id));
+      ref.invalidate(adeelsProvider(''));
+      ref.invalidate(adeelDetailProvider(adeel.id));
+      ref.invalidate(statementProvider(adeel.id));
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -129,21 +129,21 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
-    final AsyncValue<List<FamilyListItem>> families = ref.watch(
-      familiesProvider(''),
+    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
+      adeelsProvider(''),
     );
     final bool isTransfer = _method == PaymentMethodWire.bankTransfer;
 
-    return AsyncView<List<FamilyListItem>>(
-      value: families,
-      builder: (List<FamilyListItem> options) {
-        final FamilyListItem? family = _selected(options);
-        final String? problem = _validate(l, family);
-        final double debt = double.tryParse(family?.debt ?? '0') ?? 0;
+    return AsyncView<List<AdeelListItem>>(
+      value: adeels,
+      builder: (List<AdeelListItem> options) {
+        final AdeelListItem? adeel = _selected(options);
+        final String? problem = _validate(l, adeel);
+        final double debt = double.tryParse(adeel?.debt ?? '0') ?? 0;
         final double? amount = double.tryParse(_amount.text.trim());
         final bool canSubmit =
             !_submitting &&
-            family != null &&
+            adeel != null &&
             debt > 0 &&
             amount != null &&
             amount > 0 &&
@@ -168,26 +168,26 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                 const SizedBox(height: AppSpacing.lg),
 
                 DropdownButtonFormField<int>(
-                  initialValue: _familyId,
+                  initialValue: _adeelId,
                   isExpanded: true,
                   decoration: InputDecoration(labelText: l.selectFamily),
                   items: <DropdownMenuItem<int>>[
-                    for (final FamilyListItem option in options)
+                    for (final AdeelListItem option in options)
                       DropdownMenuItem<int>(
                         value: option.id,
                         child: Text(
-                          '${option.fatherName} • ${option.familyCode}',
+                          '${option.fullName} • ${option.adeelCode}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                   ],
                   onChanged: _submitting
                       ? null
-                      : (int? value) => setState(() => _familyId = value),
+                      : (int? value) => setState(() => _adeelId = value),
                 ),
                 const SizedBox(height: AppSpacing.md),
 
-                if (family != null) ...<Widget>[
+                if (adeel != null) ...<Widget>[
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
@@ -207,7 +207,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                           ),
                         ),
                         Text(
-                          formatMoney(family.debt),
+                          formatMoney(adeel.debt),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -246,7 +246,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     child: TextButton(
                       onPressed: _submitting
                           ? null
-                          : () => setState(() => _amount.text = family!.debt),
+                          : () => setState(() => _amount.text = adeel!.debt),
                       child: Text(l.payFullAmount),
                     ),
                   ),
@@ -315,7 +315,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
 
                 const SizedBox(height: AppSpacing.xl),
                 FilledButton(
-                  onPressed: canSubmit ? () => _submit(l, family) : null,
+                  onPressed: canSubmit ? () => _submit(l, adeel) : null,
                   child: _submitting
                       ? const SizedBox.square(
                           dimension: 20,

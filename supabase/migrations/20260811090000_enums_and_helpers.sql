@@ -11,11 +11,20 @@
 -- ── Enumerated types ─────────────────────────────────────────────────────────
 -- MySQL inline ENUM(...) becomes a named type. The Arabic labels are the wire
 -- values the Flutter app already sends (app/lib/core/domain/wire_values.dart);
--- changing them would break the client and the index.html parity oracle.
+-- changing them would break the client.
 
+-- member_kind ('father','son') is GONE, and so is the household it discriminated
+-- inside. The association no longer bills a family through its head: every عديل
+-- is billed in his own right, for the same monthly subscription, so `families`
+-- and `members` collapsed into the single `adeels` table in the next migration
+-- but one. Removing the type rather than leaving it unused is deliberate — an
+-- unused enum is an invitation to reintroduce the two-tier model by accident.
+--
+-- member_status keeps its name: an عديل IS a member of the association, and the
+-- three labels mean exactly what they always meant. Only the entity they hang
+-- off changed.
 CREATE TYPE app_role       AS ENUM ('viewer','treasurer','financeManager','admin');
 CREATE TYPE app_status     AS ENUM ('pending','approved','suspended');
-CREATE TYPE member_kind    AS ENUM ('father','son');
 CREATE TYPE member_status  AS ENUM ('نشط','موقوف','متوفى');
 CREATE TYPE recv_status    AS ENUM ('غير مسدد','مسدد جزئياً','مسدد بالكامل','ملغي');
 CREATE TYPE pay_method     AS ENUM ('نقداً','تحويل مصرفي');

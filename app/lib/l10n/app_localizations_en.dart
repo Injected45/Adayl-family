@@ -12,7 +12,7 @@ class LEn extends L {
   String get appTitle => 'Adayl Family Association';
 
   @override
-  String get appTagline => 'Families, subscriptions and treasury management';
+  String get appTagline => 'Subscribers, subscriptions and treasury management';
 
   @override
   String get loginTitle => 'Welcome';
@@ -113,12 +113,6 @@ class LEn extends L {
   String get navHome => 'Home';
 
   @override
-  String get navFamilies => 'Families';
-
-  @override
-  String get navMembers => 'Members';
-
-  @override
   String get navReceivables => 'Receivables';
 
   @override
@@ -173,38 +167,7 @@ class LEn extends L {
   String get comingSoonBody => 'This screen will be built in a later phase.';
 
   @override
-  String get searchFamiliesHint =>
-      'Search by name, national ID, phone, subscription, workplace…';
-
-  @override
-  String get searchMembersHint =>
-      'Search by name, national ID, phone or workplace…';
-
-  @override
-  String get noFamilies => 'No families registered yet';
-
-  @override
   String get noSearchResults => 'No results for your search';
-
-  @override
-  String get noMembers => 'No members registered';
-
-  @override
-  String get familiesIntro =>
-      'Each family begins with the father, with his sons listed beneath.';
-
-  @override
-  String get membersIntro => 'One unified search across fathers and sons.';
-
-  @override
-  String sonsBadge(int count) {
-    return '$count sons';
-  }
-
-  @override
-  String eligibleBadge(int count) {
-    return '$count eligible';
-  }
 
   @override
   String debtBadge(String amount) {
@@ -217,19 +180,7 @@ class LEn extends L {
   }
 
   @override
-  String get familySummary => 'Family summary';
-
-  @override
-  String get sonsCount => 'Sons';
-
-  @override
-  String get eligibleCount => 'Eligible';
-
-  @override
-  String get soonCount => 'Approaching age';
-
-  @override
-  String get monthlyExpected => 'Current monthly charge';
+  String get familySummary => 'Subscriber summary';
 
   @override
   String get debt => 'Outstanding';
@@ -238,13 +189,10 @@ class LEn extends L {
   String get totalPaid => 'Total approved payments';
 
   @override
-  String get fatherData => 'Father\'s details';
+  String get personalData => 'Personal details';
 
   @override
-  String get sonsSection => 'Sons';
-
-  @override
-  String get statementShort => 'Statement summary';
+  String get totalDue => 'Charged';
 
   @override
   String get phone => 'Phone';
@@ -271,16 +219,7 @@ class LEn extends L {
   String get age => 'Age';
 
   @override
-  String get relation => 'Relation';
-
-  @override
-  String get family => 'Family';
-
-  @override
   String get notProvided => '—';
-
-  @override
-  String get currentValue => 'Current amount';
 
   @override
   String get receivablesIntro =>
@@ -305,18 +244,6 @@ class LEn extends L {
   String get statusLabel => 'Status';
 
   @override
-  String get billedSons => 'Billed sons';
-
-  @override
-  String get noneBilled => 'none';
-
-  @override
-  String get fatherFee => 'Father\'s fee';
-
-  @override
-  String get sonFee => 'Son\'s fee';
-
-  @override
   String get issuedTotal => 'Receivables raised';
 
   @override
@@ -333,10 +260,11 @@ class LEn extends L {
       'A chronological view of receivables, payments and balance.';
 
   @override
-  String get selectFamily => 'Select a family';
+  String get selectFamily => 'Select a subscriber';
 
   @override
-  String get selectFamilyToView => 'Select a family to view its statement';
+  String get selectFamilyToView =>
+      'Select a subscriber to view their statement';
 
   @override
   String get noMovements => 'No movements';
@@ -426,7 +354,7 @@ class LEn extends L {
 
   @override
   String get noDebtForFamily =>
-      'This family has no outstanding balance, so no payment can be recorded.';
+      'This subscriber has no outstanding balance, so no payment can be recorded.';
 
   @override
   String amountTooHigh(String amount) {
@@ -496,7 +424,7 @@ class LEn extends L {
 
   @override
   String get generateConfirmBody =>
-      'A receivable will be raised for every family owing a subscription this month. A duplicate for the same family and month is not possible.';
+      'A receivable will be raised for every active subscriber this month. A duplicate for the same subscriber and month is not possible.';
 
   @override
   String get generateConfirm => 'Raise';
@@ -522,10 +450,10 @@ class LEn extends L {
       'The association\'s administrative and financial position.';
 
   @override
-  String get statFamilies => 'Families';
+  String get statAdeels => 'Subscribers';
 
   @override
-  String get statEligibleSons => 'Eligible sons';
+  String get statInactive => 'Not billed';
 
   @override
   String get statTotalDebt => 'Total outstanding';
@@ -534,18 +462,18 @@ class LEn extends L {
   String get statTotalCollected => 'Total collected';
 
   @override
-  String subSons(int count) {
-    return '$count sons';
+  String subActive(int count) {
+    return '$count active';
   }
 
   @override
-  String subApproaching(int count) {
-    return '$count approaching';
+  String subDeceased(int count) {
+    return '$count deceased';
   }
 
   @override
-  String subIndebtedFamilies(int count) {
-    return '$count families owing';
+  String subIndebtedAdeels(int count) {
+    return '$count subscribers owing';
   }
 
   @override
@@ -557,25 +485,11 @@ class LEn extends L {
   String get topDebtors => 'Largest balances';
 
   @override
-  String get upcomingAlerts => 'Coming up';
-
-  @override
   String get noDebtsNow => 'No outstanding balances';
-
-  @override
-  String get noAgeAlerts => 'No age alerts at the moment';
 
   @override
   String closeMonth(String period) {
     return 'Close $period';
-  }
-
-  @override
-  String get approachingBadge => 'Approaching age';
-
-  @override
-  String sonOf(String father) {
-    return 'son of $father';
   }
 
   @override
@@ -696,40 +610,36 @@ class LEn extends L {
   String get noChanges => 'No changes';
 
   @override
-  String get familyCodeTitle => 'Have a family code?';
+  String get familyCodeTitle => 'Have a subscription code?';
 
   @override
   String get familyCodeBody =>
-      'If an association officer gave you an access code for your family, type it here to see your family\'s own records.';
+      'If an administrator gave you an access code, type it here to see your own subscription straight away.';
 
   @override
-  String get familyCodeField => 'Family code';
+  String get familyCodeField => 'Subscription code';
 
   @override
   String get familyCodeHint => 'XXXX-XXXX-XXXX';
 
   @override
-  String get familyCodeAction => 'Enter as family';
+  String get familyCodeAction => 'Sign in with a subscription code';
 
   @override
-  String get myFamilyTitle => 'My family';
+  String get myFamilyTitle => 'My subscription';
 
   @override
-  String get myFamilyIntro =>
-      'Your family\'s records, dues and payments. Read only.';
-
-  @override
-  String get myMembersSection => 'Family members';
+  String get myFamilyIntro => 'Your subscription and payments. Read-only.';
 
   @override
   String get myStatementSection => 'Statement';
 
   @override
-  String get issueCodeTitle => 'Family access code';
+  String get issueCodeTitle => 'Subscriber access code';
 
   @override
   String get issueCodeBody =>
-      'Give this code to the head of the family so he can sign in and see only his own family. Issuing a new one revokes the old.';
+      'Give this code to the subscriber so he can sign in and see only his own figures. Issuing a new code revokes the old one.';
 
   @override
   String get issueCodeAction => 'Issue access code';
@@ -752,7 +662,7 @@ class LEn extends L {
 
   @override
   String get purgeKeeps =>
-      'Kept: families, members, association settings and user accounts.';
+      'Kept: subscribers, association settings and user accounts.';
 
   @override
   String get purgeIrreversible =>
@@ -784,15 +694,15 @@ class LEn extends L {
   String get purgeNothingToDo => 'There is no financial data to erase';
 
   @override
-  String get purgeAllTitle => 'Erase families and members';
+  String get purgeAllTitle => 'Erase the subscriber register';
 
   @override
   String get purgeAllIntro =>
-      'Permanently deletes every family and member, and all financial data with them. The database is left completely empty, as if the system had never been used.';
+      'Permanently deletes every subscriber, and all financial data with them. The database returns to empty, as if the system had never been used.';
 
   @override
   String get purgeAllWhyFinancial =>
-      'Why the financial data goes too: every receivable and receipt belongs to a family, so a family cannot be removed while its receipt remains.';
+      'Why the financial data goes too: every receivable and receipt belongs to a subscriber, so a subscriber cannot be deleted while his receipt survives.';
 
   @override
   String get purgeAllKeeps =>
@@ -847,27 +757,7 @@ class LEn extends L {
   String get cannotModifySelfNote => 'You cannot modify your own account';
 
   @override
-  String get addFamily => 'Add family';
-
-  @override
-  String get editFamily => 'Edit family';
-
-  @override
-  String get addSon => 'Add son';
-
-  @override
-  String get removeSon => 'Remove son';
-
-  @override
-  String sonNumber(int number) {
-    return 'Son $number';
-  }
-
-  @override
   String get requiredField => 'This field is required';
-
-  @override
-  String get familySaved => 'Family saved';
 
   @override
   String get membershipStatusField => 'Membership status';
@@ -890,4 +780,56 @@ class LEn extends L {
 
   @override
   String get discard => 'Discard';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get navRegister => 'Subscribers';
+
+  @override
+  String get addAdeel => 'Add subscriber';
+
+  @override
+  String get editAdeel => 'Edit subscriber';
+
+  @override
+  String get searchAdeelsHint => 'Search by name, national ID or code...';
+
+  @override
+  String get noAdeels => 'No subscribers registered yet';
+
+  @override
+  String get registerIntro =>
+      'Every subscriber is registered in his own name and billed his own subscription.';
+
+  @override
+  String get adeelSaved => 'Subscriber saved';
+
+  @override
+  String get adeelDeleted => 'Subscriber removed';
+
+  @override
+  String get deleteAdeelTitle => 'Remove this subscriber?';
+
+  @override
+  String get deleteAdeelBody =>
+      'This cannot be undone. A subscriber with any financial history cannot be removed — suspend him instead.';
+
+  @override
+  String get monthlyFeeLabel => 'Monthly subscription';
+
+  @override
+  String openPeriodsBadge(int count) {
+    return '$count open periods';
+  }
+
+  @override
+  String get issuedLabel => 'Total charged';
+
+  @override
+  String get myDuesTitle => 'My subscriptions';
+
+  @override
+  String get duesSection => 'Subscriptions';
 }

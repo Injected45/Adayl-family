@@ -10,14 +10,17 @@ abstract final class AppRoutes {
   static const String suspended = '/suspended';
   static const String forbidden = '/forbidden';
 
-  /// The family portal. Not in [destinations] and never in the navigation bar:
-  /// it is the ONLY route a head of family may occupy, and the only one he may
+  /// The عديل portal. Not in [destinations] and never in the navigation bar:
+  /// it is the ONLY route a portal account may occupy, and the only one he may
   /// not leave. See the guard in app_router.dart.
-  static const String myFamily = '/my-family';
+  static const String myDues = '/my-dues';
 
   static const String home = '/';
-  static const String families = '/families';
-  static const String members = '/members';
+
+  /// The register. ONE route where there were two — `/families` listed
+  /// households and `/members` listed the people inside them, and they describe
+  /// the same rows now.
+  static const String adeels = '/adeels';
   static const String receivables = '/receivables';
   static const String payments = '/payments';
   static const String cash = '/cash';
@@ -69,10 +72,10 @@ const List<AppDestination> appDestinations = <AppDestination>[
     primary: true,
   ),
   AppDestination(
-    route: AppRoutes.families,
+    route: AppRoutes.adeels,
     icon: Icons.groups_outlined,
     selectedIcon: Icons.groups,
-    label: _familiesLabel,
+    label: _registerLabel,
     primary: true,
   ),
   AppDestination(
@@ -89,12 +92,6 @@ const List<AppDestination> appDestinations = <AppDestination>[
     selectedIcon: Icons.account_balance_wallet,
     label: _cashLabel,
     primary: true,
-  ),
-  AppDestination(
-    route: AppRoutes.members,
-    icon: Icons.person_search_outlined,
-    selectedIcon: Icons.person_search,
-    label: _membersLabel,
   ),
   AppDestination(
     route: AppRoutes.receivables,
@@ -151,8 +148,7 @@ const List<AppDestination> appDestinations = <AppDestination>[
 
 // Top-level functions, because a const list cannot hold closures.
 String _homeLabel(L l) => l.navHome;
-String _familiesLabel(L l) => l.navFamilies;
-String _membersLabel(L l) => l.navMembers;
+String _registerLabel(L l) => l.navRegister;
 String _receivablesLabel(L l) => l.navReceivables;
 String _paymentsLabel(L l) => l.navPayments;
 String _paymentsShortLabel(L l) => l.navPaymentsShort;
@@ -172,8 +168,8 @@ AppDestination? destinationForRoute(String route) {
   return null;
 }
 
-/// Resolves nested locations too, so `/families/12` is governed by the same
-/// role rule as `/families`. Without this a child route would slip past the
+/// Resolves nested locations too, so `/adeels/12` is governed by the same
+/// role rule as `/adeels`. Without this a child route would slip past the
 /// guard entirely.
 AppDestination? destinationForLocation(String location) {
   final AppDestination? exact = destinationForRoute(location);

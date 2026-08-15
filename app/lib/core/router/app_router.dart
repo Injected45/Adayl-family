@@ -9,11 +9,10 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/pending_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/suspended_screen.dart';
-import '../../features/directory/presentation/families_screen.dart';
-import '../../features/directory/presentation/family_detail_screen.dart';
-import '../../features/directory/presentation/family_form_screen.dart';
-import '../../features/directory/presentation/family_portal_screen.dart';
-import '../../features/directory/presentation/members_screen.dart';
+import '../../features/directory/presentation/adeel_detail_screen.dart';
+import '../../features/directory/presentation/adeel_form_screen.dart';
+import '../../features/directory/presentation/adeel_portal_screen.dart';
+import '../../features/directory/presentation/adeels_screen.dart';
 import '../../features/directory/presentation/officials_screen.dart';
 import '../../features/directory/presentation/receivables_screen.dart';
 import '../../features/directory/presentation/statements_screen.dart';
@@ -33,8 +32,7 @@ import 'destinations.dart';
 /// its screen exists.
 const Set<String> _implementedRoutes = <String>{
   AppRoutes.home,
-  AppRoutes.families,
-  AppRoutes.members,
+  AppRoutes.adeels,
   AppRoutes.receivables,
   AppRoutes.statements,
   AppRoutes.officials,
@@ -77,41 +75,37 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         builder: (_, _) => const ForbiddenScreen(),
       ),
       GoRoute(
-        path: AppRoutes.myFamily,
-        builder: (_, _) => const FamilyPortalScreen(),
+        path: AppRoutes.myDues,
+        builder: (_, _) => const AdeelPortalScreen(),
       ),
       GoRoute(path: AppRoutes.home, builder: (_, _) => const DashboardScreen()),
 
       // ── Phase 4: the read-only screens ──────────────────────────────
       GoRoute(
-        path: AppRoutes.families,
-        builder: (_, _) => const FamiliesScreen(),
+        path: AppRoutes.adeels,
+        builder: (_, _) => const AdeelsScreen(),
         routes: <RouteBase>[
           // Registered BEFORE ':id', which would otherwise capture "new".
-          GoRoute(path: 'new', builder: (_, _) => const FamilyFormScreen()),
+          GoRoute(path: 'new', builder: (_, _) => const AdeelFormScreen()),
           GoRoute(
             path: ':id',
             builder: (_, GoRouterState state) {
               final int? id = int.tryParse(state.pathParameters['id'] ?? '');
               // A malformed id is a bad link, not a crash.
               return id == null
-                  ? const FamiliesScreen()
-                  : FamilyDetailScreen(familyId: id);
+                  ? const AdeelsScreen()
+                  : AdeelDetailScreen(adeelId: id);
             },
             routes: <RouteBase>[
               GoRoute(
                 path: 'edit',
-                builder: (_, GoRouterState state) => FamilyFormScreen(
-                  familyId: int.tryParse(state.pathParameters['id'] ?? ''),
+                builder: (_, GoRouterState state) => AdeelFormScreen(
+                  adeelId: int.tryParse(state.pathParameters['id'] ?? ''),
                 ),
               ),
             ],
           ),
         ],
-      ),
-      GoRoute(
-        path: AppRoutes.members,
-        builder: (_, _) => const MembersScreen(),
       ),
       GoRoute(
         path: AppRoutes.receivables,
@@ -179,10 +173,10 @@ String? _guard(Ref ref, GoRouterState state) {
       break;
   }
 
-  // ── The family portal, before anything else ────────────────────────────────
-  // A head of family is signed in and approved, so he reaches this point like
-  // any viewer — but he is not staff, and every association screen would render
-  // empty for him because RLS hands him nothing outside his own family. Pinning
+  // ── The عديل portal, before anything else ─────────────────────────────────
+  // An عديل on the portal is signed in and approved, so he reaches this point
+  // like any viewer — but he is not staff, and every association screen would
+  // render empty for him because RLS hands him nothing but his own rows. Pinning
   // him to one route is what turns that emptiness into a coherent app.
   //
   // Placed above the pre-auth redirect deliberately: that line sends anyone
@@ -190,10 +184,10 @@ String? _guard(Ref ref, GoRouterState state) {
   // is the wrong destination.
   //
   // This is presentation, as always. The database refuses him the same rows
-  // whether or not this branch exists — supabase/tests/45_family_portal.sql is
+  // whether or not this branch exists — supabase/tests/45_adeel_portal.sql is
   // where that is actually proved.
-  if (auth.user?.isFamilyHead ?? false) {
-    return location == AppRoutes.myFamily ? null : AppRoutes.myFamily;
+  if (auth.user?.isAdeelPortal ?? false) {
+    return location == AppRoutes.myDues ? null : AppRoutes.myDues;
   }
 
   const Set<String> preAuthRoutes = <String>{
@@ -204,9 +198,9 @@ String? _guard(Ref ref, GoRouterState state) {
   };
   if (preAuthRoutes.contains(location)) return AppRoutes.home;
 
-  // The reverse: staff have no family scope, so the portal would render nothing
+  // The reverse: staff have no عديل scope, so the portal would render nothing
   // for them. Sending them home beats an empty screen with no explanation.
-  if (location == AppRoutes.myFamily) return AppRoutes.home;
+  if (location == AppRoutes.myDues) return AppRoutes.home;
 
   final AppDestination? destination = destinationForLocation(location);
   final AppRole role = auth.user?.role ?? AppRole.viewer;
@@ -214,14 +208,14 @@ String? _guard(Ref ref, GoRouterState state) {
     return AppRoutes.forbidden;
   }
 
-  // Reading the family list is open to everyone, but entering or amending a
-  // family is a finance-manager act. The child write routes therefore need
+  // Reading the register is open to everyone, but entering or amending an
+  // عديل is a finance-manager act. The child write routes therefore need
   // their own check — their parent destination's role is not strict enough.
-  final bool isFamilyWrite =
-      location == '${AppRoutes.families}/new' ||
-      (location.startsWith('${AppRoutes.families}/') &&
+  final bool isAdeelWrite =
+      location == '${AppRoutes.adeels}/new' ||
+      (location.startsWith('${AppRoutes.adeels}/') &&
           location.endsWith('/edit'));
-  if (isFamilyWrite && !role.atLeast(AppRole.financeManager)) {
+  if (isAdeelWrite && !role.atLeast(AppRole.financeManager)) {
     return AppRoutes.forbidden;
   }
 

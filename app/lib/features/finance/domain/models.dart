@@ -27,7 +27,7 @@ class PaymentView {
   const PaymentView({
     required this.id,
     required this.receiptNo,
-    required this.familyId,
+    required this.adeelId,
     required this.amount,
     required this.method,
     required this.reference,
@@ -40,7 +40,7 @@ class PaymentView {
 
   final int id;
   final String receiptNo;
-  final int familyId;
+  final int adeelId;
   final String amount;
   final String method;
   final String? reference;
@@ -53,7 +53,7 @@ class PaymentView {
   factory PaymentView.fromJson(Map<String, dynamic> json) => PaymentView(
     id: _int(json['id']),
     receiptNo: _string(json['receiptNo']),
-    familyId: _int(json['familyId']),
+    adeelId: _int(json['adeelId']),
     amount: _string(json['amount']),
     method: _string(json['method']),
     reference: json['reference'] as String?,
@@ -103,7 +103,7 @@ class CashMovementView {
   const CashMovementView({
     required this.id,
     required this.receiptNo,
-    required this.familyName,
+    required this.adeelName,
     required this.amount,
     required this.method,
     required this.movementType,
@@ -113,7 +113,7 @@ class CashMovementView {
 
   final int id;
   final String receiptNo;
-  final String familyName;
+  final String adeelName;
   final String amount;
   final String method;
   final String movementType;
@@ -124,7 +124,7 @@ class CashMovementView {
       CashMovementView(
         id: _int(json['id']),
         receiptNo: _string(json['receiptNo']),
-        familyName: _string(json['familyName']),
+        adeelName: _string(json['adeelName']),
         amount: _string(json['amount']),
         method: _string(json['method']),
         movementType: _string(json['movementType']),

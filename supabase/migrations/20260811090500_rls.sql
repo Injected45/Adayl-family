@@ -1,201 +1,167 @@
--- 20260811090200_settings_families_members.sql
--- Ports api/migrations/003, 004, 005.
-
--- ─────────────────────────────────────────────────────────────────────────────
--- association_settings — the singleton. Drives every FUTURE calculation and
--- never alters history: a receivable snapshots these values at creation.
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE public.association_settings (
-  id                          smallint      NOT NULL DEFAULT 1,
-  association_name            text          NOT NULL DEFAULT 'مشروع جمعية العدايل',
-  currency                    text          NOT NULL DEFAULT 'د.ل',
-  father_fee                  numeric(12,2) NOT NULL DEFAULT 20.00,
-  son_fee                     numeric(12,2) NOT NULL DEFAULT 10.00,
-  eligibility_age             smallint      NOT NULL DEFAULT 16,
-  warning_months              smallint      NOT NULL DEFAULT 3,
-  system_start                date          NOT NULL,
-  auto_close_previous_months  boolean       NOT NULL DEFAULT true,
-
-  treasurer_name              text          NOT NULL DEFAULT '',
-  treasurer_national_id       text          NOT NULL DEFAULT '',
-  treasurer_phone             text          NOT NULL DEFAULT '',
-
-  finance_manager_name        text          NOT NULL DEFAULT '',
-  finance_manager_national_id text          NOT NULL DEFAULT '',
-  finance_manager_phone       text          NOT NULL DEFAULT '',
-
-  updated_by                  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
-  updated_at                  timestamptz   NOT NULL DEFAULT now(),
-
-  PRIMARY KEY (id),
-  CONSTRAINT ck_settings_singleton CHECK (id = 1),
-  CONSTRAINT ck_settings_fees      CHECK (father_fee >= 0 AND son_fee >= 0),
-  -- MySQL's TINYINT UNSIGNED bounded these; Postgres smallint is signed, so the
-  -- bound has to be stated. A negative eligibility age would make every son
-  -- billable from birth.
-  CONSTRAINT ck_settings_age       CHECK (eligibility_age BETWEEN 0 AND 255),
-  CONSTRAINT ck_settings_warning   CHECK (warning_months  BETWEEN 0 AND 255)
-);
-
-CREATE TRIGGER trg_settings_touch
-  BEFORE UPDATE ON public.association_settings
-  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
-
--- Defaults match defaultSettings in index.html; system_start is 1 January of
--- the current year, as `new Date().getFullYear()+"-01-01"` produced.
-INSERT INTO public.association_settings (id, system_start)
-VALUES (1, make_date(extract(year FROM current_date)::int, 1, 1))
-ON CONFLICT (id) DO NOTHING;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- families
+-- 20260811090500_rls.sql — the security boundary.
 --
--- family_code is a GENERATED column here. MySQL forbade generated columns that
--- reference AUTO_INCREMENT, which forced the API to INSERT then UPDATE inside
--- the creating transaction. Postgres computes it from the identity value in the
--- same row, so the code cannot collide and no second statement exists to fail
--- between. (index.html used `F-${families.length+1}`, which collides outright
--- when two users create a family in the same moment.)
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE public.families (
-  id          bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  family_code text        GENERATED ALWAYS AS ('F-' || lpad(id::text, 4, '0')) STORED,
-  legacy_id   text,
-  notes       text,
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  created_by  uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
-  updated_at  timestamptz NOT NULL DEFAULT now(),
-  updated_by  uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
-
-  CONSTRAINT uq_families_code   UNIQUE (family_code),
-  CONSTRAINT uq_families_legacy UNIQUE (legacy_id)
-);
-
-CREATE TRIGGER trg_families_touch
-  BEFORE UPDATE ON public.families
-  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
-
--- ─────────────────────────────────────────────────────────────────────────────
--- members — fathers and sons in one table.
+-- This file is what replaces `api/src/auth/middleware.ts` and every per-route
+-- role guard. Read it as the answer to one question: "a hostile client holds the
+-- anon key and can call anything — what stops it?"
 --
--- Flattening father{} + sons[] behind a `kind` discriminator turns business
--- rule 10 (national ID unique across ALL members) into one unique index,
--- replacing the prototype's O(n) nationalExists() scan.
+-- The shape is deliberate and it is not the obvious one:
 --
--- "Exactly one father per family" is a PARTIAL unique index here. MySQL needed
--- a generated `father_slot` column that produced NULL for sons, exploiting the
--- fact that NULL repeats freely in a unique index. Postgres indexes a WHERE
--- clause directly, so the helper column is unnecessary.
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE public.members (
-  id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  family_id       bigint        NOT NULL REFERENCES public.families(id) ON DELETE RESTRICT,
-  kind            member_kind   NOT NULL,
-  full_name       text          NOT NULL,
-  national_id     text          NOT NULL,
-  phone           text,
-  subscription_no text,
-  dob             date,
-  nationality     text          NOT NULL DEFAULT 'ليبي',
-  workplace       text,
-  registered_at   date          NOT NULL,
-  status          member_status NOT NULL DEFAULT 'نشط',
-  notes           text,
-  legacy_id       text,
-  created_at      timestamptz   NOT NULL DEFAULT now(),
-  updated_at      timestamptz   NOT NULL DEFAULT now(),
-
-  CONSTRAINT uq_members_national_id UNIQUE (national_id),
-  CONSTRAINT uq_members_legacy      UNIQUE (legacy_id),
-  CONSTRAINT ck_members_name        CHECK (btrim(full_name) <> ''),
-  CONSTRAINT ck_members_national_id CHECK (btrim(national_id) <> '')
-);
-
-CREATE UNIQUE INDEX uq_members_one_father
-  ON public.members (family_id) WHERE kind = 'father';
-
-CREATE INDEX ix_members_family ON public.members (family_id, kind);
-CREATE INDEX ix_members_dob    ON public.members (dob);
-CREATE INDEX ix_members_name   ON public.members (full_name);
-CREATE INDEX ix_members_status ON public.members (status);
-
-CREATE TRIGGER trg_members_touch
-  BEFORE UPDATE ON public.members
-  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
-
--- Rule 10, second half: date of birth cannot be in the future. A trigger, not a
--- CHECK, because CURRENT_DATE is not immutable and Postgres rejects it in a
--- CHECK constraint for the same reason MySQL did.
+--   READS  go direct to tables and views, gated by RLS on role.
+--   WRITES do not exist. anon and authenticated hold NO INSERT, UPDATE or
+--          DELETE privilege on any table, and no table carries a write policy.
+--          Every mutation goes through a SECURITY DEFINER function that checks
+--          the caller's role and enforces the rule before touching a row.
 --
--- ⚠ CARRIED-FORWARD DECISION D2 / CONFLICT C1 (docs/MIGRATION_PLAN.md §11.2):
--- this covers fathers AND sons, which is stricter than index.html (saveFamily
--- line 309 validates sons only and never checks the father's dob). The stricter
--- reading was chosen so no bad row can enter the database. To match the
--- prototype exactly, add `AND NEW.kind = 'son'`. Still flagged, still not
--- silently settled.
-CREATE OR REPLACE FUNCTION public.guard_member_dob() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.dob IS NOT NULL AND NEW.dob > current_date THEN
-    RAISE EXCEPTION 'تاريخ الميلاد لا يمكن أن يكون مستقبلياً'
-      USING ERRCODE = 'RUL10';
-  END IF;
-  RETURN NEW;
-END $$;
+-- Why withhold writes entirely rather than write careful per-table policies: a
+-- policy can only judge the row in front of it. It cannot see that this INSERT
+-- into payment_allocations is the third of five that must all land or none, nor
+-- that receivables.paid must move by exactly the same amount. The nine
+-- transactional endpoints were transactional for a reason, and a policy has no
+-- way to express it. Funnelling writes through functions keeps the transaction
+-- boundary that the API owned.
 
-CREATE TRIGGER trg_members_dob
-  BEFORE INSERT OR UPDATE ON public.members
-  FOR EACH ROW EXECUTE FUNCTION public.guard_member_dob();
+-- ── Baseline privileges ──────────────────────────────────────────────────────
+-- Supabase grants ALL on new objects in public to anon and authenticated via
+-- default privileges. Revoke first, then grant back only SELECT.
+REVOKE ALL ON ALL TABLES    IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM anon, authenticated;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- profiles.family_id → families.id
---
--- Declared here rather than on the column, because profiles is created one
--- migration earlier than families and a REFERENCES clause cannot point forward.
--- See the header of profiles for why the family-head discriminator is a column
--- rather than a new app_role value.
--- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE public.profiles
-  ADD CONSTRAINT fk_profiles_family
-  FOREIGN KEY (family_id) REFERENCES public.families(id) ON DELETE CASCADE;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  REVOKE ALL ON TABLES FROM anon, authenticated;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- family_access_codes — one code per family, the thing a head of family types
--- once to bind his Google account to his own family and nothing else.
---
--- PRIMARY KEY (family_id): one live code per family. Re-issuing overwrites,
--- which is what "regenerate" means and also what revokes the old code — there is
--- no second row for the previous one to keep working from.
---
--- Re-issuing does NOT sign anybody out. The binding lives on profiles.family_id
--- once redeemed; the code is only the thing that creates that binding. So an
--- admin can regenerate freely without breaking a head of family who is already in.
---
--- THE CODE IS STORED IN PLAINTEXT, deliberately, and it is worth being explicit
--- about the trade:
---   * only an admin can read this table (RLS, 20260811090500), and only through
---     an admin-gated function; anon and every other role get nothing;
---   * the admin has to be able to re-read a code to resend it over WhatsApp. A
---     hash would force "regenerate" every time the message is lost, which for a
---     non-technical treasurer is a footgun, not a safeguard;
---   * the code reaches the family head over WhatsApp anyway, so it already
---     exists in plaintext somewhere far less protected than this table.
--- What a hash WOULD buy is protection of old codes in a leaked backup. Against
--- that: the codes grant read-only access to one family's own figures, and
--- rotating every code is one button per family.
---
--- `code` is 12 characters from an unambiguous 32-letter alphabet ≈ 60 bits.
--- Guessing one over HTTPS is not a threat worth rate-limiting for; guessing it
--- offline buys the attacker one family's balance.
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE public.family_access_codes (
-  family_id   bigint      PRIMARY KEY REFERENCES public.families(id) ON DELETE CASCADE,
-  code        text        NOT NULL,
-  issued_at   timestamptz NOT NULL DEFAULT now(),
-  issued_by   uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
-  redeemed_at timestamptz,
-  redeemed_by uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
-  CONSTRAINT uq_family_code UNIQUE (code),
-  CONSTRAINT ck_family_code_len CHECK (char_length(code) BETWEEN 8 AND 64)
-);
+-- ── RLS on, everywhere, with no exceptions ───────────────────────────────────
+-- A table with RLS enabled and no matching policy denies. Enabling it on every
+-- table means a table added later without a policy fails closed, not open.
+ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.association_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.adeels               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.receivables          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_allocations  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cash_movements       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
+
+-- ── SELECT: viewer and above ─────────────────────────────────────────────────
+-- has_role() returns false for anon, for a suspended account, and for one still
+-- pending admin approval, because my_role() returns NULL unless status =
+-- 'approved'. "Sign in and you are in" becomes "sign in and wait to be let in",
+-- which is the behaviour api/src/auth/middleware.ts had.
+
+GRANT SELECT ON
+  public.association_settings, public.adeels,
+  public.receivables, public.payments,
+  public.payment_allocations, public.cash_movements
+TO authenticated;
+
+CREATE POLICY read_settings ON public.association_settings
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+CREATE POLICY read_adeels ON public.adeels
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+CREATE POLICY read_receivables ON public.receivables
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+CREATE POLICY read_payments ON public.payments
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+CREATE POLICY read_allocations ON public.payment_allocations
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+CREATE POLICY read_cash ON public.cash_movements
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+
+-- ── audit_log: financeManager and above ──────────────────────────────────────
+-- Endpoint 29 was financeManager-gated. A treasurer seeing who cancelled what
+-- is an oversight function, not a collection function.
+GRANT SELECT ON public.audit_log TO authenticated;
+CREATE POLICY read_audit ON public.audit_log
+  FOR SELECT TO authenticated USING (public.has_role('financeManager'));
+
+-- ── profiles ─────────────────────────────────────────────────────────────────
+-- Own row always readable, otherwise admin only — a pending user must be able
+-- to load /auth/me and see that they are pending, which is how the app renders
+-- the waiting-for-approval screen. That read must NOT go through has_role(),
+-- since has_role() is false for exactly those users.
+GRANT SELECT ON public.profiles TO authenticated;
+CREATE POLICY read_own_profile ON public.profiles
+  FOR SELECT TO authenticated USING (id = auth.uid());
+CREATE POLICY read_all_profiles ON public.profiles
+  FOR SELECT TO authenticated USING (public.has_role('admin'));
+
+-- ── The عديل portal: he sees his OWN row and his own money, nothing else ─────
+--
+-- A second, narrower way in. Everything above answers "is the caller staff?"
+-- through has_role(); everything here answers "which عديل is the caller?"
+-- through my_adeel_id(). The two are mutually exclusive by construction, because
+-- my_role() returns NULL as soon as profiles.adeel_id is set — so an عديل fails
+-- every policy above without any of them being edited, and staff get NULL from
+-- my_adeel_id() so they never match a policy below.
+--
+-- Postgres ORs multiple permissive policies on the same command, which is
+-- exactly right here: a row is visible if the caller is staff OR it is the
+-- caller's own. Neither policy has to know the other exists.
+--
+-- READ ONLY, and that is the whole feature. There is no INSERT/UPDATE/DELETE
+-- policy for an عديل any more than there is for an admin — collection stays with
+-- the treasurer, through register_payment(), which begins with
+-- require_role('treasurer') and therefore refuses him outright.
+--
+-- payment_allocations is scoped through its parent rather than by a column of
+-- its own: it has no adeel_id. Scoping it by EXISTS against the payment means it
+-- cannot drift out of step with the payment it belongs to.
+
+CREATE POLICY read_own_adeel ON public.adeels
+  FOR SELECT TO authenticated USING (id = public.my_adeel_id());
+
+CREATE POLICY read_own_receivables ON public.receivables
+  FOR SELECT TO authenticated USING (adeel_id = public.my_adeel_id());
+
+CREATE POLICY read_own_payments ON public.payments
+  FOR SELECT TO authenticated USING (adeel_id = public.my_adeel_id());
+
+CREATE POLICY read_own_allocations ON public.payment_allocations
+  FOR SELECT TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.payments p
+             WHERE p.id = payment_allocations.payment_id
+               AND p.adeel_id = public.my_adeel_id()));
+
+CREATE POLICY read_own_cash ON public.cash_movements
+  FOR SELECT TO authenticated USING (adeel_id = public.my_adeel_id());
+
+-- The association's name, currency and monthly fee. He is being billed by these
+-- figures, so withholding them would make his own statement unreadable. The
+-- officials' names and phones travel with them, which is intended — that is who
+-- he pays.
+CREATE POLICY read_settings_adeel ON public.association_settings
+  FOR SELECT TO authenticated USING (public.my_adeel_id() IS NOT NULL);
+
+-- Deliberately NOT extended to an عديل: audit_log (it names other people's
+-- transactions), profiles beyond his own row (read_own_profile already covers
+-- that), and adeel_access_codes (below).
+
+-- ── adeel_access_codes: admins only, and only through the RPCs ───────────────
+-- No SELECT for anyone but an admin. An عديل must never be able to read his own
+-- row, let alone anyone else's: the code is the credential, and the table holds
+-- every code in plaintext (see the table's header for why).
+ALTER TABLE public.adeel_access_codes ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.adeel_access_codes TO authenticated;
+CREATE POLICY read_adeel_codes ON public.adeel_access_codes
+  FOR SELECT TO authenticated USING (public.has_role('admin'));
+
+-- Deliberately absent: any INSERT, UPDATE or DELETE policy on any table.
+-- If you are about to add one, the write belongs in an RPC instead.
+
+-- ── Function execution ───────────────────────────────────────────────────────
+-- Handled in 20260811090800_lockdown.sql, not here, and NOT with
+-- ALTER DEFAULT PRIVILEGES.
+--
+-- The obvious approach is to set a default-privilege rule now so that every
+-- function created by later migrations comes out locked. It does not work:
+-- issued as the superuser that owns these objects,
+--     ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+-- is a silent no-op on PostgreSQL 16.4 — nothing lands in pg_default_acl and the
+-- next function created still carries PUBLIC=EXECUTE. Verified directly; see the
+-- header of the lockdown migration. Supabase runs migrations as that same kind of
+-- role, so this is not a local artefact.
+--
+-- The privileges the read policies above depend on are granted there too, so that
+-- one file holds the complete answer to "what can a client call?".

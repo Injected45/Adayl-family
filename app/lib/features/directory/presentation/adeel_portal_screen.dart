@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
+import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
@@ -11,33 +12,33 @@ import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
-import 'family_detail_screen.dart' show eligibilityTone;
 import 'providers.dart';
 
-/// What a head of family sees: his own family, and nothing of the association's.
+/// What an عديل sees: his own record and his own money, and nothing of the
+/// association's.
 ///
 /// Deliberately NOT an AppScaffold. That widget carries the navigation bar, and
 /// every destination on it is a screen he must not reach — the router refuses
 /// him anyway, so offering the tabs and then bouncing him back would be a worse
 /// interface than not offering them at all.
 ///
-/// It reuses `api_family_detail` and `api_family_statement` rather than adding
+/// It reuses `api_adeel_detail` and `api_adeel_statement` rather than adding
 /// portal-only endpoints. Both are SECURITY INVOKER, so the very call an admin
-/// makes returns only what RLS allows THIS caller — one family. A separate
+/// makes returns only what RLS allows THIS caller — one عديل. A separate
 /// endpoint would be a second place for the scoping to be got wrong, and only
-/// one of them would be covered by supabase/tests/45_family_portal.sql.
-class FamilyPortalScreen extends ConsumerWidget {
-  const FamilyPortalScreen({super.key});
+/// one of them would be covered by supabase/tests/45_adeel_portal.sql.
+class AdeelPortalScreen extends ConsumerWidget {
+  const AdeelPortalScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
     final AuthState auth = ref.watch(authControllerProvider);
-    final int? familyId = auth.user?.familyId;
+    final int? adeelId = auth.user?.adeelId;
 
     // The router guarantees this. Without it, the frame between redeeming a
     // code and the redirect landing would be a crash rather than a spinner.
-    if (familyId == null) return const LoadingStateView();
+    if (adeelId == null) return const LoadingStateView();
 
     return Scaffold(
       body: AppBackground(
@@ -60,7 +61,7 @@ class FamilyPortalScreen extends ConsumerWidget {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           Text(
-                            auth.user?.familyCode ?? '',
+                            auth.user?.adeelCode ?? '',
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.muted,
@@ -79,15 +80,15 @@ class FamilyPortalScreen extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: AsyncView<FamilyDetail>(
-                  value: ref.watch(familyDetailProvider(familyId)),
-                  onRetry: () => ref.invalidate(familyDetailProvider(familyId)),
-                  builder: (FamilyDetail data) => RefreshIndicator(
+                child: AsyncView<AdeelDetail>(
+                  value: ref.watch(adeelDetailProvider(adeelId)),
+                  onRetry: () => ref.invalidate(adeelDetailProvider(adeelId)),
+                  builder: (AdeelDetail data) => RefreshIndicator(
                     onRefresh: () async {
-                      ref.invalidate(familyDetailProvider(familyId));
-                      ref.invalidate(statementProvider(familyId));
+                      ref.invalidate(adeelDetailProvider(adeelId));
+                      ref.invalidate(statementProvider(adeelId));
                     },
-                    child: _PortalBody(familyId: familyId, family: data),
+                    child: _PortalBody(adeelId: adeelId, detail: data),
                   ),
                 ),
               ),
@@ -100,18 +101,18 @@ class FamilyPortalScreen extends ConsumerWidget {
 }
 
 class _PortalBody extends ConsumerWidget {
-  const _PortalBody({required this.familyId, required this.family});
+  const _PortalBody({required this.adeelId, required this.detail});
 
-  final int familyId;
-  final FamilyDetail family;
+  final int adeelId;
+  final AdeelDetail detail;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
     final AsyncValue<Statement> statement = ref.watch(
-      statementProvider(familyId),
+      statementProvider(adeelId),
     );
-    final bool owes = (double.tryParse(family.debt) ?? 0) > 0;
+    final bool owes = (double.tryParse(detail.debt) ?? 0) > 0;
 
     return ListView(
       padding: screenPadding(context),
@@ -126,22 +127,25 @@ class _PortalBody extends ConsumerWidget {
           children: <Widget>[
             _Kpi(
               label: l.debt,
-              value: formatMoney(family.debt),
+              value: formatMoney(detail.debt),
               tone: owes ? AppColors.danger : AppColors.success,
             ),
-            _Kpi(label: l.totalPaid, value: formatMoney(family.paid)),
+            _Kpi(label: l.totalPaid, value: formatMoney(detail.paid)),
             _Kpi(
-              label: l.monthlyExpected,
-              value: formatMoney(family.monthlyExpected),
+              label: l.monthlyFeeLabel,
+              value: formatMoney(detail.monthlyExpected),
             ),
-            _Kpi(label: l.sonsCount, value: '${family.sonsCount}'),
+            _Kpi(label: l.issuedLabel, value: formatMoney(detail.issued)),
           ],
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        _SectionTitle(l.myMembersSection),
-        if (family.father != null) _MemberTile(member: family.father!),
-        for (final MemberView son in family.sons) _MemberTile(member: son),
+        // The household roster is gone: there is no household, and the only
+        // person on this page is the one reading it. What replaces it is what he
+        // actually came for — which months he owes.
+        _SectionTitle(l.myDuesTitle),
+        for (final ReceivableItem item in detail.receivables)
+          _DueTile(item: item),
 
         const SizedBox(height: AppSpacing.xl),
         _SectionTitle(l.myStatementSection),
@@ -220,14 +224,14 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member});
+class _DueTile extends StatelessWidget {
+  const _DueTile({required this.item});
 
-  final MemberView member;
+  final ReceivableItem item;
 
   @override
   Widget build(BuildContext context) {
-    final L l = L.of(context);
+    final bool settled = item.status == ReceivableStatusWire.fullyPaid;
     return GlassCard(
       margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -238,27 +242,22 @@ class _MemberTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  member.fullName,
+                  item.periodLabel,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  member.age == null
-                      ? member.nationalId
-                      : l.ageYears(member.age!),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted,
-                  ),
+                  formatMoney(item.total),
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ],
             ),
           ),
-          // The label comes from the database, not from here: lib/l10n has no
-          // eligibility wording, and one spelling everywhere is the point.
+          // The status label is the value the database stores, so what he reads
+          // here and what the treasurer reads cannot diverge.
           StatusBadge(
-            label: member.eligibilityLabel,
-            tone: eligibilityTone(member.eligibility),
+            label: item.status,
+            tone: settled ? AppColors.success : AppColors.warning,
           ),
         ],
       ),

@@ -83,14 +83,14 @@ class AuthRepository {
   /// Binds this signed-in account to the family whose access code it is.
   ///
   /// The one write a signed-in stranger may call. Everything it grants is
-  /// read-only sight of a single family, and everything it can be given is a
+  /// read-only sight of a single عديل, and everything it can be given is a
   /// code the admin generated — so the authorisation is the code itself, which
-  /// is why `redeem_family_code` carries no require_role() gate. It refuses
+  /// is why `redeem_adeel_code` carries no require_role() gate. It refuses
   /// anyone who is already staff, and refuses a code already redeemed by
   /// somebody else.
-  Future<void> redeemFamilyCode(String code) => SupabaseFailures.guard(() async {
+  Future<void> redeemAdeelCode(String code) => SupabaseFailures.guard(() async {
     await _db.rpc<dynamic>(
-      'redeem_family_code',
+      'redeem_adeel_code',
       params: <String, dynamic>{'p_code': code},
     );
   });

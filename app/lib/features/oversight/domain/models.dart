@@ -7,99 +7,85 @@ import '../../auth/domain/app_user.dart';
 String _string(Object? value) => value == null ? '' : value.toString();
 int _int(Object? value) => value is num ? value.toInt() : 0;
 
+/// The dashboard's stat row.
+///
+/// It used to count families, sons, and how many sons were eligible,
+/// approaching the eligibility age, or under it. None of those quantities exist:
+/// there are no families, every عديل is billed alike, and there is no age to be
+/// under. What replaces them is the register broken down by membership status,
+/// which is now the only thing that decides whether a charge is raised.
 class DashboardStats {
   const DashboardStats({
-    required this.families,
-    required this.sons,
-    required this.eligible,
-    required this.soon,
-    required this.under,
+    required this.adeels,
+    required this.active,
+    required this.suspended,
+    required this.deceased,
     required this.debt,
     required this.collected,
     required this.cash,
     required this.transfer,
-    required this.indebtedFamilies,
+    required this.indebtedAdeels,
   });
 
-  final int families;
-  final int sons;
-  final int eligible;
-  final int soon;
-  final int under;
+  final int adeels;
+  final int active;
+  final int suspended;
+  final int deceased;
   final String debt;
   final String collected;
   final String cash;
   final String transfer;
-  final int indebtedFamilies;
+  final int indebtedAdeels;
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) => DashboardStats(
-    families: _int(json['families']),
-    sons: _int(json['sons']),
-    eligible: _int(json['eligible']),
-    soon: _int(json['soon']),
-    under: _int(json['under']),
+    adeels: _int(json['adeels']),
+    active: _int(json['active']),
+    suspended: _int(json['suspended']),
+    deceased: _int(json['deceased']),
     debt: _string(json['debt']),
     collected: _string(json['collected']),
     cash: _string(json['cash']),
     transfer: _string(json['transfer']),
-    indebtedFamilies: _int(json['indebtedFamilies']),
+    indebtedAdeels: _int(json['indebtedAdeels']),
   );
 }
 
 class DebtorRow {
   const DebtorRow({
-    required this.familyId,
-    required this.familyCode,
-    required this.fatherName,
+    required this.adeelId,
+    required this.adeelCode,
+    required this.adeelName,
     required this.debt,
   });
 
-  final int familyId;
-  final String familyCode;
-  final String fatherName;
+  final int adeelId;
+  final String adeelCode;
+  final String adeelName;
   final String debt;
 
   factory DebtorRow.fromJson(Map<String, dynamic> json) => DebtorRow(
-    familyId: _int(json['familyId']),
-    familyCode: _string(json['familyCode']),
-    fatherName: _string(json['fatherName']),
+    adeelId: _int(json['adeelId']),
+    adeelCode: _string(json['adeelCode']),
+    adeelName: _string(json['adeelName']),
     debt: _string(json['debt']),
   );
 }
 
-class UpcomingSon {
-  const UpcomingSon({
-    required this.sonId,
-    required this.sonName,
-    required this.familyId,
-    required this.fatherName,
-  });
-
-  final int sonId;
-  final String sonName;
-  final int familyId;
-  final String fatherName;
-
-  factory UpcomingSon.fromJson(Map<String, dynamic> json) => UpcomingSon(
-    sonId: _int(json['sonId']),
-    sonName: _string(json['sonName']),
-    familyId: _int(json['familyId']),
-    fatherName: _string(json['fatherName']),
-  );
-}
+// `UpcomingSon` is GONE, along with the "قريب من السن" card it fed. It listed
+// sons whose sixteenth birthday fell inside warning_months, so the treasurer
+// could see a charge coming before it appeared. With no age gate there is no
+// charge to see coming: an عديل is billed from the day he is registered نشط.
 
 class DashboardData {
   const DashboardData({
     required this.stats,
     required this.topDebtors,
-    required this.upcomingSons,
     required this.closingPeriod,
     required this.closingPeriodLabel,
   });
 
   final DashboardStats stats;
   final List<DebtorRow> topDebtors;
-  final List<UpcomingSon> upcomingSons;
   final String closingPeriod;
   final String closingPeriodLabel;
 
@@ -112,12 +98,6 @@ class DashboardData {
           (dynamic e) => DebtorRow.fromJson((e as Map).cast<String, dynamic>()),
         )
         .toList(),
-    upcomingSons: (json['upcomingSons'] as List<dynamic>)
-        .map(
-          (dynamic e) =>
-              UpcomingSon.fromJson((e as Map).cast<String, dynamic>()),
-        )
-        .toList(),
     closingPeriod: _string(json['closingPeriod']),
     closingPeriodLabel: _string(json['closingPeriodLabel']),
   );
@@ -128,26 +108,26 @@ class AlertItem {
     required this.type,
     required this.severity,
     required this.text,
-    required this.familyId,
+    required this.adeelId,
   });
 
   final String type;
   final String severity;
   final String text;
-  final int familyId;
+  final int adeelId;
 
   factory AlertItem.fromJson(Map<String, dynamic> json) => AlertItem(
     type: _string(json['type']),
     severity: _string(json['severity']),
     text: _string(json['text']),
-    familyId: _int(json['familyId']),
+    adeelId: _int(json['adeelId']),
   );
 }
 
 class ReportPaymentRow {
   const ReportPaymentRow({
     required this.receiptNo,
-    required this.familyName,
+    required this.adeelName,
     required this.amount,
     required this.method,
     required this.reference,
@@ -155,7 +135,7 @@ class ReportPaymentRow {
   });
 
   final String receiptNo;
-  final String familyName;
+  final String adeelName;
   final String amount;
   final String method;
   final String reference;
@@ -164,7 +144,7 @@ class ReportPaymentRow {
   factory ReportPaymentRow.fromJson(Map<String, dynamic> json) =>
       ReportPaymentRow(
         receiptNo: _string(json['receiptNo']),
-        familyName: _string(json['familyName']),
+        adeelName: _string(json['adeelName']),
         amount: _string(json['amount']),
         method: _string(json['method']),
         reference: _string(json['reference']),
@@ -373,50 +353,46 @@ class EditableSettings {
 class PurgeResult {
   const PurgeResult({
     required this.receivables,
-    required this.receivableLines,
     required this.payments,
     required this.allocations,
     required this.cashMovements,
     required this.auditEntries,
-    this.families = 0,
-    this.members = 0,
+    this.adeels = 0,
   });
 
   final int receivables;
-  final int receivableLines;
   final int payments;
   final int allocations;
   final int cashMovements;
   final int auditEntries;
 
-  /// Only `purge_all_data` reports these. The financial purge leaves the
-  /// directory alone and omits both keys, so they decode to zero — which is the
-  /// truth about what it removed, not a missing value.
-  final int families;
-  final int members;
+  /// Only `purge_all_data` reports this. The financial purge leaves the register
+  /// alone and omits the key, so it decodes to zero — which is the truth about
+  /// what it removed, not a missing value.
+  ///
+  /// `receivableLines` used to sit alongside it and is gone with the table: a
+  /// receivable bills one عديل for one month, so there was nothing left for a
+  /// line to describe.
+  final int adeels;
 
   /// Every row the purge removed, for the one-line confirmation the screen
   /// shows. The figures are kept separately because an admin who purged by
   /// accident will want to know exactly what went.
   int get total =>
       receivables +
-      receivableLines +
       payments +
       allocations +
       cashMovements +
       auditEntries +
-      families +
-      members;
+      adeels;
 
   factory PurgeResult.fromJson(Map<String, dynamic> json) => PurgeResult(
     receivables: _int(json['receivables']),
-    receivableLines: _int(json['receivableLines']),
     payments: _int(json['payments']),
     allocations: _int(json['allocations']),
     cashMovements: _int(json['cashMovements']),
     auditEntries: _int(json['auditEntries']),
-    families: _int(json['families']),
-    members: _int(json['members']),
+    adeels: _int(json['adeels']),
   );
 }
 

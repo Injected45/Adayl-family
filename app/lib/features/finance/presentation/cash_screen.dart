@@ -197,7 +197,7 @@ class _MovementTile extends StatelessWidget {
         color: voided ? AppColors.muted : AppColors.brand,
       ),
       title: Text(
-        movement.familyName,
+        movement.adeelName,
         style: TextStyle(
           fontWeight: FontWeight.w700,
           decoration: voided ? TextDecoration.lineThrough : null,

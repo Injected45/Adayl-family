@@ -47,8 +47,8 @@ class AppUser {
     required this.role,
     required this.status,
     this.pictureUrl,
-    this.familyId,
-    this.familyCode,
+    this.adeelId,
+    this.adeelCode,
   });
 
   /// A uuid, not a number. Identity belongs to Supabase Auth (auth.users.id)
@@ -61,23 +61,23 @@ class AppUser {
   final AppRole role;
   final AccountStatus status;
 
-  /// The family this account is the head of, or null for association staff.
+  /// The عديل this account is bound to, or null for association staff.
   ///
-  /// This is the branch the whole family portal turns on, and it is deliberately
-  /// NOT derived from [role]: a head of family is stored as `viewer`, because
+  /// This is the branch the whole عديل portal turns on, and it is deliberately
+  /// NOT derived from [role]: an عديل on the portal is stored as `viewer`, because
   /// the staff ladder has no rung for him. The database makes the same
   /// distinction the same way — `my_role()` returns NULL as soon as
-  /// `profiles.family_id` is set — so what this app shows him and what RLS will
+  /// `profiles.adeel_id` is set — so what this app shows him and what RLS will
   /// hand him cannot disagree.
-  final int? familyId;
+  final int? adeelId;
 
-  /// F-0001 and the like, for the portal's heading. Null for staff.
-  final String? familyCode;
+  /// A-0001 and the like, for the portal's heading. Null for staff.
+  final String? adeelCode;
 
   bool get isApproved => status == AccountStatus.approved;
 
-  /// Read-only access to exactly one family, and nothing of the association's.
-  bool get isFamilyHead => familyId != null;
+  /// Read-only access to exactly his own record, and nothing of the association's.
+  bool get isAdeelPortal => adeelId != null;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
@@ -86,8 +86,8 @@ class AppUser {
     pictureUrl: json['pictureUrl'] as String?,
     role: AppRole.fromWire(json['role'] as String?),
     status: AccountStatus.fromWire(json['status'] as String?),
-    familyId: (json['familyId'] as num?)?.toInt(),
-    familyCode: json['familyCode'] as String?,
+    adeelId: (json['adeelId'] as num?)?.toInt(),
+    adeelCode: json['adeelCode'] as String?,
   );
 }
 

@@ -5,16 +5,16 @@
 -- payments
 --
 -- receipt_no is GENERATED from the identity value, for the same reason
--- families.family_code is: MySQL forbade it and needed a follow-up UPDATE
--- inside the transaction, Postgres does not.
+-- adeels.adeel_code is: MySQL forbade it and needed a follow-up UPDATE inside
+-- the transaction, Postgres does not.
 --
--- `reference` stays optional even for bank transfers because index.html leaves
--- it optional (PaymentModal line 620). Requiring it would be a new rule.
+-- `reference` stays optional even for bank transfers. Requiring it would be a
+-- new rule.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.payments (
   id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   receipt_no    text          GENERATED ALWAYS AS ('PAY-' || lpad(id::text, 6, '0')) STORED,
-  family_id     bigint        NOT NULL REFERENCES public.families(id) ON DELETE RESTRICT,
+  adeel_id      bigint        NOT NULL REFERENCES public.adeels(id) ON DELETE RESTRICT,
   amount        numeric(12,2) NOT NULL,
   method        pay_method    NOT NULL,
   reference     text,
@@ -34,7 +34,7 @@ CREATE TABLE public.payments (
   CONSTRAINT ck_pay_cancel  CHECK (status <> 'ملغي' OR cancelled_at IS NOT NULL)
 );
 
-CREATE INDEX ix_pay_family ON public.payments (family_id, paid_at);
+CREATE INDEX ix_pay_adeel  ON public.payments (adeel_id, paid_at);
 CREATE INDEX ix_pay_time   ON public.payments (paid_at);
 CREATE INDEX ix_pay_status ON public.payments (status, paid_at);
 
@@ -68,13 +68,13 @@ CREATE INDEX ix_alloc_recv ON public.payment_allocations (receivable_id);
 -- treasury. That matters more here than it did behind the API, because a mobile
 -- client on a flaky connection retries far more often than a server did.
 --
--- movement_type carries only 'تحصيل' because that is the sole value index.html
--- produces (line 353) — the association has no way to record money going OUT.
+-- movement_type carries only 'تحصيل' — the association has no way to record
+-- money going OUT.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.cash_movements (
   id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   payment_id    bigint        NOT NULL REFERENCES public.payments(id) ON DELETE RESTRICT,
-  family_id     bigint        NOT NULL REFERENCES public.families(id) ON DELETE RESTRICT,
+  adeel_id      bigint        NOT NULL REFERENCES public.adeels(id) ON DELETE RESTRICT,
   amount        numeric(12,2) NOT NULL,
   method        pay_method    NOT NULL,
   movement_type cash_kind     NOT NULL DEFAULT 'تحصيل',
@@ -100,6 +100,19 @@ CREATE INDEX ix_cash_method ON public.cash_movements (method, status, occurred_a
 -- actor_name is snapshotted alongside actor_id so the trail stays readable after
 -- a user is renamed or deleted.
 --
+-- actor_user_id carries NO foreign key, deliberately, and that is a correction
+-- rather than an omission. It used to be `REFERENCES profiles(id) ON DELETE SET
+-- NULL`, which could never once have fired: SET NULL is an UPDATE on audit_log,
+-- and refuse_audit_change below rejects every UPDATE on audit_log. The pair did
+-- not degrade gracefully — it made deleting any account that had ever written a
+-- trail entry impossible, which is the exact opposite of what snapshotting
+-- actor_name was for, and it would have aborted purge_all_data outright the
+-- first time a portal account redeemed a code before the purge.
+--
+-- So the column is a plain uuid: a historical note about who acted, not a live
+-- relation. It may point at an account that no longer exists, and actor_name is
+-- what keeps the row readable when it does.
+--
 -- ip_address has no source any more. PostgREST does not expose the client IP to
 -- SQL, so this column will be NULL for every row the app writes. Left in place
 -- rather than dropped so imported legacy rows keep theirs — see
@@ -110,7 +123,7 @@ CREATE TABLE public.audit_log (
   event_type    text        NOT NULL,
   detail        text        NOT NULL,
   ref           text,
-  actor_user_id uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
+  actor_user_id uuid,
   actor_name    text        NOT NULL,
   ip_address    text,
   occurred_at   timestamptz NOT NULL DEFAULT clock_timestamp()
@@ -124,9 +137,9 @@ CREATE INDEX ix_audit_ref  ON public.audit_log (ref);
 -- Rule 9 / rule 12: nothing financial is ever hard-deleted, and the audit trail
 -- cannot be rewritten.
 --
--- index.html never deletes a payment; it marks it 'ملغي', reverses the
--- allocations and keeps the row (cancelPayment line 361). These triggers make
--- that structural rather than conventional.
+-- A payment is never deleted; it is marked 'ملغي', its allocations are reversed
+-- and the row is kept. These triggers make that structural rather than
+-- conventional.
 --
 -- Defence in depth is different now. Previously the app's database user could be
 -- granted no DELETE privilege, and the triggers guarded against someone with a
@@ -142,8 +155,6 @@ BEGIN
 END $$;
 
 CREATE TRIGGER trg_recv_no_delete       BEFORE DELETE ON public.receivables
-  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
-CREATE TRIGGER trg_recv_lines_no_delete BEFORE DELETE ON public.receivable_lines
   FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
 CREATE TRIGGER trg_pay_no_delete        BEFORE DELETE ON public.payments
   FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();

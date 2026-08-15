@@ -26,15 +26,15 @@ class FinanceRepository {
   static List<Map<String, dynamic>> _rows(dynamic value) =>
       (value as List<dynamic>).map(_obj).toList();
 
-  Future<List<PaymentView>> payments({int? familyId}) =>
+  Future<List<PaymentView>> payments({int? adeelId}) =>
       SupabaseFailures.guard(() async {
         final PostgrestFilterBuilder<dynamic> base = _db
             .from('v_payments')
             .select();
-        final dynamic rows = familyId == null
+        final dynamic rows = adeelId == null
             ? await base.order('paidAt', ascending: false)
             : await base
-                  .eq('familyId', familyId)
+                  .eq('adeelId', adeelId)
                   .order('paidAt', ascending: false);
         return _rows(rows).map(PaymentView.fromJson).toList();
       });
@@ -57,7 +57,7 @@ class FinanceRepository {
   }
 
   Future<PaymentView> registerPayment({
-    required int familyId,
+    required int adeelId,
     required String amount,
     required String method,
     String? reference,
@@ -67,7 +67,7 @@ class FinanceRepository {
     final dynamic result = await _db.rpc<dynamic>(
       'register_payment',
       params: <String, dynamic>{
-        'p_family_id': familyId,
+        'p_adeel_id': adeelId,
         // Sent as a STRING and cast by Postgres. Serialising it as a JSON number
         // would route the amount through a double on the way out, which is the
         // same mistake in the other direction.

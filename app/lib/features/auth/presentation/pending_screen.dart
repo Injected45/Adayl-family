@@ -81,7 +81,7 @@ class _FamilyCodeBoxState extends ConsumerState<_FamilyCodeBox> {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
-      await ref.read(authRepositoryProvider).redeemFamilyCode(typed);
+      await ref.read(authRepositoryProvider).redeemAdeelCode(typed);
       // The profile changed underneath the router: pending with no family has
       // become approved with one. Nothing else would notice, so the stage is
       // re-derived explicitly and the guard moves him to his portal.

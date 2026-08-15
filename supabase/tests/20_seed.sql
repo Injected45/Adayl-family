@@ -20,24 +20,21 @@ UPDATE public.profiles SET role = 'treasurer',      status = 'approved' WHERE em
 UPDATE public.profiles SET role = 'viewer',         status = 'approved' WHERE email = 'viewer@fam.test';
 UPDATE public.profiles SET role = 'admin',          status = 'suspended' WHERE email = 'suspended@fam.test';
 
--- Settings pinned so eligibility maths is deterministic rather than dependent on
--- the day the suite runs.
+-- Pinned so the arithmetic is deterministic rather than dependent on the day the
+-- suite runs.
 UPDATE public.association_settings
-   SET father_fee = 20.00, son_fee = 10.00, eligibility_age = 16,
-       warning_months = 3, system_start = '2026-01-01'
+   SET member_fee = 20.00, system_start = '2026-01-01'
  WHERE id = 1;
 
--- Two families. F-0001: father نشط + two sons over 16 + one under → 20 + 20 = 40.
--- F-0002: father موقوف + one son over 16 → 0 + 10 = 10, which proves the father
--- fee is genuinely conditional rather than always added.
-INSERT INTO public.families DEFAULT VALUES;
-INSERT INTO public.families DEFAULT VALUES;
-
-INSERT INTO public.members
-  (family_id, kind, full_name, national_id, dob, registered_at, status) VALUES
-  (1, 'father', 'الأب الأول',  '1000000000001', '1975-03-01', '2026-01-01', 'نشط'),
-  (1, 'son',    'ابن بالغ ١',  '1000000000002', '2005-05-10', '2026-01-01', 'نشط'),
-  (1, 'son',    'ابن بالغ ٢',  '1000000000003', '2008-01-20', '2026-01-01', 'نشط'),
-  (1, 'son',    'ابن صغير',    '1000000000004', '2019-07-01', '2026-01-01', 'نشط'),
-  (2, 'father', 'الأب الثاني', '1000000000005', '1970-11-11', '2026-01-01', 'موقوف'),
-  (2, 'son',    'ابن الثاني',  '1000000000006', '2004-02-02', '2026-01-01', 'نشط');
+-- Four عدايل, chosen so a generated period proves the ONLY billing gate that is
+-- left. Two are نشط and get charged 20.00 each; one موقوف and one متوفى are
+-- skipped entirely. Dates of birth are spread deliberately wide — a 7-year-old
+-- among them — because under the old schema age decided who paid and under this
+-- one it must decide nothing at all. If an age gate is ever reintroduced by
+-- accident, العديل الصغير starts being skipped and 30_rules notices.
+INSERT INTO public.adeels
+  (full_name, national_id, dob, registered_at, status) VALUES
+  ('العديل الأول',  '1000000000001', '1975-03-01', '2026-01-01', 'نشط'),
+  ('العديل الصغير', '1000000000002', '2019-07-01', '2026-01-01', 'نشط'),
+  ('العديل الموقوف','1000000000003', '1970-11-11', '2026-01-01', 'موقوف'),
+  ('العديل المتوفى','1000000000004', '1968-02-02', '2026-01-01', 'متوفى');

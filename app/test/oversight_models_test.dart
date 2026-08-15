@@ -7,69 +7,58 @@ void main() {
     test('parses the stats object the server sends', () {
       final DashboardData data = DashboardData.fromJson(<String, dynamic>{
         'stats': <String, dynamic>{
-          'families': 2,
-          'sons': 6,
-          'eligible': 3,
-          'soon': 1,
-          'under': 1,
+          'adeels': 6,
+          'active': 4,
+          'suspended': 1,
+          'deceased': 1,
           'debt': '75.00',
           'collected': '135.00',
           'cash': '95.00',
           'transfer': '40.00',
-          'indebtedFamilies': 2,
+          'indebtedAdeels': 2,
         },
         'topDebtors': <dynamic>[
           <String, dynamic>{
-            'familyId': 1,
-            'familyCode': 'F-0001',
-            'fatherName': 'محمد',
+            'adeelId': 1,
+            'adeelCode': 'A-0001',
+            'adeelName': 'محمد',
             'debt': '45.00',
-          },
-        ],
-        'upcomingSons': <dynamic>[
-          <String, dynamic>{
-            'sonId': 3,
-            'sonName': 'عمر',
-            'familyId': 1,
-            'fatherName': 'محمد',
           },
         ],
         'closingPeriod': '2026-07',
         'closingPeriodLabel': 'يوليو ٢٠٢٦',
       });
 
-      expect(data.stats.families, 2);
+      expect(data.stats.adeels, 6);
       expect(data.stats.debt, '75.00');
-      expect(data.topDebtors.single.familyCode, 'F-0001');
-      expect(data.upcomingSons.single.sonName, 'عمر');
+      expect(data.topDebtors.single.adeelCode, 'A-0001');
       expect(data.closingPeriod, '2026-07');
     });
 
-    test('the eligibility buckets need not sum to the son count', () {
-      // The prototype's else-if chain leaves an inactive son in no bucket, so
-      // a client that "corrected" this would disagree with the association's
-      // own figures.
+    test('the status buckets account for every عديل', () {
+      // Unlike the eligibility buckets they replaced, these ARE exhaustive:
+      // member_status has exactly three values and every row carries one, so a
+      // total that does not reconcile means a status was added to the enum
+      // without being counted here.
       final DashboardData data = DashboardData.fromJson(<String, dynamic>{
         'stats': <String, dynamic>{
-          'families': 1,
-          'sons': 4,
-          'eligible': 2,
-          'soon': 0,
-          'under': 1,
+          'adeels': 4,
+          'active': 2,
+          'suspended': 1,
+          'deceased': 1,
           'debt': '0.00',
           'collected': '0.00',
           'cash': '0.00',
           'transfer': '0.00',
-          'indebtedFamilies': 0,
+          'indebtedAdeels': 0,
         },
         'topDebtors': <dynamic>[],
-        'upcomingSons': <dynamic>[],
         'closingPeriod': '2026-07',
         'closingPeriodLabel': 'x',
       });
       expect(
-        data.stats.eligible + data.stats.soon + data.stats.under,
-        lessThan(data.stats.sons),
+        data.stats.active + data.stats.suspended + data.stats.deceased,
+        data.stats.adeels,
       );
     });
   });

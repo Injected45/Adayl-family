@@ -15,7 +15,7 @@ export SP
 
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
-EXPECTED_CHECKS=257
+EXPECTED_CHECKS=260
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"
@@ -46,7 +46,7 @@ echo "=== hostile client / RLS ==="
 run -f "$HERE/40_rls.sql"            2>&1 | grep -vE '^(GRANT|SET|RESET) ' || true
 
 echo "=== family portal / per-family RLS ==="
-run -f "$HERE/45_family_portal.sql"   2>&1 | grep -vE "^(INSERT|UPDATE|DELETE|SELECT|SET|RESET|CREATE|DROP) " || true
+run -f "$HERE/45_adeel_portal.sql"    2>&1 | grep -vE "^(INSERT|UPDATE|DELETE|SELECT|SET|RESET|CREATE|DROP) " || true
 
 echo "=== money precision + atomicity ==="
 run -f "$HERE/50_money_and_atomicity.sql" 2>&1 | grep -vE '^(CREATE|SET|RESET|DROP) ' || true

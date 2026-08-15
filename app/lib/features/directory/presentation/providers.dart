@@ -9,12 +9,12 @@ final Provider<DirectoryRepository> directoryRepositoryProvider =
       (Ref ref) => DirectoryRepository(ref.watch(supabaseClientProvider)),
     );
 
-/// Debounced search terms, one per screen, so typing does not fire a request
-/// per keystroke.
-final StateProvider<String> familySearchProvider = StateProvider<String>(
-  (Ref ref) => '',
-);
-final StateProvider<String> memberSearchProvider = StateProvider<String>(
+/// Debounced search term, so typing does not fire a request per keystroke.
+///
+/// One where there were two. The directory used to be two screens with two
+/// searches — families by the father's name, members by their own — and they are
+/// the same list now.
+final StateProvider<String> adeelSearchProvider = StateProvider<String>(
   (Ref ref) => '',
 );
 
@@ -23,31 +23,25 @@ final StateProvider<String> receivablePeriodProvider = StateProvider<String>(
   (Ref ref) => '',
 );
 
-final StateProvider<int?> selectedStatementFamilyProvider = StateProvider<int?>(
+final StateProvider<int?> selectedStatementAdeelProvider = StateProvider<int?>(
   (Ref ref) => null,
 );
 
-final FutureProviderFamily<List<FamilyListItem>, String> familiesProvider =
-    FutureProvider.family<List<FamilyListItem>, String>(
+final FutureProviderFamily<List<AdeelListItem>, String> adeelsProvider =
+    FutureProvider.family<List<AdeelListItem>, String>(
       (Ref ref, String query) =>
-          ref.watch(directoryRepositoryProvider).families(query: query),
+          ref.watch(directoryRepositoryProvider).adeels(query: query),
     );
 
-final FutureProviderFamily<FamilyDetail, int> familyDetailProvider =
-    FutureProvider.family<FamilyDetail, int>(
-      (Ref ref, int id) => ref.watch(directoryRepositoryProvider).family(id),
+final FutureProviderFamily<AdeelDetail, int> adeelDetailProvider =
+    FutureProvider.family<AdeelDetail, int>(
+      (Ref ref, int id) => ref.watch(directoryRepositoryProvider).adeel(id),
     );
 
 final FutureProviderFamily<Statement, int> statementProvider =
     FutureProvider.family<Statement, int>(
-      (Ref ref, int familyId) =>
-          ref.watch(directoryRepositoryProvider).statement(familyId),
-    );
-
-final FutureProviderFamily<List<MemberListItem>, String> membersProvider =
-    FutureProvider.family<List<MemberListItem>, String>(
-      (Ref ref, String query) =>
-          ref.watch(directoryRepositoryProvider).members(query: query),
+      (Ref ref, int adeelId) =>
+          ref.watch(directoryRepositoryProvider).statement(adeelId),
     );
 
 final FutureProviderFamily<ReceivablesPage, String> receivablesProvider =
