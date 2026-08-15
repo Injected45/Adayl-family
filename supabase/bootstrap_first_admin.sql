@@ -42,7 +42,13 @@
 DO $bootstrap$
 DECLARE
   -- ▼▼▼ ADMIN EMAIL — change this ▼▼▼
-  v_email text := 'you@example.com';
+  --
+  -- Pre-filled with the dev-login account in run_emulator.bat, because that is
+  -- the one the emulator signs in with and it already exists in auth.users.
+  -- Change it to your own Google address once Google sign-in is enabled — or
+  -- leave it, run this, then approve your Google account from inside the app
+  -- like any other member of staff.
+  v_email text := 'admin@adayl.test';
   -- ▲▲▲ ADMIN EMAIL ▲▲▲
 
   v_id    uuid;

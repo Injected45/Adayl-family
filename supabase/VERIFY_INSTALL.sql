@@ -23,7 +23,8 @@ WITH
 expected_tables(n) AS (
   VALUES ('profiles'), ('association_settings'), ('adeels'),
          ('adeel_access_codes'), ('receivables'), ('payments'),
-         ('payment_allocations'), ('cash_movements'), ('audit_log')
+         ('payment_allocations'), ('cash_movements'), ('audit_log'),
+         ('closed_periods')
 ),
 expected_views(n) AS (
   VALUES ('v_settings'), ('v_officials'), ('v_adeels'), ('v_receivables'),
@@ -109,8 +110,8 @@ results(sort_key, check_name, detail, status) AS (
   --    create, which RLS would then silently deny rather than error on.
   UNION ALL
   SELECT 6, 'policies',
-         count(*)::text || ' (expected 16)',
-         CASE WHEN count(*) = 16 THEN 'OK' ELSE 'CHECK' END
+         count(*)::text || ' (expected 17)',
+         CASE WHEN count(*) = 17 THEN 'OK' ELSE 'CHECK' END
     FROM pg_policies WHERE schemaname = 'public'
 
   -- 7. Money is text. Reads the live view rather than trusting the definition:
