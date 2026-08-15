@@ -75,6 +75,7 @@ capture adeel_detail.json      "SELECT public.api_adeel_detail(1);"
 capture adeel_statement.json   "SELECT public.api_adeel_statement(1);"
 capture receivables.json       "SELECT public.api_receivables(NULL);"
 capture financial_report.json  "SELECT public.api_financial_report('2026-01-01','2030-12-31');"
+capture closable_periods.json  "SELECT public.api_closable_periods();"
 
 # Views arrive from PostgREST as a JSON array of row objects — json_agg over the
 # view is that exact encoding.

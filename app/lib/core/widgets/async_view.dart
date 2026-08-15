@@ -18,6 +18,9 @@ String describeApiFailure(L l, Object error) {
     return switch (error.kind) {
       ApiFailureKind.network => l.errorNetworkBody,
       ApiFailureKind.timeout => l.errorTimeout,
+      // Deliberately not "try again later". Retrying a missing endpoint fails
+      // identically for ever.
+      ApiFailureKind.schemaMismatch => l.errorSchemaMismatch,
       _ => l.errorGeneric,
     };
   }

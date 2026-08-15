@@ -112,6 +112,10 @@ class LAr extends L {
   String get errorGeneric => 'حدث خطأ غير متوقع، يرجى المحاولة لاحقاً';
 
   @override
+  String get errorSchemaMismatch =>
+      'قاعدة البيانات لا تطابق هذا الإصدار من التطبيق. لن تنجح المحاولة مرة أخرى — يلزم تطبيق مخطط قاعدة البيانات.';
+
+  @override
   String get errorNetwork => 'لا يوجد اتصال بالإنترنت';
 
   @override
@@ -486,9 +490,22 @@ class LAr extends L {
   String get noDebtsNow => 'لا توجد مديونيات حالية';
 
   @override
-  String closeMonth(String period) {
-    return 'إقفال $period';
-  }
+  String get closeMonth => 'إقفال شهر';
+
+  @override
+  String get selectPeriodTitle => 'اختر الشهر';
+
+  @override
+  String get noPeriodsToClose => 'لا توجد أشهر قابلة للإقفال بعد.';
+
+  @override
+  String get periodClosedBadge => 'مُقفل';
+
+  @override
+  String get periodClosedNote => 'أُقفل من قبل';
+
+  @override
+  String get periodBlockedNote => 'أقفل ما قبله أولاً';
 
   @override
   String get alertsIntro =>
@@ -782,7 +799,7 @@ class LAr extends L {
   String get editAdeel => 'تعديل مشترك';
 
   @override
-  String get searchAdeelsHint => 'بحث بالاسم أو الرقم الوطني أو الرمز...';
+  String get searchAdeelsHint => 'بحث بالاسم أو الرمز...';
 
   @override
   String get noAdeels => 'لا يوجد مشتركون مسجلون بعد';

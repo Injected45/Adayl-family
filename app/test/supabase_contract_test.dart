@@ -428,6 +428,34 @@ void main() {
       expect(r.payments.first.amount, '30.00');
     });
 
+    test('the closable months parse, with exactly one selectable', () {
+      final List<ClosablePeriod> periods = _list(
+        'closable_periods.json',
+      ).map(ClosablePeriod.fromJson).toList();
+      expect(periods, isNotEmpty);
+
+      // Rule 15b, on the wire. The picker greys out every row but this one, so
+      // if the server ever returned two the treasurer could close out of order
+      // and only `generate_period` would stop him — with a raw RUL15 instead of
+      // a disabled row.
+      expect(periods.where((ClosablePeriod p) => p.selectable), hasLength(1));
+
+      // And it is the EARLIEST open month, not merely an open one. The list
+      // arrives newest-first, so that is the last unclosed entry.
+      final ClosablePeriod selectable = periods.firstWhere(
+        (ClosablePeriod p) => p.selectable,
+      );
+      expect(
+        periods.where((ClosablePeriod p) => !p.closed).last.period,
+        selectable.period,
+      );
+      expect(selectable.closed, isFalse);
+
+      // The label is the server's, so one spelling of "أغسطس 2026" exists in the
+      // system. A blank one means period_label() stopped being applied here.
+      expect(periods.every((ClosablePeriod p) => p.label.isNotEmpty), isTrue);
+    });
+
     test('audit entries parse, newest-first orderable', () {
       final List<AuditEntry> entries = _list(
         'audit.json',
@@ -501,7 +529,7 @@ void main() {
         _obj('settings.json'),
       );
       expect(s.associationName, isNotEmpty);
-      expect(s.systemStart, '2026-01-01');
+      expect(s.systemStart, '2026-02-01');
       expect(s.treasurer, isNotNull);
       expect(s.financeManager, isNotNull);
     });

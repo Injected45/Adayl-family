@@ -258,12 +258,69 @@ BEGIN
   v_end := (to_date(p_period || '-01', 'YYYY-MM-DD')
             + interval '1 month - 1 day')::date;
 
+  -- ── Rule 15c: only a month inside the association's own range ─────────────
+  -- Before system_start the books did not exist; the current month and anything
+  -- after it has not ended, and closing a month that is still running would bill
+  -- for time nobody has lived through. Both ends were previously unguarded — the
+  -- picker simply did not offer them, which protects the button and not the RPC,
+  -- and the RPC is what a hostile client calls.
+  IF p_period < to_char(s.system_start, 'YYYY-MM') THEN
+    RAISE EXCEPTION 'PERIOD_BEFORE_SYSTEM_START: %', p_period
+      USING ERRCODE = 'RUL15';
+  END IF;
+  IF p_period >= to_char(current_date, 'YYYY-MM') THEN
+    RAISE EXCEPTION 'PERIOD_NOT_ENDED: %', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- ── Rule 15a: a month is closed ONCE ──────────────────────────────────────
+  -- Rule 4 already made a SECOND receivable for the same (عديل, period)
+  -- impossible, so re-running was harmless — it simply created nothing and
+  -- reported "0 created". Harmless is not the same as meaningful: a treasurer
+  -- reading "0 created" cannot tell "already done" from "nothing to do", and the
+  -- audit trail grew an entry for a close that closed nothing. Refusing says
+  -- which it was.
+  IF EXISTS (SELECT 1 FROM public.closed_periods WHERE period = p_period) THEN
+    RAISE EXCEPTION 'PERIOD_ALREADY_CLOSED: %', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- ── Rule 15b: months close IN ORDER, oldest first ─────────────────────────
+  -- Closing August while July was never closed leaves a hole that nothing later
+  -- reveals: the register looks complete, every receipt reconciles, and the
+  -- association is simply never paid for July. The gap is invisible precisely
+  -- because a missing charge produces no row to notice.
+  --
+  -- Checked against closed_periods rather than against receivables, and that
+  -- distinction is the whole reason the table exists: a month in which nobody
+  -- was نشط produces zero receivables, so an "are there receivables?" test would
+  -- read it as never closed and block every month after it forever.
+  --
+  -- Nothing before system_start counts. The association's books begin there.
+  IF EXISTS (
+    SELECT 1
+      FROM generate_series(
+             date_trunc('month', s.system_start),
+             date_trunc('month', to_date(p_period || '-01', 'YYYY-MM-DD'))
+               - interval '1 month',
+             interval '1 month') d
+     WHERE NOT EXISTS (SELECT 1 FROM public.closed_periods c
+                        WHERE c.period = to_char(d, 'YYYY-MM'))
+  ) THEN
+    RAISE EXCEPTION 'EARLIER_PERIOD_OPEN: % cannot be closed while an earlier '
+                    'month is still open', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
   -- Rule 3: nothing to charge means no rows at all, not zero rows. A fee of zero
   -- is a valid configuration (the association pausing collection), and it must
   -- produce an empty period rather than a register full of 0.00 charges that
   -- ck_recv_total would refuse anyway.
+  --
+  -- It still COUNTS AS CLOSED. The month was dealt with; leaving it open would
+  -- block every month after it under 15b, which is exactly the trap that made
+  -- closed_periods a table rather than an inference.
   IF s.member_fee <= 0 THEN
     SELECT count(*) INTO v_skipped FROM public.adeels WHERE status = 'نشط';
+    INSERT INTO public.closed_periods (period, closed_by, created)
+    VALUES (p_period, auth.uid(), 0);
     PERFORM public.write_audit('receivables.generate',
       format('إنشاء استحقاقات %s: لا رسم مقرر', p_period), p_period);
     RETURN jsonb_build_object('period', p_period, 'created', 0,
@@ -298,6 +355,13 @@ BEGIN
     v_recv_id := NULL;
   END LOOP;
 
+  -- The month is now closed, whatever it produced. Written INSIDE the same
+  -- transaction as the receivables it raised, so a failure anywhere above leaves
+  -- neither the charges nor the marker — the alternative is a month recorded as
+  -- closed with nothing billed in it.
+  INSERT INTO public.closed_periods (period, closed_by, created)
+  VALUES (p_period, auth.uid(), v_created);
+
   PERFORM public.write_audit('receivables.generate',
     format('إنشاء استحقاقات %s: %s سجل', p_period, v_created), p_period);
 
@@ -330,9 +394,20 @@ BEGIN
 
   WHILE v_cursor <= v_last LOOP
     v_period := to_char(v_cursor, 'YYYY-MM');
-    v_one    := public.generate_period(v_period);
-    v_created := v_created + (v_one ->> 'created')::int;
-    v_periods := v_periods || v_one;
+    -- Skip what is already closed rather than calling and catching. Rule 15a
+    -- makes generate_period REFUSE a closed month, so the old "call it and let
+    -- rule 4 make it a no-op" pattern would now abort the whole backfill on the
+    -- first month that had already been done — which is every month, the second
+    -- time anyone presses this.
+    --
+    -- Walking oldest-first is also what satisfies rule 15b for free: each month
+    -- is closed before the one after it is attempted.
+    IF NOT EXISTS (SELECT 1 FROM public.closed_periods c WHERE c.period = v_period)
+    THEN
+      v_one    := public.generate_period(v_period);
+      v_created := v_created + (v_one ->> 'created')::int;
+      v_periods := v_periods || v_one;
+    END IF;
     v_cursor := (v_cursor + interval '1 month')::date;
   END LOOP;
 
@@ -584,6 +659,7 @@ BEGIN
            public.cash_movements,
            public.payments,
            public.receivables,
+           public.closed_periods,
            public.audit_log
     RESTART IDENTITY;
 
@@ -667,6 +743,7 @@ BEGIN
            public.cash_movements,
            public.payments,
            public.receivables,
+           public.closed_periods,
            public.audit_log
     RESTART IDENTITY;
 

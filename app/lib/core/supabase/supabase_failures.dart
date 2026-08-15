@@ -85,11 +85,20 @@ abstract final class SupabaseFailures {
       '42501' => 401,
       'PGRST301' => 401, // JWT expired
       'PGRST302' => 401, // no JWT
+      // The function or the table is not in the schema cache — i.e. it is not
+      // in the database at all. 404 is what PostgREST itself answers, and it is
+      // the honest status: the endpoint does not exist.
+      'PGRST202' || 'PGRST205' => 404,
       _ => 500,
     };
 
     return ApiException(
-      kind: ApiFailureKind.server,
+      // Separated from `server` before anything else looks at it, because the
+      // two are not the same problem and must not produce the same sentence.
+      // See ApiFailureKind.schemaMismatch.
+      kind: _isMissingEndpoint(code)
+          ? ApiFailureKind.schemaMismatch
+          : ApiFailureKind.server,
       code: code,
       // The message is already Arabic for every RULnn, because the trigger and
       // function bodies raise it that way. Postgres's own constraint messages are
@@ -106,6 +115,15 @@ abstract final class SupabaseFailures {
   /// must never reach a treasurer's screen.
   static bool _isDisplayable(String? code) =>
       code != null && code.startsWith('RUL');
+
+  /// PGRST202 — no such function. PGRST205 — no such table or view.
+  ///
+  /// PostgREST resolves both against a cached copy of the schema, so either can
+  /// also mean "applied a minute ago and the cache is stale". That reading is
+  /// rare and self-correcting; the schema really being different is neither,
+  /// and it is the one worth naming.
+  static bool _isMissingEndpoint(String? code) =>
+      code == 'PGRST202' || code == 'PGRST205';
 
   static ApiException _fromAuth(AuthException error) {
     final int status = switch (error.statusCode) {

@@ -124,3 +124,29 @@ END $$;
 CREATE TRIGGER trg_recv_status
   BEFORE INSERT OR UPDATE ON public.receivables
   FOR EACH ROW EXECUTE FUNCTION public.derive_recv_status();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- closed_periods — WHICH months have been closed, as an event.
+--
+-- Rule 4 already stops a month being billed twice PER عديل. This table answers a
+-- different question that rule 4 cannot: has this month been closed AT ALL?
+--
+-- WHY THE RECEIVABLES CANNOT ANSWER IT. "Closed" was inferred from "has live
+-- receivables", and that inference is wrong in a case the association will
+-- certainly hit: a month in which nobody was نشط produces ZERO receivables, so
+-- it would read as never closed, forever — and under the ordering rule below it
+-- would then block every month after it permanently. Closing a month is
+-- something someone DID; it is not a shape the data happens to have.
+--
+-- `created` records how many receivables that close produced, which is what
+-- makes a legitimate zero distinguishable from a month nobody touched.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE public.closed_periods (
+  period    char(7)     PRIMARY KEY,
+  closed_at timestamptz NOT NULL DEFAULT now(),
+  closed_by uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created   int         NOT NULL DEFAULT 0,
+
+  CONSTRAINT ck_closed_period  CHECK (period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
+  CONSTRAINT ck_closed_created CHECK (created >= 0)
+);

@@ -189,8 +189,14 @@ SELECT probe.become('00000000-0000-0000-0000-0000000000a2');
 SELECT probe.eq('rls/finance', 'is running as authenticated', 'SELECT current_user', 'authenticated');
 SELECT probe.succeeds('rls/finance', 'CAN cancel a payment',
   'SELECT public.cancel_payment(2, ''تصحيح'')');
-SELECT probe.succeeds('rls/finance', 'CAN generate receivables',
-  'SELECT public.generate_period(''2026-05'')');
+-- RUL15, not success, and that is the assertion. Every month is closed by the
+-- time this file runs, so the call cannot succeed — but a finance manager
+-- reaching a BUSINESS refusal (RUL15: already closed) instead of a ROLE refusal
+-- (RUL00) is precisely what proves the role gate let him through, which is the
+-- only thing this file is about. The viewer and the treasurer above get RUL00
+-- from the same call.
+SELECT probe.raises('rls/finance', 'gets past the ROLE gate into the rule itself',
+  'SELECT public.generate_period(''2026-05'')', 'RUL15');
 SELECT probe.succeeds('rls/finance', 'CAN save an عديل', $sql$
   SELECT public.save_adeel(NULL,
     '{"fullName":"عديل جديد","dob":"1980-01-01"}'::jsonb)

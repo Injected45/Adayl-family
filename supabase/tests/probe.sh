@@ -15,7 +15,7 @@ export SP
 
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
-EXPECTED_CHECKS=279
+EXPECTED_CHECKS=295
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"

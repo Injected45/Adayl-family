@@ -53,9 +53,9 @@ class DashboardScreen extends ConsumerWidget {
               if (role.atLeast(AppRole.financeManager)) ...<Widget>[
                 FilledButton.icon(
                   onPressed: () =>
-                      _closeMonth(context, ref, l, data.closingPeriod),
+                      _closeMonth(context, ref, l),
                   icon: const Icon(Icons.event_available, size: 18),
-                  label: Text(l.closeMonth(data.closingPeriodLabel)),
+                  label: Text(l.closeMonth),
                 ),
                 const SizedBox(height: AppSpacing.lg),
               ],
@@ -148,18 +148,31 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-Future<void> _closeMonth(
-  BuildContext context,
-  WidgetRef ref,
-  L l,
-  String period,
-) async {
+/// Asks WHICH month, then confirms it.
+///
+/// The button used to close last month and only last month, which is right the
+/// day you press it and wrong every day after: a month missed in March cannot be
+/// raised in May without going somewhere else. Two steps now — pick, then
+/// confirm — and the picker is server-fed, so it offers exactly the months
+/// between `system_start` and last month and says which are already done.
+Future<void> _closeMonth(BuildContext context, WidgetRef ref, L l) async {
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+  final ClosablePeriod? chosen = await showDialog<ClosablePeriod>(
+    context: context,
+    builder: (BuildContext pickerContext) => const _PeriodPickerDialog(),
+  );
+  if (chosen == null || !context.mounted) return;
+  final String period = chosen.period;
+
   final bool? confirmed = await showDialog<bool>(
     context: context,
     builder: (BuildContext dialogContext) => GlassDialog(
-      title: Text(l.generateConfirmTitle(period)),
-      content: Text(l.generateConfirmBody, style: const TextStyle(height: 1.5)),
+      title: Text(l.generateConfirmTitle(chosen.label)),
+      content: Text(
+        l.generateConfirmBody,
+        style: const TextStyle(height: 1.5),
+      ),
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -181,6 +194,9 @@ Future<void> _closeMonth(
     ref.invalidate(dashboardProvider);
     ref.invalidate(adeelsProvider(''));
     ref.invalidate(receivablesProvider(''));
+    // The month just closed is now `closed`, and the one after it has become the
+    // `selectable` one. Both flags are stale, so the list has to go with them.
+    ref.invalidate(closablePeriodsProvider);
     messenger.showSnackBar(
       SnackBar(
         content: Text(
@@ -193,6 +209,111 @@ Future<void> _closeMonth(
   } on ApiException catch (failure) {
     messenger.showSnackBar(
       SnackBar(content: Text(describeApiFailure(l, failure))),
+    );
+  }
+}
+
+/// The month list. Newest first, with the closed ones marked and the blocked
+/// ones greyed rather than hidden — a treasurer checking whether March was done
+/// needs to SEE March.
+///
+/// Every row's state comes from the server: `closed` and `selectable` are rules
+/// 15a and 15b, and the picker only paints them. Deciding here which month is
+/// next would be a second implementation of a money rule, and the one that
+/// counts is `generate_period`'s — which refuses anything else with RUL15.
+class _PeriodPickerDialog extends ConsumerWidget {
+  const _PeriodPickerDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<List<ClosablePeriod>> periods = ref.watch(
+      closablePeriodsProvider,
+    );
+
+    return GlassDialog(
+      title: Text(l.selectPeriodTitle),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: periods.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(AppSpacing.xl),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (Object error, StackTrace _) =>
+              Text(describeApiFailure(l, error)),
+          data: (List<ClosablePeriod> items) => items.isEmpty
+              // system_start is in the future, or this month is the first one.
+              // Either way there is nothing to close yet, and saying so beats an
+              // empty box.
+              ? Text(l.noPeriodsToClose)
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (BuildContext context, int index) {
+                    final ClosablePeriod p = items[index];
+                    // Exactly one row is ever tappable — the earliest open
+                    // month. The rest stay VISIBLE and inert: someone checking
+                    // whether March was closed needs to see March, and someone
+                    // wondering why August is greyed out needs to see the open
+                    // July above it. Hiding them would answer neither question.
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      enabled: p.selectable,
+                      title: Text(
+                        p.label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: p.selectable
+                              ? AppColors.ink
+                              : AppColors.muted,
+                        ),
+                      ),
+                      subtitle: Text(
+                        p.selectable
+                            ? p.period
+                            // The reason it is not tappable, in words. "Greyed
+                            // out with no explanation" is the version of this
+                            // screen that generates a phone call.
+                            : p.closed
+                            ? l.periodClosedNote
+                            : l.periodBlockedNote,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      trailing: p.closed
+                          ? StatusBadge(
+                              label: l.periodClosedBadge,
+                              tone: AppColors.success,
+                            )
+                          : p.selectable
+                          ? const Icon(
+                              Icons.chevron_left,
+                              size: 20,
+                              color: AppColors.muted,
+                            )
+                          : const Icon(
+                              Icons.lock_outline,
+                              size: 18,
+                              color: AppColors.muted,
+                            ),
+                      onTap: p.selectable
+                          ? () => Navigator.of(context).pop(p)
+                          : null,
+                    );
+                  },
+                ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+      ],
     );
   }
 }

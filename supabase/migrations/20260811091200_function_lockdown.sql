@@ -87,6 +87,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'api_alerts()',
     'api_financial_report(date,date)',
     'api_receivables(text)',
+    'api_closable_periods()',
     'api_settings()',
     'api_me()',
     'api_touch_login()'

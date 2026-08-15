@@ -23,3 +23,10 @@ final FutureProvider<List<CashMovementView>> cashMovementsProvider =
     FutureProvider<List<CashMovementView>>(
       (Ref ref) => ref.watch(financeRepositoryProvider).cashMovements(),
     );
+
+/// The months the close-month button offers. Invalidated after a month is
+/// closed, so the picker's `closed`/`selectable` flags stay honest.
+final FutureProvider<List<ClosablePeriod>> closablePeriodsProvider =
+    FutureProvider<List<ClosablePeriod>>(
+      (Ref ref) => ref.watch(financeRepositoryProvider).closablePeriods(),
+    );

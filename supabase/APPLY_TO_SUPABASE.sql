@@ -629,6 +629,32 @@ CREATE TRIGGER trg_recv_status
   BEFORE INSERT OR UPDATE ON public.receivables
   FOR EACH ROW EXECUTE FUNCTION public.derive_recv_status();
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- closed_periods — WHICH months have been closed, as an event.
+--
+-- Rule 4 already stops a month being billed twice PER عديل. This table answers a
+-- different question that rule 4 cannot: has this month been closed AT ALL?
+--
+-- WHY THE RECEIVABLES CANNOT ANSWER IT. "Closed" was inferred from "has live
+-- receivables", and that inference is wrong in a case the association will
+-- certainly hit: a month in which nobody was نشط produces ZERO receivables, so
+-- it would read as never closed, forever — and under the ordering rule below it
+-- would then block every month after it permanently. Closing a month is
+-- something someone DID; it is not a shape the data happens to have.
+--
+-- `created` records how many receivables that close produced, which is what
+-- makes a legitimate zero distinguishable from a month nobody touched.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE public.closed_periods (
+  period    char(7)     PRIMARY KEY,
+  closed_at timestamptz NOT NULL DEFAULT now(),
+  closed_by uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created   int         NOT NULL DEFAULT 0,
+
+  CONSTRAINT ck_closed_period  CHECK (period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
+  CONSTRAINT ck_closed_created CHECK (created >= 0)
+);
+
 
 -- ==========================================================================
 -- 20260811090400_payments_cash_audit.sql
@@ -798,6 +824,12 @@ CREATE TRIGGER trg_alloc_no_delete      BEFORE DELETE ON public.payment_allocati
   FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
 CREATE TRIGGER trg_cash_no_delete       BEFORE DELETE ON public.cash_movements
   FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
+-- Closing a month is financial history like any other: TRUNCATEd by the purges,
+-- never deleted row by row. Declared here rather than beside the table because
+-- refuse_delete() is defined in this file, and a trigger cannot reference a
+-- function that does not exist yet.
+CREATE TRIGGER trg_closed_no_delete     BEFORE DELETE ON public.closed_periods
+  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
 
 CREATE OR REPLACE FUNCTION public.refuse_audit_change() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -857,6 +889,7 @@ ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.association_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.adeels               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receivables          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.closed_periods       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_allocations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_movements       ENABLE ROW LEVEL SECURITY;
@@ -870,7 +903,7 @@ ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT ON
   public.association_settings, public.adeels,
-  public.receivables, public.payments,
+  public.receivables, public.closed_periods, public.payments,
   public.payment_allocations, public.cash_movements
 TO authenticated;
 
@@ -879,6 +912,10 @@ CREATE POLICY read_settings ON public.association_settings
 CREATE POLICY read_adeels ON public.adeels
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 CREATE POLICY read_receivables ON public.receivables
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+-- Which months are closed is association-wide bookkeeping, not anybody's own
+-- money, so it stops at the staff boundary: no عديل-scoped policy below.
+CREATE POLICY read_closed_periods ON public.closed_periods
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 CREATE POLICY read_payments ON public.payments
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
@@ -1249,12 +1286,69 @@ BEGIN
   v_end := (to_date(p_period || '-01', 'YYYY-MM-DD')
             + interval '1 month - 1 day')::date;
 
+  -- ── Rule 15c: only a month inside the association's own range ─────────────
+  -- Before system_start the books did not exist; the current month and anything
+  -- after it has not ended, and closing a month that is still running would bill
+  -- for time nobody has lived through. Both ends were previously unguarded — the
+  -- picker simply did not offer them, which protects the button and not the RPC,
+  -- and the RPC is what a hostile client calls.
+  IF p_period < to_char(s.system_start, 'YYYY-MM') THEN
+    RAISE EXCEPTION 'PERIOD_BEFORE_SYSTEM_START: %', p_period
+      USING ERRCODE = 'RUL15';
+  END IF;
+  IF p_period >= to_char(current_date, 'YYYY-MM') THEN
+    RAISE EXCEPTION 'PERIOD_NOT_ENDED: %', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- ── Rule 15a: a month is closed ONCE ──────────────────────────────────────
+  -- Rule 4 already made a SECOND receivable for the same (عديل, period)
+  -- impossible, so re-running was harmless — it simply created nothing and
+  -- reported "0 created". Harmless is not the same as meaningful: a treasurer
+  -- reading "0 created" cannot tell "already done" from "nothing to do", and the
+  -- audit trail grew an entry for a close that closed nothing. Refusing says
+  -- which it was.
+  IF EXISTS (SELECT 1 FROM public.closed_periods WHERE period = p_period) THEN
+    RAISE EXCEPTION 'PERIOD_ALREADY_CLOSED: %', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- ── Rule 15b: months close IN ORDER, oldest first ─────────────────────────
+  -- Closing August while July was never closed leaves a hole that nothing later
+  -- reveals: the register looks complete, every receipt reconciles, and the
+  -- association is simply never paid for July. The gap is invisible precisely
+  -- because a missing charge produces no row to notice.
+  --
+  -- Checked against closed_periods rather than against receivables, and that
+  -- distinction is the whole reason the table exists: a month in which nobody
+  -- was نشط produces zero receivables, so an "are there receivables?" test would
+  -- read it as never closed and block every month after it forever.
+  --
+  -- Nothing before system_start counts. The association's books begin there.
+  IF EXISTS (
+    SELECT 1
+      FROM generate_series(
+             date_trunc('month', s.system_start),
+             date_trunc('month', to_date(p_period || '-01', 'YYYY-MM-DD'))
+               - interval '1 month',
+             interval '1 month') d
+     WHERE NOT EXISTS (SELECT 1 FROM public.closed_periods c
+                        WHERE c.period = to_char(d, 'YYYY-MM'))
+  ) THEN
+    RAISE EXCEPTION 'EARLIER_PERIOD_OPEN: % cannot be closed while an earlier '
+                    'month is still open', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
   -- Rule 3: nothing to charge means no rows at all, not zero rows. A fee of zero
   -- is a valid configuration (the association pausing collection), and it must
   -- produce an empty period rather than a register full of 0.00 charges that
   -- ck_recv_total would refuse anyway.
+  --
+  -- It still COUNTS AS CLOSED. The month was dealt with; leaving it open would
+  -- block every month after it under 15b, which is exactly the trap that made
+  -- closed_periods a table rather than an inference.
   IF s.member_fee <= 0 THEN
     SELECT count(*) INTO v_skipped FROM public.adeels WHERE status = 'نشط';
+    INSERT INTO public.closed_periods (period, closed_by, created)
+    VALUES (p_period, auth.uid(), 0);
     PERFORM public.write_audit('receivables.generate',
       format('إنشاء استحقاقات %s: لا رسم مقرر', p_period), p_period);
     RETURN jsonb_build_object('period', p_period, 'created', 0,
@@ -1289,6 +1383,13 @@ BEGIN
     v_recv_id := NULL;
   END LOOP;
 
+  -- The month is now closed, whatever it produced. Written INSIDE the same
+  -- transaction as the receivables it raised, so a failure anywhere above leaves
+  -- neither the charges nor the marker — the alternative is a month recorded as
+  -- closed with nothing billed in it.
+  INSERT INTO public.closed_periods (period, closed_by, created)
+  VALUES (p_period, auth.uid(), v_created);
+
   PERFORM public.write_audit('receivables.generate',
     format('إنشاء استحقاقات %s: %s سجل', p_period, v_created), p_period);
 
@@ -1321,9 +1422,20 @@ BEGIN
 
   WHILE v_cursor <= v_last LOOP
     v_period := to_char(v_cursor, 'YYYY-MM');
-    v_one    := public.generate_period(v_period);
-    v_created := v_created + (v_one ->> 'created')::int;
-    v_periods := v_periods || v_one;
+    -- Skip what is already closed rather than calling and catching. Rule 15a
+    -- makes generate_period REFUSE a closed month, so the old "call it and let
+    -- rule 4 make it a no-op" pattern would now abort the whole backfill on the
+    -- first month that had already been done — which is every month, the second
+    -- time anyone presses this.
+    --
+    -- Walking oldest-first is also what satisfies rule 15b for free: each month
+    -- is closed before the one after it is attempted.
+    IF NOT EXISTS (SELECT 1 FROM public.closed_periods c WHERE c.period = v_period)
+    THEN
+      v_one    := public.generate_period(v_period);
+      v_created := v_created + (v_one ->> 'created')::int;
+      v_periods := v_periods || v_one;
+    END IF;
     v_cursor := (v_cursor + interval '1 month')::date;
   END LOOP;
 
@@ -1575,6 +1687,7 @@ BEGIN
            public.cash_movements,
            public.payments,
            public.receivables,
+           public.closed_periods,
            public.audit_log
     RESTART IDENTITY;
 
@@ -1658,6 +1771,7 @@ BEGIN
            public.cash_movements,
            public.payments,
            public.receivables,
+           public.closed_periods,
            public.audit_log
     RESTART IDENTITY;
 
@@ -2451,6 +2565,66 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
       '[]'::jsonb))
 $$;
 
+-- ── GET /periods/closable — what the dashboard's close-month button offers ───
+--
+-- Every month from system_start to LAST month, newest first, each with its
+-- Arabic label and whether it has already been raised.
+--
+-- WHY THIS IS A SERVER CALL AND NOT A CLIENT-SIDE DATE PICKER: the client has no
+-- month names. `period_label` lives here precisely so one spelling of each month
+-- is used across the receivables list, the dashboard button and the audit trail,
+-- and a picker that built its own would be a second spelling waiting to
+-- disagree. The range is the association's own — system_start is a setting, not
+-- a calendar fact — and only the database knows it.
+--
+-- Each month carries the two flags rules 15a and 15b turn into:
+--
+--   closed      — it is in closed_periods. Rule 15a refuses it outright.
+--   selectable  — it is the EARLIEST month not yet closed, and therefore the
+--                 only one rule 15b will accept. Everything after it is blocked
+--                 until this one is done.
+--
+-- So the list is exhaustive but exactly one row is ever tappable. Showing the
+-- others rather than hiding them is the point: a treasurer checking whether
+-- March was closed needs to SEE March, and one who wonders why August is greyed
+-- out needs to see the open July above it.
+--
+-- `selectable` is computed here rather than in Dart because it IS rule 15b, and
+-- a client that worked it out for itself would be a second implementation of a
+-- money rule — free to disagree with the one that actually decides.
+--
+-- The CURRENT month is deliberately absent: it is not closed until it ends,
+-- which is the same rule auto_close_periods() walks.
+CREATE OR REPLACE FUNCTION public.api_closable_periods() RETURNS jsonb
+LANGUAGE sql STABLE AS $$
+  WITH months AS (
+    SELECT to_char(d, 'YYYY-MM') AS period
+      FROM public.association_settings s,
+           generate_series(
+             date_trunc('month', s.system_start),
+             date_trunc('month', current_date) - interval '1 month',
+             interval '1 month') d
+     WHERE s.id = 1
+  ), flagged AS (
+    SELECT m.period,
+           EXISTS (SELECT 1 FROM public.closed_periods c
+                    WHERE c.period = m.period) AS closed
+      FROM months m
+  ), next_open AS (
+    SELECT min(period) AS period FROM flagged WHERE NOT closed
+  )
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'period', f.period,
+        'label',  public.period_label(f.period),
+        'closed', f.closed,
+        'selectable', f.period = (SELECT period FROM next_open))
+      ORDER BY f.period DESC),
+    '[]'::jsonb)
+  FROM flagged f
+$$;
+
 -- ── GET /receivables (ReceivablesPage) ───────────────────────────────────────
 -- The list itself is a plain view read, but the summary has to be computed over
 -- the SAME filter, so the two travel together rather than risking a client that
@@ -2569,6 +2743,7 @@ GRANT EXECUTE ON FUNCTION
   public.api_alerts(),
   public.api_financial_report(date, date),
   public.api_receivables(text),
+  public.api_closable_periods(),
   public.api_settings(),
   public.api_me(),
   public.api_touch_login()
@@ -2671,6 +2846,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'api_alerts()',
     'api_financial_report(date,date)',
     'api_receivables(text)',
+    'api_closable_periods()',
     'api_settings()',
     'api_me()',
     'api_touch_login()'
@@ -2848,9 +3024,10 @@ BEGIN
    WHERE schemaname = 'public'
      AND tablename IN ('profiles','association_settings','adeels',
                        'receivables','payments','payment_allocations',
-                       'cash_movements','audit_log','adeel_access_codes');
-  IF v_tables <> 9 THEN
-    RAISE EXCEPTION 'expected 9 tables, found %', v_tables;
+                       'cash_movements','audit_log','adeel_access_codes',
+                       'closed_periods');
+  IF v_tables <> 10 THEN
+    RAISE EXCEPTION 'expected 10 tables, found %', v_tables;
   END IF;
 
   SELECT count(*) INTO v_views FROM pg_views
@@ -2869,9 +3046,9 @@ BEGIN
                        'issue_adeel_code','redeem_adeel_code','my_adeel_id',
                        'api_dashboard','api_adeel_detail','api_adeel_statement',
                        'api_receivables','api_alerts','api_financial_report',
-                       'api_settings','api_me');
-  IF v_funcs <> 21 THEN
-    RAISE EXCEPTION 'expected 21 API functions, found %', v_funcs;
+                       'api_settings','api_me','api_closable_periods');
+  IF v_funcs <> 22 THEN
+    RAISE EXCEPTION 'expected 22 API functions, found %', v_funcs;
   END IF;
 
   -- Every table must have RLS ON. A table without it is readable by anyone

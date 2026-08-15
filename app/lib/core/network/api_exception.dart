@@ -9,6 +9,17 @@ enum ApiFailureKind {
   /// The server answered with an error envelope.
   server,
 
+  /// The database does not have the table or function this build calls.
+  ///
+  /// Its own kind because it is the ONE failure that will never fix itself:
+  /// network and timeout say "try again", and this one means the project is
+  /// running a different schema from the app. Reporting it as a generic error
+  /// sends someone to wait for something that is never going to change — which
+  /// is exactly what happened when the register was rewritten around the عديل
+  /// and a project still holding the family/member schema answered every save
+  /// with "حدث خطأ غير متوقع".
+  schemaMismatch,
+
   /// Something unforeseen.
   unknown,
 }

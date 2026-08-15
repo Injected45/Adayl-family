@@ -289,6 +289,12 @@ abstract class L {
   /// **'حدث خطأ غير متوقع، يرجى المحاولة لاحقاً'**
   String get errorGeneric;
 
+  /// No description provided for @errorSchemaMismatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'قاعدة البيانات لا تطابق هذا الإصدار من التطبيق. لن تنجح المحاولة مرة أخرى — يلزم تطبيق مخطط قاعدة البيانات.'**
+  String get errorSchemaMismatch;
+
   /// No description provided for @errorNetwork.
   ///
   /// In ar, this message translates to:
@@ -988,8 +994,38 @@ abstract class L {
   /// No description provided for @closeMonth.
   ///
   /// In ar, this message translates to:
-  /// **'إقفال {period}'**
-  String closeMonth(String period);
+  /// **'إقفال شهر'**
+  String get closeMonth;
+
+  /// No description provided for @selectPeriodTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر الشهر'**
+  String get selectPeriodTitle;
+
+  /// No description provided for @noPeriodsToClose.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد أشهر قابلة للإقفال بعد.'**
+  String get noPeriodsToClose;
+
+  /// No description provided for @periodClosedBadge.
+  ///
+  /// In ar, this message translates to:
+  /// **'مُقفل'**
+  String get periodClosedBadge;
+
+  /// No description provided for @periodClosedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُقفل من قبل'**
+  String get periodClosedNote;
+
+  /// No description provided for @periodBlockedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'أقفل ما قبله أولاً'**
+  String get periodBlockedNote;
 
   /// No description provided for @alertsIntro.
   ///
@@ -1534,7 +1570,7 @@ abstract class L {
   /// No description provided for @searchAdeelsHint.
   ///
   /// In ar, this message translates to:
-  /// **'بحث بالاسم أو الرقم الوطني أو الرمز...'**
+  /// **'بحث بالاسم أو الرمز...'**
   String get searchAdeelsHint;
 
   /// No description provided for @noAdeels.

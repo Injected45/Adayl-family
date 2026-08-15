@@ -54,7 +54,7 @@ This dictates the data-access shape — do not deviate from it:
 
 - **Reads** → direct PostgREST against `v_*` views (or `api_*` functions), gated by
   RLS on the caller's role. Never read a base table.
-- **Writes** → only through the nine `SECURITY DEFINER` RPC functions below. The
+- **Writes** → only through the twelve `SECURITY DEFINER` RPC functions below. The
   `authenticated` role holds no INSERT/UPDATE/DELETE on any table and no table has a
   write policy, because a payment is not one row — registering it inserts a payment,
   N allocations, N receivable updates, and a cash movement, all-or-nothing. A
@@ -69,6 +69,24 @@ This dictates the data-access shape — do not deviate from it:
   EXACT — a function added without being listed there is unreachable, and one
   listed but ungranted fails the migration.
 
+  **Closing a month is a one-way, in-order act (rule 15).** `generate_period`
+  raises one receivable per نشط عديل and then records the month in
+  `closed_periods`. Three refusals guard it, all `RUL15`: **15c** the month must
+  fall between `system_start` and last month (the future and the pre-history are
+  both out); **15a** it must not already be closed; **15b** no earlier month may
+  still be open.
+
+  `closed_periods` is a table rather than an inference from the receivables
+  because a month that bills nobody — every عديل موقوف, or the register still
+  empty — raises zero rows. Read "closed" off the charges and that month looks
+  permanently open, and 15b then blocks every month after it forever.
+
+  `api_closable_periods()` returns each month with `closed` and `selectable`,
+  where `selectable` is true for exactly one row: the earliest open month. The
+  Dart picker only paints those flags — recomputing 15b client-side would be a
+  second implementation of a money rule, free to disagree with the one that
+  actually decides.
+
   `delete_adeel` is the escape hatch for a mistyped entry: it refuses the moment
   he has any receivable or payment, because a receipt must never point at
   nobody. Retiring someone with a ledger is a status change, not a deletion.
@@ -80,10 +98,13 @@ This dictates the data-access shape — do not deviate from it:
   than one with a flag, and `supabase/tests/70_purge.sql` asserts that in both
   directions.
 
-  - `purge_financial_data` takes the five financial tables (receivables,
-    payments, payment_allocations, cash_movements **and audit_log**) and leaves
-    adeels, settings and profiles standing.
-  - `purge_all_data` is a strict SUPERSET: those five plus `adeels`. It cannot
+  - `purge_financial_data` takes the six financial tables (receivables,
+    payments, payment_allocations, cash_movements, `closed_periods` **and
+    audit_log**) and leaves adeels, settings and profiles standing.
+    `closed_periods` has to go with them: leave it and every month is still
+    marked closed while no receivable exists for it, so rule 15a refuses to
+    re-raise any of them and the wiped ledger can never be rebuilt.
+  - `purge_all_data` is a strict SUPERSET: those six plus `adeels`. It cannot
     be narrower — every receivable and receipt references an عديل
     `ON DELETE RESTRICT`, so the register cannot go while a receipt survives.
     Settings and staff profiles still survive; wiping profiles would strand the
@@ -201,7 +222,7 @@ look identical from the app — a login screen that goes nowhere. It names which
 
 ## Testing model — two layers, both required
 
-- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 260
+- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 295
   checks. Each rule runs with a passing case *and a failing case* (the failing
   case is what proves the rule bites). It also races two psql sessions on one
   balance to prove FIFO allocation can't double-spend, and injects a

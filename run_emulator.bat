@@ -243,9 +243,21 @@ REM A Flutter debug apk is ~150 MB and the installer needs roughly double that
 REM while it streams and optimises. Below ~500 MB free the install fails with an
 REM IOException that mentions neither the emulator nor the partition, so say it
 REM plainly here instead.
+REM
+REM ⚠ `df /data` IS NOT USED, AND THAT IS THE FIX FOR A REAL BUG.
+REM On API 36 `df /data` prints the header and NO DATA ROW, so `skip=1 tokens=4`
+REM matched nothing, FREEKB stayed empty... except the old code then treated the
+REM empty value as 0 and reported "Only 0 MB free" on an emulator with 5 GB. The
+REM install was refused for days while the actual cause was this parse. Bare `df`
+REM plus a filter on the mount point does produce the row.
 set "FREEKB="
-"%ADB%" -s !DEVICE! shell df /data > "%TMPD%\df.txt" 2>nul
-for /f "skip=1 tokens=4" %%K in (%TMPD%\df.txt) do if not defined FREEKB set "FREEKB=%%K"
+"%ADB%" -s !DEVICE! shell df > "%TMPD%\df.txt" 2>nul
+for /f "tokens=4" %%K in ('findstr /r /c:" /data$" "%TMPD%\df.txt"') do if not defined FREEKB set "FREEKB=%%K"
+REM No reading is NOT a reading of zero. If the row cannot be found on some future
+REM image, say so and carry on rather than blocking an install that would work —
+REM a false refusal costs more than a genuine INSTALL_FAILED, which at least names
+REM itself.
+if not defined FREEKB echo   Could not read free space - continuing anyway.
 if defined FREEKB (
   set /a FREEMB=!FREEKB!/1024
   if !FREEMB! LSS 500 (

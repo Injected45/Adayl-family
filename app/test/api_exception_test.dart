@@ -119,6 +119,46 @@ void main() {
     });
   });
 
+  group('a missing endpoint is told apart from a broken one', () {
+    // The register was rewritten around the عديل, and a project still holding
+    // the family/member schema answered every save with PGRST202. Mapped as a
+    // generic server error it rendered as "حدث خطأ غير متوقع، يرجى المحاولة
+    // لاحقاً" — advice to wait for something that would never change on its own.
+    test('PGRST202 (no such function) is its own kind, and a 404', () async {
+      final ApiException e = await _capture(
+        _pg(
+          'PGRST202',
+          'Could not find the function public.save_adeel in the schema cache',
+        ),
+      );
+      expect(e.kind, ApiFailureKind.schemaMismatch);
+      expect(e.statusCode, 404);
+    });
+
+    test('PGRST205 (no such table) is the same story', () async {
+      expect(
+        (await _capture(_pg('PGRST205'))).kind,
+        ApiFailureKind.schemaMismatch,
+      );
+    });
+
+    test('the PostgREST text is still withheld', () async {
+      // It names an internal function and is English. The kind is what carries
+      // the meaning; the wording is the app's.
+      expect(
+        (await _capture(_pg('PGRST202', 'schema cache'))).serverMessage,
+        isNull,
+      );
+    });
+
+    test('a real server error is NOT reported as a schema mismatch', () async {
+      // The check that bites: if this ever widened to catch ordinary failures,
+      // every transient error would tell the user to reinstall the database.
+      expect((await _capture(_pg('XX000'))).kind, ApiFailureKind.server);
+      expect((await _capture(_pg('RUL07'))).kind, ApiFailureKind.server);
+    });
+  });
+
   group('transport and auth', () {
     test('an expired JWT is a 401', () async {
       expect((await _capture(_pg('PGRST301'))).statusCode, 401);

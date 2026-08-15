@@ -23,7 +23,7 @@ UPDATE public.profiles SET role = 'admin',          status = 'suspended' WHERE e
 -- Pinned so the arithmetic is deterministic rather than dependent on the day the
 -- suite runs.
 UPDATE public.association_settings
-   SET member_fee = 20.00, system_start = '2026-01-01'
+   SET member_fee = 20.00, system_start = '2026-02-01'
  WHERE id = 1;
 
 -- Four عدايل, chosen so a generated period proves the ONLY billing gate that is

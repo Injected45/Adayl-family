@@ -151,3 +151,46 @@ class GenerateResultView {
         skipped: _int(json['skipped']),
       );
 }
+
+/// One month the dashboard's close-month button may offer.
+///
+/// `label` comes from the server, not from a client-side month name. There is
+/// exactly one spelling of each Arabic month in this system and it lives in
+/// `period_label()`, so that the receivables list, this picker and the audit
+/// trail can never disagree about what يوليو is called.
+class ClosablePeriod {
+  const ClosablePeriod({
+    required this.period,
+    required this.label,
+    required this.closed,
+    required this.selectable,
+  });
+
+  /// `YYYY-MM`, the value generate_period() takes.
+  final String period;
+  final String label;
+
+  /// True once someone has closed this month. Rule 15a then REFUSES it: a month
+  /// is closed once, and re-running would report "0 created" without saying
+  /// whether that meant "already done" or "nothing to do".
+  ///
+  /// Read from closed_periods, not from the receivables. A month that billed
+  /// nobody is still closed, and inferring closure from charges would leave it
+  /// open forever — blocking every month after it under rule 15b.
+  final bool closed;
+
+  /// True for the EARLIEST month not yet closed, and only that one. Rule 15b
+  /// accepts no other, so this is the single tappable row in the picker.
+  ///
+  /// Computed by the database because it IS rule 15b. Working it out in Dart
+  /// would be a second implementation of a money rule, free to disagree with the
+  /// one that actually decides.
+  final bool selectable;
+
+  factory ClosablePeriod.fromJson(Map<String, dynamic> json) => ClosablePeriod(
+    period: _string(json['period']),
+    label: _string(json['label']),
+    closed: json['closed'] == true,
+    selectable: json['selectable'] == true,
+  );
+}

@@ -60,13 +60,33 @@ SELECT probe.succeeds('rule10', '...and so can his duplicate',
   $sql$ SELECT public.delete_adeel(
           (SELECT max(id) FROM public.adeels WHERE full_name = 'عديل جديد')) $sql$);
 
+-- ═════ Rule 15 — a month closes ONCE, IN ORDER, and inside the range ════════
+-- The fixture's system_start is 2026-02, so February is the first month the
+-- association may close and nothing before it exists to close.
+SELECT probe.raises('rule15', 'a month before system_start is refused',
+  $sql$ SELECT public.generate_period('2026-01') $sql$, 'RUL15');
+SELECT probe.raises('rule15', 'the CURRENT month is refused — it has not ended',
+  $sql$ SELECT public.generate_period(to_char(current_date, 'YYYY-MM')) $sql$,
+  'RUL15');
+-- 15b, before anything is closed: March cannot go first while February is open.
+SELECT probe.raises('rule15', 'skipping a month is refused',
+  $sql$ SELECT public.generate_period('2026-03') $sql$, 'RUL15');
+SELECT probe.eq('rule15', '...and the refused month was NOT recorded as closed',
+  $sql$ SELECT count(*)::text FROM public.closed_periods $sql$, '0');
+
+SELECT probe.eq('rule15', 'the earliest open month IS accepted',
+  $sql$ SELECT (public.generate_period('2026-02') -> 'created')::text $sql$, '2');
+SELECT probe.eq('rule15', '...and is recorded as closed with its count',
+  $sql$ SELECT created::text FROM public.closed_periods
+         WHERE period = '2026-02' $sql$, '2');
+
 -- ═════ Rule 3 — status gates the charge; total > 0 or skip ═══════════════════
 -- Runs as the finance manager, through the RPC, exactly as the app will.
 SELECT probe.eq('rule03', 'generate raises 2 receivables',
   $sql$ SELECT (public.generate_period('2026-03') -> 'created')::text $sql$, '2');
 
-SELECT probe.eq('rule03', '...and skips the موقوف and the متوفى',
-  $sql$ SELECT (public.generate_period('2026-03') -> 'skipped')::text $sql$, '4');
+SELECT probe.raises('rule03', 're-closing the same month is refused (15a)',
+  $sql$ SELECT public.generate_period('2026-03') $sql$, 'RUL15');
 
 SELECT probe.eq('rule03', 'an active عديل is billed the flat member fee',
   $sql$ SELECT total::text FROM public.receivables
@@ -105,16 +125,19 @@ SELECT probe.succeeds('rule03', 'the fee can be set to zero',
   $sql$ SELECT public.update_settings('{"memberFee":"0.00"}'::jsonb) $sql$);
 SELECT probe.become('00000000-0000-0000-0000-0000000000a2');
 SELECT probe.eq('rule03', 'a zero fee creates no receivables at all',
-  $sql$ SELECT (public.generate_period('2029-09') -> 'created')::text $sql$, '0');
+  $sql$ SELECT (public.generate_period('2026-04') -> 'created')::text $sql$, '0');
+-- THE case closed_periods exists for. A month that billed nobody is still
+-- CLOSED; if it were not, rule 15b would block every month after it forever and
+-- the association could never close another period.
+SELECT probe.eq('rule03', 'a month that billed nobody is still closed',
+  $sql$ SELECT (EXISTS (SELECT 1 FROM public.closed_periods
+                         WHERE period = '2026-04'))::text $sql$, 'true');
 SELECT probe.become('00000000-0000-0000-0000-0000000000a1');
 SELECT probe.succeeds('rule03', 'restore the fee',
   $sql$ SELECT public.update_settings('{"memberFee":"20.00"}'::jsonb) $sql$);
 SELECT probe.become('00000000-0000-0000-0000-0000000000a2');
 
 -- ═════ Rule 4 — one LIVE receivable per (عديل, period) ═══════════════════════
-SELECT probe.eq('rule04', 're-running the same period creates nothing',
-  $sql$ SELECT (public.generate_period('2026-03') -> 'created')::text $sql$, '0');
-
 SELECT probe.raises_like('rule04', 'a direct duplicate insert is refused', $sql$
   INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
                                   total)
@@ -166,11 +189,8 @@ SELECT probe.succeeds('rule05', 'restore the fee', $sql$
 $sql$);
 
 -- ═════ Rules 7, 8 — payment bounds, FIFO order, one cash movement ════════════
-SELECT probe.become('00000000-0000-0000-0000-0000000000a2');   -- finance manager
-SELECT probe.succeeds('rule07', 'raise a second, older period to test FIFO', $sql$
-  SELECT public.generate_period('2026-02')
-$sql$);
-
+-- عديل 1 already owes two periods — 2026-02 and 2026-03, closed in that order
+-- above — which is exactly the two the FIFO split below needs.
 SELECT probe.become('00000000-0000-0000-0000-0000000000a3');   -- treasurer
 
 SELECT probe.raises('rule07', 'a zero payment is refused', $sql$
@@ -300,12 +320,16 @@ SELECT probe.succeeds('rule09', 'reactivate him',
 SELECT probe.succeeds('rule06', 'auto-close runs', $sql$
   SELECT public.auto_close_periods()
 $sql$);
+-- Counted from closed_periods, not from DISTINCT receivable periods: 2026-04 was
+-- closed with a zero fee and billed nobody, so it has no receivable to be
+-- distinct about. Counting the charges would report a month short and blame
+-- auto-close for a gap that is not there.
 SELECT probe.eq('rule06', 'it covered every month from system_start to last month',
-  $sql$ SELECT count(DISTINCT period)::text FROM public.receivables $sql$,
+  $sql$ SELECT count(*)::text FROM public.closed_periods $sql$,
   (SELECT (extract(year FROM age(date_trunc('month', current_date)
-                                 - interval '1 month', date '2026-01-01')) * 12
+                                 - interval '1 month', date '2026-02-01')) * 12
          + extract(month FROM age(date_trunc('month', current_date)
-                                 - interval '1 month', date '2026-01-01')) + 1)::int::text));
+                                 - interval '1 month', date '2026-02-01')) + 1)::int::text));
 SELECT probe.eq('rule06', 'it did NOT bill the current month',
   $sql$ SELECT count(*)::text FROM public.receivables
          WHERE period = to_char(current_date, 'YYYY-MM') $sql$, '0');
@@ -353,3 +377,48 @@ SELECT probe.eq('rule11', 'the statement closes at the outstanding balance',
   $sql$ SELECT ((public.api_adeel_statement(1) ->> 'closingBalance')::numeric
               = (SELECT coalesce(sum(balance),0) FROM public.receivables
                   WHERE adeel_id = 1 AND status <> 'ملغي'))::text $sql$, 'true');
+
+-- ═════ The close-month picker's month list ═══════════════════════════════════
+-- Not a business rule, but it feeds a button that raises money, and the range it
+-- offers is a decision the database owns: system_start is a setting, and the
+-- current month is excluded because it is not closed until it ends.
+SELECT probe.eq('periods', 'the current month is NEVER offered for closing',
+  $sql$ SELECT count(*)::text FROM jsonb_array_elements(public.api_closable_periods()) e
+         WHERE e ->> 'period' = to_char(current_date, 'YYYY-MM') $sql$, '0');
+SELECT probe.eq('periods', 'nothing earlier than system_start is offered',
+  $sql$ SELECT count(*)::text FROM jsonb_array_elements(public.api_closable_periods()) e
+         WHERE e ->> 'period'
+             < to_char((SELECT system_start FROM public.association_settings
+                         WHERE id = 1), 'YYYY-MM') $sql$, '0');
+SELECT probe.eq('periods', 'every month carries an Arabic label, not a raw period',
+  $sql$ SELECT count(*)::text FROM jsonb_array_elements(public.api_closable_periods()) e
+         WHERE e ->> 'label' = e ->> 'period' $sql$, '0');
+-- The two flags the picker turns into behaviour. By this point auto_close has
+-- closed everything, so every month reads closed and NOTHING is selectable —
+-- which is the correct state for a fully closed year and is what the screen
+-- renders as "no month left to close".
+SELECT probe.eq('periods', 'a closed month is flagged closed',
+  $sql$ SELECT (e ->> 'closed') FROM jsonb_array_elements(public.api_closable_periods()) e
+         WHERE e ->> 'period' = '2026-03' $sql$, 'true');
+SELECT probe.eq('periods', 'with every month closed, none is selectable',
+  $sql$ SELECT count(*)::text FROM jsonb_array_elements(public.api_closable_periods()) e
+         WHERE (e ->> 'selectable')::boolean $sql$, '0');
+-- And the rule the picker exists to express: at most ONE month is ever
+-- selectable, because rule 15b accepts only the earliest open one. Proved by
+-- reopening a gap — cancelling every receivable does NOT reopen a month, since
+-- closure is an event, so the marker has to go for the month to be open again.
+SELECT probe.succeeds('periods', 'clear one month back open',
+  $sql$ ALTER TABLE public.closed_periods DISABLE TRIGGER trg_closed_no_delete $sql$);
+SELECT probe.succeeds('periods', '...by removing two closure markers',
+  $sql$ DELETE FROM public.closed_periods WHERE period IN ('2026-05','2026-06') $sql$);
+SELECT probe.eq('periods', 'exactly ONE month is selectable, the earliest open one',
+  $sql$ SELECT string_agg(e ->> 'period', ',')
+          FROM jsonb_array_elements(public.api_closable_periods()) e
+         WHERE (e ->> 'selectable')::boolean $sql$, '2026-05');
+SELECT probe.raises('periods', 'and the LATER open month is still refused',
+  $sql$ SELECT public.generate_period('2026-06') $sql$, 'RUL15');
+SELECT probe.succeeds('periods', 'restore the markers',
+  $sql$ INSERT INTO public.closed_periods (period, created)
+        VALUES ('2026-05', 0), ('2026-06', 0) $sql$);
+SELECT probe.succeeds('periods', 'and re-arm the delete guard',
+  $sql$ ALTER TABLE public.closed_periods ENABLE TRIGGER trg_closed_no_delete $sql$);

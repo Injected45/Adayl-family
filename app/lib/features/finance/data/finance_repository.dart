@@ -121,4 +121,18 @@ class FinanceRepository {
     final dynamic result = await _db.rpc<dynamic>('auto_close_periods');
     return (_obj(result)['created'] as num).toInt();
   });
+
+  /// Every month the association may close, newest first.
+  ///
+  /// The range starts at `system_start` — a setting, not a calendar fact — and
+  /// stops at LAST month, because the current one is not closed until it ends.
+  /// Only the database knows both, which is why this is a call rather than a
+  /// date picker built on the client.
+  Future<List<ClosablePeriod>> closablePeriods() =>
+      SupabaseFailures.guard(() async {
+        final dynamic payload = await _db.rpc<dynamic>('api_closable_periods');
+        return (payload as List<dynamic>)
+            .map((dynamic e) => ClosablePeriod.fromJson(_obj(e)))
+            .toList();
+      });
 }

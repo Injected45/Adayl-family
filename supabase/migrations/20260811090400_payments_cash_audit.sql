@@ -162,6 +162,12 @@ CREATE TRIGGER trg_alloc_no_delete      BEFORE DELETE ON public.payment_allocati
   FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
 CREATE TRIGGER trg_cash_no_delete       BEFORE DELETE ON public.cash_movements
   FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
+-- Closing a month is financial history like any other: TRUNCATEd by the purges,
+-- never deleted row by row. Declared here rather than beside the table because
+-- refuse_delete() is defined in this file, and a trigger cannot reference a
+-- function that does not exist yet.
+CREATE TRIGGER trg_closed_no_delete     BEFORE DELETE ON public.closed_periods
+  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
 
 CREATE OR REPLACE FUNCTION public.refuse_audit_change() RETURNS trigger
 LANGUAGE plpgsql AS $$

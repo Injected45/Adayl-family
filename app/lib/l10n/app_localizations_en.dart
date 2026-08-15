@@ -113,6 +113,10 @@ class LEn extends L {
   String get errorGeneric => 'Something went wrong. Please try again later.';
 
   @override
+  String get errorSchemaMismatch =>
+      'The database does not match this build of the app. Retrying will not help — the schema needs to be applied.';
+
+  @override
   String get errorNetwork => 'No internet connection';
 
   @override
@@ -492,9 +496,22 @@ class LEn extends L {
   String get noDebtsNow => 'No outstanding balances';
 
   @override
-  String closeMonth(String period) {
-    return 'Close $period';
-  }
+  String get closeMonth => 'Close a month';
+
+  @override
+  String get selectPeriodTitle => 'Choose a month';
+
+  @override
+  String get noPeriodsToClose => 'No months are closable yet.';
+
+  @override
+  String get periodClosedBadge => 'Closed';
+
+  @override
+  String get periodClosedNote => 'Already closed';
+
+  @override
+  String get periodBlockedNote => 'Close the earlier month first';
 
   @override
   String get alertsIntro =>
@@ -789,7 +806,7 @@ class LEn extends L {
   String get editAdeel => 'Edit subscriber';
 
   @override
-  String get searchAdeelsHint => 'Search by name, national ID or code...';
+  String get searchAdeelsHint => 'Search by name or code...';
 
   @override
   String get noAdeels => 'No subscribers registered yet';

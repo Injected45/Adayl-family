@@ -39,6 +39,7 @@ ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.association_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.adeels               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receivables          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.closed_periods       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_allocations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_movements       ENABLE ROW LEVEL SECURITY;
@@ -52,7 +53,7 @@ ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT ON
   public.association_settings, public.adeels,
-  public.receivables, public.payments,
+  public.receivables, public.closed_periods, public.payments,
   public.payment_allocations, public.cash_movements
 TO authenticated;
 
@@ -61,6 +62,10 @@ CREATE POLICY read_settings ON public.association_settings
 CREATE POLICY read_adeels ON public.adeels
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 CREATE POLICY read_receivables ON public.receivables
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+-- Which months are closed is association-wide bookkeeping, not anybody's own
+-- money, so it stops at the staff boundary: no عديل-scoped policy below.
+CREATE POLICY read_closed_periods ON public.closed_periods
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 CREATE POLICY read_payments ON public.payments
   FOR SELECT TO authenticated USING (public.has_role('viewer'));

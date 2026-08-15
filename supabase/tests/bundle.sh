@@ -75,9 +75,10 @@ BEGIN
    WHERE schemaname = 'public'
      AND tablename IN ('profiles','association_settings','adeels',
                        'receivables','payments','payment_allocations',
-                       'cash_movements','audit_log','adeel_access_codes');
-  IF v_tables <> 9 THEN
-    RAISE EXCEPTION 'expected 9 tables, found %', v_tables;
+                       'cash_movements','audit_log','adeel_access_codes',
+                       'closed_periods');
+  IF v_tables <> 10 THEN
+    RAISE EXCEPTION 'expected 10 tables, found %', v_tables;
   END IF;
 
   SELECT count(*) INTO v_views FROM pg_views
@@ -96,9 +97,9 @@ BEGIN
                        'issue_adeel_code','redeem_adeel_code','my_adeel_id',
                        'api_dashboard','api_adeel_detail','api_adeel_statement',
                        'api_receivables','api_alerts','api_financial_report',
-                       'api_settings','api_me');
-  IF v_funcs <> 21 THEN
-    RAISE EXCEPTION 'expected 21 API functions, found %', v_funcs;
+                       'api_settings','api_me','api_closable_periods');
+  IF v_funcs <> 22 THEN
+    RAISE EXCEPTION 'expected 22 API functions, found %', v_funcs;
   END IF;
 
   -- Every table must have RLS ON. A table without it is readable by anyone

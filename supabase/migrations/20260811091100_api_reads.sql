@@ -219,6 +219,66 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
       '[]'::jsonb))
 $$;
 
+-- ── GET /periods/closable — what the dashboard's close-month button offers ───
+--
+-- Every month from system_start to LAST month, newest first, each with its
+-- Arabic label and whether it has already been raised.
+--
+-- WHY THIS IS A SERVER CALL AND NOT A CLIENT-SIDE DATE PICKER: the client has no
+-- month names. `period_label` lives here precisely so one spelling of each month
+-- is used across the receivables list, the dashboard button and the audit trail,
+-- and a picker that built its own would be a second spelling waiting to
+-- disagree. The range is the association's own — system_start is a setting, not
+-- a calendar fact — and only the database knows it.
+--
+-- Each month carries the two flags rules 15a and 15b turn into:
+--
+--   closed      — it is in closed_periods. Rule 15a refuses it outright.
+--   selectable  — it is the EARLIEST month not yet closed, and therefore the
+--                 only one rule 15b will accept. Everything after it is blocked
+--                 until this one is done.
+--
+-- So the list is exhaustive but exactly one row is ever tappable. Showing the
+-- others rather than hiding them is the point: a treasurer checking whether
+-- March was closed needs to SEE March, and one who wonders why August is greyed
+-- out needs to see the open July above it.
+--
+-- `selectable` is computed here rather than in Dart because it IS rule 15b, and
+-- a client that worked it out for itself would be a second implementation of a
+-- money rule — free to disagree with the one that actually decides.
+--
+-- The CURRENT month is deliberately absent: it is not closed until it ends,
+-- which is the same rule auto_close_periods() walks.
+CREATE OR REPLACE FUNCTION public.api_closable_periods() RETURNS jsonb
+LANGUAGE sql STABLE AS $$
+  WITH months AS (
+    SELECT to_char(d, 'YYYY-MM') AS period
+      FROM public.association_settings s,
+           generate_series(
+             date_trunc('month', s.system_start),
+             date_trunc('month', current_date) - interval '1 month',
+             interval '1 month') d
+     WHERE s.id = 1
+  ), flagged AS (
+    SELECT m.period,
+           EXISTS (SELECT 1 FROM public.closed_periods c
+                    WHERE c.period = m.period) AS closed
+      FROM months m
+  ), next_open AS (
+    SELECT min(period) AS period FROM flagged WHERE NOT closed
+  )
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'period', f.period,
+        'label',  public.period_label(f.period),
+        'closed', f.closed,
+        'selectable', f.period = (SELECT period FROM next_open))
+      ORDER BY f.period DESC),
+    '[]'::jsonb)
+  FROM flagged f
+$$;
+
 -- ── GET /receivables (ReceivablesPage) ───────────────────────────────────────
 -- The list itself is a plain view read, but the summary has to be computed over
 -- the SAME filter, so the two travel together rather than risking a client that
@@ -337,6 +397,7 @@ GRANT EXECUTE ON FUNCTION
   public.api_alerts(),
   public.api_financial_report(date, date),
   public.api_receivables(text),
+  public.api_closable_periods(),
   public.api_settings(),
   public.api_me(),
   public.api_touch_login()
