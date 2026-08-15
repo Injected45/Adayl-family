@@ -20,6 +20,14 @@ What that removed, deliberately and completely:
 
 - the `member_kind` enum, the one-father-per-family index, and the father/sons
   shape of `save_family` (now `save_adeel`, one row per call);
+- **the national ID, everywhere** — and with it rule 10's uniqueness half.
+  `adeels` now has **no natural key**: nothing refuses a second row for a person
+  already on the register, and a duplicate is billed the monthly fee a second
+  time. `adeel_code` is GENERATED from the identity, so it does not close that.
+  `supabase/tests/30_rules.sql` asserts the duplicate is accepted rather than
+  leaving it to be discovered; if a UNIQUE constraint is ever added back
+  (`subscription_no` is the ready candidate), that check is the one that fails
+  and tells you the guarantee returned;
 - `receivable_lines` — a receivable bills one man for one month, so the rate IS
   the total and a line table would always hold exactly one row;
 - `eligibility_age` and `warning_months`, and with them the whole

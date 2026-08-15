@@ -270,7 +270,7 @@ BEGIN
                               'skipped', v_skipped);
   END IF;
 
-  FOR a IN SELECT id, full_name, national_id, status
+  FOR a IN SELECT id, full_name, status
              FROM public.adeels ORDER BY id LOOP
     -- Status overrides everything: a موقوف or متوفى عديل is not billable.
     IF a.status <> 'نشط' THEN
@@ -282,10 +282,10 @@ BEGIN
     -- raising a duplicate. The partial index is what makes this safe under
     -- concurrency, so two admins pressing the button together cannot double-bill.
     INSERT INTO public.receivables (
-      adeel_id, period, period_end, adeel_name, adeel_national_id, total,
+      adeel_id, period, period_end, adeel_name, total,
       created_by)
     VALUES (
-      a.id, p_period, v_end, a.full_name, a.national_id, s.member_fee,
+      a.id, p_period, v_end, a.full_name, s.member_fee,
       auth.uid())
     ON CONFLICT (adeel_id, period) WHERE status <> 'ملغي' DO NOTHING
     RETURNING id INTO v_recv_id;
@@ -341,7 +341,9 @@ END $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- POST /adeels, PUT /adeels/:id.  Replaces save_family().
--- Rule 10: national_id unique across ALL عدايل, DOB not in the future.
+-- What is left of rule 10: a date of birth cannot be in the future. The unique
+-- national ID that was its other half is gone, so nothing here refuses a second
+-- row for a person already on the register.
 --
 -- save_family() took a father object plus a sons array and had to delete the
 -- absent sons BEFORE inserting the present ones, because reusing the national ID
@@ -363,10 +365,10 @@ BEGIN
 
   IF v_id IS NULL THEN
     INSERT INTO public.adeels (
-      full_name, national_id, phone, subscription_no, dob, nationality,
+      full_name, phone, subscription_no, dob, nationality,
       workplace, registered_at, status, notes, created_by, updated_by)
     VALUES (
-      p_adeel ->> 'fullName', p_adeel ->> 'nationalId',
+      p_adeel ->> 'fullName',
       p_adeel ->> 'phone', p_adeel ->> 'subscriptionNo',
       nullif(p_adeel ->> 'dob', '')::date,
       coalesce(nullif(p_adeel ->> 'nationality', ''), 'ليبي'),
@@ -379,7 +381,6 @@ BEGIN
   ELSE
     UPDATE public.adeels SET
       full_name       = p_adeel ->> 'fullName',
-      national_id     = p_adeel ->> 'nationalId',
       phone           = p_adeel ->> 'phone',
       subscription_no = p_adeel ->> 'subscriptionNo',
       dob             = nullif(p_adeel ->> 'dob', '')::date,
@@ -466,10 +467,8 @@ BEGIN
     member_fee       = coalesce((p_patch ->> 'memberFee')::numeric, member_fee),
     system_start     = coalesce((p_patch ->> 'systemStart')::date, system_start),
     treasurer_name        = coalesce(p_patch ->> 'treasurerName', treasurer_name),
-    treasurer_national_id = coalesce(p_patch ->> 'treasurerNationalId', treasurer_national_id),
     treasurer_phone       = coalesce(p_patch ->> 'treasurerPhone', treasurer_phone),
     finance_manager_name        = coalesce(p_patch ->> 'financeName', finance_manager_name),
-    finance_manager_national_id = coalesce(p_patch ->> 'financeNationalId', finance_manager_national_id),
     finance_manager_phone       = coalesce(p_patch ->> 'financePhone', finance_manager_phone),
     updated_by = auth.uid()
   WHERE id = 1

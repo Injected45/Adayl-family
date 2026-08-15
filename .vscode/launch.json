@@ -1,0 +1,61 @@
+{
+  // Press F5, or the ▶ in the Run and Debug panel, to launch on the emulator.
+  //
+  // WHY THIS EXISTS RATHER THAN JUST run_emulator.bat: the batch file starts the
+  // app and then owns the terminal, and hot reload lives on the keys `r` and `R`
+  // in THAT terminal. Launch it from a hidden window, or close the window, and
+  // the only way to see a code change is to quit and run the whole thing again —
+  // a full Gradle build every time.
+  //
+  // Started from here instead, VS Code holds the connection and puts hot reload
+  // (⚡) and hot restart (⟳) in the debug toolbar at the top of the window. A
+  // code change is then ONE CLICK, about a second, with the app still on the
+  // screen where you left it.
+  //
+  //   ⚡ hot reload   — most edits: widgets, text, colours, logic inside a method.
+  //                     State is kept, so you stay on the screen you were on.
+  //   ⟳ hot restart  — needed when you change something hot reload cannot patch:
+  //                     a `main()`, a top-level or `static` initialiser, an enum,
+  //                     or a class's fields. State resets, the app does not
+  //                     rebuild.
+  //
+  // Only a change to native Android, to pubspec dependencies, or to these
+  // dart-defines needs a real relaunch.
+  //
+  // THE VALUES BELOW ARE COPIES of the ones in run_emulator.bat and must be kept
+  // in step with it. They are not secrets — the anon key ships inside every build
+  // and can be read out of the APK; every rule is enforced by the database. The
+  // service_role key must never appear in either file.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Adayl — emulator (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "app/lib/main.dart",
+      "cwd": "app",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk",
+        "--dart-define=DEV_LOGIN=true",
+        "--dart-define=DEV_LOGIN_EMAIL=admin@adayl.test",
+        "--dart-define=DEV_LOGIN_PASSWORD=Adayl-Dev-7Kq2mXe4Rt",
+        "--dart-define=GOOGLE_SERVER_CLIENT_ID=891008495666-6bl9gctfge1rku7fd79421auqjikor12.apps.googleusercontent.com"
+      ]
+    },
+    {
+      "name": "Adayl — emulator (release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "app/lib/main.dart",
+      "cwd": "app",
+      "flutterMode": "release",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk",
+        "--dart-define=GOOGLE_SERVER_CLIENT_ID=891008495666-6bl9gctfge1rku7fd79421auqjikor12.apps.googleusercontent.com"
+      ]
+    }
+  ]
+}

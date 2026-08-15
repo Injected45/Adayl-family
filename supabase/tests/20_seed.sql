@@ -33,8 +33,8 @@ UPDATE public.association_settings
 -- one it must decide nothing at all. If an age gate is ever reintroduced by
 -- accident, العديل الصغير starts being skipped and 30_rules notices.
 INSERT INTO public.adeels
-  (full_name, national_id, dob, registered_at, status) VALUES
-  ('العديل الأول',  '1000000000001', '1975-03-01', '2026-01-01', 'نشط'),
-  ('العديل الصغير', '1000000000002', '2019-07-01', '2026-01-01', 'نشط'),
-  ('العديل الموقوف','1000000000003', '1970-11-11', '2026-01-01', 'موقوف'),
-  ('العديل المتوفى','1000000000004', '1968-02-02', '2026-01-01', 'متوفى');
+  (full_name, dob, registered_at, status) VALUES
+  ('العديل الأول',  '1975-03-01', '2026-01-01', 'نشط'),
+  ('العديل الصغير', '2019-07-01', '2026-01-01', 'نشط'),
+  ('العديل الموقوف','1970-11-11', '2026-01-01', 'موقوف'),
+  ('العديل المتوفى','1968-02-02', '2026-01-01', 'متوفى');

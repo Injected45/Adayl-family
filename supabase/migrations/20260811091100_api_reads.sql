@@ -254,11 +254,9 @@ LANGUAGE sql STABLE AS $$
     'autoClosePreviousMonths', s.auto_close_previous_months,
     'treasurer', jsonb_build_object(
       'name', s.treasurer_name,
-      'nationalId', s.treasurer_national_id,
       'phone', s.treasurer_phone),
     'financeManager', jsonb_build_object(
       'name', s.finance_manager_name,
-      'nationalId', s.finance_manager_national_id,
       'phone', s.finance_manager_phone))
   FROM public.association_settings s WHERE s.id = 1
 $$;

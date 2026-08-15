@@ -189,7 +189,7 @@ SELECT probe.eq('portal', 'another عديل''s statement is empty for him',
 SELECT probe.raises('portal', 'he cannot register a payment',
   $sql$ SELECT public.register_payment(1, 1.00, 'نقداً') $sql$, 'RUL00');
 SELECT probe.raises('portal', 'he cannot edit his own record',
-  $sql$ SELECT public.save_adeel(1, '{"fullName":"x","nationalId":"y"}'::jsonb) $sql$,
+  $sql$ SELECT public.save_adeel(1, '{"fullName":"x"}'::jsonb) $sql$,
   'RUL00');
 SELECT probe.raises('portal', 'he cannot delete himself off the register',
   $sql$ SELECT public.delete_adeel(1) $sql$, 'RUL00');

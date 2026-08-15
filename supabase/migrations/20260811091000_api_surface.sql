@@ -65,13 +65,11 @@ FROM public.association_settings;
 CREATE VIEW public.v_officials WITH (security_invoker = on) AS
 SELECT 'treasurer'::text AS "role",
        treasurer_name        AS "name",
-       treasurer_national_id AS "nationalId",
        treasurer_phone       AS "phone"
   FROM public.association_settings
 UNION ALL
 SELECT 'financeManager'::text,
        finance_manager_name,
-       finance_manager_national_id,
        finance_manager_phone
   FROM public.association_settings;
 
@@ -91,7 +89,6 @@ SELECT
   a.id                                    AS "id",
   a.adeel_code                            AS "adeelCode",
   a.full_name                             AS "fullName",
-  a.national_id                           AS "nationalId",
   coalesce(a.phone, '')                   AS "phone",
   coalesce(a.subscription_no, '')         AS "subscriptionNo",
   coalesce(a.workplace, '')               AS "workplace",
@@ -124,7 +121,6 @@ SELECT
   r.id                          AS "id",
   r.adeel_id                    AS "adeelId",
   r.adeel_name                  AS "adeelName",
-  r.adeel_national_id           AS "adeelNationalId",
   a.adeel_code                  AS "adeelCode",
   r.period                      AS "period",
   public.period_label(r.period) AS "periodLabel",

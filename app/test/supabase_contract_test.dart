@@ -234,12 +234,6 @@ void main() {
         d.receivables.every((ReceivableItem r) => r.adeelName.isNotEmpty),
         isTrue,
       );
-      expect(
-        d.receivables.every(
-          (ReceivableItem r) => r.adeelNationalId.isNotEmpty,
-        ),
-        isTrue,
-      );
     });
 
     test('statement parses as an ordered running balance', () {

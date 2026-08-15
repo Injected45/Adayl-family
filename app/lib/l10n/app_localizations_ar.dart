@@ -81,6 +81,12 @@ class LAr extends L {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get refreshData => 'تحديث البيانات';
+
+  @override
+  String get refreshedData => 'تم تحديث البيانات من قاعدة البيانات';
+
+  @override
   String get cancel => 'إلغاء';
 
   @override
@@ -210,9 +216,6 @@ class LAr extends L {
 
   @override
   String get registeredAt => 'تاريخ التسجيل';
-
-  @override
-  String get nationalId => 'الرقم الوطني';
 
   @override
   String get age => 'العمر';
@@ -554,7 +557,7 @@ class LAr extends L {
 
   @override
   String get settingsWarning =>
-      'قاعدة محاسبية: تعديل قيمة الاشتراك أو سن الاستحقاق هنا لا يغيّر أي استحقاق سبق إنشاؤه.';
+      'قاعدة محاسبية: تعديل قيمة الاشتراك هنا لا يغيّر أي استحقاق سبق إنشاؤه.';
 
   @override
   String get generalSection => 'الإعدادات العامة';
@@ -572,16 +575,7 @@ class LAr extends L {
   String get currencyField => 'العملة';
 
   @override
-  String get fatherFeeField => 'اشتراك الأب الشهري';
-
-  @override
-  String get sonFeeField => 'اشتراك الابن الشهري';
-
-  @override
-  String get eligibilityAgeField => 'سن بداية الاشتراك';
-
-  @override
-  String get warningMonthsField => 'التنبيه قبل الاستحقاق بالأشهر';
+  String get memberFeeField => 'اشتراك العضو الشهري';
 
   @override
   String get systemStartField => 'تاريخ بداية العمل بالنظام';

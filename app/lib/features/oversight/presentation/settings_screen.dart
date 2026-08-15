@@ -59,29 +59,16 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           text: widget.initial.associationName,
         ),
         'currency': TextEditingController(text: widget.initial.currency),
-        'fatherFee': TextEditingController(text: widget.initial.fatherFee),
-        'sonFee': TextEditingController(text: widget.initial.sonFee),
-        'eligibilityAge': TextEditingController(
-          text: '${widget.initial.eligibilityAge}',
-        ),
-        'warningMonths': TextEditingController(
-          text: '${widget.initial.warningMonths}',
-        ),
+        'memberFee': TextEditingController(text: widget.initial.memberFee),
         'systemStart': TextEditingController(text: widget.initial.systemStart),
         'treasurerName': TextEditingController(
           text: widget.initial.treasurer.name,
-        ),
-        'treasurerNationalId': TextEditingController(
-          text: widget.initial.treasurer.nationalId,
         ),
         'treasurerPhone': TextEditingController(
           text: widget.initial.treasurer.phone,
         ),
         'financeName': TextEditingController(
           text: widget.initial.financeManager.name,
-        ),
-        'financeNationalId': TextEditingController(
-          text: widget.initial.financeManager.nationalId,
         ),
         'financePhone': TextEditingController(
           text: widget.initial.financeManager.phone,
@@ -103,20 +90,15 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
   EditableSettings _collect() => EditableSettings(
     associationName: _text('associationName'),
     currency: _text('currency'),
-    fatherFee: _text('fatherFee'),
-    sonFee: _text('sonFee'),
-    eligibilityAge: int.tryParse(_text('eligibilityAge')) ?? 0,
-    warningMonths: int.tryParse(_text('warningMonths')) ?? 0,
+    memberFee: _text('memberFee'),
     systemStart: _text('systemStart'),
     autoClosePreviousMonths: widget.initial.autoClosePreviousMonths,
     treasurer: OfficialInput(
       name: _text('treasurerName'),
-      nationalId: _text('treasurerNationalId'),
       phone: _text('treasurerPhone'),
     ),
     financeManager: OfficialInput(
       name: _text('financeName'),
-      nationalId: _text('financeNationalId'),
       phone: _text('financePhone'),
     ),
   );
@@ -128,14 +110,8 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     // These values are financially load-bearing, so the change is restated
     // before it is written rather than saved silently.
     final List<String> preview = <String>[
-      if (next.fatherFee != widget.initial.fatherFee)
-        '${l.fatherFeeField}: ${widget.initial.fatherFee} → ${next.fatherFee}',
-      if (next.sonFee != widget.initial.sonFee)
-        '${l.sonFeeField}: ${widget.initial.sonFee} → ${next.sonFee}',
-      if (next.eligibilityAge != widget.initial.eligibilityAge)
-        '${l.eligibilityAgeField}: ${widget.initial.eligibilityAge} → ${next.eligibilityAge}',
-      if (next.warningMonths != widget.initial.warningMonths)
-        '${l.warningMonthsField}: ${widget.initial.warningMonths} → ${next.warningMonths}',
+      if (next.memberFee != widget.initial.memberFee)
+        '${l.memberFeeField}: ${widget.initial.memberFee} → ${next.memberFee}',
       if (next.systemStart != widget.initial.systemStart)
         '${l.systemStartField}: ${widget.initial.systemStart} → ${next.systemStart}',
     ];
@@ -230,40 +206,20 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         ),
         _Field(label: l.currencyField, controller: _fields['currency']!),
         _Field(
-          label: l.fatherFeeField,
-          controller: _fields['fatherFee']!,
+          label: l.memberFeeField,
+          controller: _fields['memberFee']!,
           money: true,
-        ),
-        _Field(
-          label: l.sonFeeField,
-          controller: _fields['sonFee']!,
-          money: true,
-        ),
-        _Field(
-          label: l.eligibilityAgeField,
-          controller: _fields['eligibilityAge']!,
-          integer: true,
-        ),
-        _Field(
-          label: l.warningMonthsField,
-          controller: _fields['warningMonths']!,
-          integer: true,
         ),
         _Field(label: l.systemStartField, controller: _fields['systemStart']!),
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.treasurerSection),
         _Field(label: l.fullNameField, controller: _fields['treasurerName']!),
-        _Field(
-          label: l.nationalId,
-          controller: _fields['treasurerNationalId']!,
-        ),
         _Field(label: l.phone, controller: _fields['treasurerPhone']!),
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.financeManagerSection),
         _Field(label: l.fullNameField, controller: _fields['financeName']!),
-        _Field(label: l.nationalId, controller: _fields['financeNationalId']!),
         _Field(label: l.phone, controller: _fields['financePhone']!),
 
         const SizedBox(height: AppSpacing.xl),
@@ -633,17 +589,18 @@ class _Section extends StatelessWidget {
 }
 
 class _Field extends StatelessWidget {
+  // `integer: true` went with the two whole-number fields this screen used to
+  // carry — the eligibility age and the warning months. Neither exists any more,
+  // so the flag had no caller left and the analyzer said so.
   const _Field({
     required this.label,
     required this.controller,
     this.money = false,
-    this.integer = false,
   });
 
   final String label;
   final TextEditingController controller;
   final bool money;
-  final bool integer;
 
   @override
   Widget build(BuildContext context) {
@@ -651,13 +608,12 @@ class _Field extends StatelessWidget {
       padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
       child: TextField(
         controller: controller,
-        keyboardType: money || integer
-            ? TextInputType.numberWithOptions(decimal: money)
+        keyboardType: money
+            ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,
         inputFormatters: <TextInputFormatter>[
           if (money)
             FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-          if (integer) FilteringTextInputFormatter.digitsOnly,
         ],
         decoration: InputDecoration(labelText: label, isDense: true),
       ),

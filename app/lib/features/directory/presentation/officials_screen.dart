@@ -58,10 +58,6 @@ class OfficialsScreen extends ConsumerWidget {
                                 ? l.notAssigned
                                 : official.name,
                           ),
-                          LabelledValue(
-                            label: l.nationalId,
-                            value: official.nationalId,
-                          ),
                           LabelledValue(label: l.phone, value: official.phone),
                         ],
                       ),

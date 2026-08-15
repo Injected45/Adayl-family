@@ -336,11 +336,9 @@ CREATE TABLE public.association_settings (
   auto_close_previous_months  boolean       NOT NULL DEFAULT true,
 
   treasurer_name              text          NOT NULL DEFAULT '',
-  treasurer_national_id       text          NOT NULL DEFAULT '',
   treasurer_phone             text          NOT NULL DEFAULT '',
 
   finance_manager_name        text          NOT NULL DEFAULT '',
-  finance_manager_national_id text          NOT NULL DEFAULT '',
   finance_manager_phone       text          NOT NULL DEFAULT '',
 
   updated_by                  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -378,14 +376,25 @@ ON CONFLICT (id) DO NOTHING;
 -- same row, so the code cannot collide and no second statement exists to fail
 -- between.
 --
--- national_id UNIQUE is business rule 10, and it is now a plain table-level
--- constraint rather than something spanning a two-table hierarchy.
+-- ⚠ THERE IS NO NATURAL KEY ANY MORE. `national_id NOT NULL UNIQUE` was business
+-- rule 10 and it is gone at the association's request. Nothing now stops the
+-- same person being entered twice, and a duplicate row is billed the monthly fee
+-- a second time — so a duplicate is not a cosmetic problem here, it is an
+-- overcharge that reconciles perfectly and looks correct on every report.
+--
+-- `adeel_code` does not close that hole: it is GENERATED from the identity, so a
+-- second row for the same man simply gets a second code.
+--
+-- If the association wants the guarantee back without the national ID, the ready
+-- candidate is `subscription_no` (رقم الاكتتاب), which already exists and which
+-- the association issues itself. It would need NOT NULL and a UNIQUE constraint;
+-- it has neither today, deliberately, because making it the key was not asked
+-- for.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.adeels (
   id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   adeel_code      text          GENERATED ALWAYS AS ('A-' || lpad(id::text, 4, '0')) STORED,
   full_name       text          NOT NULL,
-  national_id     text          NOT NULL,
   phone           text,
   subscription_no text,
   dob             date,
@@ -401,10 +410,8 @@ CREATE TABLE public.adeels (
   updated_by      uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
 
   CONSTRAINT uq_adeels_code        UNIQUE (adeel_code),
-  CONSTRAINT uq_adeels_national_id UNIQUE (national_id),
   CONSTRAINT uq_adeels_legacy      UNIQUE (legacy_id),
-  CONSTRAINT ck_adeels_name        CHECK (btrim(full_name) <> ''),
-  CONSTRAINT ck_adeels_national_id CHECK (btrim(national_id) <> '')
+  CONSTRAINT ck_adeels_name        CHECK (btrim(full_name) <> '')
 );
 
 CREATE INDEX ix_adeels_name   ON public.adeels (full_name);
@@ -415,9 +422,10 @@ CREATE TRIGGER trg_adeels_touch
   BEFORE UPDATE ON public.adeels
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
--- Rule 10, second half: date of birth cannot be in the future. A trigger, not a
--- CHECK, because CURRENT_DATE is not immutable and Postgres rejects it in a
--- CHECK constraint for the same reason MySQL did.
+-- What is LEFT of rule 10: a date of birth cannot be in the future. A trigger,
+-- not a CHECK, because CURRENT_DATE is not immutable and Postgres rejects it in
+-- a CHECK constraint for the same reason MySQL did. The rule's other half — the
+-- unique national ID — was removed with the column above.
 --
 -- The old carried-forward conflict here (index.html validated sons' dates of
 -- birth but not the father's) died with the father/son split. There is one kind
@@ -525,10 +533,15 @@ CREATE TABLE public.adeel_access_codes (
 -- so that table would hold exactly one row per receivable forever and the
 -- invariant would read total = total.
 --
--- The snapshot columns absorbed what the line carried. `adeel_name` and
--- `adeel_national_id` are duplicated here rather than joined, for the reason the
--- lines duplicated them: a receipt printed years later must show the details as
--- they stood when the charge was raised, even if the عديل was renamed since.
+-- The snapshot columns absorbed what the line carried. `adeel_name` is
+-- duplicated here rather than joined, for the reason the lines duplicated it: a
+-- receipt printed years later must show the name as it stood when the charge was
+-- raised, even if the عديل was renamed since.
+--
+-- `adeel_national_id` sat beside it and is gone with the column it copied. The
+-- name is now the ONLY identifying thing a historical receipt carries, which is
+-- worth stating plainly: two عدايل sharing a name produce receipts that cannot
+-- be told apart by reading them — only by their id.
 --
 -- There is no separate fee column. With one person and one month, the rate IS
 -- the total, and carrying both would invite them to disagree.
@@ -541,7 +554,6 @@ CREATE TABLE public.receivables (
 
   -- ── IMMUTABLE SNAPSHOT ────────────────────────────────────────────────────
   adeel_name        text          NOT NULL,
-  adeel_national_id text          NOT NULL,
   total             numeric(12,2) NOT NULL,
   -- ──────────────────────────────────────────────────────────────────────────
 
@@ -581,7 +593,6 @@ BEGIN
    OR NEW.period            IS DISTINCT FROM OLD.period
    OR NEW.period_end        IS DISTINCT FROM OLD.period_end
    OR NEW.adeel_name        IS DISTINCT FROM OLD.adeel_name
-   OR NEW.adeel_national_id IS DISTINCT FROM OLD.adeel_national_id
    OR NEW.total             IS DISTINCT FROM OLD.total
    OR NEW.created_at        IS DISTINCT FROM OLD.created_at
    OR NEW.created_by        IS DISTINCT FROM OLD.created_by
@@ -1250,7 +1261,7 @@ BEGIN
                               'skipped', v_skipped);
   END IF;
 
-  FOR a IN SELECT id, full_name, national_id, status
+  FOR a IN SELECT id, full_name, status
              FROM public.adeels ORDER BY id LOOP
     -- Status overrides everything: a موقوف or متوفى عديل is not billable.
     IF a.status <> 'نشط' THEN
@@ -1262,10 +1273,10 @@ BEGIN
     -- raising a duplicate. The partial index is what makes this safe under
     -- concurrency, so two admins pressing the button together cannot double-bill.
     INSERT INTO public.receivables (
-      adeel_id, period, period_end, adeel_name, adeel_national_id, total,
+      adeel_id, period, period_end, adeel_name, total,
       created_by)
     VALUES (
-      a.id, p_period, v_end, a.full_name, a.national_id, s.member_fee,
+      a.id, p_period, v_end, a.full_name, s.member_fee,
       auth.uid())
     ON CONFLICT (adeel_id, period) WHERE status <> 'ملغي' DO NOTHING
     RETURNING id INTO v_recv_id;
@@ -1321,7 +1332,9 @@ END $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- POST /adeels, PUT /adeels/:id.  Replaces save_family().
--- Rule 10: national_id unique across ALL عدايل, DOB not in the future.
+-- What is left of rule 10: a date of birth cannot be in the future. The unique
+-- national ID that was its other half is gone, so nothing here refuses a second
+-- row for a person already on the register.
 --
 -- save_family() took a father object plus a sons array and had to delete the
 -- absent sons BEFORE inserting the present ones, because reusing the national ID
@@ -1343,10 +1356,10 @@ BEGIN
 
   IF v_id IS NULL THEN
     INSERT INTO public.adeels (
-      full_name, national_id, phone, subscription_no, dob, nationality,
+      full_name, phone, subscription_no, dob, nationality,
       workplace, registered_at, status, notes, created_by, updated_by)
     VALUES (
-      p_adeel ->> 'fullName', p_adeel ->> 'nationalId',
+      p_adeel ->> 'fullName',
       p_adeel ->> 'phone', p_adeel ->> 'subscriptionNo',
       nullif(p_adeel ->> 'dob', '')::date,
       coalesce(nullif(p_adeel ->> 'nationality', ''), 'ليبي'),
@@ -1359,7 +1372,6 @@ BEGIN
   ELSE
     UPDATE public.adeels SET
       full_name       = p_adeel ->> 'fullName',
-      national_id     = p_adeel ->> 'nationalId',
       phone           = p_adeel ->> 'phone',
       subscription_no = p_adeel ->> 'subscriptionNo',
       dob             = nullif(p_adeel ->> 'dob', '')::date,
@@ -1446,10 +1458,8 @@ BEGIN
     member_fee       = coalesce((p_patch ->> 'memberFee')::numeric, member_fee),
     system_start     = coalesce((p_patch ->> 'systemStart')::date, system_start),
     treasurer_name        = coalesce(p_patch ->> 'treasurerName', treasurer_name),
-    treasurer_national_id = coalesce(p_patch ->> 'treasurerNationalId', treasurer_national_id),
     treasurer_phone       = coalesce(p_patch ->> 'treasurerPhone', treasurer_phone),
     finance_manager_name        = coalesce(p_patch ->> 'financeName', finance_manager_name),
-    finance_manager_national_id = coalesce(p_patch ->> 'financeNationalId', finance_manager_national_id),
     finance_manager_phone       = coalesce(p_patch ->> 'financePhone', finance_manager_phone),
     updated_by = auth.uid()
   WHERE id = 1
@@ -2051,13 +2061,11 @@ FROM public.association_settings;
 CREATE VIEW public.v_officials WITH (security_invoker = on) AS
 SELECT 'treasurer'::text AS "role",
        treasurer_name        AS "name",
-       treasurer_national_id AS "nationalId",
        treasurer_phone       AS "phone"
   FROM public.association_settings
 UNION ALL
 SELECT 'financeManager'::text,
        finance_manager_name,
-       finance_manager_national_id,
        finance_manager_phone
   FROM public.association_settings;
 
@@ -2077,7 +2085,6 @@ SELECT
   a.id                                    AS "id",
   a.adeel_code                            AS "adeelCode",
   a.full_name                             AS "fullName",
-  a.national_id                           AS "nationalId",
   coalesce(a.phone, '')                   AS "phone",
   coalesce(a.subscription_no, '')         AS "subscriptionNo",
   coalesce(a.workplace, '')               AS "workplace",
@@ -2110,7 +2117,6 @@ SELECT
   r.id                          AS "id",
   r.adeel_id                    AS "adeelId",
   r.adeel_name                  AS "adeelName",
-  r.adeel_national_id           AS "adeelNationalId",
   a.adeel_code                  AS "adeelCode",
   r.period                      AS "period",
   public.period_label(r.period) AS "periodLabel",
@@ -2488,11 +2494,9 @@ LANGUAGE sql STABLE AS $$
     'autoClosePreviousMonths', s.auto_close_previous_months,
     'treasurer', jsonb_build_object(
       'name', s.treasurer_name,
-      'nationalId', s.treasurer_national_id,
       'phone', s.treasurer_phone),
     'financeManager', jsonb_build_object(
       'name', s.finance_manager_name,
-      'nationalId', s.finance_manager_national_id,
       'phone', s.finance_manager_phone))
   FROM public.association_settings s WHERE s.id = 1
 $$;

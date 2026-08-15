@@ -29,10 +29,15 @@
 -- so that table would hold exactly one row per receivable forever and the
 -- invariant would read total = total.
 --
--- The snapshot columns absorbed what the line carried. `adeel_name` and
--- `adeel_national_id` are duplicated here rather than joined, for the reason the
--- lines duplicated them: a receipt printed years later must show the details as
--- they stood when the charge was raised, even if the عديل was renamed since.
+-- The snapshot columns absorbed what the line carried. `adeel_name` is
+-- duplicated here rather than joined, for the reason the lines duplicated it: a
+-- receipt printed years later must show the name as it stood when the charge was
+-- raised, even if the عديل was renamed since.
+--
+-- `adeel_national_id` sat beside it and is gone with the column it copied. The
+-- name is now the ONLY identifying thing a historical receipt carries, which is
+-- worth stating plainly: two عدايل sharing a name produce receipts that cannot
+-- be told apart by reading them — only by their id.
 --
 -- There is no separate fee column. With one person and one month, the rate IS
 -- the total, and carrying both would invite them to disagree.
@@ -45,7 +50,6 @@ CREATE TABLE public.receivables (
 
   -- ── IMMUTABLE SNAPSHOT ────────────────────────────────────────────────────
   adeel_name        text          NOT NULL,
-  adeel_national_id text          NOT NULL,
   total             numeric(12,2) NOT NULL,
   -- ──────────────────────────────────────────────────────────────────────────
 
@@ -85,7 +89,6 @@ BEGIN
    OR NEW.period            IS DISTINCT FROM OLD.period
    OR NEW.period_end        IS DISTINCT FROM OLD.period_end
    OR NEW.adeel_name        IS DISTINCT FROM OLD.adeel_name
-   OR NEW.adeel_national_id IS DISTINCT FROM OLD.adeel_national_id
    OR NEW.total             IS DISTINCT FROM OLD.total
    OR NEW.created_at        IS DISTINCT FROM OLD.created_at
    OR NEW.created_by        IS DISTINCT FROM OLD.created_by

@@ -147,7 +147,7 @@ class AdeelDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '${adeel.adeelCode} • ${adeel.nationalId}',
+                adeel.adeelCode,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.lg),

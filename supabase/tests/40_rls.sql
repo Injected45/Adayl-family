@@ -23,7 +23,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA probe TO anon, authenticated;
 SET ROLE anon;
 SELECT probe.become(NULL, 'anon');
 
-SELECT probe.raises('rls/anon', 'cannot read the register (names, national IDs)',
+SELECT probe.raises('rls/anon', 'cannot read the register (names, phones, workplaces)',
   'SELECT * FROM public.adeels', '42501');
 SELECT probe.raises('rls/anon', 'cannot read receivables',
   'SELECT * FROM public.receivables', '42501');
@@ -44,8 +44,8 @@ SELECT probe.raises('rls/anon', 'cannot read the register view',
 SELECT probe.raises('rls/anon', 'cannot register a payment',
   'SELECT public.register_payment(1, 10, ''نقداً'')', '42501');
 SELECT probe.raises('rls/anon', 'cannot insert an عديل',
-  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
-        VALUES ('x','9999',current_date) $sql$, '42501');
+  $sql$ INSERT INTO public.adeels (full_name, registered_at)
+        VALUES ('x',current_date) $sql$, '42501');
 SELECT probe.raises('rls/anon', 'cannot insert a payment directly',
   'INSERT INTO public.payments (adeel_id, amount, method) VALUES (1,1,''نقداً'')', '42501');
 RESET ROLE;
@@ -137,7 +137,7 @@ SELECT probe.raises('rls/viewer', 'cannot cancel a payment',
 SELECT probe.raises('rls/viewer', 'cannot generate receivables',
   'SELECT public.generate_period(''2026-05'')', 'RUL00');
 SELECT probe.raises('rls/viewer', 'cannot save an عديل',
-  'SELECT public.save_adeel(NULL, ''{"fullName":"x","nationalId":"9"}''::jsonb)', 'RUL00');
+  'SELECT public.save_adeel(NULL, ''{"fullName":"x"}''::jsonb)', 'RUL00');
 SELECT probe.raises('rls/viewer', 'cannot delete an عديل',
   'SELECT public.delete_adeel(1)', 'RUL00');
 SELECT probe.raises('rls/viewer', 'cannot change settings',
@@ -150,8 +150,8 @@ SELECT probe.raises('rls/viewer', 'cannot issue an access code',
 
 -- Direct table writes: no privilege at all, so these never even reach a policy.
 SELECT probe.raises('rls/viewer', 'cannot INSERT an عديل',
-  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
-        VALUES ('x','8888',current_date) $sql$, '42501');
+  $sql$ INSERT INTO public.adeels (full_name, registered_at)
+        VALUES ('x',current_date) $sql$, '42501');
 SELECT probe.raises('rls/viewer', 'cannot UPDATE a receivable balance',
   'UPDATE public.receivables SET paid = 0 WHERE id = 1', '42501');
 SELECT probe.raises('rls/viewer', 'cannot DELETE a payment',
@@ -193,7 +193,7 @@ SELECT probe.succeeds('rls/finance', 'CAN generate receivables',
   'SELECT public.generate_period(''2026-05'')');
 SELECT probe.succeeds('rls/finance', 'CAN save an عديل', $sql$
   SELECT public.save_adeel(NULL,
-    '{"fullName":"عديل جديد","nationalId":"1000000000200","dob":"1980-01-01"}'::jsonb)
+    '{"fullName":"عديل جديد","dob":"1980-01-01"}'::jsonb)
 $sql$);
 SELECT probe.raises('rls/finance', 'cannot change settings',
   'SELECT public.update_settings(''{"currency":"X"}''::jsonb)', 'RUL00');
@@ -221,8 +221,8 @@ SELECT probe.raises('rls/admin', 'cannot change their OWN role',
   $sql$ SELECT public.set_user_access('00000000-0000-0000-0000-0000000000a1','viewer','approved') $sql$,
   'RUL00');
 SELECT probe.raises('rls/admin', 'cannot still write tables directly',
-  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
-        VALUES ('x','7777',current_date) $sql$, '42501');
+  $sql$ INSERT INTO public.adeels (full_name, registered_at)
+        VALUES ('x',current_date) $sql$, '42501');
 RESET ROLE;
 
 -- ═════ The last-admin guard, exercised as postgres ═══════════════════════════

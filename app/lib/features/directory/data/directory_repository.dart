@@ -45,7 +45,7 @@ class DirectoryRepository {
   /// The register. One list where there were two — families and members.
   Future<List<AdeelListItem>> adeels({String query = ''}) =>
       SupabaseFailures.guard(() async {
-        // The search covers his name, his national ID and his code. `or` takes
+        // The search covers his name and his code. `or` takes
         // PostgREST filter syntax, so the pattern is interpolated — safe because
         // the value never reaches SQL as code, but commas and parentheses would
         // break the filter grammar, so they are stripped.
@@ -58,7 +58,6 @@ class DirectoryRepository {
             : await base
                   .or(
                     'fullName.ilike.%$safe%,'
-                    'nationalId.ilike.%$safe%,'
                     'adeelCode.ilike.%$safe%',
                   )
                   .order('id');

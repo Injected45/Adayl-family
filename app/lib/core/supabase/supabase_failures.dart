@@ -102,7 +102,7 @@ abstract final class SupabaseFailures {
   }
 
   /// Only the app's own rule violations carry text meant for a user. A raw
-  /// `duplicate key value violates unique constraint "uq_members_national_id"`
+  /// `duplicate key value violates unique constraint "uq_recv_active_period"`
   /// must never reach a treasurer's screen.
   static bool _isDisplayable(String? code) =>
       code != null && code.startsWith('RUL');

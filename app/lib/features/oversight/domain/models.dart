@@ -267,23 +267,19 @@ class UserAccount {
 class OfficialInput {
   const OfficialInput({
     required this.name,
-    required this.nationalId,
     required this.phone,
   });
 
   final String name;
-  final String nationalId;
   final String phone;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'name': name,
-    'nationalId': nationalId,
     'phone': phone,
   };
 
   factory OfficialInput.fromJson(Map<String, dynamic> json) => OfficialInput(
     name: _string(json['name']),
-    nationalId: _string(json['nationalId']),
     phone: _string(json['phone']),
   );
 }
@@ -293,10 +289,7 @@ class EditableSettings {
   const EditableSettings({
     required this.associationName,
     required this.currency,
-    required this.fatherFee,
-    required this.sonFee,
-    required this.eligibilityAge,
-    required this.warningMonths,
+    required this.memberFee,
     required this.systemStart,
     required this.autoClosePreviousMonths,
     required this.treasurer,
@@ -305,10 +298,7 @@ class EditableSettings {
 
   final String associationName;
   final String currency;
-  final String fatherFee;
-  final String sonFee;
-  final int eligibilityAge;
-  final int warningMonths;
+  final String memberFee;
   final String systemStart;
   final bool autoClosePreviousMonths;
   final OfficialInput treasurer;
@@ -317,10 +307,7 @@ class EditableSettings {
   Map<String, dynamic> toJson() => <String, dynamic>{
     'associationName': associationName,
     'currency': currency,
-    'fatherFee': fatherFee,
-    'sonFee': sonFee,
-    'eligibilityAge': eligibilityAge,
-    'warningMonths': warningMonths,
+    'memberFee': memberFee,
     'systemStart': systemStart,
     'autoClosePreviousMonths': autoClosePreviousMonths,
     'treasurer': treasurer.toJson(),
@@ -331,10 +318,7 @@ class EditableSettings {
       EditableSettings(
         associationName: _string(json['associationName']),
         currency: _string(json['currency']),
-        fatherFee: _string(json['fatherFee']),
-        sonFee: _string(json['sonFee']),
-        eligibilityAge: _int(json['eligibilityAge']),
-        warningMonths: _int(json['warningMonths']),
+        memberFee: _string(json['memberFee']),
         systemStart: _string(json['systemStart']),
         autoClosePreviousMonths: json['autoClosePreviousMonths'] == true,
         treasurer: OfficialInput.fromJson(
@@ -401,7 +385,6 @@ class MemberInput {
   const MemberInput({
     this.id,
     required this.fullName,
-    required this.nationalId,
     this.phone = '',
     this.subscriptionNo = '',
     this.dob,
@@ -413,7 +396,6 @@ class MemberInput {
 
   final int? id;
   final String fullName;
-  final String nationalId;
   final String phone;
   final String subscriptionNo;
   final String? dob;
@@ -425,7 +407,6 @@ class MemberInput {
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': ?id,
     'fullName': fullName,
-    'nationalId': nationalId,
     'phone': phone,
     'subscriptionNo': subscriptionNo,
     'dob': dob != null && dob!.isNotEmpty ? dob : null,

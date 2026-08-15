@@ -82,6 +82,12 @@ class LEn extends L {
   String get retry => 'Retry';
 
   @override
+  String get refreshData => 'Refresh data';
+
+  @override
+  String get refreshedData => 'Data refreshed from the database';
+
+  @override
   String get cancel => 'Cancel';
 
   @override
@@ -211,9 +217,6 @@ class LEn extends L {
 
   @override
   String get registeredAt => 'Registered on';
-
-  @override
-  String get nationalId => 'National ID';
 
   @override
   String get age => 'Age';
@@ -561,7 +564,7 @@ class LEn extends L {
 
   @override
   String get settingsWarning =>
-      'Accounting rule: changing a fee or the eligibility age here does not alter any receivable already raised.';
+      'Accounting rule: changing the fee here does not alter any receivable already raised.';
 
   @override
   String get generalSection => 'General';
@@ -579,16 +582,7 @@ class LEn extends L {
   String get currencyField => 'Currency';
 
   @override
-  String get fatherFeeField => 'Father\'s monthly fee';
-
-  @override
-  String get sonFeeField => 'Son\'s monthly fee';
-
-  @override
-  String get eligibilityAgeField => 'Age subscription begins';
-
-  @override
-  String get warningMonthsField => 'Warn this many months ahead';
+  String get memberFeeField => 'Monthly member fee';
 
   @override
   String get systemStartField => 'System start date';

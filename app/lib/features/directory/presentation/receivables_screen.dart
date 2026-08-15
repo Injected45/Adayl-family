@@ -350,12 +350,10 @@ class _ReceivableCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            // The father's and son's fee rates, and the list of billed sons, are
-            // gone from a receivable: it charges ONE عديل at ONE rate, so the
-            // rate IS the total and the only name worth showing is the
-            // snapshotted one in the heading above.
-            LabelledValue(label: l.nationalId, value: item.adeelNationalId),
+            // The father's and son's fee rates, the list of billed sons and the
+            // snapshotted national ID are all gone from a receivable: it charges
+            // ONE عديل at ONE rate, so the rate IS the total, and his name in
+            // the heading above is the only identifying thing left on it.
           ],
         ),
       ),

@@ -1,0 +1,44 @@
+{
+  // Ctrl+Shift+P → "Run Task" → pick one. The emulator task is also the default
+  // build task, so Ctrl+Shift+B starts it on its own.
+  //
+  // Use these when you want the batch file's checks — it finds adb, waits for
+  // sys.boot_completed rather than just for the device to appear, refuses to run
+  // on an emulator with under 500 MB free, and warns when the emulator cannot
+  // resolve the Supabase host. None of that is in launch.json.
+  //
+  // For the edit-and-see-it loop, prefer F5 (launch.json): it gives you the hot
+  // reload button, which this does not.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Adayl: run on emulator",
+      "type": "shell",
+      "command": "${workspaceFolder}\\run_emulator.bat",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true },
+      // A dedicated panel, and NOT a shared one: `flutter run` keeps the
+      // terminal for the life of the app, and `r` / `R` are typed into it.
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
+      "label": "Adayl: list emulators",
+      "type": "shell",
+      "command": "${workspaceFolder}\\run_emulator.bat --list",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Adayl: verify (analyze, tests, both lints)",
+      "type": "shell",
+      "command": "flutter analyze && flutter test && dart run tool/supabase_lint.dart && dart run tool/rtl_lint.dart",
+      "options": { "cwd": "${workspaceFolder}\\app" },
+      "problemMatcher": []
+    }
+  ]
+}

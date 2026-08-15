@@ -34,19 +34,16 @@ class Official {
   const Official({
     required this.role,
     required this.name,
-    required this.nationalId,
     required this.phone,
   });
 
   final String role;
   final String name;
-  final String nationalId;
   final String phone;
 
   factory Official.fromJson(Map<String, dynamic> json) => Official(
     role: _string(json['role']),
     name: _string(json['name']),
-    nationalId: _string(json['nationalId']),
     phone: _string(json['phone']),
   );
 }
@@ -60,7 +57,6 @@ class AdeelListItem {
     required this.id,
     required this.adeelCode,
     required this.fullName,
-    required this.nationalId,
     required this.phone,
     required this.workplace,
     required this.age,
@@ -73,7 +69,6 @@ class AdeelListItem {
   final int id;
   final String adeelCode;
   final String fullName;
-  final String nationalId;
   final String phone;
   final String workplace;
   final int? age;
@@ -92,7 +87,6 @@ class AdeelListItem {
     id: _int(json['id']),
     adeelCode: _string(json['adeelCode']),
     fullName: _string(json['fullName']),
-    nationalId: _string(json['nationalId']),
     phone: _string(json['phone']),
     workplace: _string(json['workplace']),
     age: json['age'] is num ? (json['age'] as num).toInt() : null,
@@ -114,7 +108,6 @@ class AdeelView {
     required this.id,
     required this.adeelCode,
     required this.fullName,
-    required this.nationalId,
     required this.phone,
     required this.subscriptionNo,
     required this.dob,
@@ -133,7 +126,6 @@ class AdeelView {
   final int id;
   final String adeelCode;
   final String fullName;
-  final String nationalId;
   final String phone;
   final String subscriptionNo;
   final String dob;
@@ -154,7 +146,6 @@ class AdeelView {
     id: _int(json['id']),
     adeelCode: _string(json['adeelCode']),
     fullName: _string(json['fullName']),
-    nationalId: _string(json['nationalId']),
     phone: _string(json['phone']),
     subscriptionNo: _string(json['subscriptionNo']),
     dob: _string(json['dob']),
@@ -216,7 +207,6 @@ class ReceivableItem {
     required this.id,
     required this.adeelId,
     required this.adeelName,
-    required this.adeelNationalId,
     required this.adeelCode,
     required this.period,
     required this.periodLabel,
@@ -233,8 +223,6 @@ class ReceivableItem {
   /// years later still shows the name as it stood then.
   final String adeelName;
 
-  /// Snapshotted too, for the same reason the name is.
-  final String adeelNationalId;
   final String adeelCode;
   final String period;
   final String periodLabel;
@@ -247,7 +235,6 @@ class ReceivableItem {
     id: _int(json['id']),
     adeelId: _int(json['adeelId']),
     adeelName: _string(json['adeelName']),
-    adeelNationalId: _string(json['adeelNationalId']),
     adeelCode: _string(json['adeelCode']),
     period: _string(json['period']),
     periodLabel: _string(json['periodLabel']),

@@ -16,20 +16,32 @@
 
 SET client_min_messages = warning;
 
--- ═════ Rule 10 — national_id unique across ALL عدايل, DOB not future ═════════
-SELECT probe.succeeds('rule10', 'a new unique national id is accepted', $sql$
-  INSERT INTO public.adeels (full_name, national_id, dob, registered_at)
-  VALUES ('عديل جديد', '1000000000099', '2010-01-01', '2026-01-01')
+-- ═════ Rule 10 — what is LEFT of it: DOB not in the future ═══════════════════
+-- The unique national ID was the other half and is gone at the association's
+-- request. The check below is not a leftover — it PINS the consequence, so that
+-- the day someone reads "rule 10" in a comment and assumes duplicates are still
+-- impossible, this file says otherwise in as many words.
+SELECT probe.succeeds('rule10', 'a new عديل is accepted', $sql$
+  INSERT INTO public.adeels (full_name, dob, registered_at)
+  VALUES ('عديل جديد', '2010-01-01', '2026-01-01')
 $sql$);
 
-SELECT probe.raises_like('rule10', 'duplicate national id is refused', $sql$
-  INSERT INTO public.adeels (full_name, national_id, dob, registered_at)
-  VALUES ('مكرر', '1000000000001', '2010-01-01', '2026-01-01')
-$sql$, '23505', '%uq_adeels_national_id%');
+-- ⚠ DUPLICATES ARE NOW POSSIBLE, and this asserts it rather than leaving it to
+-- be discovered. The same name, the same date of birth, a second row, billed a
+-- second time. Nothing in the schema refuses it; there is no natural key left.
+-- If a UNIQUE constraint is ever added back (subscription_no is the candidate),
+-- THIS is the check that will fail and tell you the guarantee returned.
+SELECT probe.succeeds('rule10', 'a duplicate عديل is ACCEPTED — no natural key', $sql$
+  INSERT INTO public.adeels (full_name, dob, registered_at)
+  VALUES ('عديل جديد', '2010-01-01', '2026-01-01')
+$sql$);
+SELECT probe.eq('rule10', '...and there really are two of him now',
+  $sql$ SELECT count(*)::text FROM public.adeels
+         WHERE full_name = 'عديل جديد' $sql$, '2');
 
 SELECT probe.raises('rule10', 'future date of birth is refused', $sql$
-  INSERT INTO public.adeels (full_name, national_id, dob, registered_at)
-  VALUES ('مستقبلي', '1000000000098', (current_date + 1)::date, '2026-01-01')
+  INSERT INTO public.adeels (full_name, dob, registered_at)
+  VALUES ('مستقبلي', (current_date + 1)::date, '2026-01-01')
 $sql$, 'RUL10');
 
 SELECT probe.raises('rule10', 'DOB cannot be edited into the future either', $sql$
@@ -42,7 +54,10 @@ $sql$, 'RUL10');
 SELECT probe.become('00000000-0000-0000-0000-0000000000a2');   -- finance manager
 SELECT probe.succeeds('rule10', 'an عديل with no financial history can be deleted',
   $sql$ SELECT public.delete_adeel(
-          (SELECT id FROM public.adeels WHERE national_id = '1000000000099')) $sql$);
+          (SELECT max(id) FROM public.adeels WHERE full_name = 'عديل جديد')) $sql$);
+SELECT probe.succeeds('rule10', '...and so can his duplicate',
+  $sql$ SELECT public.delete_adeel(
+          (SELECT max(id) FROM public.adeels WHERE full_name = 'عديل جديد')) $sql$);
 
 -- ═════ Rule 3 — status gates the charge; total > 0 or skip ═══════════════════
 -- Runs as the finance manager, through the RPC, exactly as the app will.
@@ -69,16 +84,17 @@ SELECT probe.eq('rule03', 'a موقوف عديل is not billed at all',
 SELECT probe.eq('rule03', 'a متوفى عديل is not billed at all',
   $sql$ SELECT count(*)::text FROM public.receivables WHERE adeel_id = 4 $sql$, '0');
 
-SELECT probe.eq('rule03', 'the snapshot carries his name and national id',
-  $sql$ SELECT adeel_name || '/' || adeel_national_id FROM public.receivables
+-- The name is now the ONLY identifying thing a receipt carries.
+SELECT probe.eq('rule03', 'the snapshot carries his name',
+  $sql$ SELECT adeel_name FROM public.receivables
          WHERE adeel_id = 1 AND period = '2026-03' $sql$,
-  'العديل الأول/1000000000001');
+  'العديل الأول');
 
 -- Rule 3: a zero total must produce no row at all.
 SELECT probe.raises('rule03', 'a zero-total receivable is refused', $sql$
   INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
-                                  adeel_national_id, total)
-  VALUES (1, '2030-01', '2030-01-31', 'x', 'y', 0)
+                                  total)
+  VALUES (1, '2030-01', '2030-01-31', 'x', 0)
 $sql$, '23514');
 
 -- A fee of zero is a valid configuration and must raise nothing rather than
@@ -100,8 +116,8 @@ SELECT probe.eq('rule04', 're-running the same period creates nothing',
 
 SELECT probe.raises_like('rule04', 'a direct duplicate insert is refused', $sql$
   INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
-                                  adeel_national_id, total)
-  VALUES (1, '2026-03', '2026-03-31', 'x', 'y', 20)
+                                  total)
+  VALUES (1, '2026-03', '2026-03-31', 'x', 20)
 $sql$, '23505', '%uq_recv_active_period%');
 
 -- Cancelling frees the slot; the row itself stays forever.
@@ -112,8 +128,8 @@ SELECT probe.succeeds('rule04', 'cancelling a receivable frees its period slot',
 $sql$);
 SELECT probe.succeeds('rule04', 'the freed slot accepts a replacement', $sql$
   INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
-                                  adeel_national_id, total)
-  VALUES (2, '2026-03', '2026-03-31', 'العديل الصغير', '1000000000002', 20)
+                                  total)
+  VALUES (2, '2026-03', '2026-03-31', 'العديل الصغير', 20)
 $sql$);
 SELECT probe.eq('rule04', 'both the cancelled and the replacement row survive',
   $sql$ SELECT count(*)::text FROM public.receivables
@@ -269,14 +285,14 @@ SELECT probe.raises('rule09', 'an عديل with a ledger cannot be deleted',
   'SELECT public.delete_adeel(1)', 'RUL10');
 SELECT probe.succeeds('rule09', 'retiring him with a status change is the way',
   $sql$ SELECT public.save_adeel(1, jsonb_build_object(
-          'fullName','العديل الأول','nationalId','1000000000001',
+          'fullName','العديل الأول',
           'status','موقوف','registeredAt','2026-01-01')) $sql$);
 SELECT probe.eq('rule09', 'his existing debt survives the retirement',
   $sql$ SELECT sum(balance)::text FROM public.receivables
          WHERE adeel_id = 1 AND status <> 'ملغي' $sql$, '40.00');
 SELECT probe.succeeds('rule09', 'reactivate him',
   $sql$ SELECT public.save_adeel(1, jsonb_build_object(
-          'fullName','العديل الأول','nationalId','1000000000001',
+          'fullName','العديل الأول',
           'status','نشط','registeredAt','2026-01-01')) $sql$);
 
 -- ═════ Rule 6 — auto-close backfills system_start → previous month ═══════════
@@ -302,9 +318,9 @@ SELECT probe.eq('rule12', 'the payment and its cancellation were both logged',
 SELECT probe.eq('rule12', 'the actor name was snapshotted onto the entry',
   $sql$ SELECT actor_name FROM public.audit_log
          WHERE event_type = 'payment.cancel' $sql$, 'المدير المالي');
-SELECT probe.eq('rule12', 'deleting an عديل is logged',
+SELECT probe.eq('rule12', 'both عديل deletions are logged',
   $sql$ SELECT count(*)::text FROM public.audit_log
-         WHERE event_type = 'adeel.delete' $sql$, '1');
+         WHERE event_type = 'adeel.delete' $sql$, '2');
 SELECT probe.raises('rule12', 'an audit row cannot be edited',
   'UPDATE public.audit_log SET detail = ''tampered'' WHERE id = 1', 'RUL12');
 SELECT probe.raises('rule12', 'an audit row cannot be deleted',

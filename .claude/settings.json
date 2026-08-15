@@ -3,7 +3,12 @@
     "allow": [
       "Bash(perl -0pi -e \"s/-- The fixture has two families, so \\\\\"he sees one family\\\\\" is a real assertion and\\\\n-- not an accident of there being only one\\\\./-- Several families exist by the time this file runs, so \\\\\"he sees one family\\\\\" is\\\\n-- a real assertion and not an accident of there being only one./s\" supabase/tests/45_family_portal.sql)",
       "Bash(bash supabase/tests/bundle.sh)",
-      "Bash(bash supabase/tests/probe.sh)"
+      "Bash(bash supabase/tests/probe.sh)",
+      "Bash(sed -i 's@      // The server names the clashing national ID, so its message is more useful@      // The server names what it refused, so its message is more useful@' lib/features/directory/presentation/adeel_form_screen.dart)",
+      "Bash(perl -0pi -e \"s/                          LabelledValue\\\\\\(\\\\r?\\\\n                            label: l\\\\.nationalId,\\\\r?\\\\n                            value: official\\\\.nationalId,\\\\r?\\\\n                          \\\\\\),\\\\r?\\\\n//s\" lib/features/directory/presentation/officials_screen.dart)",
+      "Bash(perl -0pi -e \"s/            \\\\/\\\\/ The father's and son's fee rates, and the list of billed sons, are\\\\r?\\\\n            \\\\/\\\\/ gone from a receivable: it charges ONE عديل at ONE rate, so the\\\\r?\\\\n            \\\\/\\\\/ rate IS the total and the only name worth showing is the\\\\r?\\\\n            \\\\/\\\\/ snapshotted one in the heading above\\\\.\\\\r?\\\\n            LabelledValue\\\\\\(label: l\\\\.nationalId, value: item\\\\.adeelNationalId\\\\\\),\\\\r?\\\\n/            \\\\/\\\\/ The father's and son's fee rates, the list of billed sons and the\\\\r?\\\\n            \\\\/\\\\/ snapshotted national ID are all gone from a receivable: it charges\\\\r?\\\\n            \\\\/\\\\/ ONE عديل at ONE rate, so the rate IS the total and his name in the\\\\r?\\\\n            \\\\/\\\\/ heading above is the only identifying thing left on it.\\\\r\\\\n/s\" lib/features/directory/presentation/receivables_screen.dart)",
+      "Bash(sed -i -e '/^    required this.nationalId,$/d' -e '/^  final String nationalId;$/d' -e \"/^    'nationalId': nationalId,\\\\$/d\" -e \"/^    nationalId: _string\\(json\\\\['nationalId'\\\\]\\),\\\\$/d\" lib/features/oversight/domain/models.dart)",
+      "Bash(flutter analyze *)"
     ]
   }
 }

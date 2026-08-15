@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../config/glass.dart';
 import '../config/theme.dart';
 import '../router/destinations.dart';
+import '../state/refresh.dart';
 import 'app_background.dart';
 import 'stat_card.dart';
 
@@ -57,12 +58,23 @@ class AppScaffold extends ConsumerWidget {
         .toList();
     final double width = MediaQuery.sizeOf(context).width;
 
+    // The refresh action is on EVERY screen, ahead of whatever the screen adds.
+    // Individual screens have pull-to-refresh, but only over their own list, and
+    // this app's figures are association-wide: one payment moves the treasury,
+    // the register, the dashboard and the alerts at once. One button that
+    // reloads all of it is the difference between trusting the numbers and
+    // wondering when they were last fetched.
+    final List<Widget> barActions = <Widget>[
+      _RefreshAction(),
+      ...?actions,
+    ];
+
     if (width >= _railBreakpoint) {
       return AppBackground(
         child: _WideLayout(
           title: title,
           body: body,
-          actions: actions,
+          actions: barActions,
           destinations: visible,
           currentRoute: currentRoute,
           expanded: width >= _drawerBreakpoint,
@@ -98,7 +110,7 @@ class AppScaffold extends ConsumerWidget {
         // core/config/glass.dart reads it so nothing ends up unreachable.
         extendBody: true,
 
-        appBar: _GlassAppBar(title: title, actions: actions),
+        appBar: _GlassAppBar(title: title, actions: barActions),
         body: MediaQuery(
           data: MediaQuery.of(context).copyWith(
             padding: MediaQuery.paddingOf(context).copyWith(
@@ -189,6 +201,35 @@ class AppScaffold extends ConsumerWidget {
             ),
           ),
         );
+      },
+    );
+  }
+}
+
+/// Reloads every figure in the app from the database.
+///
+/// Deliberately a plain, always-enabled button rather than a spinner that
+/// disables itself: [refreshAll] only throws caches away, so it returns
+/// instantly and the actual refetch is whatever the visible screen asks for on
+/// its next build — which already has its own loading state. A second spinner
+/// here would report progress it does not know about.
+class _RefreshAction extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    return IconButton(
+      tooltip: l.refreshData,
+      icon: const Icon(Icons.refresh),
+      onPressed: () {
+        refreshAll(ref);
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(l.refreshedData),
+              duration: const Duration(seconds: 2),
+            ),
+          );
       },
     );
   }

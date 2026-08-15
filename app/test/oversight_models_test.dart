@@ -94,20 +94,15 @@ void main() {
       const Map<String, dynamic> json = <String, dynamic>{
         'associationName': 'جمعية العائلة',
         'currency': 'د.ل',
-        'fatherFee': '20.00',
-        'sonFee': '10.00',
-        'eligibilityAge': 16,
-        'warningMonths': 3,
+        'memberFee': '20.00',
         'systemStart': '2026-01-01',
         'autoClosePreviousMonths': true,
         'treasurer': <String, dynamic>{
           'name': 'سالم',
-          'nationalId': '1',
           'phone': '09',
         },
         'financeManager': <String, dynamic>{
           'name': 'إبراهيم',
-          'nationalId': '2',
           'phone': '08',
         },
       };
@@ -115,7 +110,7 @@ void main() {
       final EditableSettings parsed = EditableSettings.fromJson(json);
       expect(parsed.toJson(), json);
       // Money stays a string end to end — it is never parsed into a double.
-      expect(parsed.fatherFee, isA<String>());
+      expect(parsed.memberFee, isA<String>());
     });
   });
 
@@ -123,14 +118,12 @@ void main() {
     test('omits a null id so the server treats it as a new member', () {
       const MemberInput fresh = MemberInput(
         fullName: 'ابن جديد',
-        nationalId: '123',
       );
       expect(fresh.toJson().containsKey('id'), isFalse);
 
       const MemberInput existing = MemberInput(
         id: 7,
         fullName: 'ابن قائم',
-        nationalId: '456',
       );
       expect(existing.toJson()['id'], 7);
     });
@@ -138,7 +131,6 @@ void main() {
     test('an empty date of birth is sent as null, not an empty string', () {
       const MemberInput member = MemberInput(
         fullName: 'x',
-        nationalId: 'y',
         dob: '',
       );
       expect(member.toJson()['dob'], isNull);

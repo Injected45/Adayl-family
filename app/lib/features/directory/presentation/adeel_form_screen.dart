@@ -53,7 +53,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
   final GlobalKey<FormState> _form = GlobalKey<FormState>();
 
   late final TextEditingController _fullName;
-  late final TextEditingController _nationalId;
   late final TextEditingController _phone;
   late final TextEditingController _subscriptionNo;
   late final TextEditingController _dob;
@@ -69,7 +68,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
     super.initState();
     final AdeelView? existing = widget.existing;
     _fullName = TextEditingController(text: existing?.fullName ?? '');
-    _nationalId = TextEditingController(text: existing?.nationalId ?? '');
     _phone = TextEditingController(text: existing?.phone ?? '');
     _subscriptionNo = TextEditingController(
       text: existing?.subscriptionNo ?? '',
@@ -87,7 +85,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
   @override
   void dispose() {
     _fullName.dispose();
-    _nationalId.dispose();
     _phone.dispose();
     _subscriptionNo.dispose();
     _dob.dispose();
@@ -110,7 +107,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
             id: widget.existing?.id,
             fields: <String, String>{
               'fullName': _fullName.text.trim(),
-              'nationalId': _nationalId.text.trim(),
               'phone': _phone.text.trim(),
               'subscriptionNo': _subscriptionNo.text.trim(),
               'dob': _dob.text.trim(),
@@ -129,7 +125,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
     } on ApiException catch (failure) {
       if (!mounted) return;
       setState(() => _saving = false);
-      // The server names the clashing national ID, so its message is more useful
+      // The server names what it refused, so its message is more useful
       // than anything generated here.
       messenger.showSnackBar(
         SnackBar(content: Text(describeApiFailure(l, failure))),
@@ -258,12 +254,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                 _Input(
                   label: l.fullNameField,
                   controller: _fullName,
-                  validator: (String? value) =>
-                      (value == null || value.trim().isEmpty) ? required : null,
-                ),
-                _Input(
-                  label: l.nationalId,
-                  controller: _nationalId,
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty) ? required : null,
                 ),

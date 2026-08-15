@@ -23,11 +23,9 @@ CREATE TABLE public.association_settings (
   auto_close_previous_months  boolean       NOT NULL DEFAULT true,
 
   treasurer_name              text          NOT NULL DEFAULT '',
-  treasurer_national_id       text          NOT NULL DEFAULT '',
   treasurer_phone             text          NOT NULL DEFAULT '',
 
   finance_manager_name        text          NOT NULL DEFAULT '',
-  finance_manager_national_id text          NOT NULL DEFAULT '',
   finance_manager_phone       text          NOT NULL DEFAULT '',
 
   updated_by                  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -65,14 +63,25 @@ ON CONFLICT (id) DO NOTHING;
 -- same row, so the code cannot collide and no second statement exists to fail
 -- between.
 --
--- national_id UNIQUE is business rule 10, and it is now a plain table-level
--- constraint rather than something spanning a two-table hierarchy.
+-- ⚠ THERE IS NO NATURAL KEY ANY MORE. `national_id NOT NULL UNIQUE` was business
+-- rule 10 and it is gone at the association's request. Nothing now stops the
+-- same person being entered twice, and a duplicate row is billed the monthly fee
+-- a second time — so a duplicate is not a cosmetic problem here, it is an
+-- overcharge that reconciles perfectly and looks correct on every report.
+--
+-- `adeel_code` does not close that hole: it is GENERATED from the identity, so a
+-- second row for the same man simply gets a second code.
+--
+-- If the association wants the guarantee back without the national ID, the ready
+-- candidate is `subscription_no` (رقم الاكتتاب), which already exists and which
+-- the association issues itself. It would need NOT NULL and a UNIQUE constraint;
+-- it has neither today, deliberately, because making it the key was not asked
+-- for.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.adeels (
   id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   adeel_code      text          GENERATED ALWAYS AS ('A-' || lpad(id::text, 4, '0')) STORED,
   full_name       text          NOT NULL,
-  national_id     text          NOT NULL,
   phone           text,
   subscription_no text,
   dob             date,
@@ -88,10 +97,8 @@ CREATE TABLE public.adeels (
   updated_by      uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
 
   CONSTRAINT uq_adeels_code        UNIQUE (adeel_code),
-  CONSTRAINT uq_adeels_national_id UNIQUE (national_id),
   CONSTRAINT uq_adeels_legacy      UNIQUE (legacy_id),
-  CONSTRAINT ck_adeels_name        CHECK (btrim(full_name) <> ''),
-  CONSTRAINT ck_adeels_national_id CHECK (btrim(national_id) <> '')
+  CONSTRAINT ck_adeels_name        CHECK (btrim(full_name) <> '')
 );
 
 CREATE INDEX ix_adeels_name   ON public.adeels (full_name);
@@ -102,9 +109,10 @@ CREATE TRIGGER trg_adeels_touch
   BEFORE UPDATE ON public.adeels
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
--- Rule 10, second half: date of birth cannot be in the future. A trigger, not a
--- CHECK, because CURRENT_DATE is not immutable and Postgres rejects it in a
--- CHECK constraint for the same reason MySQL did.
+-- What is LEFT of rule 10: a date of birth cannot be in the future. A trigger,
+-- not a CHECK, because CURRENT_DATE is not immutable and Postgres rejects it in
+-- a CHECK constraint for the same reason MySQL did. The rule's other half — the
+-- unique national ID — was removed with the column above.
 --
 -- The old carried-forward conflict here (index.html validated sons' dates of
 -- birth but not the father's) died with the father/son split. There is one kind

@@ -73,13 +73,13 @@ void main() {
 
     test('a raw constraint message is withheld', () async {
       // "duplicate key value violates unique constraint
-      // uq_members_national_id" must never reach a treasurer's screen; the UI
+      // uq_recv_active_period" must never reach a treasurer's screen; the UI
       // substitutes a localised string when serverMessage is null.
       final ApiException e = await _capture(
         _pg(
           '23505',
           'duplicate key value violates unique constraint '
-              '"uq_members_national_id"',
+              '"uq_recv_active_period"',
         ),
       );
       expect(e.statusCode, 409);

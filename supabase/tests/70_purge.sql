@@ -112,8 +112,8 @@ SELECT probe.eq('purge', 'the association settings survived',
 -- now is not something this file should have to know.
 SELECT probe.succeeds('purge', 'the financial tables accept new rows again', $sql$
   INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
-                                  adeel_national_id, total)
-  VALUES (1, '2027-01', '2027-01-31', 'العديل الأول', '1000000000001', 20.00)
+                                  total)
+  VALUES (1, '2027-01', '2027-01-31', 'العديل الأول', 20.00)
 $sql$);
 SELECT probe.eq('purge', 'RESTART IDENTITY: the first receivable is id 1',
   $sql$ SELECT min(id)::text FROM public.receivables $sql$, '1');
@@ -231,8 +231,8 @@ SELECT probe.eq('purge_all', 'and no portal profile is left pointing at nothing'
 -- RESTART IDENTITY reaches adeels too, so the association's first real عديل is
 -- A-0001 rather than a continuation of the trial run's codes.
 SELECT probe.succeeds('purge_all', 'an عديل can be created again after the purge',
-  $sql$ INSERT INTO public.adeels (full_name, national_id, registered_at)
-        VALUES ('العديل الأول بعد المسح', '1000000000001', current_date) $sql$);
+  $sql$ INSERT INTO public.adeels (full_name, registered_at)
+        VALUES ('العديل الأول بعد المسح', current_date) $sql$);
 SELECT probe.eq('purge_all', 'RESTART IDENTITY: the first عديل is A-0001',
   $sql$ SELECT adeel_code FROM public.adeels ORDER BY id LIMIT 1 $sql$, 'A-0001');
 

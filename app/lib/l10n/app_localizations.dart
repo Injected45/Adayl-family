@@ -229,6 +229,18 @@ abstract class L {
   /// **'إعادة المحاولة'**
   String get retry;
 
+  /// No description provided for @refreshData.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديث البيانات'**
+  String get refreshData;
+
+  /// No description provided for @refreshedData.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تحديث البيانات من قاعدة البيانات'**
+  String get refreshedData;
+
   /// No description provided for @cancel.
   ///
   /// In ar, this message translates to:
@@ -480,12 +492,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'تاريخ التسجيل'**
   String get registeredAt;
-
-  /// No description provided for @nationalId.
-  ///
-  /// In ar, this message translates to:
-  /// **'الرقم الوطني'**
-  String get nationalId;
 
   /// No description provided for @age.
   ///
@@ -1108,7 +1114,7 @@ abstract class L {
   /// No description provided for @settingsWarning.
   ///
   /// In ar, this message translates to:
-  /// **'قاعدة محاسبية: تعديل قيمة الاشتراك أو سن الاستحقاق هنا لا يغيّر أي استحقاق سبق إنشاؤه.'**
+  /// **'قاعدة محاسبية: تعديل قيمة الاشتراك هنا لا يغيّر أي استحقاق سبق إنشاؤه.'**
   String get settingsWarning;
 
   /// No description provided for @generalSection.
@@ -1141,29 +1147,11 @@ abstract class L {
   /// **'العملة'**
   String get currencyField;
 
-  /// No description provided for @fatherFeeField.
+  /// No description provided for @memberFeeField.
   ///
   /// In ar, this message translates to:
-  /// **'اشتراك الأب الشهري'**
-  String get fatherFeeField;
-
-  /// No description provided for @sonFeeField.
-  ///
-  /// In ar, this message translates to:
-  /// **'اشتراك الابن الشهري'**
-  String get sonFeeField;
-
-  /// No description provided for @eligibilityAgeField.
-  ///
-  /// In ar, this message translates to:
-  /// **'سن بداية الاشتراك'**
-  String get eligibilityAgeField;
-
-  /// No description provided for @warningMonthsField.
-  ///
-  /// In ar, this message translates to:
-  /// **'التنبيه قبل الاستحقاق بالأشهر'**
-  String get warningMonthsField;
+  /// **'اشتراك العضو الشهري'**
+  String get memberFeeField;
 
   /// No description provided for @systemStartField.
   ///

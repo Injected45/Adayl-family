@@ -10,7 +10,7 @@
 #
 # It SEEDS its own starting state first, which means it erases every payment,
 # receivable, cash movement and audit entry in the project. It refuses to do
-# that once the project holds more than the one fixture family unless --reset
+# that once the project holds more than the one fixture عديل unless --reset
 # says so out loud. Do not point this at a project with real figures in it.
 #
 # This is the layer the local probe suite cannot reach. probe.sh proves the SQL
@@ -89,79 +89,52 @@ JWT = body['access_token']
 print('signed in as admin@fam.test\n')
 
 
-print('── repair the row the broken shell corrupted ' + '─' * 34)
-# save_family with the same family id and correct UTF-8 rewrites the names in
-# place. The national IDs are unchanged, so no new member rows are created.
-status, body = rpc('save_family', {
-    'p_family_id': 1,
-    'p_father': {
-        'fullName': 'محمد علي الرحالة',
-        'nationalId': '119870001234',
-        'phone': '0912345678',
-        'dob': '1975-03-01',
-        'registeredAt': '2026-01-01',
-    },
-    'p_sons': [
-        {'id': 2, 'fullName': 'أحمد محمد', 'nationalId': '120050005678',
-         'dob': '2005-05-10'},
-        {'id': 3, 'fullName': 'سالم محمد', 'nationalId': '120190009999',
-         'dob': '2019-07-01'},
-    ],
-}, JWT)
-check('names repaired', status == 200, body)
-status, fams = call('/rest/v1/v_families?select=familyCode,fatherName', jwt=JWT)
-check('the father name is Arabic again, not question marks',
-      status == 200 and fams and fams[0]['fatherName'] == 'محمد علي الرحالة',
-      fams)
-
 # ── Seed the starting state ──────────────────────────────────────────────────
 # This used to be assumed rather than created, and that made the suite
-# single-use: the money path registers a 40.00 payment and only cancels it at
-# the very end, so ANY failure in between left the payment standing. The next
-# run then found 20.00 outstanding instead of 60.00, could not register 40.00,
-# and died on a KeyError. A verification you can only run once is not a
-# verification — and worse, a crashed run silently left a fake receipt on the
-# live project.
+# single-use: the money path registers a payment and only cancels it at the very
+# end, so ANY failure in between left the payment standing. The next run then
+# found a smaller balance than it expected and died on a KeyError. A
+# verification you can only run once is not a verification — and worse, a
+# crashed run silently left a fake receipt on the live project.
 #
 # Seeding here rather than cleaning up at the end is deliberate: an exit path
-# only runs if the script reaches it, and the runs that matter are the ones
-# that fail.
-#
-# It has to come AFTER the repair above. generate_period() bills from the
-# members as they stand, and eligibility is decided by the son's date of birth —
-# which is exactly what the repair fixes. Seeding first billed the father alone
-# and produced 40.00 instead of 60.00.
-print('\n── seed ' + '─' * 69)
-status, fams = call('/rest/v1/v_families?select=id', jwt=JWT)
+# only runs if the script reaches it, and the runs that matter are the ones that
+# fail.
+print('── seed ' + '─' * 69)
+status, adeels = call('/rest/v1/v_adeels?select=id', jwt=JWT)
 if status != 200:
-    print('cannot read families:', fams)
+    print('cannot read the register:', adeels)
+    print('If this says v_adeels does not exist, the project is still on the '
+          'OLD family/member schema — apply supabase/APPLY_TO_SUPABASE.sql to a '
+          'FRESH project first, then run supabase/VERIFY_INSTALL.sql.')
     sys.exit(1)
 
 # The guard. purge_financial_data() erases every payment, receivable, cash
-# movement and audit row in the project. That is harmless while the only family
-# is the fixture, and catastrophic the day the association has real figures in
-# here — so the moment the data stops looking like the fixture, this refuses and
-# makes the operator say so out loud.
-if len(fams) != 1 and '--reset' not in sys.argv:
-    print('REFUSING to seed: this project has %d families, so it is no longer\n'
-          'just the test fixture. Seeding runs purge_financial_data(), which\n'
-          'erases every payment, receivable, cash movement and audit entry.\n\n'
+# movement and audit row in the project. That is harmless while the register is
+# still just the fixture, and catastrophic the day the association has real
+# figures in here — so the moment the data stops looking like the fixture, this
+# refuses and makes the operator say so out loud.
+if len(adeels) != 1 and '--reset' not in sys.argv:
+    print('REFUSING to seed: this project has %d عدايل, so it is no longer just\n'
+          'the test fixture. Seeding runs purge_financial_data(), which erases\n'
+          'every payment, receivable, cash movement and audit entry.\n\n'
           'If this project really is disposable, re-run with --reset.'
-          % len(fams))
+          % len(adeels))
     sys.exit(1)
 
-# The fees have to be set, not assumed. They were assumed, and the project's
-# fatherFee had since been changed from 20.00 to 10.00 through the app — so
-# generate_period correctly billed 10 + 10 and the suite reported a 40.00 debt
-# where it wanted 60.00. Nothing was broken except the expectation.
+ADEEL = adeels[0]['id']
+
+# The fee has to be set, not assumed. It was assumed once, the project's rate had
+# since been changed through the app, and the suite reported a debt it did not
+# expect. Nothing was broken except the expectation.
 #
-# eligibilityAge matters just as much: it decides whether the 2005-born son is
-# billed at all, and 'one of two sons is eligible' below depends on it.
-status, body = rpc('update_settings', {'p_patch': {
-    'fatherFee': '20.00', 'sonFee': '10.00', 'eligibilityAge': 15}}, JWT)
-check('fees pinned to 20.00 father / 10.00 son',
-      status == 200 and body.get('fatherFee') == '20.00'
-      and body.get('sonFee') == '10.00', body)
+# ONE rate now. father_fee/son_fee and eligibility_age are gone: every عديل is
+# billed the same amount and age decides nothing, so there is no second figure to
+# pin and no age to pin it against.
+status, body = rpc('update_settings',
+                   {'p_patch': {'memberFee': '20.00'}}, JWT)
+check('the member fee is pinned to 20.00',
+      status == 200 and body.get('memberFee') == '20.00', body)
 
 status, body = rpc('purge_financial_data', {'p_confirm': 'مسح نهائي'}, JWT)
 check('financial data cleared', status == 200, body)
@@ -170,9 +143,10 @@ for period in ('2026-06', '2026-07'):
     status, body = rpc('generate_period', {'p_period': period}, JWT)
     check('period %s generated' % period, status == 200, body)
 
-status, fams = call('/rest/v1/v_families?select=debt,paid', jwt=JWT)
-check('seeded to 60.00 outstanding, nothing paid',
-      bool(fams) and fams[0]['debt'] == '60.00' and fams[0]['paid'] == '0.00', fams)
+status, adeels = call('/rest/v1/v_adeels?select=debt,paid', jwt=JWT)
+check('seeded to 40.00 outstanding, nothing paid',
+      bool(adeels) and adeels[0]['debt'] == '40.00'
+      and adeels[0]['paid'] == '0.00', adeels)
 if failures:
     print('\nseeding failed — the rest of the suite would report noise. Stopping.')
     sys.exit(1)
@@ -186,26 +160,32 @@ check('the display name survived UTF-8 round trip',
 
 status, settings = rpc('api_settings', {}, JWT)
 check('api_settings: money is a STRING', status == 200
-      and isinstance(settings['fatherFee'], str) and settings['fatherFee'] == '20.00',
-      settings)
+      and isinstance(settings['memberFee'], str)
+      and settings['memberFee'] == '20.00', settings)
 check('nested officials present',
       isinstance(settings.get('treasurer'), dict), settings.get('treasurer'))
+# The national ID is gone from the whole project, officials included. Asserted
+# rather than assumed: a view that still selected it would be an old view.
+check('officials carry a name and a phone, and no national ID',
+      set(settings['treasurer']) == {'name', 'phone'}, settings['treasurer'])
 
-status, detail = rpc('api_family_detail', {'p_family_id': 1}, JWT)
-check('api_family_detail nests family/father/sons/kpis',
-      status == 200 and set(detail) == {'family', 'father', 'sons', 'kpis'}, detail)
-check('eligibility is an OBJECT with key and label',
-      isinstance(detail['sons'][0]['eligibility'], dict)
-      and 'key' in detail['sons'][0]['eligibility']
-      and 'label' in detail['sons'][0]['eligibility'],
-      detail['sons'][0].get('eligibility'))
-check('one of two sons is eligible (the 2019-born one is not)',
-      detail['kpis']['eligibleCount'] == 1, detail['kpis'])
-check('billedSonNames is a LIST', True)  # asserted via receivables below
+status, detail = rpc('api_adeel_detail', {'p_adeel_id': ADEEL}, JWT)
+check('api_adeel_detail nests adeel/kpis/receivables/payments',
+      status == 200
+      and {'adeel', 'kpis', 'receivables'} <= set(detail), list(detail))
+check('the record carries no nationalId key at all',
+      'nationalId' not in detail['adeel'], list(detail['adeel']))
+check('membershipStatus is what gates billing, and it is present',
+      detail['adeel'].get('membershipStatus') == 'نشط', detail['adeel'])
+check('two periods were raised for him',
+      len(detail['receivables']) == 2, len(detail['receivables']))
 
 status, dash = rpc('api_dashboard', {}, JWT)
-check('api_dashboard returns stats/topDebtors/upcomingSons',
-      status == 200 and {'stats', 'topDebtors', 'upcomingSons'} <= set(dash), dash)
+check('api_dashboard returns stats/topDebtors',
+      status == 200 and {'stats', 'topDebtors'} <= set(dash), list(dash))
+check('the stat row counts the register by status, not by age',
+      {'adeels', 'active', 'suspended', 'deceased'} <= set(dash['stats']),
+      list(dash['stats']))
 check('closingPeriodLabel is an Arabic month, not a raw period',
       dash['closingPeriodLabel'] != dash['closingPeriod']
       and any('؀' <= c <= 'ۿ' for c in dash['closingPeriodLabel']),
@@ -214,49 +194,50 @@ check('closingPeriodLabel is an Arabic month, not a raw period',
 status, recv = rpc('api_receivables', {'p_period': None}, JWT)
 check('api_receivables returns items + summary',
       status == 200 and {'items', 'summary'} <= set(recv), list(recv))
-check('billedSonNames arrives as a list',
-      isinstance(recv['items'][0]['billedSonNames'], list),
-      recv['items'][0].get('billedSonNames'))
+check('a receivable carries the snapshotted name and no national ID',
+      recv['items'][0].get('adeelName')
+      and 'adeelNationalId' not in recv['items'][0],
+      list(recv['items'][0]))
 check('periodLabel is Arabic',
       any('؀' <= c <= 'ۿ' for c in recv['items'][0]['periodLabel']),
       recv['items'][0].get('periodLabel'))
 
 print('\n── the money path ' + '─' * 59)
-status, before = call('/rest/v1/v_families?select=debt', jwt=JWT)
+status, before = call('/rest/v1/v_adeels?select=debt', jwt=JWT)
 owed_before = before[0]['debt']
-check('60.00 outstanding across two periods', owed_before == '60.00', owed_before)
+check('40.00 outstanding across two periods', owed_before == '40.00', owed_before)
 
 status, c0 = call('/rest/v1/v_cash_summary?select=total', jwt=JWT)
 cash_before = c0[0]['total']
 
 # Rule 7: overpaying must be refused.
 status, body = rpc('register_payment', {
-    'p_family_id': 1, 'p_amount': '9999.00', 'p_method': 'نقداً'}, JWT)
+    'p_adeel_id': ADEEL, 'p_amount': '9999.00', 'p_method': 'نقداً'}, JWT)
 check('rule 7: overpaying is REFUSED with RUL07',
       body.get('code') == 'RUL07', body)
 
-# A 40.00 payment must FIFO: 30 into the older period, 10 into the newer.
+# A 30.00 payment must FIFO: 20 fills the older period, 10 spills into the newer.
 status, pay = rpc('register_payment', {
-    'p_family_id': 1, 'p_amount': '40.00', 'p_method': 'نقداً',
+    'p_adeel_id': ADEEL, 'p_amount': '30.00', 'p_method': 'نقداً',
     'p_reference': 'REF-001', 'p_receiver': 'أمين الصندوق'}, JWT)
-check('a 40.00 payment is accepted', status == 200 and 'paymentId' in pay, pay)
+check('a 30.00 payment is accepted', status == 200 and 'paymentId' in pay, pay)
 allocs = pay.get('allocations', [])
 check('it split across TWO periods (FIFO)', len(allocs) == 2, allocs)
 check('the older period was filled FIRST',
       len(allocs) == 2 and allocs[0]['period'] == '2026-06'
-      and allocs[0]['amount'] == '30.00', allocs)
+      and allocs[0]['amount'] == '20.00', allocs)
 check('the remainder spilled into the newer period',
       len(allocs) == 2 and allocs[1]['period'] == '2026-07'
       and allocs[1]['amount'] == '10.00', allocs)
 check('receiptNo was generated', str(pay.get('receiptNo', '')).startswith('PAY-'),
       pay.get('receiptNo'))
 
-status, after = call('/rest/v1/v_families?select=debt,paid', jwt=JWT)
-check('outstanding fell to 20.00', after[0]['debt'] == '20.00', after)
+status, after = call('/rest/v1/v_adeels?select=debt,paid', jwt=JWT)
+check('outstanding fell to 10.00', after[0]['debt'] == '10.00', after)
 
 status, cash = call('/rest/v1/v_cash_summary?select=*', jwt=JWT)
-check('rule 8: the treasury rose by exactly 40.00',
-      float(cash[0]['total']) - float(cash_before) == 40.0,
+check('rule 8: the treasury rose by exactly 30.00',
+      float(cash[0]['total']) - float(cash_before) == 30.0,
       (cash_before, cash[0]['total']))
 check('it is all cash, no transfer', cash[0]['transfer'] == '0.00', cash)
 
@@ -269,8 +250,8 @@ status, body = rpc('cancel_payment',
                    {'p_payment_id': pid, 'p_reason': 'خطأ في الإدخال'}, JWT)
 check('cancelling with a reason succeeds', status == 200, body)
 
-status, after = call('/rest/v1/v_families?select=debt,paid', jwt=JWT)
-check('the 60.00 debt is back', after[0]['debt'] == '60.00', after)
+status, after = call('/rest/v1/v_adeels?select=debt,paid', jwt=JWT)
+check('the 40.00 debt is back', after[0]['debt'] == '40.00', after)
 check('paid is back to zero', after[0]['paid'] == '0.00', after)
 
 status, cash = call('/rest/v1/v_cash_summary?select=*', jwt=JWT)
@@ -308,8 +289,8 @@ check('the newest entry snapshotted the actor name in Arabic',
       [a['actorName'] for a in audit][:3])
 
 print('\n── the hostile client ' + '─' * 55)
-status, body = call('/rest/v1/v_families?select=*')          # anon, no session
-check('anon cannot read the families view', status == 401 or (
+status, body = call('/rest/v1/v_adeels?select=*')            # anon, no session
+check('anon cannot read the register view', status == 401 or (
     isinstance(body, dict) and body.get('code') == '42501'), (status, body))
 status, body = call('/rest/v1/payments', {'amount': '1.00'}, JWT)
 check('an authenticated client cannot INSERT a payment',
@@ -345,12 +326,11 @@ def doubles(node, path='$'):
 
 
 for label, path in (
-    ('v_families', '/rest/v1/v_families?select=*'),
+    ('v_adeels', '/rest/v1/v_adeels?select=*'),
     ('v_receivables', '/rest/v1/v_receivables?select=*'),
     ('v_payments', '/rest/v1/v_payments?select=*'),
     ('v_cash_movements', '/rest/v1/v_cash_movements?select=*'),
     ('v_cash_summary', '/rest/v1/v_cash_summary?select=*'),
-    ('v_members', '/rest/v1/v_members?select=*'),
     ('v_settings', '/rest/v1/v_settings?select=*'),
 ):
     status, body = call(path, jwt=JWT)
@@ -359,8 +339,8 @@ for label, path in (
 
 for label, fn, params in (
     ('api_dashboard', 'api_dashboard', {}),
-    ('api_family_detail', 'api_family_detail', {'p_family_id': 1}),
-    ('api_family_statement', 'api_family_statement', {'p_family_id': 1}),
+    ('api_adeel_detail', 'api_adeel_detail', {'p_adeel_id': ADEEL}),
+    ('api_adeel_statement', 'api_adeel_statement', {'p_adeel_id': ADEEL}),
     ('api_receivables', 'api_receivables', {'p_period': None}),
     ('api_financial_report', 'api_financial_report',
      {'p_from': '2026-01-01', 'p_to': '2030-12-31'}),

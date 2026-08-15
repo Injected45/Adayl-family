@@ -26,14 +26,14 @@ CLAIMS="{\"sub\":\"$TREASURER\",\"role\":\"authenticated\"}"
 
 # ── Fixture ───────────────────────────────────────────────────────────────────
 AID=$(Q <<SQL
-INSERT INTO public.adeels (full_name, national_id, dob, registered_at)
-VALUES ('عديل التزامن', '1000000009000', '1980-01-01', current_date) RETURNING id;
+INSERT INTO public.adeels (full_name, dob, registered_at)
+VALUES ('عديل التزامن', '1980-01-01', current_date) RETURNING id;
 SQL
 )
 Q -v ON_ERROR_STOP=1 <<SQL
 INSERT INTO public.receivables (adeel_id, period, period_end, adeel_name,
-  adeel_national_id, total)
-VALUES ($AID, '2027-01', '2027-01-31', 'عديل التزامن', '1000000009000', 100.00);
+  total)
+VALUES ($AID, '2027-01', '2027-01-31', 'عديل التزامن', 100.00);
 SQL
 
 race_session() {
