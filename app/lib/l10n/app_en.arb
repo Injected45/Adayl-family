@@ -222,6 +222,8 @@
   "systemStartField": "System start date",
   "fullNameField": "Name",
   "save": "Save",
+  "invalidNumberField": "\"{field}\" must be a number, or leave it empty to keep it as it is",
+  "invalidDateField": "\"{field}\" must be a date in YYYY-MM-DD form, or leave it empty to keep it as it is",
   "settingsSaved": "Settings saved; historical receivables are unchanged",
   "confirmChangesTitle": "Confirm changes",
   "noChanges": "No changes",

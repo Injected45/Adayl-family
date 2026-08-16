@@ -478,3 +478,44 @@ $sql$);
 SELECT probe.eq('rule05', '...and the fee is exactly what it was',
   $sql$ SELECT member_fee::text FROM public.association_settings WHERE id = 1 $sql$,
   '20.00');
+
+-- ── Saving an official, which for a while was impossible in BOTH directions ──
+-- These two are the whole reason to have them: `update_settings` had a defect
+-- for each case, and between them they covered every input, so no combination
+-- of dropdowns ever saved.
+--
+--   choosing one → 22P02  malformed array literal: "بيانات أمين الصندوق"
+--       `v_changes` is text[] and the audit line appended a BARE literal, which
+--       Postgres types as `unknown` and resolves to `anyarray || anyarray`.
+--       Every other append goes through format(), which returns text, so only
+--       the two officials' lines were affected.
+--
+--   leaving one vacant → 55000  record "v_t" is not assigned yet
+--       `v_t` was a `record` filled only when a post was chosen, and the UPDATE
+--       mentions `v_t.full_name` in a CASE arm. PL/pgSQL must know the tuple
+--       structure to PLAN the statement, so the untaken branch never protected
+--       it. Scalars replaced it: unset is simply NULL.
+--
+-- Neither is a rule, a permission or a constraint, which is why nothing else in
+-- this suite would ever have caught them. They are asserted as plain successes
+-- because that is exactly what was missing — the save going through at all.
+SELECT probe.succeeds('rule05', 'an official can be appointed from the register',
+  $sql$ SELECT public.update_settings(
+          jsonb_build_object('treasurerAdeelId',
+            (SELECT id FROM public.adeels ORDER BY id LIMIT 1))) $sql$);
+SELECT probe.eq('rule05', '...and his name is snapshotted off his own row',
+  $sql$ SELECT treasurer_name = (SELECT full_name FROM public.adeels
+                                  ORDER BY id LIMIT 1)
+          FROM public.association_settings WHERE id = 1 $sql$, 't');
+SELECT probe.succeeds('rule05', 'and the post can be vacated again',
+  $sql$ SELECT public.update_settings('{"treasurerAdeelId":null}'::jsonb) $sql$);
+SELECT probe.eq('rule05', '...leaving the post empty, not the function broken',
+  $sql$ SELECT treasurer_adeel_id IS NULL
+          FROM public.association_settings WHERE id = 1 $sql$, 't');
+-- The overlap rule still bites — the fixes above must not have unhooked it.
+SELECT probe.raises('rule05', 'one man still cannot hold both posts',
+  $sql$ SELECT public.update_settings(
+          jsonb_build_object(
+            'treasurerAdeelId', (SELECT id FROM public.adeels ORDER BY id LIMIT 1),
+            'financeAdeelId',   (SELECT id FROM public.adeels ORDER BY id LIMIT 1))) $sql$,
+  'RUL16');

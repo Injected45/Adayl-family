@@ -363,8 +363,24 @@ class EditableSettings {
   Map<String, dynamic> toPatch() => <String, dynamic>{
     'associationName': associationName,
     'currency': currency,
-    'memberFee': memberFee,
-    'systemStart': systemStart,
+    // ── The two CAST fields, omitted when blank ──────────────────────────────
+    // `update_settings` does `coalesce((p_patch ->> 'memberFee')::numeric, …)`.
+    // An empty string is not a number, so `''::numeric` raises 22P02 — a code
+    // with no message text of its own, which the app could only render as
+    // "something went wrong". The whole save is one statement, so it took the
+    // two officials down with it, and nothing on screen connected the failure
+    // to a field the admin may never have touched.
+    //
+    // An ABSENT key is the difference: `->>` returns NULL for it, `NULL::numeric`
+    // is simply NULL, and coalesce keeps what the row already holds. So a blank
+    // box now means "leave this alone" — the only reading that makes sense,
+    // since both columns are NOT NULL and blank cannot be a value.
+    //
+    // This works against the database AS IT IS TODAY. The matching `nullif` in
+    // the patch is the same guarantee restated server-side, for callers that are
+    // not this app.
+    if (memberFee.trim().isNotEmpty) 'memberFee': memberFee.trim(),
+    if (systemStart.trim().isNotEmpty) 'systemStart': systemStart.trim(),
     'autoClosePreviousMonths': autoClosePreviousMonths,
     'bankName': bankName,
     'bankAccountNo': bankAccountNo,

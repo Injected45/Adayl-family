@@ -639,6 +639,16 @@ class LAr extends L {
   String get save => 'حفظ';
 
   @override
+  String invalidNumberField(String field) {
+    return '«$field» يجب أن يكون رقماً، أو اتركه فارغاً لإبقائه كما هو';
+  }
+
+  @override
+  String invalidDateField(String field) {
+    return '«$field» يجب أن يكون تاريخاً بالصيغة YYYY-MM-DD، أو اتركه فارغاً لإبقائه كما هو';
+  }
+
+  @override
   String get settingsSaved =>
       'تم حفظ الإعدادات، ولن تتغير الاستحقاقات التاريخية';
 

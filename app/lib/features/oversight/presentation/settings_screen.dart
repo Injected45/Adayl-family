@@ -118,9 +118,40 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     ),
   );
 
+  /// The two fields Postgres CASTS, checked here so it never has to answer.
+  ///
+  /// `update_settings` casts `memberFee` to numeric and `systemStart` to date.
+  /// Anything they cannot parse comes back as 22P02 — a code that carries no
+  /// wording, so the app can only say "something went wrong", and the admin is
+  /// left staring at a screen where the thing he was actually changing (the two
+  /// officials) failed for a reason belonging to a different field.
+  ///
+  /// Blank is NOT an error: [EditableSettings.toPatch] omits a blank key, so the
+  /// server keeps the current value. Only a filled box that cannot be parsed is
+  /// refused, and the message names the box.
+  String? _rejectUncastable(L l, EditableSettings next) {
+    final String fee = next.memberFee.trim();
+    if (fee.isNotEmpty && double.tryParse(fee) == null) {
+      return l.invalidNumberField(l.memberFeeField);
+    }
+    final String start = next.systemStart.trim();
+    if (start.isNotEmpty && DateTime.tryParse(start) == null) {
+      return l.invalidDateField(l.systemStartField);
+    }
+    return null;
+  }
+
   Future<void> _save(L l) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final EditableSettings next = _collect();
+
+    final String? refusal = _rejectUncastable(l, next);
+    if (refusal != null) {
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(refusal)));
+      return;
+    }
 
     // These values are financially load-bearing, so the change is restated
     // before it is written rather than saved silently.
@@ -232,7 +263,11 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           controller: _fields['memberFee']!,
           money: true,
         ),
-        _Field(label: l.systemStartField, controller: _fields['systemStart']!),
+        _Field(
+          label: l.systemStartField,
+          controller: _fields['systemStart']!,
+          date: true,
+        ),
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.bankAccountSection),
@@ -763,11 +798,18 @@ class _Field extends StatelessWidget {
     required this.label,
     required this.controller,
     this.money = false,
+    this.date = false,
   });
 
   final String label;
   final TextEditingController controller;
   final bool money;
+
+  /// A YYYY-MM-DD box. Gets the same Arabic-digit fold as [money] — the server
+  /// casts this one to `date`, and ٢٠٢٦-٠١-٠١ is exactly as uncastable as an
+  /// empty string. It was left as plain text when the fee was fixed, which is
+  /// how 22P02 survived that fix.
+  final bool date;
 
   @override
   Widget build(BuildContext context) {
@@ -777,6 +819,8 @@ class _Field extends StatelessWidget {
         controller: controller,
         keyboardType: money
             ? const TextInputType.numberWithOptions(decimal: true)
+            : date
+            ? TextInputType.datetime
             : TextInputType.text,
         inputFormatters: <TextInputFormatter>[
           // Arabic-Indic digits FIRST, then the filter.
@@ -790,11 +834,18 @@ class _Field extends StatelessWidget {
           // Folding to ASCII before filtering means ٢٠ and 20 are the same
           // keystroke as far as this box is concerned. The value on the wire
           // stays ASCII, which is what Postgres can cast.
-          if (money) _ArabicDigitsFormatter(),
+          if (money || date) _ArabicDigitsFormatter(),
           if (money)
             FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+          // Digits and the separator only. Postgres is strict about a date and
+          // a stray character produces the same wordless 22P02 as an empty box.
+          if (date) FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
         ],
-        decoration: InputDecoration(labelText: label, isDense: true),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          hintText: date ? '2026-01-01' : null,
+        ),
       ),
     );
   }

@@ -1267,6 +1267,18 @@ abstract class L {
   /// **'حفظ'**
   String get save;
 
+  /// Shown instead of sending a value Postgres cannot cast to numeric. Naming the field is the whole point: the server answers 22P02, which has no wording at all, so the admin was told 'something went wrong' about a box he may not have touched.
+  ///
+  /// In ar, this message translates to:
+  /// **'«{field}» يجب أن يكون رقماً، أو اتركه فارغاً لإبقائه كما هو'**
+  String invalidNumberField(String field);
+
+  /// Same as invalidNumberField, for a date cast.
+  ///
+  /// In ar, this message translates to:
+  /// **'«{field}» يجب أن يكون تاريخاً بالصيغة YYYY-MM-DD، أو اتركه فارغاً لإبقائه كما هو'**
+  String invalidDateField(String field);
+
   /// No description provided for @settingsSaved.
   ///
   /// In ar, this message translates to:

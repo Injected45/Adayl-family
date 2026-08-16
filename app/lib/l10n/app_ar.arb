@@ -237,6 +237,16 @@
   "systemStartField": "تاريخ بداية العمل بالنظام",
   "fullNameField": "الاسم",
   "save": "حفظ",
+  "invalidNumberField": "«{field}» يجب أن يكون رقماً، أو اتركه فارغاً لإبقائه كما هو",
+  "@invalidNumberField": {
+    "description": "Shown instead of sending a value Postgres cannot cast to numeric. Naming the field is the whole point: the server answers 22P02, which has no wording at all, so the admin was told 'something went wrong' about a box he may not have touched.",
+    "placeholders": { "field": { "type": "String" } }
+  },
+  "invalidDateField": "«{field}» يجب أن يكون تاريخاً بالصيغة YYYY-MM-DD، أو اتركه فارغاً لإبقائه كما هو",
+  "@invalidDateField": {
+    "description": "Same as invalidNumberField, for a date cast.",
+    "placeholders": { "field": { "type": "String" } }
+  },
   "settingsSaved": "تم حفظ الإعدادات، ولن تتغير الاستحقاقات التاريخية",
   "confirmChangesTitle": "تأكيد التغييرات",
   "noChanges": "لا توجد تغييرات",

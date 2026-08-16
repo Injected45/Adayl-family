@@ -199,6 +199,43 @@ void main() {
       expect(patch['treasurerAdeelId'], isNull);
       expect(patch['financeAdeelId'], isNull);
     });
+
+    test('a blank fee or start date is OMITTED, not sent as an empty string', () {
+      // The opposite rule to the one above, and for the opposite reason.
+      //
+      // update_settings CASTS these two: `(p_patch ->> 'memberFee')::numeric`
+      // and `::date`. An empty string is neither, so `''::numeric` raises 22P02
+      // — a Postgres code that carries no message text, which the app can only
+      // render as "something went wrong". The save is one statement, so it took
+      // the two officials down with it: the admin was setting أمين الصندوق and
+      // was refused because of a box he had not touched.
+      //
+      // Omitting the key is what makes blank mean "leave it alone": `->>` on an
+      // absent key is NULL, `NULL::numeric` is NULL, and the coalesce keeps the
+      // stored value. Sending null explicitly would NOT do — `->>` returns NULL
+      // for a JSON null too, but the officials rely on `p_patch ? key` and the
+      // asymmetry is deliberate: a post can be vacated, a fee cannot be blank.
+      const EditableSettings blank = EditableSettings(
+        associationName: 'ج',
+        currency: 'د.ل',
+        memberFee: '   ',
+        systemStart: '',
+        autoClosePreviousMonths: true,
+        bankName: '',
+        bankAccountNo: '',
+        bankAccountName: '',
+        treasurer: OfficialInput(adeelId: 3, name: '', phone: ''),
+        financeManager: OfficialInput(adeelId: 6, name: '', phone: ''),
+      );
+
+      final Map<String, dynamic> patch = blank.toPatch();
+
+      expect(patch.containsKey('memberFee'), isFalse);
+      expect(patch.containsKey('systemStart'), isFalse);
+      // …and the officials the admin was actually setting still travel.
+      expect(patch['treasurerAdeelId'], 3);
+      expect(patch['financeAdeelId'], 6);
+    });
   });
 
 }

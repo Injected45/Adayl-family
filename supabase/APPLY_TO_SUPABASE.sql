@@ -1827,8 +1827,13 @@ DECLARE
   v_changes text[] := '{}';
   v_t_id    bigint;
   v_f_id    bigint;
-  v_t       record;
-  v_f       record;
+  -- Scalars, deliberately. See the note beside the lookups: a `record` that is
+  -- never assigned makes the UPDATE below unplannable (55000), even in the arm
+  -- that does not read it.
+  v_t_name  text;
+  v_t_phone text;
+  v_f_name  text;
+  v_f_phone text;
 BEGIN
   PERFORM public.require_role('admin');
 
@@ -1858,17 +1863,36 @@ BEGIN
       USING ERRCODE = 'RUL16';
   END IF;
 
-  -- The FK would refuse an unknown id anyway; catching it here names WHICH post
-  -- was wrong, which the constraint cannot.
+  -- ── FOUR SCALARS, NOT TWO RECORDS. This is the second thing that stopped
+  --    an official from ever being saved. ───────────────────────────────────
+  --
+  -- These were `v_t record` / `v_f record`, filled only inside the IF below.
+  -- With no post chosen the record is never assigned, and the UPDATE further
+  -- down still MENTIONS `v_t.full_name` inside a CASE arm that would not be
+  -- taken. PL/pgSQL has to know the record's tuple structure to plan the
+  -- statement at all, so the branch never gets a chance to protect it:
+  --
+  --   55000  record "v_t" is not assigned yet
+  --          The tuple structure of a not-yet-assigned record is indeterminate.
+  --
+  -- So the two failures covered the whole space between them: choosing an
+  -- official raised 22P02 on the audit line below, and leaving one vacant
+  -- raised 55000 here. There was no input that saved.
+  --
+  -- A scalar has no tuple structure to be indeterminate about. Unset it is
+  -- simply NULL, the CASE arm is planned without complaint, and `SELECT INTO`
+  -- still sets FOUND, so the "not on the register" check below is unchanged.
   IF v_t_id IS NOT NULL THEN
-    SELECT full_name, phone INTO v_t FROM public.adeels WHERE id = v_t_id;
+    SELECT full_name, phone INTO v_t_name, v_t_phone
+      FROM public.adeels WHERE id = v_t_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'أمين الصندوق المختار ليس في سجل العدايل'
         USING ERRCODE = 'RUL16';
     END IF;
   END IF;
   IF v_f_id IS NOT NULL THEN
-    SELECT full_name, phone INTO v_f FROM public.adeels WHERE id = v_f_id;
+    SELECT full_name, phone INTO v_f_name, v_f_phone
+      FROM public.adeels WHERE id = v_f_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'المدير المالي المختار ليس في سجل العدايل'
         USING ERRCODE = 'RUL16';
@@ -1896,19 +1920,19 @@ BEGIN
     -- no عديل is set, so a project that has not picked anyone yet keeps working
     -- exactly as before.
     treasurer_adeel_id    = v_t_id,
-    treasurer_name        = CASE WHEN v_t_id IS NOT NULL THEN v_t.full_name
+    treasurer_name        = CASE WHEN v_t_id IS NOT NULL THEN v_t_name
                                  ELSE coalesce(p_patch ->> 'treasurerName',
                                                treasurer_name) END,
     treasurer_phone       = CASE WHEN v_t_id IS NOT NULL
-                                 THEN coalesce(v_t.phone, '')
+                                 THEN coalesce(v_t_phone, '')
                                  ELSE coalesce(p_patch ->> 'treasurerPhone',
                                                treasurer_phone) END,
     finance_manager_adeel_id = v_f_id,
-    finance_manager_name  = CASE WHEN v_f_id IS NOT NULL THEN v_f.full_name
+    finance_manager_name  = CASE WHEN v_f_id IS NOT NULL THEN v_f_name
                                  ELSE coalesce(p_patch ->> 'financeName',
                                                finance_manager_name) END,
     finance_manager_phone = CASE WHEN v_f_id IS NOT NULL
-                                 THEN coalesce(v_f.phone, '')
+                                 THEN coalesce(v_f_phone, '')
                                  ELSE coalesce(p_patch ->> 'financePhone',
                                                finance_manager_phone) END,
     bank_name                   = coalesce(p_patch ->> 'bankName', bank_name),
@@ -1956,13 +1980,33 @@ BEGIN
                                      coalesce(nullif(v_old.bank_account_name, ''), '—'),
                                      coalesce(nullif(v_row.bank_account_name, ''), '—'));
   END IF;
+  -- ── `::text` IS NOT DECORATION. Without it this function cannot save an
+  --    official at all. ──────────────────────────────────────────────────────
+  --
+  -- `v_changes` is text[]. Every append above passes format(), which RETURNS
+  -- text, so `text[] || text` resolves to array_append and works. These two
+  -- passed a bare quoted literal, which Postgres types as `unknown` — and given
+  -- the choice between `anyarray || anyelement` and `anyarray || anyarray` it
+  -- picks the array form and casts the literal to text[]:
+  --
+  --   22P02  malformed array literal: "بيانات أمين الصندوق"
+  --          Array value must start with "{" or dimension information.
+  --
+  -- The branch fires on exactly one condition — the treasurer or the finance
+  -- manager CHANGED — so the failure is perfectly targeted at the one action
+  -- the admin was performing, and invisible for every other settings save. And
+  -- 22P02 carries no Arabic, so the app could only say "حدث خطأ غير متوقع"
+  -- about a save that looked, from the screen, like it had simply not worked.
+  --
+  -- It is not a rule, a permission or a constraint. It is a type resolution,
+  -- three lines below the officials it was silently refusing to record.
   IF v_row.treasurer_name  IS DISTINCT FROM v_old.treasurer_name
   OR v_row.treasurer_phone IS DISTINCT FROM v_old.treasurer_phone THEN
-    v_changes := v_changes || 'بيانات أمين الصندوق';
+    v_changes := v_changes || 'بيانات أمين الصندوق'::text;
   END IF;
   IF v_row.finance_manager_name  IS DISTINCT FROM v_old.finance_manager_name
   OR v_row.finance_manager_phone IS DISTINCT FROM v_old.finance_manager_phone THEN
-    v_changes := v_changes || 'بيانات المدير المالي';
+    v_changes := v_changes || 'بيانات المدير المالي'::text;
   END IF;
 
   -- A no-op save still writes an entry. "An admin opened settings and saved

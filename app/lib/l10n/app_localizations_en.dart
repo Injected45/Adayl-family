@@ -646,6 +646,16 @@ class LEn extends L {
   String get save => 'Save';
 
   @override
+  String invalidNumberField(String field) {
+    return '\"$field\" must be a number, or leave it empty to keep it as it is';
+  }
+
+  @override
+  String invalidDateField(String field) {
+    return '\"$field\" must be a date in YYYY-MM-DD form, or leave it empty to keep it as it is';
+  }
+
+  @override
   String get settingsSaved =>
       'Settings saved; historical receivables are unchanged';
 
