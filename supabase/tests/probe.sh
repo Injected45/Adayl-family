@@ -16,8 +16,20 @@ export SP
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
 #
-#   30_rules 94 + 40_rls 86 + 45_portal 42 + 50_money 43 + 60_concurrency 5
-#   + 70_purge 37 = 307
+#   30_rules 94 + 40_rls 86 + 45_portal 42 + 50_money 42 + 60_concurrency 5
+#   + 70_purge 37 = 306
+#
+# Count them the way the runtime does — call sites, which is a group name in
+# quotes right after the paren:
+#
+#   grep -cE "probe\.(note|raises|raises_like|succeeds|eq)\(\s*'" <file>
+#
+# 50_money was briefly recorded as 43 by counting every mention of the helpers
+# instead, which swept up line 265 — a sentence in a COMMENT explaining what
+# probe.raises() does. The suite then failed at 306/307 with nothing wrong: all
+# 306 checks passed and the missing one had never existed. Same lesson as the
+# paragraph below, arrived at from the opposite direction — the number has to
+# come from what actually runs, not from a text search that resembles it.
 #
 # It was 295, and that number is worth remembering as a warning about this guard.
 # 50_money_and_atomicity.sql was a byte-for-byte copy of 45_adeel_portal.sql from
@@ -27,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=307
+EXPECTED_CHECKS=306
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"
