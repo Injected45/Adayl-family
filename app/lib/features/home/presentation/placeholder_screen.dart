@@ -21,7 +21,7 @@ class PlaceholderScreen extends StatelessWidget {
     return AppScaffold(
       title: destination.label(l),
       currentRoute: destination.route,
-      body: EmptyStateView(
+      body: (BuildContext context) => EmptyStateView(
         icon: destination.icon,
         title: l.comingSoon,
         message: l.comingSoonBody,

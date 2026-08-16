@@ -463,3 +463,18 @@ SELECT probe.succeeds('periods', 'restore the markers',
         VALUES ('2026-05', 0), ('2026-06', 0) $sql$);
 SELECT probe.succeeds('periods', 'and re-arm the delete guard',
   $sql$ ALTER TABLE public.closed_periods ENABLE TRIGGER trg_closed_no_delete $sql$);
+
+-- ── An empty box must not blow up the whole save ─────────────────────────────
+-- update_settings casts memberFee and systemStart. Those two lacked the
+-- `nullif(..., '')` the officials beside them always had, so an EMPTY string —
+-- which is what an Arabic keyboard left behind when the ASCII-only input filter
+-- ate every digit — reached `''::numeric` and raised 22P02. That code carries no
+-- Arabic text, so the app could only say "something went wrong", and the whole
+-- save failed including the officials the admin was actually setting.
+SELECT probe.become('00000000-0000-0000-0000-0000000000a1');   -- admin
+SELECT probe.succeeds('rule05', 'an empty memberFee leaves the fee alone', $sql$
+  SELECT public.update_settings('{"memberFee":"","systemStart":""}'::jsonb)
+$sql$);
+SELECT probe.eq('rule05', '...and the fee is exactly what it was',
+  $sql$ SELECT member_fee::text FROM public.association_settings WHERE id = 1 $sql$,
+  '20.00');

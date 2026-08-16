@@ -26,7 +26,7 @@ class StatementsScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navStatements,
       currentRoute: AppRoutes.statements,
-      body: AsyncView<List<AdeelListItem>>(
+      body: (BuildContext context) => AsyncView<List<AdeelListItem>>(
         value: adeels,
         onRetry: () => ref.invalidate(adeelsProvider('')),
         builder: (List<AdeelListItem> options) => Column(
@@ -92,11 +92,11 @@ class _StatementBody extends ConsumerWidget {
         }
         return ListView(
           padding: EdgeInsetsDirectional.fromSTEB(
-                    16,
-                    0,
-                    16,
-                    24 + bottomInset(context),
-                  ),
+            16,
+            0,
+            16,
+            24 + bottomInset(context),
+          ),
           children: <Widget>[
             for (final StatementMovement movement in data.movements)
               _MovementCard(movement: movement),

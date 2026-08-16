@@ -48,7 +48,7 @@ class ReportsScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navReports,
       currentRoute: AppRoutes.reports,
-      body: AsyncView<FinancialReport>(
+      body: (BuildContext context) => AsyncView<FinancialReport>(
         value: report,
         onRetry: () => ref.invalidate(reportProvider(range)),
         builder: (FinancialReport data) => ListView(

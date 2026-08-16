@@ -21,7 +21,7 @@ class OfficialsScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navOfficials,
       currentRoute: AppRoutes.officials,
-      body: AsyncView<List<Official>>(
+      body: (BuildContext context) => AsyncView<List<Official>>(
         value: officials,
         onRetry: () => ref.invalidate(officialsProvider),
         builder: (List<Official> people) => ListView(

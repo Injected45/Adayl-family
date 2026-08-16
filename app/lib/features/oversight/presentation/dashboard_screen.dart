@@ -36,12 +36,15 @@ class DashboardScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navHome,
       currentRoute: AppRoutes.home,
-      body: AsyncView<DashboardData>(
+      body: (BuildContext context) => AsyncView<DashboardData>(
         value: dashboard,
         onRetry: () => ref.invalidate(dashboardProvider),
         builder: (DashboardData data) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(dashboardProvider),
           child: ListView(
+            // See cash_screen: a RefreshIndicator over a list that fits the
+            // screen ignores the pull unless the physics always accept it.
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: screenPadding(context),
             children: <Widget>[
               Text(

@@ -49,7 +49,7 @@ class AdeelsScreen extends ConsumerWidget {
               label: Text(l.addAdeel),
             )
           : null,
-      body: Column(
+      body: (BuildContext context) => Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -77,11 +77,18 @@ class AdeelsScreen extends ConsumerWidget {
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(adeelsProvider(query)),
                   child: ListView.separated(
-                    // bottomInset, not a bare 24: AppScaffold's navigation pill
-                    // floats over the body, so a fixed inset leaves the last
-                    // عديل in the register unreachable behind it — and only once
-                    // the list is long enough to scroll, which is why it went
-                    // unnoticed.
+                    // Always scrollable so a register of three عدايل can still
+                    // be pulled to refresh. Without it the RefreshIndicator
+                    // above responds only once the list is long enough to
+                    // overflow, and the gesture appears to be broken on exactly
+                    // the association that has least reason to doubt it.
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    // bottomInset, not a bare 24: the navigation pill and the
+                    // add button both FLOAT over the body, so a fixed inset
+                    // leaves the last عديل in the register behind one of them.
+                    // The context here is the one AppScaffold hands its body
+                    // builder — the screen's own context reads past the
+                    // MediaQuery that publishes this and returns zero.
                     padding: EdgeInsetsDirectional.fromSTEB(
                       16,
                       0,

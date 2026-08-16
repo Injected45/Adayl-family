@@ -31,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navSettings,
       currentRoute: AppRoutes.settings,
-      body: AsyncView<EditableSettings>(
+      body: (BuildContext context) => AsyncView<EditableSettings>(
         value: settings,
         onRetry: () => ref.invalidate(editableSettingsProvider),
         // Keyed so the form rebuilds from scratch after a save.
@@ -715,6 +715,46 @@ class _Section extends StatelessWidget {
   }
 }
 
+/// Rewrites Arabic-Indic digits to ASCII as they are typed.
+///
+/// The app forces the `ar` locale, so the keyboard offers ٠١٢٣٤٥٦٧٨٩ and a
+/// treasurer typing a fee naturally produces them. Every numeric cast on the
+/// server is ASCII-only, and Dart's own `\d` is too — so without this the digits
+/// are not merely wrong, they are invisible: the filter drops them keystroke by
+/// keystroke and the box never fills.
+///
+/// The Arabic decimal separator ٫ (U+066B) is folded to '.' for the same reason.
+class _ArabicDigitsFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final StringBuffer out = StringBuffer();
+    for (final int rune in newValue.text.runes) {
+      if (rune >= 0x0660 && rune <= 0x0669) {
+        out.writeCharCode(0x30 + rune - 0x0660); // ٠-٩
+      } else if (rune >= 0x06F0 && rune <= 0x06F9) {
+        out.writeCharCode(0x30 + rune - 0x06F0); // ۰-۹ (extended)
+      } else if (rune == 0x066B) {
+        out.writeCharCode(0x2E); // ٫ → .
+      } else {
+        out.writeCharCode(rune);
+      }
+    }
+    final String text = out.toString();
+    if (text == newValue.text) return newValue;
+
+    // Length is unchanged by a one-for-one fold, so the caret can keep its
+    // offset — recomputing it would move the cursor mid-typing.
+    return TextEditingValue(
+      text: text,
+      selection: newValue.selection,
+      composing: TextRange.empty,
+    );
+  }
+}
+
 class _Field extends StatelessWidget {
   // `integer: true` went with the two whole-number fields this screen used to
   // carry — the eligibility age and the warning months. Neither exists any more,
@@ -739,6 +779,18 @@ class _Field extends StatelessWidget {
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,
         inputFormatters: <TextInputFormatter>[
+          // Arabic-Indic digits FIRST, then the filter.
+          //
+          // Dart's `\d` is ASCII-only, so on an Arabic keyboard the filter below
+          // silently ate every digit as it was typed: the box stayed empty, the
+          // admin saved anyway, and `''::numeric` came back as 22P02 — an error
+          // with no Arabic wording, so the app could only say "something went
+          // wrong" and the failure never pointed at the field that caused it.
+          //
+          // Folding to ASCII before filtering means ٢٠ and 20 are the same
+          // keystroke as far as this box is concerned. The value on the wire
+          // stays ASCII, which is what Postgres can cast.
+          if (money) _ArabicDigitsFormatter(),
           if (money)
             FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
         ],

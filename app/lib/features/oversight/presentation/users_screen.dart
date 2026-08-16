@@ -32,7 +32,7 @@ class UsersScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navUsers,
       currentRoute: AppRoutes.users,
-      body: AsyncView<List<UserAccount>>(
+      body: (BuildContext context) => AsyncView<List<UserAccount>>(
         value: users,
         onRetry: () => ref.invalidate(usersProvider),
         builder: (List<UserAccount> accounts) {

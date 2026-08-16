@@ -133,7 +133,7 @@ class AdeelDetailScreen extends ConsumerWidget {
             icon: const Icon(Icons.edit_outlined),
           ),
       ],
-      body: AsyncView<AdeelDetail>(
+      body: (BuildContext context) => AsyncView<AdeelDetail>(
         value: detail,
         onRetry: () => ref.invalidate(adeelDetailProvider(adeelId)),
         builder: (AdeelDetail detail) {

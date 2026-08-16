@@ -16,8 +16,8 @@ export SP
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
 #
-#   30_rules 99 + 40_rls 86 + 45_portal 42 + 50_money 43 + 60_concurrency 5
-#   + 70_purge 37 = 312
+#   30_rules 101 + 40_rls 86 + 45_portal 42 + 50_money 42 + 60_concurrency 5
+#   + 70_purge 37 = 313
 #
 # Count them the way the runtime does — call sites, which is a group name in
 # quotes right after the paren:
@@ -39,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=312
+EXPECTED_CHECKS=313
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"

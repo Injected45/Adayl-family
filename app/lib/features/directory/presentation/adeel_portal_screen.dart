@@ -173,6 +173,10 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
     ];
 
     return ListView(
+      // The عديل pulls this to refresh after paying, and his page is SHORT —
+      // one hero, one strip, a handful of months. Without always-scrollable
+      // physics that is precisely the page whose pull does nothing.
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: screenPadding(context),
       children: <Widget>[
         _BalanceHero(detail: detail, openCount: open.length),
@@ -426,7 +430,7 @@ class _IdentityPanel extends StatelessWidget {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          childrenPadding: const EdgeInsets.fromLTRB(
+          childrenPadding: const EdgeInsetsDirectional.fromSTEB(
             AppSpacing.lg,
             0,
             AppSpacing.lg,

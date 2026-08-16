@@ -153,7 +153,7 @@ class ReceivablesScreen extends ConsumerWidget {
             ],
           ),
       ],
-      body: AsyncView<ReceivablesPage>(
+      body: (BuildContext context) => AsyncView<ReceivablesPage>(
         value: page,
         onRetry: () => ref.invalidate(receivablesProvider(period)),
         builder: (ReceivablesPage data) {

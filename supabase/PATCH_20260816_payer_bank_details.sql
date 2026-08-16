@@ -38,6 +38,24 @@
 --     `phone` and `dob` had the same shape. An absent key now means "leave it
 --     alone"; a key sent EMPTY still clears the field.
 --
+--  3. THE PATCH NOW REVOKES WHAT IT CREATES. (This is the fix for the error
+--     that made every earlier run of this file roll back:
+--
+--       LOCKDOWN: these public functions are executable by PUBLIC
+--       (i.e. by anyone holding the anon key): register_payment(...)
+--
+--     CREATE OR REPLACE keeps a function's existing ACL; a FRESH create has no
+--     ACL to keep, so Postgres materialises the built-in default — EXECUTE to
+--     PUBLIC — and Supabase's ALTER DEFAULT PRIVILEGES adds anon on top. The
+--     DROP in section 3 turns the CREATE after it into a fresh create, so the
+--     nine-argument register_payment came out callable by anyone holding the
+--     anon key. assert_no_public_execute() caught it and refused the whole
+--     transaction, every single time — which is the guard working, not failing.
+--
+--     A full apply never hit this because the lockdown migration runs LAST and
+--     sweeps the whole schema. Section 11 now re-runs that same sweep here, so
+--     this cannot recur for the next function a patch adds.
+--
 --  ⚠ THIS PATCH CONTAINS ONE DROP, AND IT IS DELIBERATE
 --       DROP FUNCTION IF EXISTS public.register_payment(6 args)
 --
@@ -267,12 +285,36 @@ BEGIN
     'allocations', v_allocs);
 END $$;
 
+-- REVOKE FIRST, and this is the line whose absence made every run of this patch
+-- roll back with
+--
+--   LOCKDOWN: these public functions are executable by PUBLIC
+--   (i.e. by anyone holding the anon key): register_payment(...)
+--
+-- A function created by CREATE OR REPLACE keeps the ACL it already had. One
+-- created FRESH does not have an ACL to keep, so Postgres materialises the
+-- built-in default — which grants EXECUTE to PUBLIC — and then layers Supabase's
+-- ALTER DEFAULT PRIVILEGES grants to anon/authenticated/service_role on top.
+-- The DROP above makes the CREATE below a fresh create, so the new nine-argument
+-- register_payment came out callable by ANYONE HOLDING THE ANON KEY, signed in
+-- or not. assert_no_public_execute() saw that and refused the whole transaction.
+--
+-- The full apply never hit this because 20260811091200_function_lockdown.sql
+-- runs LAST and sweeps every function in the schema. A patch has no such sweep,
+-- so it has to revoke what it creates — see section 11, which re-runs that sweep
+-- so the next function added by a patch cannot repeat this.
+REVOKE EXECUTE ON FUNCTION
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text)
+FROM PUBLIC, anon, authenticated, service_role;
+
 GRANT EXECUTE ON FUNCTION
   public.register_payment(bigint, numeric, pay_method, text, text, text,
                           text, text, text)
 TO authenticated, service_role;
 
--- The lockdown allow-list is an EXACT set, so it has to name the new signature.
+-- == 4. The lockdown allow-list — restated for the new signature =========
+-- It is an EXACT set, so it has to name the new signature.
 -- Leave it naming the old one and assert_function_grants() fails in both
 -- directions at once — the new function callable but unlisted, the listed one
 -- missing — and the whole patch rolls back.
@@ -399,8 +441,19 @@ BEGIN
   UPDATE public.association_settings SET
     association_name = coalesce(p_patch ->> 'associationName', association_name),
     currency         = coalesce(p_patch ->> 'currency', currency),
-    member_fee       = coalesce((p_patch ->> 'memberFee')::numeric, member_fee),
-    system_start     = coalesce((p_patch ->> 'systemStart')::date, system_start),
+    -- nullif BEFORE the cast, and the officials below have always had it while
+    -- these two did not. An EMPTY string is not a number and not a date, so
+    -- `''::numeric` raises 22P02 — a code with no Arabic text, which the app can
+    -- only render as "something went wrong". The whole save fails, including
+    -- the two officials the admin was actually trying to set, and nothing on
+    -- screen connects the failure to a field he may not even have touched.
+    --
+    -- An empty box now means "leave it alone", which is the only reading that
+    -- makes sense: the fee is NOT NULL, so blank cannot be a value.
+    member_fee       = coalesce(nullif(p_patch ->> 'memberFee', '')::numeric,
+                                member_fee),
+    system_start     = coalesce(nullif(p_patch ->> 'systemStart', '')::date,
+                                system_start),
     -- The post, then the snapshot of whoever holds it. When an عديل is chosen
     -- his row IS the name and phone; the free-text keys are still honoured when
     -- no عديل is set, so a project that has not picked anyone yet keeps working
@@ -845,6 +898,61 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.assert_signin_intact()
   FROM PUBLIC, anon, authenticated, service_role;
 
+-- == 11. Re-run the lockdown sweep ===========================================
+-- Byte-for-byte the loop from 20260811091200_function_lockdown.sql, which runs
+-- LAST on a full apply and is the reason a fresh project never had this problem.
+--
+-- A patch does not get that sweep for free. Every function it creates fresh —
+-- register_payment above, assert_signin_intact in section 10 — comes out with
+-- the built-in default ACL, and the built-in default for a function is EXECUTE
+-- to PUBLIC. Naming each one in a REVOKE works only for as long as nobody
+-- forgets, and forgetting is silent: the function is created, the patch reads
+-- correctly, and the only thing that objects is an assertion 600 lines further
+-- down whose message names a symptom rather than the missing line.
+--
+-- Running the sweep instead makes the guarantee structural. It revokes from
+-- every function in `public` and grants back EXACTLY the allow-list restated in
+-- section 4, so the schema's grants are recomputed from that list rather than
+-- accumulated. Nothing here depends on the next patch remembering.
+--
+-- It is placed after every CREATE in this file, deliberately: the sweep can only
+-- normalise functions that already exist when it runs.
+DO $lockdown$
+DECLARE
+  r        record;
+  v_allow  text[] := public.client_callable_functions();
+  v_sig    text;
+BEGIN
+  FOR r IN
+    -- regprocedure, NOT pg_get_function_identity_arguments(): the latter includes
+    -- PARAMETER NAMES ("p_period character"), while regprocedure renders the
+    -- type-only form the allow-list is written in ("generate_period(character)").
+    SELECT p.oid,
+           p.oid::regprocedure::text AS full_sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       -- Extension functions are not ours. A project with pgcrypto or uuid-ossp
+       -- in `public` would otherwise lose gen_random_uuid() and friends.
+       AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                        WHERE d.objid = p.oid
+                          AND d.classid = 'pg_proc'::regclass
+                          AND d.deptype = 'e')
+  LOOP
+    -- PUBLIC *and* the named roles. Supabase's default privileges grant to the
+    -- names, so a PUBLIC-only revoke is a no-op on a real project.
+    EXECUTE format(
+      'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role',
+      r.full_sig);
+
+    v_sig := replace(ltrim(replace(r.full_sig, 'public.', ''), ' '), ' ', '');
+    IF v_sig = ANY (SELECT replace(a, ' ', '') FROM unnest(v_allow) a) THEN
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role',
+                     r.full_sig);
+    END IF;
+  END LOOP;
+END $lockdown$;
+
 -- == The standing guarantees, re-proven ======================================
 -- SIGN-IN FIRST, inside the transaction. If anything above had disturbed
 -- handle_new_user() or trg_auth_user_created, this raises and the whole patch
@@ -881,6 +989,17 @@ UNION ALL SELECT 'register_payment now takes NINE parameters',
           JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'public' AND p.proname = 'register_payment'
            AND p.pronargs = 9)::text
+-- The one this patch used to fail on. `= 0` means no PUBLIC (grantee 0) EXECUTE
+-- entry survives on the new signature: holding the anon key is not enough to
+-- call it, and require_role('treasurer') inside it is not the only thing
+-- standing between a stranger and the treasury.
+UNION ALL SELECT 'register_payment is NOT callable by the anon key',
+       (SELECT count(*) = 0 FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace,
+          LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+         WHERE n.nspname = 'public' AND p.proname = 'register_payment'
+           AND a.privilege_type = 'EXECUTE'
+           AND (a.grantee = 0 OR a.grantee = 'anon'::regrole))::text
 UNION ALL SELECT 'v_officials was left alone (portal still sees the names)',
        (SELECT count(*) = 3 FROM information_schema.columns
          WHERE table_schema = 'public' AND table_name = 'v_officials')::text

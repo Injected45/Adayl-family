@@ -28,7 +28,7 @@ class AuditScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navAudit,
       currentRoute: AppRoutes.audit,
-      body: Column(
+      body: (BuildContext context) => Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),

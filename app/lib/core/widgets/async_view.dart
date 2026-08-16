@@ -15,7 +15,8 @@ String describeApiFailure(L l, Object error) {
   if (error is ApiException) {
     final String? fromServer = error.serverMessage;
     if (fromServer != null && fromServer.isNotEmpty) return fromServer;
-    return switch (error.kind) {
+
+    final String generic = switch (error.kind) {
       ApiFailureKind.network => l.errorNetworkBody,
       ApiFailureKind.timeout => l.errorTimeout,
       // Deliberately not "try again later". Retrying a missing endpoint fails
@@ -23,6 +24,30 @@ String describeApiFailure(L l, Object error) {
       ApiFailureKind.schemaMismatch => l.errorSchemaMismatch,
       _ => l.errorGeneric,
     };
+
+    // ── Name the code when there is nothing else to say ─────────────────────
+    // Every rule this app enforces raises a RULnn with an Arabic sentence, and
+    // that sentence is returned above. Reaching here means Postgres refused for
+    // a reason the app has no wording for — a failed cast, a constraint, a
+    // column that is not there — and those are exactly the failures somebody
+    // has to diagnose.
+    //
+    // "حدث خطأ غير متوقع" on its own is unactionable: it looks identical
+    // whether the fee was unparseable, a patch was never applied, or the
+    // network blinked. The code turns a support conversation into a lookup —
+    // 22P02 is a bad number, 42703 is a missing column, PGRST202 is a function
+    // the database does not have.
+    //
+    // Network and timeout are excluded: their message already says what to do,
+    // and they carry no code worth reading.
+    final String? code = error.code;
+    final bool worthShowing =
+        code != null &&
+        code.isNotEmpty &&
+        error.kind != ApiFailureKind.network &&
+        error.kind != ApiFailureKind.timeout;
+
+    return worthShowing ? '$generic  [$code]' : generic;
   }
   return l.errorGeneric;
 }

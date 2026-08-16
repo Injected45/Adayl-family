@@ -460,6 +460,9 @@ class GlassSheet extends StatelessWidget {
 /// Wrapping the body in a `Padding` would not do: that shrinks the viewport, so
 /// the content would stop above the pill and there would be nothing behind the
 /// frost. The inset has to live inside the scroll view's own padding.
+///
+/// ⚠ [context] MUST come from AppScaffold's body builder, not from the screen's
+/// own `build`. See [bottomInset].
 EdgeInsetsGeometry screenPadding(BuildContext context) {
   return EdgeInsetsDirectional.fromSTEB(
     AppSpacing.lg,
@@ -476,10 +479,21 @@ EdgeInsetsGeometry screenPadding(BuildContext context) {
 /// different horizontal one — because four of them hardcoded a bottom of 24 and
 /// every one of them hid its final row behind the navigation pill.
 ///
-/// AppScaffold publishes the pill's height as `MediaQuery.padding.bottom` for
-/// exactly this reason, so reading it is the whole answer: 78dp of pill under an
-/// admin screen, the gesture bar under the عديل portal, and zero where there is
-/// neither. Nothing here needs to know which case it is in.
+/// AppScaffold publishes everything that floats over the body as
+/// `MediaQuery.padding.bottom`, so reading it is the whole answer: 78dp of pill
+/// under an admin screen, another 72 where that screen also has a floating
+/// action button, the gesture bar on top of both, and zero on the عديل portal,
+/// which has neither. Nothing here needs to know which case it is in.
+///
+/// ⚠ [context] MUST be the one AppScaffold passes to its body builder.
+///
+/// This is the whole reason `AppScaffold.body` is a `WidgetBuilder`. A screen
+/// builds its body inside its own `build`, and that context is an ANCESTOR of
+/// the MediaQuery holding these numbers — so it reads straight past them to the
+/// raw window padding, which is 0 on a phone without a gesture bar. Nearly
+/// every list in the app was written that way, asking correctly and being
+/// answered zero, and the FAB screens compounded it. Requiring a builder makes
+/// the right context the only one in scope.
 ///
 /// The bug it prevents is quiet. A list only hides its last row when it is long
 /// enough to scroll, so a screen looks correct until the association has enough

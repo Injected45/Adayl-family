@@ -680,8 +680,19 @@ BEGIN
   UPDATE public.association_settings SET
     association_name = coalesce(p_patch ->> 'associationName', association_name),
     currency         = coalesce(p_patch ->> 'currency', currency),
-    member_fee       = coalesce((p_patch ->> 'memberFee')::numeric, member_fee),
-    system_start     = coalesce((p_patch ->> 'systemStart')::date, system_start),
+    -- nullif BEFORE the cast, and the officials below have always had it while
+    -- these two did not. An EMPTY string is not a number and not a date, so
+    -- `''::numeric` raises 22P02 — a code with no Arabic text, which the app can
+    -- only render as "something went wrong". The whole save fails, including
+    -- the two officials the admin was actually trying to set, and nothing on
+    -- screen connects the failure to a field he may not even have touched.
+    --
+    -- An empty box now means "leave it alone", which is the only reading that
+    -- makes sense: the fee is NOT NULL, so blank cannot be a value.
+    member_fee       = coalesce(nullif(p_patch ->> 'memberFee', '')::numeric,
+                                member_fee),
+    system_start     = coalesce(nullif(p_patch ->> 'systemStart', '')::date,
+                                system_start),
     -- The post, then the snapshot of whoever holds it. When an عديل is chosen
     -- his row IS the name and phone; the free-text keys are still honoured when
     -- no عديل is set, so a project that has not picked anyone yet keeps working

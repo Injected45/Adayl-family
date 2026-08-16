@@ -30,7 +30,7 @@ class AlertsScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navAlerts,
       currentRoute: AppRoutes.alerts,
-      body: Column(
+      body: (BuildContext context) => Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),

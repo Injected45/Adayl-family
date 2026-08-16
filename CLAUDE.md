@@ -237,6 +237,20 @@ replace function bodies and add columns, touch no row, and each calls
 `assert_signin_intact()` before `COMMIT` — so a change that would leave sign-in
 broken rolls back instead of landing. Prefer a patch; never reach for a rebuild.
 
+**A patch that creates a function must re-run the lockdown sweep.** On a full
+apply, `20260811091200_function_lockdown.sql` runs LAST and normalises grants
+across the whole schema, so nothing else has to think about privileges. A patch
+gets no such pass. `CREATE OR REPLACE` keeps a function's existing ACL, but a
+function created *fresh* — which is what `DROP FUNCTION` followed by `CREATE`
+produces, the only way to change a signature — has no ACL to keep, so Postgres
+materialises the built-in default (**EXECUTE to PUBLIC**) and Supabase's
+`ALTER DEFAULT PRIVILEGES` layers `anon` on top. `assert_no_public_execute()`
+catches it and rolls the patch back with a message naming the function rather
+than the missing REVOKE, which reads like a defect in the file. Copy the
+`DO $lockdown$` loop in after the last `CREATE`, as
+`PATCH_20260816_payer_bank_details.sql` §11 does: it recomputes every grant from
+the allow-list, so it fixes the next such function without anyone remembering.
+
 `supabase/VERIFY_INSTALL.sql` is the one to paste into a project's SQL Editor
 after applying the bundle. Read-only, and it answers the question the apply
 itself cannot: the bundle is one transaction so there is no half-applied state

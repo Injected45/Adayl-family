@@ -40,7 +40,7 @@ class PaymentsScreen extends ConsumerWidget {
               label: Text(l.registerPayment),
             )
           : null,
-      body: AsyncView<List<PaymentView>>(
+      body: (BuildContext context) => AsyncView<List<PaymentView>>(
         value: payments,
         onRetry: () => ref.invalidate(paymentsProvider),
         builder: (List<PaymentView> items) => ListView(

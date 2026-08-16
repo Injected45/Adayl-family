@@ -28,12 +28,15 @@ class CashScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navCash,
       currentRoute: AppRoutes.cash,
-      body: RefreshIndicator(
+      body: (BuildContext context) => RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(cashSummaryProvider);
           ref.invalidate(cashMovementsProvider);
         },
         child: ListView(
+          // The RefreshIndicator above needs a scrollable that always accepts
+          // the gesture, or an empty treasury cannot be pulled to refresh.
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: screenPadding(context),
           children: <Widget>[
             Text(

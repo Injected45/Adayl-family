@@ -41,13 +41,48 @@ class AppScaffold extends ConsumerWidget {
   });
 
   final String title;
-  final Widget body;
+
+  /// A BUILDER, not a widget, and the difference is load-bearing.
+  ///
+  /// This scaffold publishes everything that floats over the body — the pill,
+  /// the gesture bar, the FAB — as `MediaQuery.padding.bottom`, so a scroll view
+  /// can reserve the space by asking [bottomInset]. That only works if the
+  /// context doing the asking is BELOW the MediaQuery.
+  ///
+  /// It was not. A screen builds its own body inside its own `build`, so
+  /// `context` there is an ANCESTOR of this scaffold and reads straight past
+  /// the override to the raw window padding — zero on most phones. Every list
+  /// whose padding was written at screen level therefore reserved NOTHING, and
+  /// the code looked right at every single call site: `bottomInset(context)`,
+  /// exactly as documented, silently returning 0.
+  ///
+  /// Taking a builder makes the correct context the only one in scope. A call
+  /// site cannot pass the wrong one by accident, and a new screen cannot
+  /// reintroduce this by forgetting something — there is nothing to forget.
+  final WidgetBuilder body;
+
   final String currentRoute;
   final List<Widget>? actions;
   final Widget? floatingActionButton;
 
   static const double _railBreakpoint = 600;
   static const double _drawerBreakpoint = 1024;
+
+  /// What an end-floating FAB occupies: the button plus the margin Scaffold
+  /// keeps between it and whatever is below it.
+  ///
+  /// Reserved as bottom padding on the two screens that HAVE one — the register
+  /// and the collections list — because `endFloat` puts the button ON TOP of
+  /// the scrolling content rather than beside it. The pill was already
+  /// published below; the FAB was not, so the last card cleared the pill by
+  /// 24dp and then had its NAME ROW covered by the button sitting 16dp above
+  /// it. That is the exact complaint: the row is there, it scrolls to the
+  /// bottom, and the one thing you need off it is behind a button.
+  ///
+  /// 56 is the Material 3 height of both a regular and an extended FAB. A
+  /// `FloatingActionButton.small` would over-reserve by 16dp of empty space,
+  /// which is the harmless direction to be wrong in — this app uses neither.
+  static const double _fabBand = 56 + kFloatingActionButtonMargin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -113,15 +148,21 @@ class AppScaffold extends ConsumerWidget {
         extendBody: true,
 
         appBar: _GlassAppBar(title: title, actions: barActions),
+        // EVERYTHING that floats over the body is added up here, once, and
+        // published as one number. A screen asks `bottomInset(context)` and gets
+        // the right answer without knowing whether it has a FAB, whether the
+        // phone has a gesture bar, or how tall the pill is — which is the only
+        // way this stays correct as screens are added.
         body: MediaQuery(
           data: MediaQuery.of(context).copyWith(
             padding: MediaQuery.paddingOf(context).copyWith(
               bottom:
                   _PillNavBar.totalHeight +
+                  (floatingActionButton == null ? 0.0 : _fabBand) +
                   MediaQuery.viewPaddingOf(context).bottom,
             ),
           ),
-          child: body,
+          child: Builder(builder: body),
         ),
         floatingActionButton: floatingActionButton,
         bottomNavigationBar: _PillNavBar(
@@ -553,7 +594,7 @@ class _WideLayout extends StatelessWidget {
   });
 
   final String title;
-  final Widget body;
+  final WidgetBuilder body;
   final List<Widget>? actions;
   final List<AppDestination> destinations;
   final String currentRoute;
@@ -687,7 +728,22 @@ class _WideLayout extends StatelessWidget {
                         12,
                         0,
                       ),
-                      child: body,
+                      // There is no pill here, but there is still a FAB, and it
+                      // still floats over the body. The SafeArea above has
+                      // already consumed the device inset, so this republishes
+                      // the one thing left that covers content — and publishes
+                      // ZERO when there is no FAB, which keeps screenPadding()
+                      // honest instead of it guessing per layout.
+                      child: MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          padding: MediaQuery.paddingOf(context).copyWith(
+                            bottom: floatingActionButton == null
+                                ? 0.0
+                                : AppScaffold._fabBand,
+                          ),
+                        ),
+                        child: Builder(builder: body),
+                      ),
                     ),
                   ),
                 ],

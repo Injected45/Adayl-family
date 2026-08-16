@@ -131,7 +131,7 @@ class _DemoScreen extends StatelessWidget {
     return AppScaffold(
       title: l.navHome,
       currentRoute: AppRoutes.home,
-      body: ListView(
+      body: (BuildContext context) => ListView(
         padding: screenPadding(context),
         children: <Widget>[
           GlassSurface(
