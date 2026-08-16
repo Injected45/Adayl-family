@@ -28,6 +28,24 @@ CREATE TABLE public.association_settings (
   finance_manager_name        text          NOT NULL DEFAULT '',
   finance_manager_phone       text          NOT NULL DEFAULT '',
 
+  -- ── The association's own receiving bank account ──────────────────────────
+  -- Where a تحويل مصرفي lands. ONE account, held here rather than typed per
+  -- payment, for the same reason the officials' names are: it is a property of
+  -- the association, and a treasurer retyping it on every receipt would produce
+  -- a different digit string sooner or later — on the one field whose whole
+  -- purpose is matching the bank's statement.
+  --
+  -- Readable by every approved member INCLUDING an عديل on the portal
+  -- (read_settings_adeel), which is intended: he is the one being asked to
+  -- transfer, so the account he must send to cannot be staff-only.
+  --
+  -- Empty by default and never validated for format. Libyan IBANs, plain
+  -- account numbers and whatever a given bank prints are all legitimate here,
+  -- and a CHECK would refuse the association's real account on the day they
+  -- open one at a different bank.
+  bank_account_no             text          NOT NULL DEFAULT '',
+  bank_account_name           text          NOT NULL DEFAULT '',
+
   updated_by                  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
   updated_at                  timestamptz   NOT NULL DEFAULT now(),
 

@@ -107,6 +107,22 @@ class LEn extends L {
   String get copy => 'Copy';
 
   @override
+  String get copied => 'Copied';
+
+  @override
+  String get bankAccountSection => 'Association bank account';
+
+  @override
+  String get bankAccountNoField => 'Account number';
+
+  @override
+  String get bankAccountNameField => 'Account holder name';
+
+  @override
+  String get bankAccountNotConfigured =>
+      'No association bank account set yet — add it in Settings. You can still record the transfer, but the receipt will name no account.';
+
+  @override
   String get loading => 'Loading...';
 
   @override
@@ -341,6 +357,10 @@ class LEn extends L {
 
   @override
   String get receiver => 'Received by';
+
+  @override
+  String get receiverNotConfigured =>
+      'No officials named yet — add them in Settings';
 
   @override
   String get notesField => 'Notes';
@@ -649,6 +669,26 @@ class LEn extends L {
 
   @override
   String get myStatementSection => 'Statement';
+
+  @override
+  String get statementSearchHint =>
+      'Search the statement: date, reference, amount, type...';
+
+  @override
+  String get clearSearch => 'Clear search';
+
+  @override
+  String statementShowing(int shown, int total) {
+    return 'Showing $shown of $total movements';
+  }
+
+  @override
+  String statementShowMore(int count) {
+    return 'Show $count more';
+  }
+
+  @override
+  String get statementShowAll => 'Show all';
 
   @override
   String get ledgerParticulars => 'Particulars';

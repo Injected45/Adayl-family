@@ -33,6 +33,8 @@ class PaymentView {
     required this.reference,
     required this.receiver,
     required this.notes,
+    required this.bankAccountNo,
+    required this.bankAccountName,
     required this.status,
     required this.paidAt,
     required this.allocations,
@@ -46,6 +48,13 @@ class PaymentView {
   final String? reference;
   final String? receiver;
   final String? notes;
+
+  /// The association account this transfer landed in, AS IT STOOD when the
+  /// payment was taken — a snapshot column on `payments`, not a join to current
+  /// settings. Reprinting a receipt after the association changes bank must
+  /// still name the account the money actually went to. Empty for cash.
+  final String bankAccountNo;
+  final String bankAccountName;
   final String status;
   final String paidAt;
   final List<PaymentAllocationView> allocations;
@@ -59,6 +68,11 @@ class PaymentView {
     reference: json['reference'] as String?,
     receiver: json['receiver'] as String?,
     notes: json['notes'] as String?,
+    // _string, not a cast: the captured wire fixtures in test/fixtures/ predate
+    // these two columns, and a hard cast would fail contract parsing on rows
+    // that are otherwise unchanged.
+    bankAccountNo: _string(json['bankAccountNo']),
+    bankAccountName: _string(json['bankAccountName']),
     status: _string(json['status']),
     paidAt: _string(json['paidAt']),
     allocations: (json['allocations'] as List<dynamic>? ?? <dynamic>[])

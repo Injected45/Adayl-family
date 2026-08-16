@@ -58,7 +58,12 @@ SELECT
   currency                AS "currency",
   member_fee::text        AS "memberFee",
   to_char(system_start, 'YYYY-MM-DD') AS "systemStart",
-  auto_close_previous_months          AS "autoClosePreviousMonths"
+  auto_close_previous_months          AS "autoClosePreviousMonths",
+  -- Where a transfer should be sent. Deliberately on the WIDELY readable view
+  -- rather than the admin-only settings shape: an عديل on the portal reads this
+  -- view too, and he is the one being asked to transfer.
+  bank_account_no                     AS "bankAccountNo",
+  bank_account_name                   AS "bankAccountName"
 FROM public.association_settings;
 
 -- ── Officials ────────────────────────────────────────────────────────────────
@@ -154,7 +159,20 @@ SELECT
        FROM public.payment_allocations al
       WHERE al.payment_id = p.id),
     '[]'::jsonb
-  )                          AS "allocations"
+  )                          AS "allocations",
+  -- ── APPENDED, and it has to stay that way ─────────────────────────────────
+  -- CREATE OR REPLACE VIEW can add columns to the END of the list and nothing
+  -- else: inserting these two after `notes`, where they read more naturally,
+  -- makes Postgres try to rename the existing `status` column and refuse with
+  -- 42P16. A fresh apply would not notice — the view is created, not replaced —
+  -- so it would fail only on the live project, which is the worst place to find
+  -- out. Anything added later goes below these, for the same reason.
+  --
+  -- The snapshot on the payment row, NOT a join to current settings: a receipt
+  -- reprinted after the association changes bank must still name the account
+  -- the money actually went to. Empty string for cash.
+  coalesce(p.bank_account_no, '')   AS "bankAccountNo",
+  coalesce(p.bank_account_name, '') AS "bankAccountName"
 FROM public.payments p
 JOIN public.adeels a ON a.id = p.adeel_id;
 

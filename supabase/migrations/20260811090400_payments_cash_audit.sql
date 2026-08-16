@@ -26,6 +26,26 @@ CREATE TABLE public.payments (
   cancelled_at  timestamptz,
   cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
   cancel_reason text,
+
+  -- ── IMMUTABLE SNAPSHOT of the receiving account ───────────────────────────
+  -- Which association bank account this تحويل مصرفي landed in, as it stood at
+  -- the moment of collection. Copied here rather than joined to
+  -- association_settings for exactly the reason receivables.adeel_name is
+  -- copied: the association will change bank one day, and a receipt reprinted
+  -- afterwards must still name the account the money actually went to. A join
+  -- would silently restate every historical receipt with the new account.
+  --
+  -- Filled by register_payment FROM SETTINGS, never sent by the client. The
+  -- caller does not get to say where the association's money went — and since
+  -- the anon key ships in the APK, "the client would not lie" is not a
+  -- guarantee available here.
+  --
+  -- NULL for cash, and NULL for a transfer taken before any account was
+  -- configured. Nullable rather than defaulted to '' so those two cases stay
+  -- distinguishable from an account that is genuinely blank.
+  bank_account_no   text,
+  bank_account_name text,
+
   legacy_id     text,
 
   CONSTRAINT uq_pay_receipt UNIQUE (receipt_no),

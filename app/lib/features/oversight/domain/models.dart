@@ -291,6 +291,8 @@ class EditableSettings {
     required this.memberFee,
     required this.systemStart,
     required this.autoClosePreviousMonths,
+    required this.bankAccountNo,
+    required this.bankAccountName,
     required this.treasurer,
     required this.financeManager,
   });
@@ -300,6 +302,12 @@ class EditableSettings {
   final String memberFee;
   final String systemStart;
   final bool autoClosePreviousMonths;
+
+  /// The association's receiving bank account, as one record rather than a
+  /// thing a treasurer retypes on every transfer. `register_payment` snapshots
+  /// it onto the payment server-side; nothing here is sent with a collection.
+  final String bankAccountNo;
+  final String bankAccountName;
   final OfficialInput treasurer;
   final OfficialInput financeManager;
 
@@ -309,6 +317,8 @@ class EditableSettings {
     'memberFee': memberFee,
     'systemStart': systemStart,
     'autoClosePreviousMonths': autoClosePreviousMonths,
+    'bankAccountNo': bankAccountNo,
+    'bankAccountName': bankAccountName,
     'treasurer': treasurer.toJson(),
     'financeManager': financeManager.toJson(),
   };
@@ -320,6 +330,8 @@ class EditableSettings {
         memberFee: _string(json['memberFee']),
         systemStart: _string(json['systemStart']),
         autoClosePreviousMonths: json['autoClosePreviousMonths'] == true,
+        bankAccountNo: _string(json['bankAccountNo']),
+        bankAccountName: _string(json['bankAccountName']),
         treasurer: OfficialInput.fromJson(
           (json['treasurer'] as Map).cast<String, dynamic>(),
         ),

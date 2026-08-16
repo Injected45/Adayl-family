@@ -13,6 +13,8 @@ class AssociationSettingsView {
     required this.associationName,
     required this.currency,
     required this.memberFee,
+    required this.bankAccountNo,
+    required this.bankAccountName,
   });
 
   final String associationName;
@@ -22,11 +24,24 @@ class AssociationSettingsView {
   /// association stopped billing households through their head.
   final String memberFee;
 
+  /// The association's own receiving account, for a تحويل مصرفي. Empty until an
+  /// admin fills it in, which the payment sheet renders as "not set yet" rather
+  /// than as a blank line.
+  final String bankAccountNo;
+  final String bankAccountName;
+
+  bool get hasBankAccount => bankAccountNo.trim().isNotEmpty;
+
   factory AssociationSettingsView.fromJson(Map<String, dynamic> json) =>
       AssociationSettingsView(
         associationName: _string(json['associationName']),
         currency: _string(json['currency']),
         memberFee: _string(json['memberFee']),
+        // _string, not a cast: the captured wire fixtures in test/fixtures/
+        // predate these columns, and a hard cast would fail contract parsing on
+        // a view that is otherwise unchanged.
+        bankAccountNo: _string(json['bankAccountNo']),
+        bankAccountName: _string(json['bankAccountName']),
       );
 }
 

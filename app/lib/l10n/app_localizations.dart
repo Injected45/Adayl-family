@@ -277,6 +277,36 @@ abstract class L {
   /// **'نسخ'**
   String get copy;
 
+  /// No description provided for @copied.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم النسخ'**
+  String get copied;
+
+  /// No description provided for @bankAccountSection.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحساب المصرفي للجمعية'**
+  String get bankAccountSection;
+
+  /// No description provided for @bankAccountNoField.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الحساب'**
+  String get bankAccountNoField;
+
+  /// No description provided for @bankAccountNameField.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم صاحب الحساب'**
+  String get bankAccountNameField;
+
+  /// No description provided for @bankAccountNotConfigured.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُسجَّل الحساب المصرفي للجمعية بعد — أضفه من الإعدادات. يمكنك تسجيل الحوالة الآن، لكن الإيصال لن يذكر حساباً.'**
+  String get bankAccountNotConfigured;
+
   /// No description provided for @loading.
   ///
   /// In ar, this message translates to:
@@ -726,6 +756,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'المستلم'**
   String get receiver;
+
+  /// No description provided for @receiverNotConfigured.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تُسجَّل أسماء المسؤولين بعد — أضفها من الإعدادات'**
+  String get receiverNotConfigured;
 
   /// No description provided for @notesField.
   ///
@@ -1278,6 +1314,36 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'كشف الحساب'**
   String get myStatementSection;
+
+  /// No description provided for @statementSearchHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث في الكشف: تاريخ، مرجع، مبلغ، نوع الحركة...'**
+  String get statementSearchHint;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح البحث'**
+  String get clearSearch;
+
+  /// No description provided for @statementShowing.
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض {shown} من {total} حركة'**
+  String statementShowing(int shown, int total);
+
+  /// No description provided for @statementShowMore.
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض {count} أخرى'**
+  String statementShowMore(int count);
+
+  /// No description provided for @statementShowAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض الكل'**
+  String get statementShowAll;
 
   /// No description provided for @ledgerParticulars.
   ///

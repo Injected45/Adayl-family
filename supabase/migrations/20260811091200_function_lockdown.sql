@@ -218,6 +218,87 @@ REVOKE EXECUTE ON FUNCTION public.assert_function_grants() FROM PUBLIC, anon,
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions() FROM PUBLIC, anon,
   authenticated, service_role;
 
+-- ── The guarantee that outranks every other one in this file ────────────────
+-- The lockdown assertions above protect the association's MONEY. This one
+-- protects its ability to get into the app at all, which is the only failure
+-- that cannot be fixed from inside the app.
+--
+-- Called at the end of every apply and every patch, BEFORE COMMIT. Because the
+-- bundle and each patch are one transaction, a change that would leave sign-in
+-- broken cannot land: the assertion raises and the whole thing rolls back to
+-- the state that still worked. That is the difference between a rule and a
+-- promise — nothing here depends on the next person remembering this file.
+--
+-- READ-ONLY on purpose. Repair belongs to the migration that owns the trigger
+-- (20260811090100_profiles.sql, which recreates it idempotently and backfills);
+-- an assertion that quietly fixed things would hide how often it was needed.
+CREATE OR REPLACE FUNCTION public.assert_signin_intact() RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_fn      bool;
+  v_trigger bool;
+  v_enabled bool;
+  v_orphans bigint;
+BEGIN
+  SELECT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'handle_new_user')
+    INTO v_fn;
+
+  -- tgisinternal excludes the constraint triggers Postgres creates for foreign
+  -- keys, which would otherwise make a missing trigger look present.
+  SELECT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'trg_auth_user_created' AND NOT tgisinternal)
+    INTO v_trigger;
+
+  -- 'D' is DISABLED. A disabled trigger exists, reports present in every naive
+  -- check, and does nothing at all — the same broken sign-in wearing a
+  -- convincing disguise.
+  SELECT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'trg_auth_user_created' AND NOT tgisinternal
+                    AND tgenabled <> 'D')
+    INTO v_enabled;
+
+  IF NOT v_fn THEN
+    RAISE EXCEPTION
+      'SIGN-IN: public.handle_new_user() is missing. Any new account would fail '
+      'to be created and nobody new could sign in. Nothing has been committed.'
+      USING ERRCODE = 'RUL01';
+  END IF;
+
+  IF NOT v_trigger THEN
+    RAISE EXCEPTION
+      'SIGN-IN: trigger trg_auth_user_created on auth.users is missing — this is '
+      'what DROP SCHEMA public CASCADE removes. First-time sign-in would fail '
+      'with "Database error saving new user". Nothing has been committed.'
+      USING ERRCODE = 'RUL01';
+  END IF;
+
+  IF NOT v_enabled THEN
+    RAISE EXCEPTION
+      'SIGN-IN: trigger trg_auth_user_created exists but is DISABLED, so it '
+      'creates no profile. Nothing has been committed.' USING ERRCODE = 'RUL01';
+  END IF;
+
+  -- Not fatal: an account with no profile can still authenticate, and the app
+  -- says so plainly. Worth a warning because it means somebody signed in while
+  -- the trigger was gone, and the backfill in 20260811090100 clears it.
+  SELECT count(*) INTO v_orphans
+    FROM auth.users u
+   WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id);
+
+  IF v_orphans > 0 THEN
+    RAISE WARNING
+      'SIGN-IN: % account(s) exist with no profiles row. They can authenticate '
+      'but the app will show "this account has no row in the database". Re-run '
+      'the bundle, or supabase/PATCH_20260816_restore_signin_trigger.sql, to '
+      'backfill them.', v_orphans;
+  END IF;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.assert_signin_intact() FROM PUBLIC, anon,
+  authenticated, service_role;
+
+SELECT public.assert_signin_intact();
 SELECT public.assert_function_grants();
 SELECT public.assert_no_public_execute();
 SELECT public.assert_views_security_invoker();

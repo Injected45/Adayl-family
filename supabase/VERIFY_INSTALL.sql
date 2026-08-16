@@ -155,6 +155,60 @@ results(sort_key, check_name, detail, status) AS (
          count(*)::text || ' profile(s)',
          CASE WHEN count(*) > 0 THEN 'OK' ELSE 'TODO' END
     FROM public.profiles
+
+  -- ── 11. THE CHECK THIS FILE EXISTED WITHOUT, AND SHOULD NOT HAVE ──────────
+  -- VERIFY_INSTALL is here to tell apart the several ways a project ends up as
+  -- "a login screen that goes nowhere". This is the most common of them and it
+  -- was the one thing not checked.
+  --
+  -- trg_auth_user_created sits on auth.users but calls a function in `public`,
+  -- so DROP SCHEMA public CASCADE — what RESET_AND_APPLY.sql runs — takes it.
+  -- Without it, creating an account raises and GoTrue answers "Database error
+  -- saving new user". EXISTING accounts are unaffected, because signing in
+  -- inserts nothing — which is why it reads as "it works for me" to whoever
+  -- checks.
+  UNION ALL
+  SELECT 11, 'sign-in trigger (new accounts)',
+         CASE
+           WHEN NOT EXISTS (SELECT 1 FROM pg_proc p
+                              JOIN pg_namespace n ON n.oid = p.pronamespace
+                             WHERE n.nspname = 'public'
+                               AND p.proname = 'handle_new_user')
+             THEN 'handle_new_user() MISSING — nobody new can sign in'
+           WHEN NOT EXISTS (SELECT 1 FROM pg_trigger
+                             WHERE tgname = 'trg_auth_user_created'
+                               AND NOT tgisinternal)
+             THEN 'trg_auth_user_created MISSING — run '
+                  || 'supabase/PATCH_20260816_restore_signin_trigger.sql'
+           WHEN EXISTS (SELECT 1 FROM pg_trigger
+                         WHERE tgname = 'trg_auth_user_created'
+                           AND NOT tgisinternal AND tgenabled = 'D')
+             THEN 'trigger present but DISABLED — it creates no profile'
+           ELSE 'present and enabled'
+         END,
+         CASE
+           WHEN EXISTS (SELECT 1 FROM pg_trigger
+                         WHERE tgname = 'trg_auth_user_created'
+                           AND NOT tgisinternal AND tgenabled <> 'D')
+            AND EXISTS (SELECT 1 FROM pg_proc p
+                          JOIN pg_namespace n ON n.oid = p.pronamespace
+                         WHERE n.nspname = 'public'
+                           AND p.proname = 'handle_new_user')
+             THEN 'OK' ELSE 'FAIL'
+         END
+
+  -- 12. The other half of the same fault. A reset empties `public` but leaves
+  --     auth.users, and signing in creates no profile because it inserts
+  --     nothing — so everyone who already had an account is stranded on "this
+  --     account has no row in the database" until they are backfilled.
+  UNION ALL
+  SELECT 12, 'accounts with no profile row',
+         CASE WHEN count(*) = 0 THEN 'none — every account has a profile'
+              ELSE count(*)::text || ' stranded; re-run the bundle or '
+                   || 'PATCH_20260816_restore_signin_trigger.sql' END,
+         CASE WHEN count(*) = 0 THEN 'OK' ELSE 'FAIL' END
+    FROM auth.users u
+   WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
 )
 
 SELECT check_name AS "الفحص", detail AS "التفصيل", status AS "الحالة"

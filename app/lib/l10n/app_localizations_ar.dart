@@ -106,6 +106,22 @@ class LAr extends L {
   String get copy => 'نسخ';
 
   @override
+  String get copied => 'تم النسخ';
+
+  @override
+  String get bankAccountSection => 'الحساب المصرفي للجمعية';
+
+  @override
+  String get bankAccountNoField => 'رقم الحساب';
+
+  @override
+  String get bankAccountNameField => 'اسم صاحب الحساب';
+
+  @override
+  String get bankAccountNotConfigured =>
+      'لم يُسجَّل الحساب المصرفي للجمعية بعد — أضفه من الإعدادات. يمكنك تسجيل الحوالة الآن، لكن الإيصال لن يذكر حساباً.';
+
+  @override
   String get loading => 'جارٍ التحميل...';
 
   @override
@@ -338,6 +354,10 @@ class LAr extends L {
 
   @override
   String get receiver => 'المستلم';
+
+  @override
+  String get receiverNotConfigured =>
+      'لم تُسجَّل أسماء المسؤولين بعد — أضفها من الإعدادات';
 
   @override
   String get notesField => 'ملاحظات';
@@ -642,6 +662,26 @@ class LAr extends L {
 
   @override
   String get myStatementSection => 'كشف الحساب';
+
+  @override
+  String get statementSearchHint =>
+      'ابحث في الكشف: تاريخ، مرجع، مبلغ، نوع الحركة...';
+
+  @override
+  String get clearSearch => 'مسح البحث';
+
+  @override
+  String statementShowing(int shown, int total) {
+    return 'عرض $shown من $total حركة';
+  }
+
+  @override
+  String statementShowMore(int count) {
+    return 'عرض $count أخرى';
+  }
+
+  @override
+  String get statementShowAll => 'عرض الكل';
 
   @override
   String get ledgerParticulars => 'البيان';

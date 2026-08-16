@@ -9,6 +9,7 @@ import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../auth/domain/app_user.dart';
 import '../../directory/domain/models.dart';
 import '../../directory/presentation/providers.dart';
 import '../domain/models.dart';
@@ -43,8 +44,21 @@ class _PaymentSheet extends ConsumerStatefulWidget {
 class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   final TextEditingController _amount = TextEditingController();
   final TextEditingController _reference = TextEditingController();
-  final TextEditingController _receiver = TextEditingController();
   final TextEditingController _notes = TextEditingController();
+
+  /// Who took the money — one of the two officials named in settings, not free
+  /// text.
+  ///
+  /// It was a text field, and a text field for a name that only ever has two
+  /// possible values collects spelling variants: the same treasurer arrives as
+  /// three different receivers across a year of receipts, and "who collected
+  /// this" stops being answerable by grouping. The names live in
+  /// association_settings and are already served by v_officials, so the sheet
+  /// reads them rather than asking the treasurer to retype one.
+  ///
+  /// Nullable because the server keeps `receiver` optional — an association that
+  /// has not filled in the two names yet must still be able to collect.
+  String? _receiver;
 
   int? _adeelId;
   String _method = PaymentMethodWire.cash;
@@ -61,7 +75,6 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   void dispose() {
     _amount.dispose();
     _reference.dispose();
-    _receiver.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -102,7 +115,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             amount: _amount.text.trim(),
             method: _method,
             reference: _reference.text.trim(),
-            receiver: _receiver.text.trim(),
+            receiver: _receiver,
             notes: _notes.text.trim(),
           );
 
@@ -287,12 +300,15 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     decoration: InputDecoration(labelText: l.reference),
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  const _BankAccountPanel(),
+                  const SizedBox(height: AppSpacing.md),
                 ],
 
-                TextField(
-                  controller: _receiver,
+                _ReceiverField(
+                  value: _receiver,
                   enabled: !_submitting,
-                  decoration: InputDecoration(labelText: l.receiver),
+                  onChanged: (String? name) =>
+                      setState(() => _receiver = name),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
@@ -336,6 +352,198 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   }
 }
 
+/// The association's receiving bank account, shown when the method is a
+/// transfer.
+///
+/// READ-ONLY, and that is the design rather than a shortcut. The account is the
+/// association's own, so there is nothing for a treasurer to decide at
+/// collection time — and `register_payment` snapshots it onto the payment
+/// SERVER-SIDE from `association_settings`, so anything typed here could only
+/// disagree with what is actually recorded. Showing it is what the treasurer
+/// needs: the number to read out to whoever is transferring, and a check that
+/// the receipt will name the right account.
+///
+/// Copyable for the same reason — the number is meant to be sent to a member
+/// over WhatsApp, and retyping a bank account by hand is how a digit gets lost.
+class _BankAccountPanel extends ConsumerWidget {
+  const _BankAccountPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<AssociationSettingsView> settings = ref.watch(
+      settingsProvider,
+    );
+    final AssociationSettingsView? data = settings.valueOrNull;
+
+    // Not configured yet, or still loading: say where to set it rather than
+    // rendering two empty lines. The payment is NOT blocked — the server keeps
+    // both columns nullable, so a transfer taken before an account exists is
+    // recorded with none, which is the truth.
+    if (data == null || !data.hasBankAccount) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.warningSoft,
+          borderRadius: BorderRadius.circular(AppRadius.control),
+        ),
+        child: Text(
+          l.bankAccountNotConfigured,
+          style: const TextStyle(fontSize: 12, height: 1.5),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.neutralSoft,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            l.bankAccountSection,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _CopyableLine(label: l.bankAccountNoField, value: data.bankAccountNo),
+          if (data.bankAccountName.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            _CopyableLine(
+              label: l.bankAccountNameField,
+              value: data.bankAccountName,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CopyableLine extends StatelessWidget {
+  const _CopyableLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return Row(
+      children: <Widget>[
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: SelectableText(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy, size: 16),
+          tooltip: l.copy,
+          visualDensity: VisualDensity.compact,
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: value));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(l.copied)));
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Who received the money, chosen from the two officials named in settings.
+///
+/// A dropdown rather than a text field, and the reason is not tidiness: a free
+/// text box for a name with two possible values collects spelling variants. The
+/// same treasurer arrives as three different receivers across a year of
+/// receipts, and "how much did he collect" stops being answerable by grouping —
+/// on a ledger whose whole point is that the figures tie out.
+///
+/// The names come from `v_officials`, which reads the same
+/// `association_settings` row the settings screen writes, so there is one
+/// spelling of each name in the system and renaming an official in settings
+/// changes what this offers immediately.
+///
+/// Nothing here is a rule. `receiver` is optional on the server and stays
+/// optional: an association that has not filled in the two names yet must still
+/// be able to record a collection, so the field degrades to a disabled dropdown
+/// that says where to set them rather than blocking the payment.
+class _ReceiverField extends ConsumerWidget {
+  const _ReceiverField({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<List<Official>> officials = ref.watch(officialsProvider);
+
+    // valueOrNull, not .when: while the two names load, or if that read fails,
+    // the sheet must keep working. An empty list renders the disabled state,
+    // which is the same thing an association with no officials set sees.
+    final List<Official> named = <Official>[
+      for (final Official official
+          in officials.valueOrNull ?? const <Official>[])
+        if (official.name.trim().isNotEmpty) official,
+    ];
+
+    return DropdownButtonFormField<String>(
+      // A name that is no longer offered — an official renamed in settings
+      // while this sheet sat open — would make the dropdown assert. Fall back
+      // to nothing selected instead.
+      initialValue:
+          named.any((Official official) => official.name == value)
+          ? value
+          : null,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l.receiver,
+        helperText: named.isEmpty ? l.receiverNotConfigured : null,
+        helperMaxLines: 2,
+      ),
+      items: <DropdownMenuItem<String>>[
+        for (final Official official in named)
+          DropdownMenuItem<String>(
+            value: official.name,
+            child: Text(
+              '${official.name} • ${_roleLabel(l, official.role)}',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: enabled && named.isNotEmpty ? onChanged : null,
+    );
+  }
+
+  /// `v_officials` sends the role as its wire name, the same literal `app_role`
+  /// stores. The label beside the name is what the user reads, so it comes from
+  /// l10n — and an unrecognised role falls through to the raw value rather than
+  /// being hidden, because a role we cannot name is worth seeing.
+  static String _roleLabel(L l, String wire) {
+    if (wire == AppRole.treasurer.wireName) return l.roleTreasurer;
+    if (wire == AppRole.financeManager.wireName) return l.roleFinanceManager;
+    return wire;
+  }
+}
+
 /// Shows what the SERVER actually allocated. Deliberately not predicted before
 /// confirming: the FIFO rule lives on the server and duplicating it here would
 /// create a second implementation that could quietly disagree.
@@ -352,6 +560,23 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
           LabelledValue(label: l.receiptNo, value: payment.receiptNo),
           const SizedBox(height: AppSpacing.md),
           LabelledValue(label: l.amount, value: formatMoney(payment.amount)),
+          // The account the money went to, off the payment's own snapshot — so
+          // this receipt keeps naming it even after the association banks
+          // somewhere else. Absent for cash, which has none.
+          if (payment.bankAccountNo.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            LabelledValue(
+              label: l.bankAccountNoField,
+              value: payment.bankAccountNo,
+            ),
+          ],
+          if (payment.bankAccountName.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            LabelledValue(
+              label: l.bankAccountNameField,
+              value: payment.bankAccountName,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           Text(
             l.allocationPreview,

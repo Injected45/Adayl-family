@@ -173,9 +173,39 @@ CREATE TRIGGER trg_profiles_touch
 --
 -- A trigger on auth.users, not a client insert: if the app created its own
 -- profile row it could choose its own role, and the anon key is public.
+-- ═════════════════════════════════════════════════════════════════════════════
+--  SIGNING IN MUST NEVER BREAK. Everything in this block exists for that.
+--
+--  This trigger is the single most fragile thing in the schema, and the reason
+--  is structural: it lives on `auth.users` — GoTrue's table — but its function
+--  lives in `public`. `DROP SCHEMA public CASCADE`, which RESET_AND_APPLY.sql
+--  runs, therefore takes the trigger with the schema. If it does not come back,
+--  the INSERT that CREATES an account raises, GoTrue answers "Database error
+--  saving new user", and no new person can sign in again, by Google or by the
+--  dev email/password login. It has happened on the live project.
+--
+--  That failure is also the worst kind to diagnose, because it is asymmetric:
+--  anyone already in `auth.users` inserts nothing and signs in perfectly. So it
+--  reads as "it works for me", and whoever tests it is usually already in.
+--
+--  Three separate guarantees now stand between that and the association:
+--    1. the trigger is recreated IDEMPOTENTLY here, so any re-apply restores it
+--       rather than failing on "already exists";
+--    2. the function CANNOT RAISE, so no error inside it can ever block an
+--       account being created;
+--    3. assert_signin_intact() refuses to let any apply or patch COMMIT with
+--       this broken — see 20260811091200_function_lockdown.sql.
+-- ═════════════════════════════════════════════════════════════════════════════
+
 CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 BEGIN
+  -- Bare ON CONFLICT DO NOTHING, not ON CONFLICT (id). The id is not the only
+  -- unique thing on this table: uq_profiles_email would raise for a second
+  -- account carrying an email already present — a reused address, or a phone
+  -- signup where coalesce(email,'') collapses to the same empty string twice.
+  -- Naming the id constraint leaves those cases raising, and a raise here is an
+  -- account that cannot be created.
   INSERT INTO public.profiles (id, email, display_name, picture_url)
   VALUES (
     NEW.id,
@@ -185,13 +215,57 @@ BEGIN
              split_part(coalesce(NEW.email, ''), '@', 1)),
     NEW.raw_user_meta_data ->> 'avatar_url'
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- DELIBERATELY SWALLOWED, and this is the one place in the schema where that
+  -- is the right call. Weigh the two failures against each other:
+  --
+  --   raise   → GoTrue cannot create the account. The person can NEVER sign in,
+  --             there is no message that says why, and no amount of retrying or
+  --             reinstalling helps. Unrecoverable from the app.
+  --   swallow → the account exists with no profiles row. The app already has a
+  --             specific screen for exactly this (errorProfileMissing), an
+  --             admin sees it, and the backfill below or the next apply repairs
+  --             it in one statement. Recoverable, visible, and harmless — the
+  --             row grants nothing, since a profile is viewer/pending anyway.
+  --
+  -- A convenience row must never be able to hold authentication hostage.
   RETURN NEW;
 END $$;
 
+-- DROP-then-CREATE, because Postgres has no CREATE OR REPLACE TRIGGER before 14
+-- and this must succeed whether the trigger is missing, present, or half
+-- restored by an earlier repair. Re-running the bundle is now a repair rather
+-- than an error.
+DROP TRIGGER IF EXISTS trg_auth_user_created ON auth.users;
 CREATE TRIGGER trg_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ── Backfill: nobody who already has an account is left without a profile ────
+-- The trigger fires on INSERT into auth.users and nothing else. So after a
+-- reset — which empties `public` but leaves `auth.users` standing — every
+-- existing member has an account and NO profile, and signing in does not create
+-- one, because signing in inserts nothing. They would each be stuck on
+-- "this account has no row in the database" with no way out from the app.
+--
+-- On a genuinely fresh project auth.users is empty and this does nothing.
+--
+-- Everyone lands viewer/pending, exactly as the trigger would have made them.
+-- NO access is granted here: the first admin is still a deliberate manual step
+-- (supabase/bootstrap_first_admin.sql).
+INSERT INTO public.profiles (id, email, display_name, picture_url)
+SELECT u.id,
+       coalesce(u.email, ''),
+       coalesce(u.raw_user_meta_data ->> 'full_name',
+                u.raw_user_meta_data ->> 'name',
+                split_part(coalesce(u.email, ''), '@', 1)),
+       u.raw_user_meta_data ->> 'avatar_url'
+  FROM auth.users u
+ WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
+ON CONFLICT DO NOTHING;
 
 -- Rule: nobody may promote themselves, and the last admin cannot be demoted or
 -- locked out. Both were app-layer checks in api/src/users/routes.ts; with no
@@ -340,6 +414,24 @@ CREATE TABLE public.association_settings (
 
   finance_manager_name        text          NOT NULL DEFAULT '',
   finance_manager_phone       text          NOT NULL DEFAULT '',
+
+  -- ── The association's own receiving bank account ──────────────────────────
+  -- Where a تحويل مصرفي lands. ONE account, held here rather than typed per
+  -- payment, for the same reason the officials' names are: it is a property of
+  -- the association, and a treasurer retyping it on every receipt would produce
+  -- a different digit string sooner or later — on the one field whose whole
+  -- purpose is matching the bank's statement.
+  --
+  -- Readable by every approved member INCLUDING an عديل on the portal
+  -- (read_settings_adeel), which is intended: he is the one being asked to
+  -- transfer, so the account he must send to cannot be staff-only.
+  --
+  -- Empty by default and never validated for format. Libyan IBANs, plain
+  -- account numbers and whatever a given bank prints are all legitimate here,
+  -- and a CHECK would refuse the association's real account on the day they
+  -- open one at a different bank.
+  bank_account_no             text          NOT NULL DEFAULT '',
+  bank_account_name           text          NOT NULL DEFAULT '',
 
   updated_by                  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
   updated_at                  timestamptz   NOT NULL DEFAULT now(),
@@ -688,6 +780,26 @@ CREATE TABLE public.payments (
   cancelled_at  timestamptz,
   cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
   cancel_reason text,
+
+  -- ── IMMUTABLE SNAPSHOT of the receiving account ───────────────────────────
+  -- Which association bank account this تحويل مصرفي landed in, as it stood at
+  -- the moment of collection. Copied here rather than joined to
+  -- association_settings for exactly the reason receivables.adeel_name is
+  -- copied: the association will change bank one day, and a receipt reprinted
+  -- afterwards must still name the account the money actually went to. A join
+  -- would silently restate every historical receipt with the new account.
+  --
+  -- Filled by register_payment FROM SETTINGS, never sent by the client. The
+  -- caller does not get to say where the association's money went — and since
+  -- the anon key ships in the APK, "the client would not lie" is not a
+  -- guarantee available here.
+  --
+  -- NULL for cash, and NULL for a transfer taken before any account was
+  -- configured. Nullable rather than defaulted to '' so those two cases stay
+  -- distinguishable from an account that is genuinely blank.
+  bank_account_no   text,
+  bank_account_name text,
+
   legacy_id     text,
 
   CONSTRAINT uq_pay_receipt UNIQUE (receipt_no),
@@ -1094,6 +1206,8 @@ DECLARE
   v_payment_id  bigint;
   v_receipt     text;
   v_take        numeric(12,2);
+  v_acct_no     text;
+  v_acct_name   text;
   v_seq         smallint := 0;
   r             record;
   v_allocs      jsonb := '[]'::jsonb;
@@ -1141,10 +1255,24 @@ BEGIN
       p_amount, v_outstanding USING ERRCODE = 'RUL07';
   END IF;
 
+  -- The receiving account, snapshotted for a تحويل مصرفي and left NULL for
+  -- cash. Read from settings HERE rather than accepted as a parameter: the
+  -- account is the association's own, so the caller has no business naming it,
+  -- and the anon key ships inside the APK — anything the client could send, a
+  -- hostile client could forge. Taking it server-side also means no signature
+  -- change, so nothing that calls register_payment has to be touched.
+  IF p_method = 'تحويل مصرفي' THEN
+    SELECT nullif(btrim(bank_account_no), ''),
+           nullif(btrim(bank_account_name), '')
+      INTO v_acct_no, v_acct_name
+      FROM public.association_settings WHERE id = 1;
+  END IF;
+
   INSERT INTO public.payments (adeel_id, amount, method, reference, receiver,
-                               notes, created_by)
+                               notes, created_by,
+                               bank_account_no, bank_account_name)
   VALUES (p_adeel_id, p_amount, p_method, p_reference, p_receiver, p_notes,
-          auth.uid())
+          auth.uid(), v_acct_no, v_acct_name)
   RETURNING id, receipt_no INTO v_payment_id, v_receipt;
 
   v_remaining := p_amount;
@@ -1589,6 +1717,8 @@ BEGIN
     treasurer_phone       = coalesce(p_patch ->> 'treasurerPhone', treasurer_phone),
     finance_manager_name        = coalesce(p_patch ->> 'financeName', finance_manager_name),
     finance_manager_phone       = coalesce(p_patch ->> 'financePhone', finance_manager_phone),
+    bank_account_no             = coalesce(p_patch ->> 'bankAccountNo', bank_account_no),
+    bank_account_name           = coalesce(p_patch ->> 'bankAccountName', bank_account_name),
     updated_by = auth.uid()
   WHERE id = 1
   RETURNING * INTO v_row;
@@ -1611,6 +1741,20 @@ BEGIN
   IF v_row.association_name IS DISTINCT FROM v_old.association_name THEN
     v_changes := v_changes || format('اسم الجمعية من %s إلى %s',
                                      v_old.association_name, v_row.association_name);
+  END IF;
+  -- The account number is recorded in full, both before and after. It is the
+  -- one setting where a single wrong digit sends the association's collections
+  -- to a stranger, and "someone changed the bank account" without saying what
+  -- it was is not a trail anyone can act on.
+  IF v_row.bank_account_no IS DISTINCT FROM v_old.bank_account_no THEN
+    v_changes := v_changes || format('رقم الحساب المصرفي من %s إلى %s',
+                                     coalesce(nullif(v_old.bank_account_no, ''), '—'),
+                                     coalesce(nullif(v_row.bank_account_no, ''), '—'));
+  END IF;
+  IF v_row.bank_account_name IS DISTINCT FROM v_old.bank_account_name THEN
+    v_changes := v_changes || format('اسم صاحب الحساب من %s إلى %s',
+                                     coalesce(nullif(v_old.bank_account_name, ''), '—'),
+                                     coalesce(nullif(v_row.bank_account_name, ''), '—'));
   END IF;
   IF v_row.treasurer_name  IS DISTINCT FROM v_old.treasurer_name
   OR v_row.treasurer_phone IS DISTINCT FROM v_old.treasurer_phone THEN
@@ -2243,7 +2387,12 @@ SELECT
   currency                AS "currency",
   member_fee::text        AS "memberFee",
   to_char(system_start, 'YYYY-MM-DD') AS "systemStart",
-  auto_close_previous_months          AS "autoClosePreviousMonths"
+  auto_close_previous_months          AS "autoClosePreviousMonths",
+  -- Where a transfer should be sent. Deliberately on the WIDELY readable view
+  -- rather than the admin-only settings shape: an عديل on the portal reads this
+  -- view too, and he is the one being asked to transfer.
+  bank_account_no                     AS "bankAccountNo",
+  bank_account_name                   AS "bankAccountName"
 FROM public.association_settings;
 
 -- ── Officials ────────────────────────────────────────────────────────────────
@@ -2339,7 +2488,20 @@ SELECT
        FROM public.payment_allocations al
       WHERE al.payment_id = p.id),
     '[]'::jsonb
-  )                          AS "allocations"
+  )                          AS "allocations",
+  -- ── APPENDED, and it has to stay that way ─────────────────────────────────
+  -- CREATE OR REPLACE VIEW can add columns to the END of the list and nothing
+  -- else: inserting these two after `notes`, where they read more naturally,
+  -- makes Postgres try to rename the existing `status` column and refuse with
+  -- 42P16. A fresh apply would not notice — the view is created, not replaced —
+  -- so it would fail only on the live project, which is the worst place to find
+  -- out. Anything added later goes below these, for the same reason.
+  --
+  -- The snapshot on the payment row, NOT a join to current settings: a receipt
+  -- reprinted after the association changes bank must still name the account
+  -- the money actually went to. Empty string for cash.
+  coalesce(p.bank_account_no, '')   AS "bankAccountNo",
+  coalesce(p.bank_account_name, '') AS "bankAccountName"
 FROM public.payments p
 JOIN public.adeels a ON a.id = p.adeel_id;
 
@@ -2738,6 +2900,8 @@ LANGUAGE sql STABLE AS $$
     'memberFee', s.member_fee::text,
     'systemStart', to_char(s.system_start, 'YYYY-MM-DD'),
     'autoClosePreviousMonths', s.auto_close_previous_months,
+    'bankAccountNo', s.bank_account_no,
+    'bankAccountName', s.bank_account_name,
     'treasurer', jsonb_build_object(
       'name', s.treasurer_name,
       'phone', s.treasurer_phone),
@@ -3057,6 +3221,87 @@ REVOKE EXECUTE ON FUNCTION public.assert_function_grants() FROM PUBLIC, anon,
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions() FROM PUBLIC, anon,
   authenticated, service_role;
 
+-- ── The guarantee that outranks every other one in this file ────────────────
+-- The lockdown assertions above protect the association's MONEY. This one
+-- protects its ability to get into the app at all, which is the only failure
+-- that cannot be fixed from inside the app.
+--
+-- Called at the end of every apply and every patch, BEFORE COMMIT. Because the
+-- bundle and each patch are one transaction, a change that would leave sign-in
+-- broken cannot land: the assertion raises and the whole thing rolls back to
+-- the state that still worked. That is the difference between a rule and a
+-- promise — nothing here depends on the next person remembering this file.
+--
+-- READ-ONLY on purpose. Repair belongs to the migration that owns the trigger
+-- (20260811090100_profiles.sql, which recreates it idempotently and backfills);
+-- an assertion that quietly fixed things would hide how often it was needed.
+CREATE OR REPLACE FUNCTION public.assert_signin_intact() RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_fn      bool;
+  v_trigger bool;
+  v_enabled bool;
+  v_orphans bigint;
+BEGIN
+  SELECT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'handle_new_user')
+    INTO v_fn;
+
+  -- tgisinternal excludes the constraint triggers Postgres creates for foreign
+  -- keys, which would otherwise make a missing trigger look present.
+  SELECT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'trg_auth_user_created' AND NOT tgisinternal)
+    INTO v_trigger;
+
+  -- 'D' is DISABLED. A disabled trigger exists, reports present in every naive
+  -- check, and does nothing at all — the same broken sign-in wearing a
+  -- convincing disguise.
+  SELECT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'trg_auth_user_created' AND NOT tgisinternal
+                    AND tgenabled <> 'D')
+    INTO v_enabled;
+
+  IF NOT v_fn THEN
+    RAISE EXCEPTION
+      'SIGN-IN: public.handle_new_user() is missing. Any new account would fail '
+      'to be created and nobody new could sign in. Nothing has been committed.'
+      USING ERRCODE = 'RUL01';
+  END IF;
+
+  IF NOT v_trigger THEN
+    RAISE EXCEPTION
+      'SIGN-IN: trigger trg_auth_user_created on auth.users is missing — this is '
+      'what DROP SCHEMA public CASCADE removes. First-time sign-in would fail '
+      'with "Database error saving new user". Nothing has been committed.'
+      USING ERRCODE = 'RUL01';
+  END IF;
+
+  IF NOT v_enabled THEN
+    RAISE EXCEPTION
+      'SIGN-IN: trigger trg_auth_user_created exists but is DISABLED, so it '
+      'creates no profile. Nothing has been committed.' USING ERRCODE = 'RUL01';
+  END IF;
+
+  -- Not fatal: an account with no profile can still authenticate, and the app
+  -- says so plainly. Worth a warning because it means somebody signed in while
+  -- the trigger was gone, and the backfill in 20260811090100 clears it.
+  SELECT count(*) INTO v_orphans
+    FROM auth.users u
+   WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id);
+
+  IF v_orphans > 0 THEN
+    RAISE WARNING
+      'SIGN-IN: % account(s) exist with no profiles row. They can authenticate '
+      'but the app will show "this account has no row in the database". Re-run '
+      'the bundle, or supabase/PATCH_20260816_restore_signin_trigger.sql, to '
+      'backfill them.', v_orphans;
+  END IF;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.assert_signin_intact() FROM PUBLIC, anon,
+  authenticated, service_role;
+
+SELECT public.assert_signin_intact();
 SELECT public.assert_function_grants();
 SELECT public.assert_no_public_execute();
 SELECT public.assert_views_security_invoker();
@@ -3144,7 +3389,20 @@ BEGIN
     v_tables, v_views, v_funcs;
 END $verify$;
 
--- The two standing guarantees, re-run last.
+-- ── Sign-in, checked LAST and checked here on purpose ───────────────────────
+-- This file is the one that runs DROP SCHEMA public CASCADE (in its
+-- RESET_AND_APPLY form), and that is precisely what removes
+-- trg_auth_user_created — a trigger on auth.users whose function lives in
+-- `public`. Losing it means no new person can ever sign in, by Google or by the
+-- dev login, and the failure is invisible to whoever tests it because their own
+-- account already exists.
+--
+-- Because everything above is ONE TRANSACTION, this assertion is a hard stop:
+-- if the apply would leave sign-in broken, nothing is committed and the project
+-- stays exactly as it was.
+SELECT public.assert_signin_intact();
+
+-- The money guarantees, re-run last.
 SELECT public.assert_no_public_execute();
 SELECT public.assert_views_security_invoker();
 

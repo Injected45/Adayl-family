@@ -97,6 +97,12 @@ void main() {
         'memberFee': '20.00',
         'systemStart': '2026-01-01',
         'autoClosePreviousMonths': true,
+        // The association's receiving account. register_payment snapshots it
+        // onto every تحويل مصرفي server-side, so it has to survive this trip
+        // intact — a field dropped here is an account number silently reverting
+        // to blank the next time an admin saves settings.
+        'bankAccountNo': 'LY83 0021 0000 0001 2345 6789',
+        'bankAccountName': 'جمعية العدايل',
         'treasurer': <String, dynamic>{
           'name': 'سالم',
           'phone': '09',

@@ -66,6 +66,8 @@ DECLARE
   v_payment_id  bigint;
   v_receipt     text;
   v_take        numeric(12,2);
+  v_acct_no     text;
+  v_acct_name   text;
   v_seq         smallint := 0;
   r             record;
   v_allocs      jsonb := '[]'::jsonb;
@@ -113,10 +115,24 @@ BEGIN
       p_amount, v_outstanding USING ERRCODE = 'RUL07';
   END IF;
 
+  -- The receiving account, snapshotted for a تحويل مصرفي and left NULL for
+  -- cash. Read from settings HERE rather than accepted as a parameter: the
+  -- account is the association's own, so the caller has no business naming it,
+  -- and the anon key ships inside the APK — anything the client could send, a
+  -- hostile client could forge. Taking it server-side also means no signature
+  -- change, so nothing that calls register_payment has to be touched.
+  IF p_method = 'تحويل مصرفي' THEN
+    SELECT nullif(btrim(bank_account_no), ''),
+           nullif(btrim(bank_account_name), '')
+      INTO v_acct_no, v_acct_name
+      FROM public.association_settings WHERE id = 1;
+  END IF;
+
   INSERT INTO public.payments (adeel_id, amount, method, reference, receiver,
-                               notes, created_by)
+                               notes, created_by,
+                               bank_account_no, bank_account_name)
   VALUES (p_adeel_id, p_amount, p_method, p_reference, p_receiver, p_notes,
-          auth.uid())
+          auth.uid(), v_acct_no, v_acct_name)
   RETURNING id, receipt_no INTO v_payment_id, v_receipt;
 
   v_remaining := p_amount;
@@ -561,6 +577,8 @@ BEGIN
     treasurer_phone       = coalesce(p_patch ->> 'treasurerPhone', treasurer_phone),
     finance_manager_name        = coalesce(p_patch ->> 'financeName', finance_manager_name),
     finance_manager_phone       = coalesce(p_patch ->> 'financePhone', finance_manager_phone),
+    bank_account_no             = coalesce(p_patch ->> 'bankAccountNo', bank_account_no),
+    bank_account_name           = coalesce(p_patch ->> 'bankAccountName', bank_account_name),
     updated_by = auth.uid()
   WHERE id = 1
   RETURNING * INTO v_row;
@@ -583,6 +601,20 @@ BEGIN
   IF v_row.association_name IS DISTINCT FROM v_old.association_name THEN
     v_changes := v_changes || format('اسم الجمعية من %s إلى %s',
                                      v_old.association_name, v_row.association_name);
+  END IF;
+  -- The account number is recorded in full, both before and after. It is the
+  -- one setting where a single wrong digit sends the association's collections
+  -- to a stranger, and "someone changed the bank account" without saying what
+  -- it was is not a trail anyone can act on.
+  IF v_row.bank_account_no IS DISTINCT FROM v_old.bank_account_no THEN
+    v_changes := v_changes || format('رقم الحساب المصرفي من %s إلى %s',
+                                     coalesce(nullif(v_old.bank_account_no, ''), '—'),
+                                     coalesce(nullif(v_row.bank_account_no, ''), '—'));
+  END IF;
+  IF v_row.bank_account_name IS DISTINCT FROM v_old.bank_account_name THEN
+    v_changes := v_changes || format('اسم صاحب الحساب من %s إلى %s',
+                                     coalesce(nullif(v_old.bank_account_name, ''), '—'),
+                                     coalesce(nullif(v_row.bank_account_name, ''), '—'));
   END IF;
   IF v_row.treasurer_name  IS DISTINCT FROM v_old.treasurer_name
   OR v_row.treasurer_phone IS DISTINCT FROM v_old.treasurer_phone THEN

@@ -115,7 +115,20 @@ BEGIN
     v_tables, v_views, v_funcs;
 END $verify$;
 
--- The two standing guarantees, re-run last.
+-- ── Sign-in, checked LAST and checked here on purpose ───────────────────────
+-- This file is the one that runs DROP SCHEMA public CASCADE (in its
+-- RESET_AND_APPLY form), and that is precisely what removes
+-- trg_auth_user_created — a trigger on auth.users whose function lives in
+-- `public`. Losing it means no new person can ever sign in, by Google or by the
+-- dev login, and the failure is invisible to whoever tests it because their own
+-- account already exists.
+--
+-- Because everything above is ONE TRANSACTION, this assertion is a hard stop:
+-- if the apply would leave sign-in broken, nothing is committed and the project
+-- stays exactly as it was.
+SELECT public.assert_signin_intact();
+
+-- The money guarantees, re-run last.
 SELECT public.assert_no_public_execute();
 SELECT public.assert_views_security_invoker();
 

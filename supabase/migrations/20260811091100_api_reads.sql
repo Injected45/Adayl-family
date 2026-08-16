@@ -312,6 +312,8 @@ LANGUAGE sql STABLE AS $$
     'memberFee', s.member_fee::text,
     'systemStart', to_char(s.system_start, 'YYYY-MM-DD'),
     'autoClosePreviousMonths', s.auto_close_previous_months,
+    'bankAccountNo', s.bank_account_no,
+    'bankAccountName', s.bank_account_name,
     'treasurer', jsonb_build_object(
       'name', s.treasurer_name,
       'phone', s.treasurer_phone),

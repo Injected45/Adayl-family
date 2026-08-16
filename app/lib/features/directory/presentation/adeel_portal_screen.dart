@@ -294,17 +294,51 @@ class _Field extends StatelessWidget {
 /// balance away and printed one coloured number per row, so a charge and a
 /// receipt looked like the same kind of event and nothing showed how the two of
 /// them met. Every figure below is the server's; none is added up here.
-class _Ledger extends StatelessWidget {
+class _Ledger extends StatefulWidget {
   const _Ledger({required this.statement, required this.detail});
 
   final Statement statement;
   final AdeelDetail detail;
 
+  /// How many movements one page holds.
+  ///
+  /// A statement is read top-down, so the cost of too many rows is not the
+  /// scrolling — it is that the reader loses which balance belongs to which
+  /// month. Ten is about what stays graspable on a phone without a scroll
+  /// gesture between a movement and its balance. One constant, one place to
+  /// change it.
+  static const int rowsPerPage = 10;
+
+  @override
+  State<_Ledger> createState() => _LedgerState();
+}
+
+class _LedgerState extends State<_Ledger> {
+  final TextEditingController _search = TextEditingController();
+
+  /// Pages revealed so far. Pages after this exist and are simply not built —
+  /// the statement is already in memory, so "loading" more is instant and the
+  /// button is about how much is ASKED FOR, not about fetching.
+  int _pagesShown = 1;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged() {
+    // Back to one page on every keystroke. Without this, searching after
+    // revealing six pages shows six pages of a two-row result and the "show
+    // more" button vanishes with no explanation of what changed.
+    setState(() => _pagesShown = 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
 
-    if (statement.movements.isEmpty) {
+    if (widget.statement.movements.isEmpty) {
       return Column(
         children: <Widget>[
           _SectionTitle(l.myStatementSection),
@@ -312,6 +346,15 @@ class _Ledger extends StatelessWidget {
         ],
       );
     }
+
+    final List<StatementMovement> matches = _filter(
+      widget.statement.movements,
+      _search.text,
+      widget.detail,
+    );
+    final int total = matches.length;
+    final int shown = (_pagesShown * _Ledger.rowsPerPage).clamp(0, total);
+    final int remaining = total - shown;
 
     // Columns are sized in scaled pixels, so the table grows with the reader's
     // text size instead of clipping at it. Below the width that needs, it
@@ -322,40 +365,255 @@ class _Ledger extends StatelessWidget {
 
     return GlassPanel(
       title: l.myStatementSection,
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final double needed = particulars + money * 3;
-          final double width = constraints.maxWidth > needed
-              ? constraints.maxWidth
-              : needed;
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: width,
-              child: Column(
-                children: <Widget>[
-                  _LedgerHead(money: money),
-                  for (int i = 0; i < statement.movements.length; i++)
-                    _LedgerRow(
-                      movement: statement.movements[i],
-                      money: money,
-                      // Zebra striping. A four-column table of near-identical
-                      // numbers is where the eye slips a line, and the stripe
-                      // is what keeps a balance attached to its own movement.
-                      shaded: i.isOdd,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // OUTSIDE the horizontal scroller below on purpose: the table may be
+          // wider than the panel and scroll sideways, and a search box that
+          // slid away with it would be unreachable exactly when the table is
+          // at its most crowded.
+          TextField(
+            controller: _search,
+            onChanged: (_) => _onQueryChanged(),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: l.statementSearchHint,
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _search.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: l.clearSearch,
+                      onPressed: () {
+                        _search.clear();
+                        _onQueryChanged();
+                      },
                     ),
-                  _LedgerTotals(
-                    detail: detail,
-                    statement: statement,
-                    money: money,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          if (total == 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Text(
+                l.noSearchResults,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppColors.muted),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final double needed = particulars + money * 3;
+                final double width = constraints.maxWidth > needed
+                    ? constraints.maxWidth
+                    : needed;
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: width,
+                    child: Column(
+                      children: <Widget>[
+                        _LedgerHead(money: money),
+                        for (int i = 0; i < shown; i++)
+                          _LedgerRow(
+                            movement: matches[i],
+                            money: money,
+                            // Zebra striping. A four-column table of
+                            // near-identical numbers is where the eye slips a
+                            // line, and the stripe is what keeps a balance
+                            // attached to its own movement.
+                            shaded: i.isOdd,
+                          ),
+                        // The totals stay the ACCOUNT's, never the filtered
+                        // set's: closingBalance is the server's window
+                        // function over every movement, and a bank statement
+                        // narrowed by a search still states what the account
+                        // stands at. Summing the visible rows here would
+                        // invent a second, disagreeing figure.
+                        _LedgerTotals(
+                          detail: widget.detail,
+                          statement: widget.statement,
+                          money: money,
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                );
+              },
+            ),
+
+          if (total > 0) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            _LedgerPager(
+              shown: shown,
+              total: total,
+              remaining: remaining,
+              pageSize: _Ledger.rowsPerPage,
+              onMore: () => setState(() => _pagesShown++),
+              onAll: () => setState(
+                () => _pagesShown =
+                    (total / _Ledger.rowsPerPage).ceil().clamp(1, 1 << 30),
               ),
             ),
-          );
-        },
+          ],
+        ],
       ),
+    );
+  }
+}
+
+/// Free-text search over a statement, matching ANY part of ANY movement.
+///
+/// ── Why this cannot be a plain `contains` ───────────────────────────────────
+/// What the reader SEES and what the row HOLDS are different strings.
+/// `formatMoney` renders through `ar_LY`, so 20.00 appears as ٢٠٫٠٠, and
+/// `formatDate` renders 2026-03-15 as ١٥‏/٣‏/٢٠٢٦. A search box that matched
+/// the raw values would fail for anyone typing what is on their screen, and one
+/// that matched only the formatted values would fail for anyone typing on a
+/// Latin keyboard. Both forms go into the haystack, and the query is folded to
+/// one digit system, so either way of typing the same number finds the row.
+///
+/// The عديل's own name and phone are searchable too, as asked. They are the
+/// same on every row of his statement, so typing his name matches everything —
+/// which is the honest answer to "search by any part", not a bug.
+List<StatementMovement> _filter(
+  List<StatementMovement> movements,
+  String query,
+  AdeelDetail detail,
+) {
+  final String needle = _fold(query);
+  if (needle.isEmpty) return movements;
+
+  // Every term must match, in any field and in any order: "دفعة ٢٠" finds the
+  // 20.00 payments without the reader having to know which column is which.
+  final List<String> terms = needle.split(RegExp(r'\s+'))
+    ..removeWhere((String t) => t.isEmpty);
+
+  return <StatementMovement>[
+    for (final StatementMovement m in movements)
+      if (terms.every(_haystack(m, detail).contains)) m,
+  ];
+}
+
+String _haystack(StatementMovement m, AdeelDetail detail) => _fold(
+  <String>[
+    m.date, formatDate(m.date),
+    m.reference,
+    m.type,
+    m.debit ?? '', formatMoney(m.debit),
+    m.credit ?? '', formatMoney(m.credit),
+    m.balance, formatMoney(m.balance),
+    m.note,
+    detail.adeel.fullName,
+    detail.adeel.phone,
+    detail.adeel.adeelCode,
+  ].join(' '),
+);
+
+/// Folds a string to one comparable form: Arabic-Indic digits become Latin,
+/// the Arabic letters that are typed interchangeably are unified, and the marks
+/// a reader never types are dropped.
+///
+/// Without the letter folding, someone searching for إبراهيم by typing ابراهيم
+/// gets nothing — the two differ only in a hamza most keyboards make awkward.
+/// Without the digit folding, no amount on screen is findable by typing it.
+String _fold(String input) {
+  final StringBuffer out = StringBuffer();
+  for (final int rune in input.toLowerCase().runes) {
+    // Arabic-Indic ٠-٩ (U+0660) and Extended Arabic-Indic ۰-۹ (U+06F0).
+    if (rune >= 0x0660 && rune <= 0x0669) {
+      out.writeCharCode(0x30 + rune - 0x0660);
+      continue;
+    }
+    if (rune >= 0x06F0 && rune <= 0x06F9) {
+      out.writeCharCode(0x30 + rune - 0x06F0);
+      continue;
+    }
+    switch (rune) {
+      case 0x0623: // أ
+      case 0x0625: // إ
+      case 0x0622: // آ
+        out.writeCharCode(0x0627); // ا
+      case 0x0649: // ى
+        out.writeCharCode(0x064A); // ي
+      case 0x0629: // ة
+        out.writeCharCode(0x0647); // ه
+      // The Arabic decimal separator ٫ and thousands separator ٬ that
+      // NumberFormat emits, plus the bidi marks it wraps dates in. A reader
+      // types '.' or nothing at all for these.
+      case 0x066B:
+        out.writeCharCode(0x2E); // .
+      case 0x066C:
+      case 0x200E:
+      case 0x200F:
+      case 0x061C:
+        break;
+      // Arabic diacritics: never typed, always noise.
+      default:
+        if (rune >= 0x064B && rune <= 0x0652) break;
+        out.writeCharCode(rune);
+    }
+  }
+  return out.toString().trim();
+}
+
+/// "Showing 10 of 47", and the button that reveals the next page.
+///
+/// Progressive rather than numbered: a statement is read in order, so page 4 of
+/// a ledger means nothing on its own — what the reader wants is more of the
+/// same list, continuing from where it stopped. `عرض الكل` is there for the
+/// reader who wants to scan or search the lot at once.
+class _LedgerPager extends StatelessWidget {
+  const _LedgerPager({
+    required this.shown,
+    required this.total,
+    required this.remaining,
+    required this.pageSize,
+    required this.onMore,
+    required this.onAll,
+  });
+
+  final int shown;
+  final int total;
+  final int remaining;
+  final int pageSize;
+  final VoidCallback onMore;
+  final VoidCallback onAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    // Column over Wrap, not a single Row: the count and two Arabic labels do not
+    // fit one line on a narrow phone at a large text size, and a Row would
+    // overflow rather than reflow.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          l.statementShowing(shown, total),
+          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+        ),
+        if (remaining > 0)
+          Wrap(
+            spacing: AppSpacing.sm,
+            children: <Widget>[
+              TextButton(
+                onPressed: onMore,
+                child: Text(
+                  l.statementShowMore(
+                    remaining < pageSize ? remaining : pageSize,
+                  ),
+                ),
+              ),
+              TextButton(onPressed: onAll, child: Text(l.statementShowAll)),
+            ],
+          ),
+      ],
     );
   }
 }

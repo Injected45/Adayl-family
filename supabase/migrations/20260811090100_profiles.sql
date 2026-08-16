@@ -69,9 +69,39 @@ CREATE TRIGGER trg_profiles_touch
 --
 -- A trigger on auth.users, not a client insert: if the app created its own
 -- profile row it could choose its own role, and the anon key is public.
+-- ═════════════════════════════════════════════════════════════════════════════
+--  SIGNING IN MUST NEVER BREAK. Everything in this block exists for that.
+--
+--  This trigger is the single most fragile thing in the schema, and the reason
+--  is structural: it lives on `auth.users` — GoTrue's table — but its function
+--  lives in `public`. `DROP SCHEMA public CASCADE`, which RESET_AND_APPLY.sql
+--  runs, therefore takes the trigger with the schema. If it does not come back,
+--  the INSERT that CREATES an account raises, GoTrue answers "Database error
+--  saving new user", and no new person can sign in again, by Google or by the
+--  dev email/password login. It has happened on the live project.
+--
+--  That failure is also the worst kind to diagnose, because it is asymmetric:
+--  anyone already in `auth.users` inserts nothing and signs in perfectly. So it
+--  reads as "it works for me", and whoever tests it is usually already in.
+--
+--  Three separate guarantees now stand between that and the association:
+--    1. the trigger is recreated IDEMPOTENTLY here, so any re-apply restores it
+--       rather than failing on "already exists";
+--    2. the function CANNOT RAISE, so no error inside it can ever block an
+--       account being created;
+--    3. assert_signin_intact() refuses to let any apply or patch COMMIT with
+--       this broken — see 20260811091200_function_lockdown.sql.
+-- ═════════════════════════════════════════════════════════════════════════════
+
 CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 BEGIN
+  -- Bare ON CONFLICT DO NOTHING, not ON CONFLICT (id). The id is not the only
+  -- unique thing on this table: uq_profiles_email would raise for a second
+  -- account carrying an email already present — a reused address, or a phone
+  -- signup where coalesce(email,'') collapses to the same empty string twice.
+  -- Naming the id constraint leaves those cases raising, and a raise here is an
+  -- account that cannot be created.
   INSERT INTO public.profiles (id, email, display_name, picture_url)
   VALUES (
     NEW.id,
@@ -81,13 +111,57 @@ BEGIN
              split_part(coalesce(NEW.email, ''), '@', 1)),
     NEW.raw_user_meta_data ->> 'avatar_url'
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- DELIBERATELY SWALLOWED, and this is the one place in the schema where that
+  -- is the right call. Weigh the two failures against each other:
+  --
+  --   raise   → GoTrue cannot create the account. The person can NEVER sign in,
+  --             there is no message that says why, and no amount of retrying or
+  --             reinstalling helps. Unrecoverable from the app.
+  --   swallow → the account exists with no profiles row. The app already has a
+  --             specific screen for exactly this (errorProfileMissing), an
+  --             admin sees it, and the backfill below or the next apply repairs
+  --             it in one statement. Recoverable, visible, and harmless — the
+  --             row grants nothing, since a profile is viewer/pending anyway.
+  --
+  -- A convenience row must never be able to hold authentication hostage.
   RETURN NEW;
 END $$;
 
+-- DROP-then-CREATE, because Postgres has no CREATE OR REPLACE TRIGGER before 14
+-- and this must succeed whether the trigger is missing, present, or half
+-- restored by an earlier repair. Re-running the bundle is now a repair rather
+-- than an error.
+DROP TRIGGER IF EXISTS trg_auth_user_created ON auth.users;
 CREATE TRIGGER trg_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ── Backfill: nobody who already has an account is left without a profile ────
+-- The trigger fires on INSERT into auth.users and nothing else. So after a
+-- reset — which empties `public` but leaves `auth.users` standing — every
+-- existing member has an account and NO profile, and signing in does not create
+-- one, because signing in inserts nothing. They would each be stuck on
+-- "this account has no row in the database" with no way out from the app.
+--
+-- On a genuinely fresh project auth.users is empty and this does nothing.
+--
+-- Everyone lands viewer/pending, exactly as the trigger would have made them.
+-- NO access is granted here: the first admin is still a deliberate manual step
+-- (supabase/bootstrap_first_admin.sql).
+INSERT INTO public.profiles (id, email, display_name, picture_url)
+SELECT u.id,
+       coalesce(u.email, ''),
+       coalesce(u.raw_user_meta_data ->> 'full_name',
+                u.raw_user_meta_data ->> 'name',
+                split_part(coalesce(u.email, ''), '@', 1)),
+       u.raw_user_meta_data ->> 'avatar_url'
+  FROM auth.users u
+ WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
+ON CONFLICT DO NOTHING;
 
 -- Rule: nobody may promote themselves, and the last admin cannot be demoted or
 -- locked out. Both were app-layer checks in api/src/users/routes.ts; with no

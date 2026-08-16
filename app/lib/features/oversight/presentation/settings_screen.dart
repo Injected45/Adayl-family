@@ -61,6 +61,12 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         'currency': TextEditingController(text: widget.initial.currency),
         'memberFee': TextEditingController(text: widget.initial.memberFee),
         'systemStart': TextEditingController(text: widget.initial.systemStart),
+        'bankAccountNo': TextEditingController(
+          text: widget.initial.bankAccountNo,
+        ),
+        'bankAccountName': TextEditingController(
+          text: widget.initial.bankAccountName,
+        ),
         'treasurerName': TextEditingController(
           text: widget.initial.treasurer.name,
         ),
@@ -93,6 +99,8 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     memberFee: _text('memberFee'),
     systemStart: _text('systemStart'),
     autoClosePreviousMonths: widget.initial.autoClosePreviousMonths,
+    bankAccountNo: _text('bankAccountNo'),
+    bankAccountName: _text('bankAccountName'),
     treasurer: OfficialInput(
       name: _text('treasurerName'),
       phone: _text('treasurerPhone'),
@@ -114,6 +122,13 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         '${l.memberFeeField}: ${widget.initial.memberFee} → ${next.memberFee}',
       if (next.systemStart != widget.initial.systemStart)
         '${l.systemStartField}: ${widget.initial.systemStart} → ${next.systemStart}',
+      // Restated in full for the same reason the fee is: one wrong digit sends
+      // every future transfer to a stranger, and it is the kind of mistake
+      // nobody notices until a member says the money never arrived.
+      if (next.bankAccountNo != widget.initial.bankAccountNo)
+        '${l.bankAccountNoField}: ${widget.initial.bankAccountNo} → ${next.bankAccountNo}',
+      if (next.bankAccountName != widget.initial.bankAccountName)
+        '${l.bankAccountNameField}: ${widget.initial.bankAccountName} → ${next.bankAccountName}',
     ];
 
     final bool? confirmed = await showDialog<bool>(
@@ -211,6 +226,17 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           money: true,
         ),
         _Field(label: l.systemStartField, controller: _fields['systemStart']!),
+
+        const SizedBox(height: AppSpacing.lg),
+        _Section(title: l.bankAccountSection),
+        _Field(
+          label: l.bankAccountNoField,
+          controller: _fields['bankAccountNo']!,
+        ),
+        _Field(
+          label: l.bankAccountNameField,
+          controller: _fields['bankAccountName']!,
+        ),
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.treasurerSection),
