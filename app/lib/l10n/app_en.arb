@@ -317,6 +317,7 @@
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "Total charged",
   "myBalanceNow": "Your balance now",
+  "myDetailsTitle": "My subscription details",
   "ofTotal": "of {amount}",
   "settledUpTitle": "Nothing outstanding",
   "settledUpBody": "Every subscription is settled. Thank you.",

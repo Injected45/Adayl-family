@@ -344,6 +344,10 @@
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "إجمالي المستحق",
   "myBalanceNow": "رصيدك الآن",
+  "myDetailsTitle": "تفاصيل اشتراكي",
+  "@myDetailsTitle": {
+    "description": "Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee."
+  },
   "ofTotal": "من {amount}",
   "@ofTotal": { "placeholders": { "amount": { "type": "String" } } },
   "settledUpTitle": "لا مستحقات عليك",

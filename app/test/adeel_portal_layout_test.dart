@@ -153,11 +153,18 @@ void main() {
     expect(find.text(l.noReceivables), findsNothing);
   });
 
-  testWidgets('the balance is the first thing on the page', (
+  testWidgets('his name heads the balance card, and appears once', (
     WidgetTester tester,
   ) async {
-    // Not decoration: the hero exists so he does not have to add tiles to learn
-    // what he owes. If the identity card ever climbs back above it, this fails.
+    // The name used to sit in a collapsed panel at the FOOT of the page, under
+    // the dues and the ledger — so the man reading his own statement scrolled
+    // past everything to reach his own name, and in practice never saw it.
+    //
+    // A statement is addressed to somebody, so the two are now one card:
+    // name, then the figure, in that order and in the same frame. The earlier
+    // version of this test asserted the OPPOSITE order; it was pinning "the
+    // balance is answered before anything else", which the hero still does —
+    // the dues below it are what the balance now precedes.
     await pump(
       tester,
       _detail(
@@ -168,9 +175,18 @@ void main() {
       ),
     );
 
-    final double heroY = tester.getTopLeft(find.text(l.myBalanceNow)).dy;
     final double nameY = tester.getTopLeft(find.text('المهدي العدولي')).dy;
-    expect(heroY, lessThan(nameY));
+    final double heroY = tester.getTopLeft(find.text(l.myBalanceNow)).dy;
+    final double duesY = tester.getTopLeft(find.text('شهر 2026-02')).dy;
+
+    expect(nameY, lessThan(heroY), reason: 'the name must head the card');
+    expect(heroY, lessThan(duesY), reason: 'the figure still precedes the dues');
+
+    // Once, not twice. The identity panel at the foot kept a copy of the name
+    // as its title while the hero grew one, which put the same three facts on
+    // one short screen twice over.
+    expect(find.text('المهدي العدولي'), findsOneWidget);
+    expect(find.text('A-0001'), findsOneWidget);
   });
 
   testWidgets('the dues and the ledger never occupy the screen together', (
@@ -212,10 +228,10 @@ void main() {
       ),
     );
 
-    expect(find.text('المهدي العدولي'), findsOneWidget); // the tile title
+    expect(find.text(l.myDetailsTitle), findsOneWidget);
     expect(find.text('0910000000'), findsNothing);
 
-    await tester.tap(find.text('المهدي العدولي'));
+    await tester.tap(find.text(l.myDetailsTitle));
     await tester.pumpAndSettle();
 
     expect(find.text('0910000000'), findsOneWidget);

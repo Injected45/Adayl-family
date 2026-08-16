@@ -931,6 +931,9 @@ class LEn extends L {
   String get myBalanceNow => 'Your balance now';
 
   @override
+  String get myDetailsTitle => 'My subscription details';
+
+  @override
   String ofTotal(String amount) {
     return 'of $amount';
   }

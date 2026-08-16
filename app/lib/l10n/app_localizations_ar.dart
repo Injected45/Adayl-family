@@ -923,6 +923,9 @@ class LAr extends L {
   String get myBalanceNow => 'رصيدك الآن';
 
   @override
+  String get myDetailsTitle => 'تفاصيل اشتراكي';
+
+  @override
   String ofTotal(String amount) {
     return 'من $amount';
   }

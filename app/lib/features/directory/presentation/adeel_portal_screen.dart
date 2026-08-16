@@ -231,12 +231,23 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
   }
 }
 
-/// The one figure he came for.
+/// WHO he is, then WHAT he owes — one card, in that order.
 ///
-/// Given the whole width and a tone that states the answer before the number is
-/// read: owing is warm, settled is green. The subtitle turns the figure into a
-/// sentence — a balance with no count of months behind it invites "since when?"
-/// and makes him open the ledger to find out.
+/// The name used to live in a collapsed panel at the FOOT of the page, under
+/// the dues and the ledger, so the man reading his own statement had to scroll
+/// past everything to find his own name and never saw it. A statement is
+/// addressed to somebody; the figure means nothing until you know whose it is.
+///
+/// So the two are one block now, separated by a hairline rather than by the
+/// length of the page: identity on top, the balance under it in the same
+/// frame, aligned to the same edge. What stayed behind in the panel at the
+/// bottom is detail — phone, join date, monthly fee — which is reference, not
+/// address.
+///
+/// The figure keeps the whole width and a tone that states the answer before
+/// the number is read: owing is warm, settled is green. The subtitle turns it
+/// into a sentence — a balance with no count of months behind it invites
+/// "since when?" and sends him to the ledger to find out.
 class _BalanceHero extends StatelessWidget {
   const _BalanceHero({required this.detail, required this.openCount});
 
@@ -246,15 +257,84 @@ class _BalanceHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
+    final AdeelView adeel = detail.adeel;
     // A comparison, not arithmetic: money stays text end to end, and the only
     // thing decided here is which colour the figure wears.
     final bool owes = (double.tryParse(detail.debt) ?? 0) > 0;
+
+    final Color statusTone = switch (adeel.membershipStatus) {
+      MembershipStatusWire.active => AppColors.success,
+      MembershipStatusWire.suspended => AppColors.warning,
+      _ => AppColors.muted,
+    };
 
     return GlassCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          // ── Whose statement this is ──────────────────────────────────────
+          Row(
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.brandSoft,
+                  borderRadius: BorderRadius.circular(AppRadius.chip),
+                ),
+                child: Text(
+                  adeel.fullName.characters.take(1).toString(),
+                  style: const TextStyle(
+                    fontFamily: AppFonts.display,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.brandDeep,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      adeel.fullName,
+                      // Two lines then ellipsis: a long Libyan name on a 360dp
+                      // phone must not push the status badge off the card, and
+                      // must not be silently truncated at one line either.
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        height: 1.25,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      adeel.adeelCode,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // The status the database stores, verbatim — what he reads here
+              // and what the treasurer reads cannot diverge.
+              StatusBadge(label: adeel.membershipStatus, tone: statusTone),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Divider(height: 1, thickness: 1, color: GlassColors.hairline),
+          ),
+
+          // ── And what it says ─────────────────────────────────────────────
           Row(
             children: <Widget>[
               Icon(
@@ -416,12 +496,6 @@ class _IdentityPanel extends StatelessWidget {
     final L l = L.of(context);
     final AdeelView adeel = detail.adeel;
 
-    final Color statusTone = switch (adeel.membershipStatus) {
-      MembershipStatusWire.active => AppColors.success,
-      MembershipStatusWire.suspended => AppColors.warning,
-      _ => AppColors.muted,
-    };
-
     return GlassCard(
       padding: EdgeInsets.zero,
       child: Theme(
@@ -436,24 +510,24 @@ class _IdentityPanel extends StatelessWidget {
             AppSpacing.lg,
             AppSpacing.lg,
           ),
+          // A LABEL, not his name. The name, the code and the status moved into
+          // the balance card at the top of the page, where a statement's
+          // addressee belongs. Repeating them here would make the same three
+          // facts appear twice on one short screen, and leaving the panel
+          // titled with his name — as it was — is what buried it at the foot in
+          // the first place.
+          leading: const Icon(Icons.badge_outlined, color: AppColors.muted),
           title: Text(
-            adeel.fullName,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          subtitle: Text(
-            adeel.adeelCode,
-            style: const TextStyle(fontSize: 14, color: AppColors.muted),
-          ),
-          // The status the database stores, verbatim — what he reads here and
-          // what the treasurer reads cannot diverge.
-          trailing: StatusBadge(
-            label: adeel.membershipStatus,
-            tone: statusTone,
+            l.myDetailsTitle,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           children: <Widget>[
             _Field(label: l.phone, value: adeel.phone),
             _Field(label: l.registeredAt, value: formatDate(adeel.registeredAt)),
-            _Field(label: l.monthlyFeeLabel, value: formatMoney(detail.monthlyExpected)),
+            _Field(
+              label: l.monthlyFeeLabel,
+              value: formatMoney(detail.monthlyExpected),
+            ),
           ],
         ),
       ),

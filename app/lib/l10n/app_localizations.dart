@@ -1783,6 +1783,12 @@ abstract class L {
   /// **'رصيدك الآن'**
   String get myBalanceNow;
 
+  /// Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee.
+  ///
+  /// In ar, this message translates to:
+  /// **'تفاصيل اشتراكي'**
+  String get myDetailsTitle;
+
   /// No description provided for @ofTotal.
   ///
   /// In ar, this message translates to:
