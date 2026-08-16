@@ -75,6 +75,60 @@ BEGIN
   END IF;
 END $preflight$;
 
+-- Preflight 2: refuse if the database still HOLDS RECORDS.
+--
+-- The header says in capitals that this destroys everything, and on 2026-08-16
+-- it was pasted into a live project anyway: every عديل, receivable, payment and
+-- audit entry went, `auth.users` survived, and the first anyone knew of it was
+-- that signing in produced "حدث خطأ غير متوقع" — because a valid session now
+-- found no row in public.profiles. A warning a human must read is not a guard.
+--
+-- This is one. It counts the application tables under BOTH schema generations
+-- (adeels, and the older families/members) so it works on exactly the project
+-- this file exists to convert, and it names what it found rather than saying
+-- "there is data". Converting a populated project is still allowed — that is
+-- the file's purpose — but it now takes a deliberate edit, which pasting does
+-- not do. The phrase follows purge_all_data()'s: destructive things here are
+-- unlocked by typing something, never by a flag.
+DO $dataguard$
+DECLARE
+  -- ▼▼▼ TO RESET A PROJECT THAT HOLDS RECORDS, set this to the phrase below ▼▼▼
+  v_confirm text := '';
+  --      exactly:  أعلم أن هذا سيمحو كل السجلات
+  -- ▲▲▲ Leave it empty and a database with rows in it is refused ▲▲▲
+  v_phrase constant text := 'أعلم أن هذا سيمحو كل السجلات';
+
+  v_tbl   text;
+  v_n     bigint;
+  v_rows  bigint := 0;
+  v_found text[] := '{}';
+BEGIN
+  FOREACH v_tbl IN ARRAY ARRAY[
+    'adeels', 'families', 'members',
+    'receivables', 'receivable_lines',
+    'payments', 'payment_allocations', 'cash_movements', 'audit_log'
+  ] LOOP
+    -- to_regclass, not information_schema: the table may legitimately not exist
+    -- on either generation of the schema, and that is not an error.
+    IF to_regclass('public.' || quote_ident(v_tbl)) IS NOT NULL THEN
+      EXECUTE format('SELECT count(*) FROM public.%I', v_tbl) INTO v_n;
+      IF v_n > 0 THEN
+        v_rows  := v_rows + v_n;
+        v_found := v_found || format('%s=%s', v_tbl, v_n);
+      END IF;
+    END IF;
+  END LOOP;
+
+  IF v_rows > 0 AND v_confirm IS DISTINCT FROM v_phrase THEN
+    RAISE EXCEPTION
+      'REFUSING TO RESET: this project holds % row(s) of association data (%). '
+      'Nothing has been dropped. Take a backup from Database -> Backups FIRST '
+      '(the free tier has none, so export what you need), then set v_confirm at '
+      'the top of this block to the phrase named beside it and run the file again.',
+      v_rows, array_to_string(v_found, ', ');
+  END IF;
+END $dataguard$;
+
 -- CASCADE also drops the trigger this schema puts on auth.users: it lives in
 -- the auth schema but calls a function in public, so it goes with the function.
 -- The migrations recreate both.
