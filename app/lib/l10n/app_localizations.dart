@@ -283,6 +283,12 @@ abstract class L {
   /// **'تم النسخ'**
   String get copied;
 
+  /// No description provided for @officialNeedsRegister.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل العدايل فارغ — أضف المشتركين أولاً ليمكن اختيار المسؤولين منهم'**
+  String get officialNeedsRegister;
+
   /// No description provided for @bankAccountSection.
   ///
   /// In ar, this message translates to:

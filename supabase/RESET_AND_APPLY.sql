@@ -538,9 +538,30 @@ CREATE TABLE public.association_settings (
   system_start                date          NOT NULL,
   auto_close_previous_months  boolean       NOT NULL DEFAULT true,
 
+  -- ── The two officials ─────────────────────────────────────────────────────
+  -- Both posts are held BY عدايل — the association elects them from its own
+  -- members — so the identity of each is an `adeels` row, not a typed name.
+  --
+  -- The id is the authority; the name and phone beside it are a SNAPSHOT taken
+  -- from the register whenever settings are saved. Two reasons it is stored
+  -- rather than joined at read time:
+  --
+  --   * v_officials is read by an عديل on the PORTAL, and RLS shows him only
+  --     his own row in `adeels`. A join would resolve to NULL for everyone
+  --     else, so the one screen that tells him who to pay would go blank.
+  --   * it keeps v_officials and every consumer of it unchanged.
+  --
+  -- The snapshot cannot drift: save_adeel refreshes it whenever an عديل who
+  -- holds a post is renamed.
+  --
+  -- The FK and the "not the same man twice" CHECK are declared after `adeels`
+  -- exists, at the foot of this file — a REFERENCES clause cannot point
+  -- forward, and this table is created first.
+  treasurer_adeel_id          bigint,
   treasurer_name              text          NOT NULL DEFAULT '',
   treasurer_phone             text          NOT NULL DEFAULT '',
 
+  finance_manager_adeel_id    bigint,
   finance_manager_name        text          NOT NULL DEFAULT '',
   finance_manager_phone       text          NOT NULL DEFAULT '',
 
@@ -676,6 +697,34 @@ CREATE TRIGGER trg_adeels_dob
 ALTER TABLE public.profiles
   ADD CONSTRAINT fk_profiles_adeel
   FOREIGN KEY (adeel_id) REFERENCES public.adeels(id) ON DELETE CASCADE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- association_settings → adeels: the two posts, tied to real members.
+--
+-- Declared here for the same forward-reference reason as the constraint above.
+--
+-- ON DELETE SET NULL, not RESTRICT: an عديل who has never been billed can be
+-- deleted (delete_adeel), and holding a post must not turn that into a refusal
+-- the admin cannot explain. The post simply falls vacant, and the snapshotted
+-- name stays behind so the officials screen still reads sensibly until someone
+-- picks a replacement.
+--
+-- ck_settings_distinct_officials is the "no overlap" rule made structural: one
+-- man cannot be both أمين الصندوق and المدير المالي. Written to allow NULLs on
+-- either side, because a post being vacant is a legitimate state and `NULL =
+-- NULL` is not true anyway — the explicit IS NULL arms are what make that
+-- readable rather than accidental.
+ALTER TABLE public.association_settings
+  ADD CONSTRAINT fk_settings_treasurer
+    FOREIGN KEY (treasurer_adeel_id) REFERENCES public.adeels(id)
+    ON DELETE SET NULL,
+  ADD CONSTRAINT fk_settings_finance
+    FOREIGN KEY (finance_manager_adeel_id) REFERENCES public.adeels(id)
+    ON DELETE SET NULL,
+  ADD CONSTRAINT ck_settings_distinct_officials
+    CHECK (treasurer_adeel_id IS NULL
+        OR finance_manager_adeel_id IS NULL
+        OR treasurer_adeel_id <> finance_manager_adeel_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- adeel_access_codes — one code per عديل, the thing he types once to bind his
@@ -1755,6 +1804,33 @@ BEGIN
 
   SELECT adeel_code INTO v_code FROM public.adeels WHERE id = v_id;
 
+  -- ── Keep the officials' snapshot honest ───────────────────────────────────
+  -- association_settings stores each official's name and phone alongside his
+  -- id, so that v_officials stays readable for an عديل on the portal whom RLS
+  -- would otherwise show nothing but his own row. A snapshot that is only
+  -- written when SETTINGS are saved goes stale the moment the man is renamed on
+  -- the register — and the officials screen would keep showing the old spelling
+  -- with nothing to indicate it was out of date.
+  --
+  -- Scoped by the WHERE, so this is a no-op for the overwhelming majority of
+  -- saves: it touches the row only when the عديل just edited actually holds a
+  -- post.
+  UPDATE public.association_settings s SET
+    treasurer_name  = CASE WHEN s.treasurer_adeel_id = v_id
+                           THEN (SELECT full_name FROM public.adeels WHERE id = v_id)
+                           ELSE s.treasurer_name END,
+    treasurer_phone = CASE WHEN s.treasurer_adeel_id = v_id
+                           THEN coalesce((SELECT phone FROM public.adeels WHERE id = v_id), '')
+                           ELSE s.treasurer_phone END,
+    finance_manager_name  = CASE WHEN s.finance_manager_adeel_id = v_id
+                           THEN (SELECT full_name FROM public.adeels WHERE id = v_id)
+                           ELSE s.finance_manager_name END,
+    finance_manager_phone = CASE WHEN s.finance_manager_adeel_id = v_id
+                           THEN coalesce((SELECT phone FROM public.adeels WHERE id = v_id), '')
+                           ELSE s.finance_manager_phone END
+   WHERE s.id = 1
+     AND (s.treasurer_adeel_id = v_id OR s.finance_manager_adeel_id = v_id);
+
   PERFORM public.write_audit(
     CASE WHEN p_adeel_id IS NULL THEN 'adeel.create' ELSE 'adeel.update' END,
     format('%s %s', CASE WHEN p_adeel_id IS NULL THEN 'إضافة' ELSE 'تعديل' END,
@@ -1832,20 +1908,81 @@ DECLARE
   v_old     record;
   v_row     record;
   v_changes text[] := '{}';
+  v_t_id    bigint;
+  v_f_id    bigint;
+  v_t       record;
+  v_f       record;
 BEGIN
   PERFORM public.require_role('admin');
 
   SELECT * INTO v_old FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
+  -- ── Who holds each post ───────────────────────────────────────────────────
+  -- Both officials are عدايل, chosen from the register rather than typed. The
+  -- id is what is being set; the name and phone are copied from his row below,
+  -- so the association can never end up with three spellings of one man across
+  -- a year of settings edits.
+  --
+  -- `p_patch ? key` distinguishes "not mentioned" from "explicitly cleared".
+  -- Using ->> alone would make a null indistinguishable from an omission, and
+  -- vacating a post would become impossible.
+  v_t_id := CASE WHEN p_patch ? 'treasurerAdeelId'
+                 THEN nullif(p_patch ->> 'treasurerAdeelId', '')::bigint
+                 ELSE v_old.treasurer_adeel_id END;
+  v_f_id := CASE WHEN p_patch ? 'financeAdeelId'
+                 THEN nullif(p_patch ->> 'financeAdeelId', '')::bigint
+                 ELSE v_old.finance_manager_adeel_id END;
+
+  -- The overlap the association asked to make impossible. ck_settings_distinct_
+  -- officials enforces it in the storage engine too; this exists so the admin
+  -- gets a sentence he can act on instead of a constraint name.
+  IF v_t_id IS NOT NULL AND v_t_id = v_f_id THEN
+    RAISE EXCEPTION 'لا يمكن أن يكون أمين الصندوق والمدير المالي عديلاً واحداً'
+      USING ERRCODE = 'RUL16';
+  END IF;
+
+  -- The FK would refuse an unknown id anyway; catching it here names WHICH post
+  -- was wrong, which the constraint cannot.
+  IF v_t_id IS NOT NULL THEN
+    SELECT full_name, phone INTO v_t FROM public.adeels WHERE id = v_t_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'أمين الصندوق المختار ليس في سجل العدايل'
+        USING ERRCODE = 'RUL16';
+    END IF;
+  END IF;
+  IF v_f_id IS NOT NULL THEN
+    SELECT full_name, phone INTO v_f FROM public.adeels WHERE id = v_f_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'المدير المالي المختار ليس في سجل العدايل'
+        USING ERRCODE = 'RUL16';
+    END IF;
+  END IF;
 
   UPDATE public.association_settings SET
     association_name = coalesce(p_patch ->> 'associationName', association_name),
     currency         = coalesce(p_patch ->> 'currency', currency),
     member_fee       = coalesce((p_patch ->> 'memberFee')::numeric, member_fee),
     system_start     = coalesce((p_patch ->> 'systemStart')::date, system_start),
-    treasurer_name        = coalesce(p_patch ->> 'treasurerName', treasurer_name),
-    treasurer_phone       = coalesce(p_patch ->> 'treasurerPhone', treasurer_phone),
-    finance_manager_name        = coalesce(p_patch ->> 'financeName', finance_manager_name),
-    finance_manager_phone       = coalesce(p_patch ->> 'financePhone', finance_manager_phone),
+    -- The post, then the snapshot of whoever holds it. When an عديل is chosen
+    -- his row IS the name and phone; the free-text keys are still honoured when
+    -- no عديل is set, so a project that has not picked anyone yet keeps working
+    -- exactly as before.
+    treasurer_adeel_id    = v_t_id,
+    treasurer_name        = CASE WHEN v_t_id IS NOT NULL THEN v_t.full_name
+                                 ELSE coalesce(p_patch ->> 'treasurerName',
+                                               treasurer_name) END,
+    treasurer_phone       = CASE WHEN v_t_id IS NOT NULL
+                                 THEN coalesce(v_t.phone, '')
+                                 ELSE coalesce(p_patch ->> 'treasurerPhone',
+                                               treasurer_phone) END,
+    finance_manager_adeel_id = v_f_id,
+    finance_manager_name  = CASE WHEN v_f_id IS NOT NULL THEN v_f.full_name
+                                 ELSE coalesce(p_patch ->> 'financeName',
+                                               finance_manager_name) END,
+    finance_manager_phone = CASE WHEN v_f_id IS NOT NULL
+                                 THEN coalesce(v_f.phone, '')
+                                 ELSE coalesce(p_patch ->> 'financePhone',
+                                               finance_manager_phone) END,
     bank_account_no             = coalesce(p_patch ->> 'bankAccountNo', bank_account_no),
     bank_account_name           = coalesce(p_patch ->> 'bankAccountName', bank_account_name),
     updated_by = auth.uid()
@@ -3031,10 +3168,16 @@ LANGUAGE sql STABLE AS $$
     'autoClosePreviousMonths', s.auto_close_previous_months,
     'bankAccountNo', s.bank_account_no,
     'bankAccountName', s.bank_account_name,
+    -- adeelId is what the settings screen preselects in its dropdown; the name
+    -- and phone travel with it so the screen can render the current holder
+    -- without a second read. NULL means the post is vacant, or was filled by a
+    -- typed name before the two posts were tied to the register.
     'treasurer', jsonb_build_object(
+      'adeelId', s.treasurer_adeel_id,
       'name', s.treasurer_name,
       'phone', s.treasurer_phone),
     'financeManager', jsonb_build_object(
+      'adeelId', s.finance_manager_adeel_id,
       'name', s.finance_manager_name,
       'phone', s.finance_manager_phone))
   FROM public.association_settings s WHERE s.id = 1

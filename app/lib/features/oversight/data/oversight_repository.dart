@@ -119,7 +119,10 @@ class OversightRepository {
   ) => SupabaseFailures.guard(() async {
     await _db.rpc<dynamic>(
       'update_settings',
-      params: <String, dynamic>{'p_patch': settings.toJson()},
+      // toPatch(), NOT toJson(). The RPC reads the two officials as flat keys
+      // (treasurerName, financePhone, …) while api_settings sends them nested,
+      // so posting toJson() left all four NULL and the names never saved.
+      params: <String, dynamic>{'p_patch': settings.toPatch()},
     );
     // The Node route returned a list of changed field names for the audit
     // toast. Postgres writes its own audit entry instead, and reconstructing

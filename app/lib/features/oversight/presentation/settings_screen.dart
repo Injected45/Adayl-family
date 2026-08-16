@@ -12,6 +12,7 @@ import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../directory/domain/models.dart' show AdeelListItem;
 import '../../directory/presentation/providers.dart' as directory;
 import '../../finance/presentation/providers.dart' as finance;
 import '../domain/models.dart';
@@ -67,21 +68,20 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         'bankAccountName': TextEditingController(
           text: widget.initial.bankAccountName,
         ),
-        'treasurerName': TextEditingController(
-          text: widget.initial.treasurer.name,
-        ),
-        'treasurerPhone': TextEditingController(
-          text: widget.initial.treasurer.phone,
-        ),
-        'financeName': TextEditingController(
-          text: widget.initial.financeManager.name,
-        ),
-        'financePhone': TextEditingController(
-          text: widget.initial.financeManager.phone,
-        ),
       };
 
   bool _saving = false;
+
+  /// The two posts, as عديل ids rather than typed names.
+  ///
+  /// Both officials are elected from the members, so a text box was the wrong
+  /// control for them: it let the same man be entered under three spellings
+  /// across a year of edits, and it let one person be recorded in both posts at
+  /// once. Picking from the register removes both possibilities — and
+  /// update_settings copies his name and phone out of his own row, so the
+  /// association never maintains a second copy of either.
+  late int? _treasurerId = widget.initial.treasurer.adeelId;
+  late int? _financeId = widget.initial.financeManager.adeelId;
 
   @override
   void dispose() {
@@ -101,13 +101,18 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     autoClosePreviousMonths: widget.initial.autoClosePreviousMonths,
     bankAccountNo: _text('bankAccountNo'),
     bankAccountName: _text('bankAccountName'),
+    // Only the id travels. The server reads the name and phone off the chosen
+    // عديل's own row, so sending the old snapshot back would just give it a
+    // chance to disagree with the register.
     treasurer: OfficialInput(
-      name: _text('treasurerName'),
-      phone: _text('treasurerPhone'),
+      adeelId: _treasurerId,
+      name: widget.initial.treasurer.name,
+      phone: widget.initial.treasurer.phone,
     ),
     financeManager: OfficialInput(
-      name: _text('financeName'),
-      phone: _text('financePhone'),
+      adeelId: _financeId,
+      name: widget.initial.financeManager.name,
+      phone: widget.initial.financeManager.phone,
     ),
   );
 
@@ -240,13 +245,26 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.treasurerSection),
-        _Field(label: l.fullNameField, controller: _fields['treasurerName']!),
-        _Field(label: l.phone, controller: _fields['treasurerPhone']!),
+        _OfficialPicker(
+          label: l.fullNameField,
+          value: _treasurerId,
+          // The other post's holder, so he cannot be offered twice. The
+          // database refuses it either way (ck_settings_distinct_officials);
+          // taking him off the list means the admin never gets that far.
+          excludeAdeelId: _financeId,
+          enabled: !_saving,
+          onChanged: (int? id) => setState(() => _treasurerId = id),
+        ),
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.financeManagerSection),
-        _Field(label: l.fullNameField, controller: _fields['financeName']!),
-        _Field(label: l.phone, controller: _fields['financePhone']!),
+        _OfficialPicker(
+          label: l.fullNameField,
+          value: _financeId,
+          excludeAdeelId: _treasurerId,
+          enabled: !_saving,
+          onChanged: (int? id) => setState(() => _financeId = id),
+        ),
 
         const SizedBox(height: AppSpacing.xl),
         FilledButton.icon(
@@ -586,6 +604,86 @@ class _PurgeConfirmDialogState extends State<_PurgeConfirmDialog> {
           child: Text(widget.actionLabel),
         ),
       ],
+    );
+  }
+}
+
+/// Picks one عديل out of the register to hold a post.
+///
+/// Both officials are members of the association, so this is the control that
+/// belonged here from the start. A text box allowed the same man under three
+/// spellings and allowed one person in both posts at once; a list of real rows
+/// allows neither, and `update_settings` then reads his name and phone off his
+/// own record so the association never keeps a second copy of either.
+///
+/// [excludeAdeelId] is the other post's holder. The database refuses the
+/// overlap regardless — ck_settings_distinct_officials — but removing him from
+/// the list means the admin never reaches a refusal he then has to interpret.
+class _OfficialPicker extends ConsumerWidget {
+  const _OfficialPicker({
+    required this.label,
+    required this.value,
+    required this.excludeAdeelId,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int? value;
+  final int? excludeAdeelId;
+  final bool enabled;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
+      directory.adeelsProvider(''),
+    );
+    final List<AdeelListItem> options = <AdeelListItem>[
+      for (final AdeelListItem a
+          in adeels.valueOrNull ?? const <AdeelListItem>[])
+        if (a.id != excludeAdeelId) a,
+    ];
+
+    // A post whose holder is not in the list — he was excluded as the other
+    // official, or the register is still loading — must not be handed to the
+    // dropdown, which asserts on a value with no matching item.
+    final bool valueIsOffered = options.any(
+      (AdeelListItem a) => a.id == value,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: DropdownButtonFormField<int?>(
+        initialValue: valueIsOffered ? value : null,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: options.isEmpty ? l.officialNeedsRegister : null,
+          helperMaxLines: 2,
+        ),
+        items: <DropdownMenuItem<int?>>[
+          // A post may be vacant. Without this there is no way to undo a
+          // choice, and the only escape would be picking someone wrong.
+          DropdownMenuItem<int?>(
+            value: null,
+            child: Text(
+              l.notAssigned,
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ),
+          for (final AdeelListItem a in options)
+            DropdownMenuItem<int?>(
+              value: a.id,
+              child: Text(
+                '${a.fullName} • ${a.adeelCode}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: enabled ? onChanged : null,
+      ),
     );
   }
 }

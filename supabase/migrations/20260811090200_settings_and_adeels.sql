@@ -22,9 +22,30 @@ CREATE TABLE public.association_settings (
   system_start                date          NOT NULL,
   auto_close_previous_months  boolean       NOT NULL DEFAULT true,
 
+  -- ── The two officials ─────────────────────────────────────────────────────
+  -- Both posts are held BY عدايل — the association elects them from its own
+  -- members — so the identity of each is an `adeels` row, not a typed name.
+  --
+  -- The id is the authority; the name and phone beside it are a SNAPSHOT taken
+  -- from the register whenever settings are saved. Two reasons it is stored
+  -- rather than joined at read time:
+  --
+  --   * v_officials is read by an عديل on the PORTAL, and RLS shows him only
+  --     his own row in `adeels`. A join would resolve to NULL for everyone
+  --     else, so the one screen that tells him who to pay would go blank.
+  --   * it keeps v_officials and every consumer of it unchanged.
+  --
+  -- The snapshot cannot drift: save_adeel refreshes it whenever an عديل who
+  -- holds a post is renamed.
+  --
+  -- The FK and the "not the same man twice" CHECK are declared after `adeels`
+  -- exists, at the foot of this file — a REFERENCES clause cannot point
+  -- forward, and this table is created first.
+  treasurer_adeel_id          bigint,
   treasurer_name              text          NOT NULL DEFAULT '',
   treasurer_phone             text          NOT NULL DEFAULT '',
 
+  finance_manager_adeel_id    bigint,
   finance_manager_name        text          NOT NULL DEFAULT '',
   finance_manager_phone       text          NOT NULL DEFAULT '',
 
@@ -160,6 +181,34 @@ CREATE TRIGGER trg_adeels_dob
 ALTER TABLE public.profiles
   ADD CONSTRAINT fk_profiles_adeel
   FOREIGN KEY (adeel_id) REFERENCES public.adeels(id) ON DELETE CASCADE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- association_settings → adeels: the two posts, tied to real members.
+--
+-- Declared here for the same forward-reference reason as the constraint above.
+--
+-- ON DELETE SET NULL, not RESTRICT: an عديل who has never been billed can be
+-- deleted (delete_adeel), and holding a post must not turn that into a refusal
+-- the admin cannot explain. The post simply falls vacant, and the snapshotted
+-- name stays behind so the officials screen still reads sensibly until someone
+-- picks a replacement.
+--
+-- ck_settings_distinct_officials is the "no overlap" rule made structural: one
+-- man cannot be both أمين الصندوق and المدير المالي. Written to allow NULLs on
+-- either side, because a post being vacant is a legitimate state and `NULL =
+-- NULL` is not true anyway — the explicit IS NULL arms are what make that
+-- readable rather than accidental.
+ALTER TABLE public.association_settings
+  ADD CONSTRAINT fk_settings_treasurer
+    FOREIGN KEY (treasurer_adeel_id) REFERENCES public.adeels(id)
+    ON DELETE SET NULL,
+  ADD CONSTRAINT fk_settings_finance
+    FOREIGN KEY (finance_manager_adeel_id) REFERENCES public.adeels(id)
+    ON DELETE SET NULL,
+  ADD CONSTRAINT ck_settings_distinct_officials
+    CHECK (treasurer_adeel_id IS NULL
+        OR finance_manager_adeel_id IS NULL
+        OR treasurer_adeel_id <> finance_manager_adeel_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- adeel_access_codes — one code per عديل, the thing he types once to bind his

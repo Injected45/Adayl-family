@@ -110,6 +110,10 @@ class LEn extends L {
   String get copied => 'Copied';
 
   @override
+  String get officialNeedsRegister =>
+      'The register is empty — add subscribers first so officials can be chosen from them';
+
+  @override
   String get bankAccountSection => 'Association bank account';
 
   @override

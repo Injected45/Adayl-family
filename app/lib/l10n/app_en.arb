@@ -37,6 +37,7 @@
   "close": "Close",
   "copy": "Copy",
   "copied": "Copied",
+  "officialNeedsRegister": "The register is empty — add subscribers first so officials can be chosen from them",
   "bankAccountSection": "Association bank account",
   "bankAccountNoField": "Account number",
   "bankAccountNameField": "Account holder name",

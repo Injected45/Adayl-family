@@ -314,10 +314,16 @@ LANGUAGE sql STABLE AS $$
     'autoClosePreviousMonths', s.auto_close_previous_months,
     'bankAccountNo', s.bank_account_no,
     'bankAccountName', s.bank_account_name,
+    -- adeelId is what the settings screen preselects in its dropdown; the name
+    -- and phone travel with it so the screen can render the current holder
+    -- without a second read. NULL means the post is vacant, or was filled by a
+    -- typed name before the two posts were tied to the register.
     'treasurer', jsonb_build_object(
+      'adeelId', s.treasurer_adeel_id,
       'name', s.treasurer_name,
       'phone', s.treasurer_phone),
     'financeManager', jsonb_build_object(
+      'adeelId', s.finance_manager_adeel_id,
       'name', s.finance_manager_name,
       'phone', s.finance_manager_phone))
   FROM public.association_settings s WHERE s.id = 1

@@ -40,6 +40,7 @@
   "close": "إغلاق",
   "copy": "نسخ",
   "copied": "تم النسخ",
+  "officialNeedsRegister": "سجل العدايل فارغ — أضف المشتركين أولاً ليمكن اختيار المسؤولين منهم",
   "bankAccountSection": "الحساب المصرفي للجمعية",
   "bankAccountNoField": "رقم الحساب",
   "bankAccountNameField": "اسم صاحب الحساب",

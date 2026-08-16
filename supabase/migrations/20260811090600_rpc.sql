@@ -486,6 +486,33 @@ BEGIN
 
   SELECT adeel_code INTO v_code FROM public.adeels WHERE id = v_id;
 
+  -- ── Keep the officials' snapshot honest ───────────────────────────────────
+  -- association_settings stores each official's name and phone alongside his
+  -- id, so that v_officials stays readable for an عديل on the portal whom RLS
+  -- would otherwise show nothing but his own row. A snapshot that is only
+  -- written when SETTINGS are saved goes stale the moment the man is renamed on
+  -- the register — and the officials screen would keep showing the old spelling
+  -- with nothing to indicate it was out of date.
+  --
+  -- Scoped by the WHERE, so this is a no-op for the overwhelming majority of
+  -- saves: it touches the row only when the عديل just edited actually holds a
+  -- post.
+  UPDATE public.association_settings s SET
+    treasurer_name  = CASE WHEN s.treasurer_adeel_id = v_id
+                           THEN (SELECT full_name FROM public.adeels WHERE id = v_id)
+                           ELSE s.treasurer_name END,
+    treasurer_phone = CASE WHEN s.treasurer_adeel_id = v_id
+                           THEN coalesce((SELECT phone FROM public.adeels WHERE id = v_id), '')
+                           ELSE s.treasurer_phone END,
+    finance_manager_name  = CASE WHEN s.finance_manager_adeel_id = v_id
+                           THEN (SELECT full_name FROM public.adeels WHERE id = v_id)
+                           ELSE s.finance_manager_name END,
+    finance_manager_phone = CASE WHEN s.finance_manager_adeel_id = v_id
+                           THEN coalesce((SELECT phone FROM public.adeels WHERE id = v_id), '')
+                           ELSE s.finance_manager_phone END
+   WHERE s.id = 1
+     AND (s.treasurer_adeel_id = v_id OR s.finance_manager_adeel_id = v_id);
+
   PERFORM public.write_audit(
     CASE WHEN p_adeel_id IS NULL THEN 'adeel.create' ELSE 'adeel.update' END,
     format('%s %s', CASE WHEN p_adeel_id IS NULL THEN 'إضافة' ELSE 'تعديل' END,
@@ -563,20 +590,81 @@ DECLARE
   v_old     record;
   v_row     record;
   v_changes text[] := '{}';
+  v_t_id    bigint;
+  v_f_id    bigint;
+  v_t       record;
+  v_f       record;
 BEGIN
   PERFORM public.require_role('admin');
 
   SELECT * INTO v_old FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
+  -- ── Who holds each post ───────────────────────────────────────────────────
+  -- Both officials are عدايل, chosen from the register rather than typed. The
+  -- id is what is being set; the name and phone are copied from his row below,
+  -- so the association can never end up with three spellings of one man across
+  -- a year of settings edits.
+  --
+  -- `p_patch ? key` distinguishes "not mentioned" from "explicitly cleared".
+  -- Using ->> alone would make a null indistinguishable from an omission, and
+  -- vacating a post would become impossible.
+  v_t_id := CASE WHEN p_patch ? 'treasurerAdeelId'
+                 THEN nullif(p_patch ->> 'treasurerAdeelId', '')::bigint
+                 ELSE v_old.treasurer_adeel_id END;
+  v_f_id := CASE WHEN p_patch ? 'financeAdeelId'
+                 THEN nullif(p_patch ->> 'financeAdeelId', '')::bigint
+                 ELSE v_old.finance_manager_adeel_id END;
+
+  -- The overlap the association asked to make impossible. ck_settings_distinct_
+  -- officials enforces it in the storage engine too; this exists so the admin
+  -- gets a sentence he can act on instead of a constraint name.
+  IF v_t_id IS NOT NULL AND v_t_id = v_f_id THEN
+    RAISE EXCEPTION 'لا يمكن أن يكون أمين الصندوق والمدير المالي عديلاً واحداً'
+      USING ERRCODE = 'RUL16';
+  END IF;
+
+  -- The FK would refuse an unknown id anyway; catching it here names WHICH post
+  -- was wrong, which the constraint cannot.
+  IF v_t_id IS NOT NULL THEN
+    SELECT full_name, phone INTO v_t FROM public.adeels WHERE id = v_t_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'أمين الصندوق المختار ليس في سجل العدايل'
+        USING ERRCODE = 'RUL16';
+    END IF;
+  END IF;
+  IF v_f_id IS NOT NULL THEN
+    SELECT full_name, phone INTO v_f FROM public.adeels WHERE id = v_f_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'المدير المالي المختار ليس في سجل العدايل'
+        USING ERRCODE = 'RUL16';
+    END IF;
+  END IF;
 
   UPDATE public.association_settings SET
     association_name = coalesce(p_patch ->> 'associationName', association_name),
     currency         = coalesce(p_patch ->> 'currency', currency),
     member_fee       = coalesce((p_patch ->> 'memberFee')::numeric, member_fee),
     system_start     = coalesce((p_patch ->> 'systemStart')::date, system_start),
-    treasurer_name        = coalesce(p_patch ->> 'treasurerName', treasurer_name),
-    treasurer_phone       = coalesce(p_patch ->> 'treasurerPhone', treasurer_phone),
-    finance_manager_name        = coalesce(p_patch ->> 'financeName', finance_manager_name),
-    finance_manager_phone       = coalesce(p_patch ->> 'financePhone', finance_manager_phone),
+    -- The post, then the snapshot of whoever holds it. When an عديل is chosen
+    -- his row IS the name and phone; the free-text keys are still honoured when
+    -- no عديل is set, so a project that has not picked anyone yet keeps working
+    -- exactly as before.
+    treasurer_adeel_id    = v_t_id,
+    treasurer_name        = CASE WHEN v_t_id IS NOT NULL THEN v_t.full_name
+                                 ELSE coalesce(p_patch ->> 'treasurerName',
+                                               treasurer_name) END,
+    treasurer_phone       = CASE WHEN v_t_id IS NOT NULL
+                                 THEN coalesce(v_t.phone, '')
+                                 ELSE coalesce(p_patch ->> 'treasurerPhone',
+                                               treasurer_phone) END,
+    finance_manager_adeel_id = v_f_id,
+    finance_manager_name  = CASE WHEN v_f_id IS NOT NULL THEN v_f.full_name
+                                 ELSE coalesce(p_patch ->> 'financeName',
+                                               finance_manager_name) END,
+    finance_manager_phone = CASE WHEN v_f_id IS NOT NULL
+                                 THEN coalesce(v_f.phone, '')
+                                 ELSE coalesce(p_patch ->> 'financePhone',
+                                               finance_manager_phone) END,
     bank_account_no             = coalesce(p_patch ->> 'bankAccountNo', bank_account_no),
     bank_account_name           = coalesce(p_patch ->> 'bankAccountName', bank_account_name),
     updated_by = auth.uid()

@@ -109,6 +109,10 @@ class LAr extends L {
   String get copied => 'تم النسخ';
 
   @override
+  String get officialNeedsRegister =>
+      'سجل العدايل فارغ — أضف المشتركين أولاً ليمكن اختيار المسؤولين منهم';
+
+  @override
   String get bankAccountSection => 'الحساب المصرفي للجمعية';
 
   @override

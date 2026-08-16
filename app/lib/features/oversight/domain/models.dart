@@ -267,17 +267,31 @@ class OfficialInput {
   const OfficialInput({
     required this.name,
     required this.phone,
+    this.adeelId,
   });
 
   final String name;
   final String phone;
 
+  /// Which عديل holds the post. Both officials are elected FROM the members, so
+  /// the post is a row in the register rather than a typed name — that is what
+  /// stops the same man arriving as three spellings across a year of edits, and
+  /// what lets the database refuse one person holding both posts.
+  ///
+  /// Nullable: a vacant post, or one filled by a typed name before the two were
+  /// tied to the register. [name] and [phone] still carry the snapshot the
+  /// server keeps beside the id, so a screen can render the holder without
+  /// reading the register.
+  final int? adeelId;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
+    'adeelId': adeelId,
     'name': name,
     'phone': phone,
   };
 
   factory OfficialInput.fromJson(Map<String, dynamic> json) => OfficialInput(
+    adeelId: (json['adeelId'] as num?)?.toInt(),
     name: _string(json['name']),
     phone: _string(json['phone']),
   );
@@ -321,6 +335,49 @@ class EditableSettings {
     'bankAccountName': bankAccountName,
     'treasurer': treasurer.toJson(),
     'financeManager': financeManager.toJson(),
+  };
+
+  /// What `update_settings(p_patch)` actually reads — and it is NOT [toJson].
+  ///
+  /// The two officials travel in different shapes in each direction, which is
+  /// the whole bug this method exists to close:
+  ///
+  ///   api_settings() RETURNS them nested — {"treasurer": {"name", "phone"}} —
+  ///   and [fromJson]/[toJson] mirror that faithfully.
+  ///
+  ///   update_settings() READS them flat — `p_patch ->> 'treasurerName'`.
+  ///
+  /// Posting the nested shape to the RPC therefore left all four lookups NULL,
+  /// `coalesce` kept the existing value, and the treasurer and finance manager
+  /// silently never saved while every other field on the same screen did. No
+  /// error, no warning: the save reported success and the names came back
+  /// unchanged.
+  ///
+  /// Kept as a SEPARATE method rather than reshaping [toJson], because toJson
+  /// is the faithful mirror of what the server sends and the round-trip test
+  /// depends on that symmetry. This one is the wire format of one specific RPC,
+  /// and naming it after that job is what stops the two being confused again.
+  Map<String, dynamic> toPatch() => <String, dynamic>{
+    'associationName': associationName,
+    'currency': currency,
+    'memberFee': memberFee,
+    'systemStart': systemStart,
+    'autoClosePreviousMonths': autoClosePreviousMonths,
+    'bankAccountNo': bankAccountNo,
+    'bankAccountName': bankAccountName,
+    // The posts, as عديل ids. These are what update_settings acts on: it copies
+    // the chosen man's name and phone out of the register, so the four text
+    // keys below are only consulted when a post has no عديل behind it.
+    //
+    // Always sent, including as null — `p_patch ? 'treasurerAdeelId'` is how the
+    // server tells "vacate this post" from "leave it alone", and omitting the
+    // key would make vacating impossible.
+    'treasurerAdeelId': treasurer.adeelId,
+    'financeAdeelId': financeManager.adeelId,
+    'treasurerName': treasurer.name,
+    'treasurerPhone': treasurer.phone,
+    'financeName': financeManager.name,
+    'financePhone': financeManager.phone,
   };
 
   factory EditableSettings.fromJson(Map<String, dynamic> json) =>
