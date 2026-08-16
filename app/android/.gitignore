@@ -12,3 +12,12 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# ...with one deliberate exception. dev-debug.keystore signs DEBUG builds only,
+# and it is committed so that every developer's `flutter run` carries the same
+# signature and therefore the same registered SHA-1 in Google Cloud. Without it
+# each machine signs with its own generated debug key and Google refuses the
+# sign-in. It can publish nothing (Play rejects debug keys) and its password is
+# the documented constant `android`, so it is not a secret in any useful sense.
+# The RELEASE key is the one the lines above protect, and it stays protected.
+!/dev-debug.keystore

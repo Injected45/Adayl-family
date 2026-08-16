@@ -54,6 +54,33 @@ android {
     }
 
     signingConfigs {
+        // ONE debug key for the whole team, committed on purpose.
+        //
+        // Google mints an ID token only for a registered package-name + SHA-1
+        // pair. Android's default debug keystore is generated per MACHINE, so
+        // every developer's `flutter run` produced a different signature and
+        // Google refused all but the one machine whose fingerprint happened to
+        // be registered — reported as "تم إلغاء تسجيل الدخول", which reads like
+        // the user cancelled and is why this cost two rounds to find.
+        //
+        // Registering each developer's fingerprint does not scale. Sharing one
+        // does: dev-debug.keystore is in the repository, so every clone signs
+        // debug builds identically and the single Android OAuth client for
+        // 17:65:5F:BF:C7:8A:62:25:43:EA:4E:28:71:D5:83:6A:38:A5:FE:E0 covers
+        // everyone.
+        //
+        // Committing it is safe and deliberate: a debug keystore signs nothing
+        // that can be published — Play refuses it — and its password is the
+        // documented constant `android`. It is NOT the release key. That one is
+        // app/android/key.properties + a keystore outside the repository, both
+        // gitignored, and neither is needed to run the app.
+        getByName("debug") {
+            storeFile = rootProject.file("dev-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
         if (hasSigningConfig) {
             create("release") {
                 keyAlias = keystoreProperties["keyAlias"] as String

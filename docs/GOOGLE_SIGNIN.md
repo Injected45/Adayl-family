@@ -61,16 +61,28 @@ That SHA-1 is **this machine's debug keystore**
 (`C:\Users\ahmed\.android\debug.keystore`). It is what debug builds are signed
 with, so it is what you need for testing on the emulator.
 
-**Add the release fingerprint too**, and it is the one that matters — the APK in
-`apk/` is what people install, and it is signed with `adayl-upload.jks`, not the
-debug key:
+**Two fingerprints have to be registered, and each needs its own Android client**
+— the console gives one package name and one SHA-1 per client, so add a second
+client with the same package name rather than looking for a second field:
 
-| Which build | SHA-1 |
-|---|---|
-| `run_emulator.bat`, `flutter run` | `58:C5:F7:AB:55:07:55:97:13:FA:02:87:C5:95:6C:E9:87:C0:5E:8A` |
-| `build_apk.bat` (the distributed APK) | `EC:C6:C8:07:6B:E2:38:6A:DD:4F:9B:86:6E:29:12:A2:22:0C:99:61` |
+| Which build | SHA-1 | Registered as |
+|---|---|---|
+| any developer's `flutter run` / `run_emulator.bat` | `17:65:5F:BF:C7:8A:62:25:43:EA:4E:28:71:D5:83:6A:38:A5:FE:E0` | `adayl-team-debug` |
+| `build_apk.bat` — the APK people install | `EC:C6:C8:07:6B:E2:38:6A:DD:4F:9B:86:6E:29:12:A2:22:0C:99:61` | `adayl-release` |
 
-Both go on the **same** Android client. Confirm either at any time with:
+The first is `app/android/dev-debug.keystore`, **committed to the repository on
+purpose** — see the comment in `app/android/app/build.gradle.kts`. Android
+generates its default debug keystore per machine, so before this every developer
+signed with a different key and Google refused everyone except whoever's
+fingerprint was registered. One shared debug key means one registration covers
+the whole team, and a fresh clone can `flutter run` and sign in with no setup at
+all.
+
+`58:C5:F7:AB:55:07:55:97:13:FA:02:87:C5:95:6C:E9:87:C0:5E:8A` was one
+developer's personal debug keystore and is what `Android client 1` still holds.
+It is harmless to leave and nothing uses it any more.
+
+Confirm any of them at any time with:
 
 ```bash
 keytool -list -v -alias <your-alias> -keystore <your-release.keystore>
@@ -156,8 +168,19 @@ editor with your address. See `docs/SUPABASE_SETUP.md`.
 ## Letting anyone sign in, without collecting their keys
 
 Google mints an ID token only for a registered **package name + signing SHA-1**
-pair. A teammate who builds from source therefore cannot sign in: their machine
-has its own debug keystore, so the app they built is, to Google, a different app.
+pair. That used to mean a teammate who built from source could not sign in at
+all: Android generates a debug keystore per machine, so their build was, to
+Google, a different app.
+
+Two things fix that, and the repository does both:
+
+- **Developers build and run normally.** `app/android/dev-debug.keystore` is
+  committed and wired into the `debug` signing config, so every clone signs
+  debug builds with the same key and the one registered `adayl-team-debug`
+  client covers all of them. Clone, `run_emulator.bat`, sign in. No setup, no
+  fingerprint to send anyone.
+- **Everyone else installs the release APK**, below. Members of the association
+  are not going to build anything.
 
 **It shows as "تم إلغاء تسجيل الدخول", not as an error.** Play Services reports
 a refusal through the same `canceled` code the user's own back-press produces,
