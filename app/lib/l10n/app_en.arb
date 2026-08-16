@@ -225,6 +225,13 @@
   "myFamilyTitle": "My subscription",
   "myFamilyIntro": "Your subscription and payments. Read-only.",
   "myStatementSection": "Statement",
+  "ledgerParticulars": "Particulars",
+  "ledgerDebit": "Debit",
+  "ledgerCredit": "Credit",
+  "ledgerBalance": "Balance",
+  "ledgerTotals": "Totals",
+  "balanceDueLabel": "Balance you owe",
+  "balanceSettledLabel": "Nothing outstanding",
 
   "issueCodeTitle": "Subscriber access code",
   "issueCodeBody": "Give this code to the subscriber so he can sign in and see only his own figures. Issuing a new code revokes the old one.",

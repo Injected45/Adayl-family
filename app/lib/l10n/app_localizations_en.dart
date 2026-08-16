@@ -647,6 +647,27 @@ class LEn extends L {
   String get myStatementSection => 'Statement';
 
   @override
+  String get ledgerParticulars => 'Particulars';
+
+  @override
+  String get ledgerDebit => 'Debit';
+
+  @override
+  String get ledgerCredit => 'Credit';
+
+  @override
+  String get ledgerBalance => 'Balance';
+
+  @override
+  String get ledgerTotals => 'Totals';
+
+  @override
+  String get balanceDueLabel => 'Balance you owe';
+
+  @override
+  String get balanceSettledLabel => 'Nothing outstanding';
+
+  @override
   String get issueCodeTitle => 'Subscriber access code';
 
   @override

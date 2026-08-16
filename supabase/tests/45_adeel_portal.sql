@@ -204,6 +204,78 @@ SELECT probe.raises('portal', 'he cannot issue a code for another عديل',
 SELECT probe.raises('portal', 'he cannot even attempt to rebind himself',
   $sql$ UPDATE public.profiles SET adeel_id = 2 WHERE id = auth.uid() $sql$, '42501');
 
+-- ═════ A suspended account cannot redeem its way back in ════════════════════
+--
+-- guard_profile_change refuses every self-change of `status` except one: the
+-- pending → approved that redeem_adeel_code performs on the caller's own row,
+-- recognised by the row acquiring an عديل binding at the same moment. Nothing
+-- distinguished suspended → approved from it, so an account an admin had
+-- suspended could restore itself to `approved` by redeeming any unredeemed
+-- code — coming back with read access to one عديل's dues, receipts and
+-- statement. Its role never changed, so no other guard had anything to notice.
+--
+-- Both directions are asserted, because "refused" on its own would also be the
+-- answer if the code were simply wrong.
+RESET ROLE;
+SELECT probe.become(NULL);
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-0000-0000-0000000000b3', 'stopped@fam.test',
+   '{"full_name":"حساب موقوف"}');
+UPDATE public.profiles SET role = 'viewer', status = 'suspended'
+ WHERE email = 'stopped@fam.test';
+
+-- A fresh, unredeemed code to aim at. Re-issuing does NOT unbind b1 — his
+-- binding lives on profiles.adeel_id from the moment he redeemed — so nothing
+-- asserted above changes.
+SET ROLE authenticated;
+SELECT probe.become('00000000-0000-0000-0000-0000000000a1');   -- admin
+SELECT probe.succeeds('portal', 'the admin issues a fresh, unredeemed code',
+  $sql$ SELECT public.issue_adeel_code(1) $sql$);
+
+-- Carried in a temp table: adeel_access_codes is admin-only by RLS, so reading
+-- the code inside the attempt below would return NULL and the redemption would
+-- be refused for being empty rather than for the account being suspended —
+-- and both refusals raise RUL14.
+RESET ROLE;
+CREATE TEMP TABLE freshcode AS
+  SELECT code FROM public.adeel_access_codes WHERE adeel_id = 1;
+GRANT SELECT ON freshcode TO authenticated;
+
+SET ROLE authenticated;
+SELECT probe.become('00000000-0000-0000-0000-0000000000b3');
+SELECT probe.raises('portal', 'a SUSPENDED account cannot redeem a code',
+  $sql$ SELECT public.redeem_adeel_code((SELECT code FROM freshcode)) $sql$,
+  'RUL14');
+
+RESET ROLE;
+SELECT probe.become(NULL);
+SELECT probe.eq('portal', '...and it was left unbound and still suspended',
+  $sql$ SELECT coalesce(adeel_id::text, '-') || '/' || status::text
+          FROM public.profiles WHERE email = 'stopped@fam.test' $sql$,
+  '-/suspended');
+
+-- The passing case. `pending` must still redeem — a new Google account is
+-- created viewer/pending, and redeeming is exactly how an عديل turns that into
+-- access without an admin approving him as staff.
+UPDATE public.profiles SET status = 'pending' WHERE email = 'stopped@fam.test';
+
+SET ROLE authenticated;
+SELECT probe.become('00000000-0000-0000-0000-0000000000b3');
+SELECT probe.succeeds('portal', 'the same code works once the suspension is lifted',
+  $sql$ SELECT public.redeem_adeel_code((SELECT code FROM freshcode)) $sql$);
+
+RESET ROLE;
+SELECT probe.become(NULL);
+SELECT probe.eq('portal', 'redeeming still approves a PENDING account',
+  $sql$ SELECT status::text FROM public.profiles
+         WHERE email = 'stopped@fam.test' $sql$, 'approved');
+
+-- Back under the client role. The section below was written inside the SET ROLE
+-- that the block above interrupted, and as postgres its two checks would read
+-- past RLS and pass while proving nothing.
+SET ROLE authenticated;
+
 -- ═════ And staff are not عدايل ═══════════════════════════════════════════════
 -- The other direction. If my_adeel_id() ever answered for staff, the عديل-scoped
 -- policies would start matching for them too — harmless today, but it would mean
@@ -224,7 +296,9 @@ SELECT probe.become(NULL);
 DELETE FROM public.adeel_access_codes;
 -- Deleting the auth.users rows cascades to their profiles, which is what takes
 -- the binding with them. Nothing else in the suite knows these two ever existed.
-DELETE FROM auth.users WHERE email IN ('adeel@fam.test', 'other@fam.test');
+DELETE FROM auth.users
+ WHERE email IN ('adeel@fam.test', 'other@fam.test', 'stopped@fam.test');
 DROP TABLE code1;
 DROP TABLE thecode;
+DROP TABLE freshcode;
 DROP TABLE portal_before;

@@ -1273,6 +1273,48 @@ abstract class L {
   /// **'كشف الحساب'**
   String get myStatementSection;
 
+  /// No description provided for @ledgerParticulars.
+  ///
+  /// In ar, this message translates to:
+  /// **'البيان'**
+  String get ledgerParticulars;
+
+  /// No description provided for @ledgerDebit.
+  ///
+  /// In ar, this message translates to:
+  /// **'مدين'**
+  String get ledgerDebit;
+
+  /// No description provided for @ledgerCredit.
+  ///
+  /// In ar, this message translates to:
+  /// **'دائن'**
+  String get ledgerCredit;
+
+  /// No description provided for @ledgerBalance.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرصيد'**
+  String get ledgerBalance;
+
+  /// No description provided for @ledgerTotals.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي'**
+  String get ledgerTotals;
+
+  /// No description provided for @balanceDueLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرصيد المستحق عليك'**
+  String get balanceDueLabel;
+
+  /// No description provided for @balanceSettledLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد رصيد مستحق'**
+  String get balanceSettledLabel;
+
   /// No description provided for @issueCodeTitle.
   ///
   /// In ar, this message translates to:

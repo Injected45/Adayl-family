@@ -240,6 +240,13 @@
   "myFamilyTitle": "اشتراكي",
   "myFamilyIntro": "بيانات اشتراكك ومدفوعاتك. للاطلاع فقط.",
   "myStatementSection": "كشف الحساب",
+  "ledgerParticulars": "البيان",
+  "ledgerDebit": "مدين",
+  "ledgerCredit": "دائن",
+  "ledgerBalance": "الرصيد",
+  "ledgerTotals": "الإجمالي",
+  "balanceDueLabel": "الرصيد المستحق عليك",
+  "balanceSettledLabel": "لا يوجد رصيد مستحق",
 
   "issueCodeTitle": "رمز دخول المشترك",
   "issueCodeBody": "أعطِ هذا الرمز للمشترك ليدخل ويرى بياناته فقط. إصدار رمز جديد يلغي القديم.",

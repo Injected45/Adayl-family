@@ -640,6 +640,27 @@ class LAr extends L {
   String get myStatementSection => 'كشف الحساب';
 
   @override
+  String get ledgerParticulars => 'البيان';
+
+  @override
+  String get ledgerDebit => 'مدين';
+
+  @override
+  String get ledgerCredit => 'دائن';
+
+  @override
+  String get ledgerBalance => 'الرصيد';
+
+  @override
+  String get ledgerTotals => 'الإجمالي';
+
+  @override
+  String get balanceDueLabel => 'الرصيد المستحق عليك';
+
+  @override
+  String get balanceSettledLabel => 'لا يوجد رصيد مستحق';
+
+  @override
   String get issueCodeTitle => 'رمز دخول المشترك';
 
   @override

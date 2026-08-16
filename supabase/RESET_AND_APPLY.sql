@@ -1627,12 +1627,33 @@ END $$;
 -- PUT /settings.  Rule 5's counterpart: changing these must not touch history,
 -- which trg_recv_snapshot_immutable guarantees independently.
 -- ═════════════════════════════════════════════════════════════════════════════
+-- WHAT THE AUDIT ENTRY HAS TO SAY, and why the first version did not say it.
+-- It recorded the bare string 'تحديث إعدادات الجمعية' and no values, so raising
+-- member_fee from 20 to 200 — the single number that decides every future charge
+-- — left a trail entry indistinguishable from renaming the association. Rule 12
+-- makes the trail append-only precisely so money decisions can be reconstructed
+-- from it, and an entry that names no value reconstructs nothing.
+--
+-- system_start matters for the same reason and is less obvious: moving it FORWARD
+-- takes months that were never billed out of scope entirely (rule 15c refuses any
+-- period before it, and api_closable_periods stops offering them), so uncollected
+-- months are written off silently. Recording the before and after is what makes
+-- that visible afterwards.
+--
+-- FOR UPDATE on the read: the old row has to be the one this statement is about
+-- to overwrite, not whatever a concurrent admin left behind between the SELECT
+-- and the UPDATE.
 CREATE OR REPLACE FUNCTION public.update_settings(p_patch jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
-DECLARE v_row record;
+DECLARE
+  v_old     record;
+  v_row     record;
+  v_changes text[] := '{}';
 BEGIN
   PERFORM public.require_role('admin');
+
+  SELECT * INTO v_old FROM public.association_settings WHERE id = 1 FOR UPDATE;
 
   UPDATE public.association_settings SET
     association_name = coalesce(p_patch ->> 'associationName', association_name),
@@ -1647,7 +1668,43 @@ BEGIN
   WHERE id = 1
   RETURNING * INTO v_row;
 
-  PERFORM public.write_audit('settings.update', 'تحديث إعدادات الجمعية', 'settings');
+  -- The two financially load-bearing fields first, then the rest. IS DISTINCT
+  -- FROM so a field the patch omitted (coalesce kept it) records nothing.
+  IF v_row.member_fee IS DISTINCT FROM v_old.member_fee THEN
+    v_changes := v_changes || format('الاشتراك الشهري من %s إلى %s',
+                                     v_old.member_fee::text, v_row.member_fee::text);
+  END IF;
+  IF v_row.system_start IS DISTINCT FROM v_old.system_start THEN
+    v_changes := v_changes || format('بداية النظام من %s إلى %s',
+                                     to_char(v_old.system_start, 'YYYY-MM-DD'),
+                                     to_char(v_row.system_start, 'YYYY-MM-DD'));
+  END IF;
+  IF v_row.currency IS DISTINCT FROM v_old.currency THEN
+    v_changes := v_changes || format('العملة من %s إلى %s',
+                                     v_old.currency, v_row.currency);
+  END IF;
+  IF v_row.association_name IS DISTINCT FROM v_old.association_name THEN
+    v_changes := v_changes || format('اسم الجمعية من %s إلى %s',
+                                     v_old.association_name, v_row.association_name);
+  END IF;
+  IF v_row.treasurer_name  IS DISTINCT FROM v_old.treasurer_name
+  OR v_row.treasurer_phone IS DISTINCT FROM v_old.treasurer_phone THEN
+    v_changes := v_changes || 'بيانات أمين الصندوق';
+  END IF;
+  IF v_row.finance_manager_name  IS DISTINCT FROM v_old.finance_manager_name
+  OR v_row.finance_manager_phone IS DISTINCT FROM v_old.finance_manager_phone THEN
+    v_changes := v_changes || 'بيانات المدير المالي';
+  END IF;
+
+  -- A no-op save still writes an entry. "An admin opened settings and saved
+  -- without changing anything" is itself worth being able to see, and a silent
+  -- write would make the trail's gaps ambiguous.
+  PERFORM public.write_audit('settings.update',
+    CASE WHEN cardinality(v_changes) = 0
+         THEN 'تحديث إعدادات الجمعية: لا تغيير'
+         ELSE 'تحديث إعدادات الجمعية: ' || array_to_string(v_changes, '، ')
+    END,
+    'settings');
 
   RETURN jsonb_build_object(
     'associationName', v_row.association_name, 'currency', v_row.currency,
@@ -1963,6 +2020,29 @@ BEGIN
 
   IF v_me.role <> 'viewer' THEN
     RAISE EXCEPTION 'هذا الحساب حساب إداري ولا يمكن ربطه بعديل'
+      USING ERRCODE = 'RUL14';
+  END IF;
+
+  -- A SUSPENDED account cannot redeem its way back in.
+  --
+  -- This is the one status that has to be checked here, and it is easy to miss
+  -- because the check that matters is not in this function — it is in
+  -- guard_profile_change. That trigger normally refuses any self-change of
+  -- `status`, and it makes ONE exception (`v_redeeming`) for the update below,
+  -- which sets status = 'approved' on the caller's own row. The exception exists
+  -- for pending → approved, which is the whole redemption flow.
+  --
+  -- Nothing distinguished suspended → approved from it. So an admin could
+  -- suspend an account and that account could restore itself to `approved` by
+  -- redeeming any unredeemed access code — coming back with read access to one
+  -- عديل's dues, receipts and statement. The role never changed, so no other
+  -- guard had anything to notice.
+  --
+  -- `pending` must still pass: a new Google account is created viewer/pending by
+  -- handle_new_user, and redeeming is exactly how an عديل turns that into access
+  -- without an admin approving him as staff. Only `suspended` is refused.
+  IF v_me.status = 'suspended' THEN
+    RAISE EXCEPTION 'هذا الحساب موقوف، راجع إدارة الجمعية'
       USING ERRCODE = 'RUL14';
   END IF;
 

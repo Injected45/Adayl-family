@@ -15,7 +15,19 @@ export SP
 
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
-EXPECTED_CHECKS=295
+#
+#   30_rules 94 + 40_rls 86 + 45_portal 42 + 50_money 43 + 60_concurrency 5
+#   + 70_purge 37 = 307
+#
+# It was 295, and that number is worth remembering as a warning about this guard.
+# 50_money_and_atomicity.sql was a byte-for-byte copy of 45_adeel_portal.sql from
+# the first commit until 2026-08-16, so the suite ran the portal group twice and
+# announced the second run as "money precision + atomicity". 295 is exactly
+# 93+86+37+37+5+37 — the total the DUPLICATED suite produced. The count was fitted
+# to the broken state, so the one mechanism meant to catch a check that does not
+# exist certified its absence instead. Derive this number from the files, never
+# from what a run happened to report.
+EXPECTED_CHECKS=307
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"

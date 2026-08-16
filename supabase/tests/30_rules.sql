@@ -188,6 +188,16 @@ SELECT probe.succeeds('rule05', 'restore the fee', $sql$
   SELECT public.update_settings('{"memberFee":"20.00"}'::jsonb)
 $sql$);
 
+-- The trail has to name the FIGURE. update_settings used to write the bare string
+-- 'تحديث إعدادات الجمعية' and no values, so raising the monthly fee — the one
+-- number that decides every future charge — left an entry indistinguishable from
+-- renaming the association. Both changes above carry both figures, so an entry
+-- that names neither fails this.
+SELECT probe.eq('rule05', 'the fee change is recorded with its before and after',
+  $sql$ SELECT (count(*) >= 2)::text FROM public.audit_log
+         WHERE event_type = 'settings.update'
+           AND detail LIKE '%999.00%' AND detail LIKE '%20.00%' $sql$, 'true');
+
 -- ═════ Rules 7, 8 — payment bounds, FIFO order, one cash movement ════════════
 -- عديل 1 already owes two periods — 2026-02 and 2026-03, closed in that order
 -- above — which is exactly the two the FIFO split below needs.
