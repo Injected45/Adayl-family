@@ -260,6 +260,7 @@
   "ledgerParticulars": "البيان",
   "ledgerDebit": "مدين",
   "ledgerCredit": "دائن",
+  "ledgerDebitCredit": "مدين / دائن",
   "ledgerBalance": "الرصيد",
   "ledgerTotals": "الإجمالي",
   "balanceDueLabel": "الرصيد المستحق عليك",
@@ -332,6 +333,14 @@
   "openPeriodsBadge": "{count} فترة مفتوحة",
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "إجمالي المستحق",
+  "myBalanceNow": "رصيدك الآن",
+  "ofTotal": "من {amount}",
+  "@ofTotal": { "placeholders": { "amount": { "type": "String" } } },
+  "settledUpTitle": "لا مستحقات عليك",
+  "settledUpBody": "كل اشتراكاتك مسدَّدة. شكراً لالتزامك.",
+  "openMonthsCount": "{count, plural, =1{شهر واحد غير مسدَّد} =2{شهران غير مسدَّدين} few{{count} أشهر غير مسدَّدة} other{{count} شهراً غير مسدَّد}}",
+  "@openMonthsCount": { "placeholders": { "count": { "type": "int" } } },
+  "monthlyFeeLabel": "الاشتراك الشهري",
   "myDuesTitle": "اشتراكاتي",
   "duesSection": "الاشتراكات"
 }

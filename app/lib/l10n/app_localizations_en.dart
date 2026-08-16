@@ -710,6 +710,9 @@ class LEn extends L {
   String get ledgerCredit => 'Credit';
 
   @override
+  String get ledgerDebitCredit => 'Debit / Credit';
+
+  @override
   String get ledgerBalance => 'Balance';
 
   @override
@@ -913,6 +916,31 @@ class LEn extends L {
 
   @override
   String get issuedLabel => 'Total charged';
+
+  @override
+  String get myBalanceNow => 'Your balance now';
+
+  @override
+  String ofTotal(String amount) {
+    return 'of $amount';
+  }
+
+  @override
+  String get settledUpTitle => 'Nothing outstanding';
+
+  @override
+  String get settledUpBody => 'Every subscription is settled. Thank you.';
+
+  @override
+  String openMonthsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count months unpaid',
+      one: '1 month unpaid',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get myDuesTitle => 'My subscriptions';

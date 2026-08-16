@@ -243,6 +243,7 @@
   "ledgerParticulars": "Particulars",
   "ledgerDebit": "Debit",
   "ledgerCredit": "Credit",
+  "ledgerDebitCredit": "Debit / Credit",
   "ledgerBalance": "Balance",
   "ledgerTotals": "Totals",
   "balanceDueLabel": "Balance you owe",
@@ -313,6 +314,12 @@
   "openPeriodsBadge": "{count} open periods",
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "Total charged",
+  "myBalanceNow": "Your balance now",
+  "ofTotal": "of {amount}",
+  "settledUpTitle": "Nothing outstanding",
+  "settledUpBody": "Every subscription is settled. Thank you.",
+  "openMonthsCount": "{count, plural, =1{1 month unpaid} other{{count} months unpaid}}",
+  "monthlyFeeLabel": "Monthly subscription",
   "myDuesTitle": "My subscriptions",
   "duesSection": "Subscriptions"
 }

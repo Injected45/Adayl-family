@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
@@ -76,11 +77,16 @@ class AdeelsScreen extends ConsumerWidget {
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(adeelsProvider(query)),
                   child: ListView.separated(
-                    padding: const EdgeInsetsDirectional.fromSTEB(
+                    // bottomInset, not a bare 24: AppScaffold's navigation pill
+                    // floats over the body, so a fixed inset leaves the last
+                    // عديل in the register unreachable behind it — and only once
+                    // the list is long enough to scroll, which is why it went
+                    // unnoticed.
+                    padding: EdgeInsetsDirectional.fromSTEB(
                       16,
                       0,
                       16,
-                      24,
+                      24 + bottomInset(context),
                     ),
                     itemCount: items.length,
                     separatorBuilder: (_, _) =>

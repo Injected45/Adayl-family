@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
@@ -77,7 +78,12 @@ class AuditScreen extends ConsumerWidget {
                   );
                 }
                 return ListView.separated(
-                  padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 24),
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    16,
+                    0,
+                    16,
+                    24 + bottomInset(context),
+                  ),
                   itemCount: page.items.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {

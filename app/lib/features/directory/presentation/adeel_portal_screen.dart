@@ -13,11 +13,30 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
-/// Shown in a money column that has no figure on this line. A charge has no
-/// credit and a receipt has no debit, and a ledger says so with a rule rather
-/// than with `0.00` — a zero is a figure, and reading four of them down a column
-/// is how a real balance gets missed.
-const String _noFigure = '—';
+/// Column shares, summing to 100. The three money columns are equal because
+/// the figures in them are the same size; the particulars take what is left.
+///
+/// Shares, not pixels: four fixed columns needed 448dp and a Galaxy Note 10 has
+/// 360, so the table used to scroll sideways. Proportions fit every screen and
+/// every system font size by construction.
+const int _particularsFlex = 30;
+const int _moneyFlex = 35;
+
+/// The ledger runs SMALLER than the rest of the portal, on purpose.
+///
+/// Everywhere else the type was raised for legibility. A four-column table on a
+/// 360dp phone is a different constraint from prose: at 15pt a four-figure
+/// amount overflows its 22% column, FittedBox shrinks that ONE cell, and a
+/// column of figures where some rows are smaller than others is harder to read
+/// down than a column that is uniformly a point smaller.
+///
+/// So the size is chosen to fit the widest amount the association will
+/// realistically show — thousands, with separators — at full size, which makes
+/// the shrink path a genuine last resort rather than the normal case.
+const double _ledgerMoneySize = 12;
+const double _ledgerHeadSize = 12;
+const double _ledgerTitleSize = 14;
+const double _ledgerNoteSize = 12;
 
 /// What an عديل sees: his own record and his own money, and nothing of the
 /// association's.
@@ -93,52 +112,298 @@ class AdeelPortalScreen extends ConsumerWidget {
   }
 }
 
-class _PortalBody extends ConsumerWidget {
+/// The subscriber's account, arranged the way an account is actually read.
+///
+/// ── What was wrong with showing everything at once ──────────────────────────
+/// The page used to be one scroll: an identity card, then every receivable he
+/// has ever had, then the whole ledger. Three things of equal visual weight,
+/// none of them answering first. A member opening this has ONE question, and
+/// the old layout made him assemble the answer himself by adding tiles.
+///
+/// ── The order an account is read in ─────────────────────────────────────────
+/// An account statement answers three questions, and their urgency is not
+/// equal:
+///
+///   1. WHAT DO I OWE, right now.        → one figure, unmissable
+///   2. WHAT IS IT MADE OF.              → the months still open
+///   3. SHOW ME EVERYTHING.              → the full ledger, on request
+///
+/// So the balance is the hero, the identity — which he confirmed the moment he
+/// redeemed his code and never needs again — is demoted to something he can
+/// open, and (2) and (3) share the space through a segmented control instead of
+/// stacking. One question is answered at a time, which is the difference
+/// between a statement and a pile of figures.
+///
+/// The totals strip under the hero is deliberate accounting: `مستحق − مدفوع =
+/// الرصيد` reads left to right as the identity it is, so the hero figure is not
+/// a number he has to trust but one he can see derived.
+class _PortalBody extends ConsumerStatefulWidget {
   const _PortalBody({required this.adeelId, required this.detail});
 
   final int adeelId;
   final AdeelDetail detail;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PortalBody> createState() => _PortalBodyState();
+}
+
+enum _PortalTab { dues, ledger }
+
+class _PortalBodyState extends ConsumerState<_PortalBody> {
+  /// Dues first: "what do I owe" is why he opened the app. The ledger is the
+  /// follow-up question, and it is one tap away rather than a scroll away.
+  _PortalTab _tab = _PortalTab.dues;
+
+  @override
+  Widget build(BuildContext context) {
     final L l = L.of(context);
+    final AdeelDetail detail = widget.detail;
     final AsyncValue<Statement> statement = ref.watch(
-      statementProvider(adeelId),
+      statementProvider(widget.adeelId),
     );
+
+    // Only what is still owed. A settled month is history: it belongs in the
+    // ledger, where it sits in date order beside the payment that settled it,
+    // not in a list headed "your dues" where it reads as an outstanding demand.
+    final List<ReceivableItem> open = <ReceivableItem>[
+      for (final ReceivableItem r in detail.receivables)
+        if (r.status != ReceivableStatusWire.fullyPaid &&
+            r.status != ReceivableStatusWire.cancelled)
+          r,
+    ];
 
     return ListView(
       padding: screenPadding(context),
       children: <Widget>[
-        _AccountCard(detail: detail),
+        _BalanceHero(detail: detail, openCount: open.length),
+        const SizedBox(height: AppSpacing.md),
+        _TotalsStrip(detail: detail),
         const SizedBox(height: AppSpacing.xl),
 
-        // The household roster is gone: there is no household, and the only
-        // person on this page is the one reading it. What replaces it is what he
-        // actually came for — which months he owes.
-        _SectionTitle(l.myDuesTitle),
-        for (final ReceivableItem item in detail.receivables)
-          _DueTile(item: item),
-
-        const SizedBox(height: AppSpacing.xl),
-        statement.when(
-          loading: () => const LoadingStateView(),
-          error: (Object error, StackTrace _) =>
-              ErrorStateView(message: describeApiFailure(l, error)),
-          data: (Statement data) => _Ledger(statement: data, detail: detail),
+        SegmentedButton<_PortalTab>(
+          segments: <ButtonSegment<_PortalTab>>[
+            ButtonSegment<_PortalTab>(
+              value: _PortalTab.dues,
+              label: Text(l.myDuesTitle),
+              icon: const Icon(Icons.event_note_outlined, size: 18),
+            ),
+            ButtonSegment<_PortalTab>(
+              value: _PortalTab.ledger,
+              label: Text(l.myStatementSection),
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            ),
+          ],
+          selected: <_PortalTab>{_tab},
+          showSelectedIcon: false,
+          onSelectionChanged: (Set<_PortalTab> value) =>
+              setState(() => _tab = value.first),
         ),
+        const SizedBox(height: AppSpacing.lg),
+
+        if (_tab == _PortalTab.dues)
+          if (open.isEmpty)
+            // Not an empty list but an ANSWER. "Nothing is owed" is the best
+            // news this screen can carry and it should read like it, rather
+            // than like a section that failed to load.
+            EmptyStateView(
+              icon: Icons.verified_outlined,
+              title: l.settledUpTitle,
+              message: l.settledUpBody,
+            )
+          else
+            for (final ReceivableItem item in open) _DueTile(item: item)
+        else
+          statement.when(
+            loading: () => const LoadingStateView(),
+            error: (Object error, StackTrace _) =>
+                ErrorStateView(message: describeApiFailure(l, error)),
+            data: (Statement data) => _Ledger(statement: data, detail: detail),
+          ),
+
+        const SizedBox(height: AppSpacing.xl),
+        _IdentityPanel(detail: detail),
       ],
     );
   }
 }
 
-/// Who he is and what he owes, in one card.
+/// The one figure he came for.
 ///
-/// This used to be a four-up grid of equal stat tiles, which gave the monthly
-/// fee the same weight as the balance and answered none of "is this my record".
-/// The identity comes first because he has just typed an access code and the
-/// first thing he needs is confirmation it bound him to the right man.
-class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.detail});
+/// Given the whole width and a tone that states the answer before the number is
+/// read: owing is warm, settled is green. The subtitle turns the figure into a
+/// sentence — a balance with no count of months behind it invites "since when?"
+/// and makes him open the ledger to find out.
+class _BalanceHero extends StatelessWidget {
+  const _BalanceHero({required this.detail, required this.openCount});
+
+  final AdeelDetail detail;
+  final int openCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    // A comparison, not arithmetic: money stays text end to end, and the only
+    // thing decided here is which colour the figure wears.
+    final bool owes = (double.tryParse(detail.debt) ?? 0) > 0;
+
+    return GlassCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                owes ? Icons.account_balance_wallet : Icons.verified,
+                size: 18,
+                color: owes ? AppColors.danger : AppColors.success,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                l.myBalanceNow,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            formatMoney(detail.debt),
+            style: TextStyle(
+              fontFamily: AppFonts.display,
+              fontSize: 40,
+              height: 1.1,
+              fontWeight: FontWeight.w800,
+              color: owes ? AppColors.danger : AppColors.success,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            owes ? l.openMonthsCount(openCount) : l.settledUpTitle,
+            style: const TextStyle(fontSize: 15, color: AppColors.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// مستحق − مدفوع = الرصيد, shown as the identity it is.
+///
+/// Three figures in a row rather than three cards: they are one statement, and
+/// separating them into tiles is what made the old grid read as four unrelated
+/// facts. The middle column carries the operator so the arithmetic is visible
+/// — the hero figure above is then something he can check, not something he has
+/// to accept.
+class _TotalsStrip extends StatelessWidget {
+  const _TotalsStrip({required this.detail});
+
+  final AdeelDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.md,
+        horizontal: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.neutralSoft,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+      ),
+      child: Row(
+        children: <Widget>[
+          _StripCell(label: l.issuedTotal, value: detail.issued),
+          const _StripOperator('−'),
+          _StripCell(label: l.collectedTotal, value: detail.paid),
+          const _StripOperator('='),
+          _StripCell(
+            label: l.outstandingTotal,
+            value: detail.debt,
+            bold: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripCell extends StatelessWidget {
+  const _StripCell({
+    required this.label,
+    required this.value,
+    this.bold = false,
+  });
+
+  final String label;
+  final String value;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: <Widget>[
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            formatMoney(value),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+              color: bold ? AppColors.ink : AppColors.muted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripOperator extends StatelessWidget {
+  const _StripOperator(this.symbol);
+
+  final String symbol;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Text(
+        symbol,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: AppColors.muted,
+        ),
+      ),
+    );
+  }
+}
+
+/// Who he is — collapsed, because it is confirmation rather than information.
+///
+/// He established this the moment he redeemed his access code. Keeping it open
+/// at the top of every visit spends the most valuable part of the screen on a
+/// question he has already answered, which is most of what made the old layout
+/// feel arbitrary. It stays reachable because a member checking that the
+/// association holds his phone number correctly has nowhere else to look.
+class _IdentityPanel extends StatelessWidget {
+  const _IdentityPanel({required this.detail});
 
   final AdeelDetail detail;
 
@@ -147,10 +412,6 @@ class _AccountCard extends StatelessWidget {
     final L l = L.of(context);
     final AdeelView adeel = detail.adeel;
 
-    // A comparison, not arithmetic: money stays text end to end, and the only
-    // thing decided here is which colour the figure wears.
-    final bool owes = (double.tryParse(detail.debt) ?? 0) > 0;
-
     final Color statusTone = switch (adeel.membershipStatus) {
       MembershipStatusWire.active => AppColors.success,
       MembershipStatusWire.suspended => AppColors.warning,
@@ -158,107 +419,44 @@ class _AccountCard extends StatelessWidget {
     };
 
     return GlassCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      adeel.fullName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      adeel.adeelCode,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              // The status the database stores, verbatim — what he reads here
-              // and what the treasurer reads cannot diverge.
-              StatusBadge(label: adeel.membershipStatus, tone: statusTone),
-            ],
+      padding: EdgeInsets.zero,
+      child: Theme(
+        // The default divider makes an ExpansionTile inside a card read as two
+        // stacked cards.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.lg,
           ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // The one figure he opened the app for. Given a tinted block of its
-          // own rather than a tile in a grid, because "what do I owe" is not one
-          // fact among four.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: owes ? AppColors.dangerSoft : AppColors.successSoft,
-              borderRadius: BorderRadius.circular(AppRadius.control),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  owes ? l.balanceDueLabel : l.balanceSettledLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: owes ? AppColors.danger : AppColors.success,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    formatMoney(detail.debt),
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontFamily: AppFonts.display,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      color: owes ? AppColors.danger : AppColors.success,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          title: Text(
+            adeel.fullName,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Wrap, not a Row of Expanded: at a large text scale three fixed
-          // columns clip, and these wrap onto a second line instead.
-          Wrap(
-            spacing: AppSpacing.xl,
-            runSpacing: AppSpacing.md,
-            children: <Widget>[
-              _Field(
-                label: l.monthlyFeeLabel,
-                value: formatMoney(detail.monthlyExpected),
-              ),
-              _Field(
-                label: l.registeredAt,
-                value: formatDate(adeel.registeredAt),
-              ),
-              if (adeel.phone.isNotEmpty)
-                _Field(label: l.phone, value: adeel.phone),
-            ],
+          subtitle: Text(
+            adeel.adeelCode,
+            style: const TextStyle(fontSize: 14, color: AppColors.muted),
           ),
-        ],
+          // The status the database stores, verbatim — what he reads here and
+          // what the treasurer reads cannot diverge.
+          trailing: StatusBadge(
+            label: adeel.membershipStatus,
+            tone: statusTone,
+          ),
+          children: <Widget>[
+            _Field(label: l.phone, value: adeel.phone),
+            _Field(label: l.registeredAt, value: formatDate(adeel.registeredAt)),
+            _Field(label: l.monthlyFeeLabel, value: formatMoney(detail.monthlyExpected)),
+          ],
+        ),
       ),
     );
   }
 }
+
 
 class _Field extends StatelessWidget {
   const _Field({required this.label, required this.value});
@@ -274,12 +472,12 @@ class _Field extends StatelessWidget {
       children: <Widget>[
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: AppColors.muted),
+          style: const TextStyle(fontSize: 13, color: AppColors.muted),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -356,13 +554,6 @@ class _LedgerState extends State<_Ledger> {
     final int shown = (_pagesShown * _Ledger.rowsPerPage).clamp(0, total);
     final int remaining = total - shown;
 
-    // Columns are sized in scaled pixels, so the table grows with the reader's
-    // text size instead of clipping at it. Below the width that needs, it
-    // scrolls sideways inside its own box — the page itself never does.
-    final double k = MediaQuery.textScalerOf(context).scale(13) / 13;
-    final double money = 84 * k;
-    final double particulars = 128 * k;
-
     return GlassPanel(
       title: l.myStatementSection,
       child: Column(
@@ -400,50 +591,36 @@ class _LedgerState extends State<_Ledger> {
               child: Text(
                 l.noSearchResults,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                style: const TextStyle(fontSize: 15, color: AppColors.muted),
               ),
             )
           else
-            LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double needed = particulars + money * 3;
-                final double width = constraints.maxWidth > needed
-                    ? constraints.maxWidth
-                    : needed;
-
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: width,
-                    child: Column(
-                      children: <Widget>[
-                        _LedgerHead(money: money),
-                        for (int i = 0; i < shown; i++)
-                          _LedgerRow(
-                            movement: matches[i],
-                            money: money,
-                            // Zebra striping. A four-column table of
-                            // near-identical numbers is where the eye slips a
-                            // line, and the stripe is what keeps a balance
-                            // attached to its own movement.
-                            shaded: i.isOdd,
-                          ),
-                        // The totals stay the ACCOUNT's, never the filtered
-                        // set's: closingBalance is the server's window
-                        // function over every movement, and a bank statement
-                        // narrowed by a search still states what the account
-                        // stands at. Summing the visible rows here would
-                        // invent a second, disagreeing figure.
-                        _LedgerTotals(
-                          detail: widget.detail,
-                          statement: widget.statement,
-                          money: money,
-                        ),
-                      ],
-                    ),
+            // No horizontal scroller, and that is the point. The columns are
+            // shares of whatever width there is (see _Cell), so the table is
+            // exactly as wide as the screen on a Galaxy Note 10's 360dp and on
+            // anything else — a statement a reader has to drag sideways to
+            // reach the balance is not one he can read.
+            Column(
+              children: <Widget>[
+                const _LedgerHead(),
+                for (int i = 0; i < shown; i++)
+                  _LedgerRow(
+                    movement: matches[i],
+                    // Zebra striping. A four-column table of near-identical
+                    // numbers is where the eye slips a line, and the stripe is
+                    // what keeps a balance attached to its own movement.
+                    shaded: i.isOdd,
                   ),
-                );
-              },
+                // The totals stay the ACCOUNT's, never the filtered set's:
+                // closingBalance is the server's window function over every
+                // movement, and a bank statement narrowed by a search still
+                // states what the account stands at. Summing the visible rows
+                // here would invent a second, disagreeing figure.
+                _LedgerTotals(
+                  detail: widget.detail,
+                  statement: widget.statement,
+                ),
+              ],
             ),
 
           if (total > 0) ...<Widget>[
@@ -596,7 +773,7 @@ class _LedgerPager extends StatelessWidget {
       children: <Widget>[
         Text(
           l.statementShowing(shown, total),
-          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          style: const TextStyle(fontSize: 14, color: AppColors.muted),
         ),
         if (remaining > 0)
           Wrap(
@@ -619,15 +796,13 @@ class _LedgerPager extends StatelessWidget {
 }
 
 class _LedgerHead extends StatelessWidget {
-  const _LedgerHead({required this.money});
-
-  final double money;
+  const _LedgerHead();
 
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
     const TextStyle style = TextStyle(
-      fontSize: 11,
+      fontSize: _ledgerHeadSize,
       fontWeight: FontWeight.w800,
       color: AppColors.inkMuted,
     );
@@ -643,17 +818,16 @@ class _LedgerHead extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          Expanded(child: Text(l.ledgerParticulars, style: style)),
-          _Cell(
-            width: money,
-            child: Text(l.ledgerDebit, style: style),
+          Expanded(
+            flex: _particularsFlex,
+            child: Text(l.ledgerParticulars, style: style),
           ),
           _Cell(
-            width: money,
-            child: Text(l.ledgerCredit, style: style),
+            flex: _moneyFlex,
+            child: Text(l.ledgerDebitCredit, style: style),
           ),
           _Cell(
-            width: money,
+            flex: _moneyFlex,
             child: Text(l.ledgerBalance, style: style),
           ),
         ],
@@ -665,12 +839,10 @@ class _LedgerHead extends StatelessWidget {
 class _LedgerRow extends StatelessWidget {
   const _LedgerRow({
     required this.movement,
-    required this.money,
     required this.shaded,
   });
 
   final StatementMovement movement;
-  final double money;
   final bool shaded;
 
   @override
@@ -694,6 +866,7 @@ class _LedgerRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
           Expanded(
+            flex: _particularsFlex,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -702,7 +875,7 @@ class _LedgerRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: _ledgerTitleSize,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -713,23 +886,29 @@ class _LedgerRow extends StatelessWidget {
                   '${movement.type} • ${formatDate(movement.date)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  style: const TextStyle(
+                    fontSize: _ledgerNoteSize,
+                    color: AppColors.muted,
+                  ),
                 ),
               ],
             ),
           ),
+          // ONE column for both, because a movement is never both. The old
+          // layout gave مدين and دائن a column each and then printed a rule in
+          // whichever was empty — half the table's width spent showing that a
+          // figure is absent, on the screen with the least width to spare.
+          //
+          // Colour carries the distinction the two columns used to: a charge is
+          // red, a receipt is green, and the type is spelled out in words on the
+          // line beneath the particulars.
           _Money(
-            width: money,
-            text: isCharge ? formatMoney(debit) : _noFigure,
-            tone: isCharge ? AppColors.danger : AppColors.muted,
+            flex: _moneyFlex,
+            text: isCharge ? formatMoney(debit) : formatMoney(credit),
+            tone: isCharge ? AppColors.danger : AppColors.success,
           ),
           _Money(
-            width: money,
-            text: isCharge ? _noFigure : formatMoney(credit),
-            tone: isCharge ? AppColors.muted : AppColors.success,
-          ),
-          _Money(
-            width: money,
+            flex: _moneyFlex,
             text: formatMoney(movement.balance),
             tone: AppColors.ink,
             bold: true,
@@ -750,12 +929,10 @@ class _LedgerTotals extends StatelessWidget {
   const _LedgerTotals({
     required this.detail,
     required this.statement,
-    required this.money,
   });
 
   final AdeelDetail detail;
   final Statement statement;
-  final double money;
 
   @override
   Widget build(BuildContext context) {
@@ -773,25 +950,29 @@ class _LedgerTotals extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Expanded(
+            flex: _particularsFlex,
             child: Text(
               l.ledgerTotals,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: _ledgerTitleSize,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           _Money(
-            width: money,
+            flex: _moneyFlex,
             text: formatMoney(detail.issued),
             tone: AppColors.danger,
             bold: true,
           ),
           _Money(
-            width: money,
+            flex: _moneyFlex,
             text: formatMoney(detail.paid),
             tone: AppColors.success,
             bold: true,
           ),
           _Money(
-            width: money,
+            flex: _moneyFlex,
             text: formatMoney(statement.closingBalance),
             tone: owes ? AppColors.danger : AppColors.success,
             bold: true,
@@ -802,14 +983,23 @@ class _LedgerTotals extends StatelessWidget {
   }
 }
 
+/// One money column, sized as a SHARE of the row rather than in pixels.
+///
+/// It used to be a fixed 100dp, and four fixed columns need 448dp — more than a
+/// Galaxy Note 10 has (360dp), so the table scrolled sideways and a reader had
+/// to drag to see the balance he came for. A statement you have to scroll
+/// horizontally is not a statement you can read.
+///
+/// Flex means the table is exactly as wide as the screen on every device and at
+/// every system font size, and never one pixel more.
 class _Cell extends StatelessWidget {
-  const _Cell({required this.width, required this.child});
+  const _Cell({required this.flex, required this.child});
 
-  final double width;
+  final int flex;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: width, child: child);
+  Widget build(BuildContext context) => Expanded(flex: flex, child: child);
 }
 
 /// A figure in a money column.
@@ -821,13 +1011,13 @@ class _Cell extends StatelessWidget {
 /// what lets a column of figures be read down rather than one at a time.
 class _Money extends StatelessWidget {
   const _Money({
-    required this.width,
+    required this.flex,
     required this.text,
     required this.tone,
     this.bold = false,
   });
 
-  final double width;
+  final int flex;
   final String text;
   final Color tone;
   final bool bold;
@@ -835,17 +1025,24 @@ class _Money extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Cell(
-      width: width,
-      child: Text(
+      flex: flex,
+      // scaleDown, not ellipsis: an amount cut short reads as a DIFFERENT
+      // amount, which is worse than one rendered a point smaller. It only
+      // shrinks when the figure genuinely cannot fit — an ordinary 20.00 is
+      // untouched.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
         text,
         textAlign: TextAlign.start,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: _ledgerMoneySize,
           fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
           color: tone,
         ),
+      ),
       ),
     );
   }
@@ -865,7 +1062,7 @@ class _SectionTitle extends StatelessWidget {
         children: <Widget>[
           Text(
             title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: AppSpacing.xs),
           const Divider(height: 1),
@@ -882,6 +1079,7 @@ class _DueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final L l = L.of(context);
     final bool settled = item.status == ReceivableStatusWire.fullyPaid;
     return GlassCard(
       margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
@@ -897,18 +1095,47 @@ class _DueTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  formatMoney(item.total),
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                // The status label is the value the database stores, so what he
+                // reads here and what the treasurer reads cannot diverge.
+                StatusBadge(
+                  label: item.status,
+                  tone: settled ? AppColors.success : AppColors.warning,
                 ),
               ],
             ),
           ),
-          // The status label is the value the database stores, so what he reads
-          // here and what the treasurer reads cannot diverge.
-          StatusBadge(
-            label: item.status,
-            tone: settled ? AppColors.success : AppColors.warning,
+          const SizedBox(width: AppSpacing.sm),
+          // ── The REMAINING amount leads, not the month's total ─────────────
+          // This tile used to show `total` — what the month cost. In a list
+          // headed "what you owe" that is the wrong figure: a month half paid
+          // showed 20.00 while 10.00 was actually due, and the only way to
+          // learn the real number was to open the ledger and subtract.
+          //
+          // The total stays underneath, quieter, because "10 of 20" is what
+          // makes a partial payment legible — and it is the whole reason the
+          // two figures differ.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                formatMoney(item.balance),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: settled ? AppColors.success : AppColors.danger,
+                ),
+              ),
+              if (!settled && item.balance != item.total) ...<Widget>[
+                const SizedBox(height: 2),
+                Text(
+                  l.ofTotal(formatMoney(item.total)),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

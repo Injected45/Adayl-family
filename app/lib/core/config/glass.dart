@@ -469,6 +469,24 @@ EdgeInsetsGeometry screenPadding(BuildContext context) {
   );
 }
 
+/// What a scroll view must add at the bottom so its LAST row is reachable.
+///
+/// [screenPadding] already folds this in, and any screen that can use it should.
+/// This exists for the ones that cannot — a list needing no top inset, or a
+/// different horizontal one — because four of them hardcoded a bottom of 24 and
+/// every one of them hid its final row behind the navigation pill.
+///
+/// AppScaffold publishes the pill's height as `MediaQuery.padding.bottom` for
+/// exactly this reason, so reading it is the whole answer: 78dp of pill under an
+/// admin screen, the gesture bar under the عديل portal, and zero where there is
+/// neither. Nothing here needs to know which case it is in.
+///
+/// The bug it prevents is quiet. A list only hides its last row when it is long
+/// enough to scroll, so a screen looks correct until the association has enough
+/// عدايل — and by then nobody connects the missing row to the padding.
+double bottomInset(BuildContext context) =>
+    MediaQuery.paddingOf(context).bottom;
+
 /// Whether the platform asked for less motion.
 ///
 /// Checked before every entrance animation. `disableAnimations` is what iOS

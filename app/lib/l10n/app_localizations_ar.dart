@@ -703,6 +703,9 @@ class LAr extends L {
   String get ledgerCredit => 'دائن';
 
   @override
+  String get ledgerDebitCredit => 'مدين / دائن';
+
+  @override
   String get ledgerBalance => 'الرصيد';
 
   @override
@@ -905,6 +908,33 @@ class LAr extends L {
 
   @override
   String get issuedLabel => 'إجمالي المستحق';
+
+  @override
+  String get myBalanceNow => 'رصيدك الآن';
+
+  @override
+  String ofTotal(String amount) {
+    return 'من $amount';
+  }
+
+  @override
+  String get settledUpTitle => 'لا مستحقات عليك';
+
+  @override
+  String get settledUpBody => 'كل اشتراكاتك مسدَّدة. شكراً لالتزامك.';
+
+  @override
+  String openMonthsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count شهراً غير مسدَّد',
+      few: '$count أشهر غير مسدَّدة',
+      two: 'شهران غير مسدَّدين',
+      one: 'شهر واحد غير مسدَّد',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get myDuesTitle => 'اشتراكاتي';

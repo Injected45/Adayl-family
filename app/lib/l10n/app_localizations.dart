@@ -1381,6 +1381,12 @@ abstract class L {
   /// **'دائن'**
   String get ledgerCredit;
 
+  /// No description provided for @ledgerDebitCredit.
+  ///
+  /// In ar, this message translates to:
+  /// **'مدين / دائن'**
+  String get ledgerDebitCredit;
+
   /// No description provided for @ledgerBalance.
   ///
   /// In ar, this message translates to:
@@ -1758,6 +1764,36 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'إجمالي المستحق'**
   String get issuedLabel;
+
+  /// No description provided for @myBalanceNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيدك الآن'**
+  String get myBalanceNow;
+
+  /// No description provided for @ofTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'من {amount}'**
+  String ofTotal(String amount);
+
+  /// No description provided for @settledUpTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا مستحقات عليك'**
+  String get settledUpTitle;
+
+  /// No description provided for @settledUpBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل اشتراكاتك مسدَّدة. شكراً لالتزامك.'**
+  String get settledUpBody;
+
+  /// No description provided for @openMonthsCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =1{شهر واحد غير مسدَّد} =2{شهران غير مسدَّدين} few{{count} أشهر غير مسدَّدة} other{{count} شهراً غير مسدَّد}}'**
+  String openMonthsCount(int count);
 
   /// No description provided for @myDuesTitle.
   ///

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
@@ -90,7 +91,12 @@ class _StatementBody extends ConsumerWidget {
           );
         }
         return ListView(
-          padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 24),
+          padding: EdgeInsetsDirectional.fromSTEB(
+                    16,
+                    0,
+                    16,
+                    24 + bottomInset(context),
+                  ),
           children: <Widget>[
             for (final StatementMovement movement in data.movements)
               _MovementCard(movement: movement),

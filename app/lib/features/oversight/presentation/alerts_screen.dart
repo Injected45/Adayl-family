@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
@@ -81,7 +82,12 @@ class AlertsScreen extends ConsumerWidget {
                   );
                 }
                 return ListView.separated(
-                  padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 24),
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    16,
+                    0,
+                    16,
+                    24 + bottomInset(context),
+                  ),
                   itemCount: items.length,
                   separatorBuilder: (_, _) =>
                       const SizedBox(height: AppSpacing.sm),

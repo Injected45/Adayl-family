@@ -133,6 +133,15 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+
+    // The portal opens on المستحقات — "what do I owe" is why a member opens it,
+    // and the ledger is the follow-up question behind a segment. Every test in
+    // this file is about the ledger, so each one starts by asking for it. That
+    // tap is also the only thing standing between these assertions and the
+    // screen a member actually sees, so it is worth performing rather than
+    // reaching past.
+    await tester.tap(find.text(l.myStatementSection).last);
+    await tester.pumpAndSettle();
   }
 
   Future<void> type(WidgetTester tester, String query) async {
