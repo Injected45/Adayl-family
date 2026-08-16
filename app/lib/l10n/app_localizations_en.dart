@@ -117,6 +117,12 @@ class LEn extends L {
   String get bankAccountSection => 'Association bank account';
 
   @override
+  String get bankNameField => 'Bank name';
+
+  @override
+  String get previouslyUsed => 'Used before';
+
+  @override
   String get bankAccountNoField => 'Account number';
 
   @override

@@ -13,6 +13,7 @@ class AssociationSettingsView {
     required this.associationName,
     required this.currency,
     required this.memberFee,
+    required this.bankName,
     required this.bankAccountNo,
     required this.bankAccountName,
   });
@@ -27,6 +28,7 @@ class AssociationSettingsView {
   /// The association's own receiving account, for a تحويل مصرفي. Empty until an
   /// admin fills it in, which the payment sheet renders as "not set yet" rather
   /// than as a blank line.
+  final String bankName;
   final String bankAccountNo;
   final String bankAccountName;
 
@@ -40,6 +42,7 @@ class AssociationSettingsView {
         // _string, not a cast: the captured wire fixtures in test/fixtures/
         // predate these columns, and a hard cast would fail contract parsing on
         // a view that is otherwise unchanged.
+        bankName: _string(json['bankName']),
         bankAccountNo: _string(json['bankAccountNo']),
         bankAccountName: _string(json['bankAccountName']),
       );

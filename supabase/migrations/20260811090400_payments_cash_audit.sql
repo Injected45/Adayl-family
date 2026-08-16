@@ -43,6 +43,7 @@ CREATE TABLE public.payments (
   -- NULL for cash, and NULL for a transfer taken before any account was
   -- configured. Nullable rather than defaulted to '' so those two cases stay
   -- distinguishable from an account that is genuinely blank.
+  bank_name         text,
   bank_account_no   text,
   bank_account_name text,
 

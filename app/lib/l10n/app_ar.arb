@@ -42,6 +42,8 @@
   "copied": "تم النسخ",
   "officialNeedsRegister": "سجل العدايل فارغ — أضف المشتركين أولاً ليمكن اختيار المسؤولين منهم",
   "bankAccountSection": "الحساب المصرفي للجمعية",
+  "bankNameField": "اسم المصرف",
+  "previouslyUsed": "المستعملة سابقاً",
   "bankAccountNoField": "رقم الحساب",
   "bankAccountNameField": "اسم صاحب الحساب",
   "bankAccountNotConfigured": "لم يُسجَّل الحساب المصرفي للجمعية بعد — أضفه من الإعدادات. يمكنك تسجيل الحوالة الآن، لكن الإيصال لن يذكر حساباً.",

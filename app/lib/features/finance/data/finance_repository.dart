@@ -56,6 +56,13 @@ class FinanceRepository {
     return PaymentView.fromJson(_obj(row));
   }
 
+  /// [bankName], [bankAccountName] and [bankAccountNo] describe the PAYER's
+  /// account — the one the عديل transferred FROM — not the association's.
+  ///
+  /// They are typed with each collection rather than held as a setting, because
+  /// a member may use more than one account and more than one bank, and which
+  /// he used is a fact about this payment. The server keeps them only when the
+  /// method is a transfer; a cash collection has no sending account.
   Future<PaymentView> registerPayment({
     required int adeelId,
     required String amount,
@@ -63,6 +70,9 @@ class FinanceRepository {
     String? reference,
     String? receiver,
     String? notes,
+    String? bankName,
+    String? bankAccountName,
+    String? bankAccountNo,
   }) => SupabaseFailures.guard(() async {
     final dynamic result = await _db.rpc<dynamic>(
       'register_payment',
@@ -76,6 +86,13 @@ class FinanceRepository {
         'p_reference': (reference?.isEmpty ?? true) ? null : reference,
         'p_receiver': (receiver?.isEmpty ?? true) ? null : receiver,
         'p_notes': (notes?.isEmpty ?? true) ? null : notes,
+        'p_bank_name': (bankName?.isEmpty ?? true) ? null : bankName,
+        'p_bank_account_name': (bankAccountName?.isEmpty ?? true)
+            ? null
+            : bankAccountName,
+        'p_bank_account_no': (bankAccountNo?.isEmpty ?? true)
+            ? null
+            : bankAccountNo,
       },
     );
     return _readPayment((_obj(result)['paymentId'] as num).toInt());

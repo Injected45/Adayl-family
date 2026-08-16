@@ -33,6 +33,7 @@ class PaymentView {
     required this.reference,
     required this.receiver,
     required this.notes,
+    required this.bankName,
     required this.bankAccountNo,
     required this.bankAccountName,
     required this.status,
@@ -53,6 +54,7 @@ class PaymentView {
   /// payment was taken — a snapshot column on `payments`, not a join to current
   /// settings. Reprinting a receipt after the association changes bank must
   /// still name the account the money actually went to. Empty for cash.
+  final String bankName;
   final String bankAccountNo;
   final String bankAccountName;
   final String status;
@@ -71,6 +73,7 @@ class PaymentView {
     // _string, not a cast: the captured wire fixtures in test/fixtures/ predate
     // these two columns, and a hard cast would fail contract parsing on rows
     // that are otherwise unchanged.
+    bankName: _string(json['bankName']),
     bankAccountNo: _string(json['bankAccountNo']),
     bankAccountName: _string(json['bankAccountName']),
     status: _string(json['status']),

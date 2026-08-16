@@ -235,12 +235,16 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
--- DROP-then-CREATE, because Postgres has no CREATE OR REPLACE TRIGGER before 14
--- and this must succeed whether the trigger is missing, present, or half
--- restored by an earlier repair. Re-running the bundle is now a repair rather
--- than an error.
-DROP TRIGGER IF EXISTS trg_auth_user_created ON auth.users;
-CREATE TRIGGER trg_auth_user_created
+-- CREATE OR REPLACE TRIGGER (PostgreSQL 14+, and Supabase is well past it),
+-- deliberately in place of DROP-then-CREATE.
+--
+-- Both are idempotent, so re-running is a repair either way. The difference is
+-- that the DROP form leaves a window — however short — in which auth.users has
+-- NO trigger, and if the statement after it failed, the transaction would roll
+-- back but a reader of this file would still be looking at a DROP against the
+-- table sign-in depends on. There is now no statement anywhere in this schema,
+-- or in any patch generated from it, that removes anything from `auth`.
+CREATE OR REPLACE TRIGGER trg_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
@@ -451,6 +455,10 @@ CREATE TABLE public.association_settings (
   -- account numbers and whatever a given bank prints are all legitimate here,
   -- and a CHECK would refuse the association's real account on the day they
   -- open one at a different bank.
+  -- Three parts, because a transfer needs all three to be actionable: an
+  -- account number alone does not tell the sender WHICH bank to walk into, and
+  -- a Libyan account number is only unique within its own bank.
+  bank_name                   text          NOT NULL DEFAULT '',
   bank_account_no             text          NOT NULL DEFAULT '',
   bank_account_name           text          NOT NULL DEFAULT '',
 
@@ -846,6 +854,7 @@ CREATE TABLE public.payments (
   -- NULL for cash, and NULL for a transfer taken before any account was
   -- configured. Nullable rather than defaulted to '' so those two cases stay
   -- distinguishable from an account that is genuinely blank.
+  bank_name         text,
   bank_account_no   text,
   bank_account_name text,
 
@@ -1235,13 +1244,32 @@ END $$;
 -- ORDER BY inside the locking SELECT also fixes a consistent lock order, so two
 -- payments touching overlapping receivables cannot deadlock.
 -- ═════════════════════════════════════════════════════════════════════════════
+-- ── The three bank fields are the PAYER'S account, not the association's ────
+-- An عديل transferring his subscription may use more than one account, and more
+-- than one bank, and which he used is a fact about THIS payment — so it is
+-- typed with the collection rather than held as a setting. The association's own
+-- receiving account still lives in association_settings; it answers a different
+-- question ("where do I send it") and is not what these record.
+--
+-- Accepted from the client, deliberately, unlike almost everything else here.
+-- The earlier version read them from settings on the grounds that a client must
+-- not say where the association's money went — true, but these are not that.
+-- They describe the SENDER, which only the treasurer taking the receipt knows,
+-- and getting them wrong misfiles one receipt rather than misdirecting funds.
+--
+-- Retyped every time from the client's point of view; the app makes that cheap
+-- by offering what this عديل used before, which is a UI convenience built on
+-- v_payments and adds nothing to trust here.
 CREATE OR REPLACE FUNCTION public.register_payment(
   p_adeel_id  bigint,
   p_amount    numeric,
   p_method    pay_method,
   p_reference text DEFAULT NULL,
   p_receiver  text DEFAULT NULL,
-  p_notes     text DEFAULT NULL
+  p_notes     text DEFAULT NULL,
+  p_bank_name         text DEFAULT NULL,
+  p_bank_account_name text DEFAULT NULL,
+  p_bank_account_no   text DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 DECLARE
@@ -1255,6 +1283,7 @@ DECLARE
   v_payment_id  bigint;
   v_receipt     text;
   v_take        numeric(12,2);
+  v_bank        text;
   v_acct_no     text;
   v_acct_name   text;
   v_seq         smallint := 0;
@@ -1304,24 +1333,22 @@ BEGIN
       p_amount, v_outstanding USING ERRCODE = 'RUL07';
   END IF;
 
-  -- The receiving account, snapshotted for a تحويل مصرفي and left NULL for
-  -- cash. Read from settings HERE rather than accepted as a parameter: the
-  -- account is the association's own, so the caller has no business naming it,
-  -- and the anon key ships inside the APK — anything the client could send, a
-  -- hostile client could forge. Taking it server-side also means no signature
-  -- change, so nothing that calls register_payment has to be touched.
+  -- Kept ONLY for a transfer. A cash collection has no sending account, so
+  -- letting the three columns carry anything for it would put data on the row
+  -- that cannot be true — and the treasury screen would start showing bank
+  -- details beside نقداً. Blanks are normalised to NULL so "not given" and
+  -- "given as an empty box" are the same thing on the row.
   IF p_method = 'تحويل مصرفي' THEN
-    SELECT nullif(btrim(bank_account_no), ''),
-           nullif(btrim(bank_account_name), '')
-      INTO v_acct_no, v_acct_name
-      FROM public.association_settings WHERE id = 1;
+    v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
+    v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
+    v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
   END IF;
 
   INSERT INTO public.payments (adeel_id, amount, method, reference, receiver,
                                notes, created_by,
-                               bank_account_no, bank_account_name)
+                               bank_name, bank_account_no, bank_account_name)
   VALUES (p_adeel_id, p_amount, p_method, p_reference, p_receiver, p_notes,
-          auth.uid(), v_acct_no, v_acct_name)
+          auth.uid(), v_bank, v_acct_no, v_acct_name)
   RETURNING id, receipt_no INTO v_payment_id, v_receipt;
 
   v_remaining := p_amount;
@@ -1657,15 +1684,34 @@ BEGIN
       auth.uid(), auth.uid())
     RETURNING id INTO v_id;
   ELSE
+    -- ── An ABSENT key means "leave it alone", never "set it to NULL" ────────
+    -- `notes` used to be assigned unconditionally: `notes = p_adeel ->> 'notes'`.
+    -- The عديل form does not have a notes field and so never sends the key, so
+    -- ->> returned NULL and EVERY edit of an عديل silently erased his notes.
+    -- Nothing reported it — the save succeeded, and the loss was only visible
+    -- to whoever had written the note. `phone` and `dob` had the same shape and
+    -- would do the same to any caller that omits them.
+    --
+    -- `p_adeel ? key` is the distinction the old code could not make: it tells
+    -- a key that was sent as empty (clear the field) from one that was not sent
+    -- at all (do not touch it). update_settings already resolves the officials
+    -- this way, and for the same reason.
+    --
+    -- full_name stays unconditional on purpose: it is NOT NULL, so omitting it
+    -- raises instead of quietly blanking the register entry — which is the
+    -- correct outcome for the one field an عديل cannot exist without.
     UPDATE public.adeels SET
       full_name     = p_adeel ->> 'fullName',
-      phone         = p_adeel ->> 'phone',
-      dob           = nullif(p_adeel ->> 'dob', '')::date,
+      phone         = CASE WHEN p_adeel ? 'phone'
+                           THEN p_adeel ->> 'phone' ELSE phone END,
+      dob           = CASE WHEN p_adeel ? 'dob'
+                           THEN nullif(p_adeel ->> 'dob', '')::date ELSE dob END,
       registered_at = coalesce(nullif(p_adeel ->> 'registeredAt', '')::date,
                                registered_at),
       status        = coalesce(nullif(p_adeel ->> 'status', '')::member_status,
                                status),
-      notes         = p_adeel ->> 'notes',
+      notes         = CASE WHEN p_adeel ? 'notes'
+                           THEN p_adeel ->> 'notes' ELSE notes END,
       updated_by    = auth.uid()
      WHERE id = v_id;
     IF NOT FOUND THEN
@@ -1854,6 +1900,7 @@ BEGIN
                                  THEN coalesce(v_f.phone, '')
                                  ELSE coalesce(p_patch ->> 'financePhone',
                                                finance_manager_phone) END,
+    bank_name                   = coalesce(p_patch ->> 'bankName', bank_name),
     bank_account_no             = coalesce(p_patch ->> 'bankAccountNo', bank_account_no),
     bank_account_name           = coalesce(p_patch ->> 'bankAccountName', bank_account_name),
     updated_by = auth.uid()
@@ -1883,6 +1930,11 @@ BEGIN
   -- one setting where a single wrong digit sends the association's collections
   -- to a stranger, and "someone changed the bank account" without saying what
   -- it was is not a trail anyone can act on.
+  IF v_row.bank_name IS DISTINCT FROM v_old.bank_name THEN
+    v_changes := v_changes || format('المصرف من %s إلى %s',
+                                     coalesce(nullif(v_old.bank_name, ''), '—'),
+                                     coalesce(nullif(v_row.bank_name, ''), '—'));
+  END IF;
   IF v_row.bank_account_no IS DISTINCT FROM v_old.bank_account_no THEN
     v_changes := v_changes || format('رقم الحساب المصرفي من %s إلى %s',
                                      coalesce(nullif(v_old.bank_account_no, ''), '—'),
@@ -2294,7 +2346,8 @@ END $$;
 -- Every function re-checks the role internally, so granting EXECUTE broadly to
 -- authenticated is safe: a viewer calling register_payment gets RUL00, not a row.
 GRANT EXECUTE ON FUNCTION
-  public.register_payment(bigint, numeric, pay_method, text, text, text),
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text),
   public.cancel_payment(bigint, text),
   public.generate_period(char),
   public.auto_close_periods(),
@@ -2368,7 +2421,8 @@ GRANT EXECUTE ON FUNCTION
 TO authenticated;
 
 GRANT EXECUTE ON FUNCTION
-  public.register_payment(bigint, numeric, pay_method, text, text, text),
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text),
   public.cancel_payment(bigint, text),
   public.generate_period(char),
   public.auto_close_periods(),
@@ -2529,7 +2583,8 @@ SELECT
   -- rather than the admin-only settings shape: an عديل on the portal reads this
   -- view too, and he is the one being asked to transfer.
   bank_account_no                     AS "bankAccountNo",
-  bank_account_name                   AS "bankAccountName"
+  bank_account_name                   AS "bankAccountName",
+  bank_name                           AS "bankName"
 FROM public.association_settings;
 
 -- ── Officials ────────────────────────────────────────────────────────────────
@@ -2634,11 +2689,12 @@ SELECT
   -- so it would fail only on the live project, which is the worst place to find
   -- out. Anything added later goes below these, for the same reason.
   --
-  -- The snapshot on the payment row, NOT a join to current settings: a receipt
-  -- reprinted after the association changes bank must still name the account
-  -- the money actually went to. Empty string for cash.
+  -- The PAYER'S account, as he gave it for THIS transfer — recorded on the row
+  -- because a member may transfer from more than one account and more than one
+  -- bank. Empty string for cash, which has no sending account.
   coalesce(p.bank_account_no, '')   AS "bankAccountNo",
-  coalesce(p.bank_account_name, '') AS "bankAccountName"
+  coalesce(p.bank_account_name, '') AS "bankAccountName",
+  coalesce(p.bank_name, '')         AS "bankName"
 FROM public.payments p
 JOIN public.adeels a ON a.id = p.adeel_id;
 
@@ -3037,6 +3093,7 @@ LANGUAGE sql STABLE AS $$
     'memberFee', s.member_fee::text,
     'systemStart', to_char(s.system_start, 'YYYY-MM-DD'),
     'autoClosePreviousMonths', s.auto_close_previous_months,
+    'bankName', s.bank_name,
     'bankAccountNo', s.bank_account_no,
     'bankAccountName', s.bank_account_name,
     -- adeelId is what the settings screen preselects in its dropdown; the name
@@ -3110,7 +3167,8 @@ END $revoke$;
 GRANT EXECUTE ON FUNCTION
   public.role_rank(app_role), public.my_role(), public.has_role(app_role),
   public.my_adeel_id(),
-  public.register_payment(bigint, numeric, pay_method, text, text, text),
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text),
   public.cancel_payment(bigint, text),
   public.generate_period(char),
   public.auto_close_periods(),
@@ -3198,7 +3256,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'my_adeel_id()',
 
     -- Writes. Each require_role()-gated, each one transaction.
-    'register_payment(bigint,numeric,pay_method,text,text,text)',
+    'register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)',
     'cancel_payment(bigint,text)',
     'generate_period(character)',
     'auto_close_periods()',
@@ -3436,7 +3494,7 @@ BEGIN
     RAISE WARNING
       'SIGN-IN: % account(s) exist with no profiles row. They can authenticate '
       'but the app will show "this account has no row in the database". Re-run '
-      'the bundle, or supabase/PATCH_20260816_restore_signin_trigger.sql, to '
+      'the bundle, or supabase/PATCH_20260816_signin_hardening.sql, to '
       'backfill them.', v_orphans;
   END IF;
 END $$;

@@ -52,7 +52,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'my_adeel_id()',
 
     -- Writes. Each require_role()-gated, each one transaction.
-    'register_payment(bigint,numeric,pay_method,text,text,text)',
+    'register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)',
     'cancel_payment(bigint,text)',
     'generate_period(character)',
     'auto_close_periods()',
@@ -290,7 +290,7 @@ BEGIN
     RAISE WARNING
       'SIGN-IN: % account(s) exist with no profiles row. They can authenticate '
       'but the app will show "this account has no row in the database". Re-run '
-      'the bundle, or supabase/PATCH_20260816_restore_signin_trigger.sql, to '
+      'the bundle, or supabase/PATCH_20260816_signin_hardening.sql, to '
       'backfill them.', v_orphans;
   END IF;
 END $$;

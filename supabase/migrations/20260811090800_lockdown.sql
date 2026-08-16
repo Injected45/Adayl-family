@@ -50,7 +50,8 @@ GRANT EXECUTE ON FUNCTION
 TO authenticated;
 
 GRANT EXECUTE ON FUNCTION
-  public.register_payment(bigint, numeric, pay_method, text, text, text),
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text),
   public.cancel_payment(bigint, text),
   public.generate_period(char),
   public.auto_close_periods(),

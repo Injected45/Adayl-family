@@ -63,7 +63,8 @@ SELECT
   -- rather than the admin-only settings shape: an عديل on the portal reads this
   -- view too, and he is the one being asked to transfer.
   bank_account_no                     AS "bankAccountNo",
-  bank_account_name                   AS "bankAccountName"
+  bank_account_name                   AS "bankAccountName",
+  bank_name                           AS "bankName"
 FROM public.association_settings;
 
 -- ── Officials ────────────────────────────────────────────────────────────────
@@ -168,11 +169,12 @@ SELECT
   -- so it would fail only on the live project, which is the worst place to find
   -- out. Anything added later goes below these, for the same reason.
   --
-  -- The snapshot on the payment row, NOT a join to current settings: a receipt
-  -- reprinted after the association changes bank must still name the account
-  -- the money actually went to. Empty string for cash.
+  -- The PAYER'S account, as he gave it for THIS transfer — recorded on the row
+  -- because a member may transfer from more than one account and more than one
+  -- bank. Empty string for cash, which has no sending account.
   coalesce(p.bank_account_no, '')   AS "bankAccountNo",
-  coalesce(p.bank_account_name, '') AS "bankAccountName"
+  coalesce(p.bank_account_name, '') AS "bankAccountName",
+  coalesce(p.bank_name, '')         AS "bankName"
 FROM public.payments p
 JOIN public.adeels a ON a.id = p.adeel_id;
 

@@ -62,6 +62,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         'currency': TextEditingController(text: widget.initial.currency),
         'memberFee': TextEditingController(text: widget.initial.memberFee),
         'systemStart': TextEditingController(text: widget.initial.systemStart),
+        'bankName': TextEditingController(text: widget.initial.bankName),
         'bankAccountNo': TextEditingController(
           text: widget.initial.bankAccountNo,
         ),
@@ -99,6 +100,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     memberFee: _text('memberFee'),
     systemStart: _text('systemStart'),
     autoClosePreviousMonths: widget.initial.autoClosePreviousMonths,
+    bankName: _text('bankName'),
     bankAccountNo: _text('bankAccountNo'),
     bankAccountName: _text('bankAccountName'),
     // Only the id travels. The server reads the name and phone off the chosen
@@ -234,6 +236,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
 
         const SizedBox(height: AppSpacing.lg),
         _Section(title: l.bankAccountSection),
+        _Field(label: l.bankNameField, controller: _fields['bankName']!),
         _Field(
           label: l.bankAccountNoField,
           controller: _fields['bankAccountNo']!,

@@ -39,6 +39,8 @@
   "copied": "Copied",
   "officialNeedsRegister": "The register is empty — add subscribers first so officials can be chosen from them",
   "bankAccountSection": "Association bank account",
+  "bankNameField": "Bank name",
+  "previouslyUsed": "Used before",
   "bankAccountNoField": "Account number",
   "bankAccountNameField": "Account holder name",
   "bankAccountNotConfigured": "No association bank account set yet — add it in Settings. You can still record the transfer, but the receipt will name no account.",

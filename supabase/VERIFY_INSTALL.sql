@@ -179,7 +179,7 @@ results(sort_key, check_name, detail, status) AS (
                              WHERE tgname = 'trg_auth_user_created'
                                AND NOT tgisinternal)
              THEN 'trg_auth_user_created MISSING — run '
-                  || 'supabase/PATCH_20260816_restore_signin_trigger.sql'
+                  || 'supabase/PATCH_20260816_signin_hardening.sql'
            WHEN EXISTS (SELECT 1 FROM pg_trigger
                          WHERE tgname = 'trg_auth_user_created'
                            AND NOT tgisinternal AND tgenabled = 'D')
@@ -205,7 +205,7 @@ results(sort_key, check_name, detail, status) AS (
   SELECT 12, 'accounts with no profile row',
          CASE WHEN count(*) = 0 THEN 'none — every account has a profile'
               ELSE count(*)::text || ' stranded; re-run the bundle or '
-                   || 'PATCH_20260816_restore_signin_trigger.sql' END,
+                   || 'PATCH_20260816_signin_hardening.sql' END,
          CASE WHEN count(*) = 0 THEN 'OK' ELSE 'FAIL' END
     FROM auth.users u
    WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)

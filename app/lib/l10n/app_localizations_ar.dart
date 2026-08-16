@@ -116,6 +116,12 @@ class LAr extends L {
   String get bankAccountSection => 'الحساب المصرفي للجمعية';
 
   @override
+  String get bankNameField => 'اسم المصرف';
+
+  @override
+  String get previouslyUsed => 'المستعملة سابقاً';
+
+  @override
   String get bankAccountNoField => 'رقم الحساب';
 
   @override

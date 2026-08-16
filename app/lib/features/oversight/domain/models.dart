@@ -305,6 +305,7 @@ class EditableSettings {
     required this.memberFee,
     required this.systemStart,
     required this.autoClosePreviousMonths,
+    required this.bankName,
     required this.bankAccountNo,
     required this.bankAccountName,
     required this.treasurer,
@@ -320,6 +321,7 @@ class EditableSettings {
   /// The association's receiving bank account, as one record rather than a
   /// thing a treasurer retypes on every transfer. `register_payment` snapshots
   /// it onto the payment server-side; nothing here is sent with a collection.
+  final String bankName;
   final String bankAccountNo;
   final String bankAccountName;
   final OfficialInput treasurer;
@@ -331,6 +333,7 @@ class EditableSettings {
     'memberFee': memberFee,
     'systemStart': systemStart,
     'autoClosePreviousMonths': autoClosePreviousMonths,
+    'bankName': bankName,
     'bankAccountNo': bankAccountNo,
     'bankAccountName': bankAccountName,
     'treasurer': treasurer.toJson(),
@@ -363,6 +366,7 @@ class EditableSettings {
     'memberFee': memberFee,
     'systemStart': systemStart,
     'autoClosePreviousMonths': autoClosePreviousMonths,
+    'bankName': bankName,
     'bankAccountNo': bankAccountNo,
     'bankAccountName': bankAccountName,
     // The posts, as عديل ids. These are what update_settings acts on: it copies
@@ -387,6 +391,7 @@ class EditableSettings {
         memberFee: _string(json['memberFee']),
         systemStart: _string(json['systemStart']),
         autoClosePreviousMonths: json['autoClosePreviousMonths'] == true,
+        bankName: _string(json['bankName']),
         bankAccountNo: _string(json['bankAccountNo']),
         bankAccountName: _string(json['bankAccountName']),
         treasurer: OfficialInput.fromJson(

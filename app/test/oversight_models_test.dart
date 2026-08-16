@@ -101,6 +101,7 @@ void main() {
         // onto every تحويل مصرفي server-side, so it has to survive this trip
         // intact — a field dropped here is an account number silently reverting
         // to blank the next time an admin saves settings.
+        'bankName': 'مصرف الجمهورية',
         'bankAccountNo': 'LY83 0021 0000 0001 2345 6789',
         'bankAccountName': 'جمعية العدايل',
         // adeelId is the post's real identity: both officials are elected from
@@ -140,6 +141,7 @@ void main() {
         memberFee: '20.00',
         systemStart: '2026-01-01',
         autoClosePreviousMonths: true,
+        bankName: 'مصرف الجمهورية',
         bankAccountNo: '0021-000-1234',
         bankAccountName: 'جمعية العدايل',
         treasurer: OfficialInput(
@@ -183,6 +185,7 @@ void main() {
         memberFee: '20.00',
         systemStart: '2026-01-01',
         autoClosePreviousMonths: true,
+        bankName: '',
         bankAccountNo: '',
         bankAccountName: '',
         treasurer: OfficialInput(name: '', phone: ''),

@@ -312,6 +312,7 @@ LANGUAGE sql STABLE AS $$
     'memberFee', s.member_fee::text,
     'systemStart', to_char(s.system_start, 'YYYY-MM-DD'),
     'autoClosePreviousMonths', s.auto_close_previous_months,
+    'bankName', s.bank_name,
     'bankAccountNo', s.bank_account_no,
     'bankAccountName', s.bank_account_name,
     -- adeelId is what the settings screen preselects in its dropdown; the name
@@ -385,7 +386,8 @@ END $revoke$;
 GRANT EXECUTE ON FUNCTION
   public.role_rank(app_role), public.my_role(), public.has_role(app_role),
   public.my_adeel_id(),
-  public.register_payment(bigint, numeric, pay_method, text, text, text),
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text),
   public.cancel_payment(bigint, text),
   public.generate_period(char),
   public.auto_close_periods(),

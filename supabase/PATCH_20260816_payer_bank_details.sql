@@ -1,68 +1,60 @@
 -- ============================================================================
---  جمعية العدايل — PATCH: officials chosen from the register, and the
---  association's bank account.  2026-08-16.
+--  جمعية العدايل — PATCH: the payer's bank details.  2026-08-16.
 --
 --  GENERATED FILE. Do not edit. Source of truth: supabase/migrations/.
 --
---  ⚠ THIS FILE REPLACES PATCH_20260816_bank_account.sql.
---    It contains everything that one did, plus the officials change. Run THIS
---    one and ignore the other — a single cumulative patch is why there is no
---    "which order do I run them in" question to get wrong. Running it after the
---    bank one is harmless; running the bank one AFTER this would undo the
---    officials half, which is exactly the trap this consolidation removes.
+--  Cumulative on purpose: it re-applies everything the earlier patches did as
+--  well as what is new. Every statement is idempotent, so running it is correct
+--  whatever you have run before — which matters, because the save_adeel fix
+--  below landed AFTER PATCH_20260816_officials_and_bank.sql was applied.
 --
---  WHAT IT CHANGES
+--  WHAT IS NEW
 --
---  1. THE TWO OFFICIALS ARE NOW عدايل, PICKED FROM THE REGISTER.
---     أمين الصندوق and المدير المالي are elected from the members, so each post
---     is an `adeels` row rather than a typed name:
+--  1. THE THREE BANK FIELDS ARE THE PAYER'S ACCOUNT, NOT THE ASSOCIATION'S.
+--     An عديل may transfer from more than one account and more than one bank,
+--     so which he used is a fact about THAT collection and cannot be a setting.
+--     register_payment now ACCEPTS them instead of copying them from settings:
 --
---       association_settings.treasurer_adeel_id        → FK to adeels
---       association_settings.finance_manager_adeel_id  → FK to adeels
---       ck_settings_distinct_officials                 → one man, not both posts
+--       p_bank_name, p_bank_account_name, p_bank_account_no
 --
---     The name and phone columns stay, as a SNAPSHOT of the chosen man's row.
---     They are not replaced by a join, deliberately: v_officials is read by an
---     عديل on the PORTAL, and RLS shows him only his own row in `adeels`, so a
---     join would blank the one screen that tells him who to pay. save_adeel
---     refreshes the snapshot whenever an عديل holding a post is renamed, so it
---     cannot drift.
+--     Kept only for a تحويل مصرفي; a cash collection has no sending account and
+--     the three columns stay NULL for it. Blanks are normalised to NULL, so
+--     "not given" and "given empty" are the same thing on the row.
 --
---     v_officials is therefore UNCHANGED, and so is every consumer of it.
+--     Letting the client name them is safe HERE, unlike the association's own
+--     account: these describe the SENDER, which only the treasurer taking the
+--     receipt knows, and getting one wrong misfiles a receipt rather than
+--     misdirecting money. The app makes retyping cheap by offering what this
+--     same عديل used before — read from v_payments, which RLS already scopes.
 --
---  2. THE ASSOCIATION'S BANK ACCOUNT (from the superseded patch).
---       association_settings.bank_account_no / _name   → where to transfer
---       payments.bank_account_no / _name               → where THIS one went
---     register_payment snapshots the pair from settings. The client never sends
---     them: the anon key ships in the APK, so anything a client could send, a
---     hostile client could forge — and this says where the money went.
+--     association_settings keeps its own bank_* columns. They answer a
+--     different question — where a member should SEND a transfer — and are
+--     untouched here.
 --
---  3. update_settings ALSO FIXES A SILENT SAVE BUG that predates all of this.
---     It reads the officials as FLAT keys (`p_patch ->> 'treasurerName'`) while
---     api_settings sends them NESTED, so the app posting the nested shape left
---     all four lookups NULL, coalesce kept the old row, and the two names never
---     saved while every other field did. The app now posts the flat shape; this
---     patch is what the flat shape talks to.
+--  2. save_adeel NO LONGER ERASES WHAT IT WAS NOT TOLD ABOUT.
+--     `notes = p_adeel ->> 'notes'` was unconditional, and the عديل form has no
+--     notes field, so the key was never sent, ->> returned NULL, and EVERY edit
+--     silently wiped the note. The save succeeded, so nothing reported it.
+--     `phone` and `dob` had the same shape. An absent key now means "leave it
+--     alone"; a key sent EMPTY still clears the field.
 --
---  ⚠ ADDITIVE ONLY — verify before running
---       * no DROP SCHEMA / DROP TABLE / DROP FUNCTION / DROP TRIGGER
---       * no TRUNCATE, no DELETE
---       * no function SIGNATURE changes, so no grant is dropped and the
---         lockdown allow-list is untouched
---       * nothing referencing auth.users, profiles or trg_auth_user_created
---         except the read-only health check after COMMIT
+--  ⚠ THIS PATCH CONTAINS ONE DROP, AND IT IS DELIBERATE
+--       DROP FUNCTION IF EXISTS public.register_payment(6 args)
 --
---    RESET_AND_APPLY.sql is what broke first-time Google sign-in before —
---    DROP SCHEMA public CASCADE removes a trigger on auth.users whose function
---    lives in `public`. Nothing here drops anything, and assert_signin_intact()
---    below refuses to COMMIT if sign-in is not working.
+--     CREATE OR REPLACE cannot change a signature, and leaving the old
+--     six-argument function beside the new nine-argument one makes every call
+--     ambiguous (42725, "function is not unique"). Dropping a FUNCTION destroys
+--     no data and touches no row; what it does drop is the EXECUTE grant, which
+--     is re-issued below, and it forces the lockdown allow-list to be restated —
+--     both are asserted before COMMIT.
+--
+--     Nothing else is dropped. No DROP SCHEMA, no DROP TABLE, no DROP TRIGGER,
+--     no TRUNCATE, no DELETE, and nothing touching auth.users or profiles.
+--     assert_signin_intact() still runs before COMMIT.
 --
 --  HOW TO APPLY
 --    Supabase dashboard, SQL Editor, New query, paste all of this, Run.
---    One transaction: if anything fails, nothing changes.
---
---  SAFE TO RUN TWICE. Columns and constraints are added conditionally and
---  CREATE OR REPLACE is idempotent.
+--    One transaction: if anything fails, nothing changes. Safe to run twice.
 -- ============================================================================
 
 BEGIN;
@@ -72,6 +64,11 @@ ALTER TABLE public.association_settings
   ADD COLUMN IF NOT EXISTS treasurer_adeel_id       bigint;
 ALTER TABLE public.association_settings
   ADD COLUMN IF NOT EXISTS finance_manager_adeel_id bigint;
+-- Three parts, because a transfer needs all three to be actionable: an account
+-- number alone does not say WHICH bank to walk into, and a Libyan account
+-- number is only unique within its own bank.
+ALTER TABLE public.association_settings
+  ADD COLUMN IF NOT EXISTS bank_name         text NOT NULL DEFAULT '';
 ALTER TABLE public.association_settings
   ADD COLUMN IF NOT EXISTS bank_account_no   text NOT NULL DEFAULT '';
 ALTER TABLE public.association_settings
@@ -109,23 +106,35 @@ BEGIN
 EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
 END $ck$;
 
--- == 2. Payments: where THIS transfer actually went ==========================
--- Nullable, unlike the settings pair: NULL means cash, or a transfer taken
--- before any account was configured. Defaulting to '' would erase that
+-- == 2. Payments: the account the money came FROM ======================
+-- The payer's, not the association's. Nullable: NULL means cash, or a transfer
+-- recorded before these columns existed. Defaulting to '' would erase that
 -- distinction on every historical row.
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS bank_name         text;
 ALTER TABLE public.payments
   ADD COLUMN IF NOT EXISTS bank_account_no   text;
 ALTER TABLE public.payments
   ADD COLUMN IF NOT EXISTS bank_account_name text;
 
--- == 3. register_payment — snapshots the account, signature UNCHANGED ========
+-- == 3. register_payment — the signature GAINS the payer's three fields =====
+-- The only DROP in this file. It removes a FUNCTION, not data: no row is
+-- touched. The old six-argument version has to go because CREATE OR REPLACE
+-- cannot change a signature, and leaving both would make every call ambiguous
+-- with 42725. The grant it takes with it is re-issued immediately after.
+DROP FUNCTION IF EXISTS
+  public.register_payment(bigint, numeric, pay_method, text, text, text);
+
 CREATE OR REPLACE FUNCTION public.register_payment(
   p_adeel_id  bigint,
   p_amount    numeric,
   p_method    pay_method,
   p_reference text DEFAULT NULL,
   p_receiver  text DEFAULT NULL,
-  p_notes     text DEFAULT NULL
+  p_notes     text DEFAULT NULL,
+  p_bank_name         text DEFAULT NULL,
+  p_bank_account_name text DEFAULT NULL,
+  p_bank_account_no   text DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 DECLARE
@@ -139,6 +148,7 @@ DECLARE
   v_payment_id  bigint;
   v_receipt     text;
   v_take        numeric(12,2);
+  v_bank        text;
   v_acct_no     text;
   v_acct_name   text;
   v_seq         smallint := 0;
@@ -188,24 +198,22 @@ BEGIN
       p_amount, v_outstanding USING ERRCODE = 'RUL07';
   END IF;
 
-  -- The receiving account, snapshotted for a تحويل مصرفي and left NULL for
-  -- cash. Read from settings HERE rather than accepted as a parameter: the
-  -- account is the association's own, so the caller has no business naming it,
-  -- and the anon key ships inside the APK — anything the client could send, a
-  -- hostile client could forge. Taking it server-side also means no signature
-  -- change, so nothing that calls register_payment has to be touched.
+  -- Kept ONLY for a transfer. A cash collection has no sending account, so
+  -- letting the three columns carry anything for it would put data on the row
+  -- that cannot be true — and the treasury screen would start showing bank
+  -- details beside نقداً. Blanks are normalised to NULL so "not given" and
+  -- "given as an empty box" are the same thing on the row.
   IF p_method = 'تحويل مصرفي' THEN
-    SELECT nullif(btrim(bank_account_no), ''),
-           nullif(btrim(bank_account_name), '')
-      INTO v_acct_no, v_acct_name
-      FROM public.association_settings WHERE id = 1;
+    v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
+    v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
+    v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
   END IF;
 
   INSERT INTO public.payments (adeel_id, amount, method, reference, receiver,
                                notes, created_by,
-                               bank_account_no, bank_account_name)
+                               bank_name, bank_account_no, bank_account_name)
   VALUES (p_adeel_id, p_amount, p_method, p_reference, p_receiver, p_notes,
-          auth.uid(), v_acct_no, v_acct_name)
+          auth.uid(), v_bank, v_acct_no, v_acct_name)
   RETURNING id, receipt_no INTO v_payment_id, v_receipt;
 
   v_remaining := p_amount;
@@ -259,7 +267,78 @@ BEGIN
     'allocations', v_allocs);
 END $$;
 
--- == 4. update_settings — the officials, the account, and the audit ==========
+GRANT EXECUTE ON FUNCTION
+  public.register_payment(bigint, numeric, pay_method, text, text, text,
+                          text, text, text)
+TO authenticated, service_role;
+
+-- The lockdown allow-list is an EXACT set, so it has to name the new signature.
+-- Leave it naming the old one and assert_function_grants() fails in both
+-- directions at once — the new function callable but unlisted, the listed one
+-- missing — and the whole patch rolls back.
+CREATE OR REPLACE FUNCTION public.client_callable_functions()
+RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY[
+    -- Role helpers. The RLS policies call these, so they must be executable by
+    -- the caller whose policy is being evaluated. They leak nothing beyond that
+    -- caller's own role.
+    'role_rank(app_role)',
+    'my_role()',
+    'has_role(app_role)',
+    -- Answers only for the caller's own عديل binding, and the عديل-scoped
+    -- policies call it, so the caller whose policy is being evaluated must hold
+    -- EXECUTE — otherwise every one of those policies ERRORS instead of denying,
+    -- and the failure surfaces as "permission denied for function my_adeel_id"
+    -- on screens that have nothing to do with the portal.
+    'my_adeel_id()',
+
+    -- Writes. Each require_role()-gated, each one transaction.
+    'register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)',
+    'cancel_payment(bigint,text)',
+    'generate_period(character)',
+    'auto_close_periods()',
+    'save_adeel(bigint,jsonb)',
+    -- The only hard delete outside the purges, and it refuses any عديل who has
+    -- ever been billed or has ever paid. Retiring someone with history is a
+    -- status change, not a deletion.
+    'delete_adeel(bigint)',
+    'update_settings(jsonb)',
+    'set_user_access(uuid,app_role,app_status)',
+    -- The two destructive ones. admin-only, and each refuses without its OWN
+    -- typed phrase, so the phrase that clears the figures cannot clear the
+    -- register. They are on the list because Settings calls them directly; the
+    -- reason that is safe is the same reason the others are — the gate is inside
+    -- the body, not in who can reach it.
+    'purge_financial_data(text)',
+    'purge_all_data(text)',
+
+    -- The عديل portal. issue_ is admin-gated; redeem_ deliberately is NOT — it
+    -- is the one write a signed-in stranger may call, because until he redeems a
+    -- code he has no role and no binding, and the code itself is the
+    -- authorisation. It refuses anyone who is already staff.
+    'issue_adeel_code(bigint)',
+    'redeem_adeel_code(text)',
+
+    -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
+    'period_label(text)',
+    'adeel_json(bigint)',
+    'api_adeel_detail(bigint)',
+    'api_adeel_statement(bigint)',
+    'api_dashboard()',
+    'api_alerts()',
+    'api_financial_report(date,date)',
+    'api_receivables(text)',
+    'api_closable_periods()',
+    'api_settings()',
+    'api_me()',
+    'api_touch_login()'
+  ]::text[]
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.client_callable_functions()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+-- == 5. update_settings — the officials, the account, and the audit ==========
 CREATE OR REPLACE FUNCTION public.update_settings(p_patch jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
@@ -342,6 +421,7 @@ BEGIN
                                  THEN coalesce(v_f.phone, '')
                                  ELSE coalesce(p_patch ->> 'financePhone',
                                                finance_manager_phone) END,
+    bank_name                   = coalesce(p_patch ->> 'bankName', bank_name),
     bank_account_no             = coalesce(p_patch ->> 'bankAccountNo', bank_account_no),
     bank_account_name           = coalesce(p_patch ->> 'bankAccountName', bank_account_name),
     updated_by = auth.uid()
@@ -371,6 +451,11 @@ BEGIN
   -- one setting where a single wrong digit sends the association's collections
   -- to a stranger, and "someone changed the bank account" without saying what
   -- it was is not a trail anyone can act on.
+  IF v_row.bank_name IS DISTINCT FROM v_old.bank_name THEN
+    v_changes := v_changes || format('المصرف من %s إلى %s',
+                                     coalesce(nullif(v_old.bank_name, ''), '—'),
+                                     coalesce(nullif(v_row.bank_name, ''), '—'));
+  END IF;
   IF v_row.bank_account_no IS DISTINCT FROM v_old.bank_account_no THEN
     v_changes := v_changes || format('رقم الحساب المصرفي من %s إلى %s',
                                      coalesce(nullif(v_old.bank_account_no, ''), '—'),
@@ -406,7 +491,7 @@ BEGIN
     'systemStart', v_row.system_start);
 END $$;
 
--- == 5. save_adeel — keeps the officials' snapshot from going stale ==========
+-- == 6. save_adeel — keeps the officials' snapshot from going stale ==========
 -- Renaming an عديل who holds a post rewrites the copy of his name in settings.
 -- Without this the officials screen would keep showing the old spelling with
 -- nothing to indicate it was out of date.
@@ -435,15 +520,34 @@ BEGIN
       auth.uid(), auth.uid())
     RETURNING id INTO v_id;
   ELSE
+    -- ── An ABSENT key means "leave it alone", never "set it to NULL" ────────
+    -- `notes` used to be assigned unconditionally: `notes = p_adeel ->> 'notes'`.
+    -- The عديل form does not have a notes field and so never sends the key, so
+    -- ->> returned NULL and EVERY edit of an عديل silently erased his notes.
+    -- Nothing reported it — the save succeeded, and the loss was only visible
+    -- to whoever had written the note. `phone` and `dob` had the same shape and
+    -- would do the same to any caller that omits them.
+    --
+    -- `p_adeel ? key` is the distinction the old code could not make: it tells
+    -- a key that was sent as empty (clear the field) from one that was not sent
+    -- at all (do not touch it). update_settings already resolves the officials
+    -- this way, and for the same reason.
+    --
+    -- full_name stays unconditional on purpose: it is NOT NULL, so omitting it
+    -- raises instead of quietly blanking the register entry — which is the
+    -- correct outcome for the one field an عديل cannot exist without.
     UPDATE public.adeels SET
       full_name     = p_adeel ->> 'fullName',
-      phone         = p_adeel ->> 'phone',
-      dob           = nullif(p_adeel ->> 'dob', '')::date,
+      phone         = CASE WHEN p_adeel ? 'phone'
+                           THEN p_adeel ->> 'phone' ELSE phone END,
+      dob           = CASE WHEN p_adeel ? 'dob'
+                           THEN nullif(p_adeel ->> 'dob', '')::date ELSE dob END,
       registered_at = coalesce(nullif(p_adeel ->> 'registeredAt', '')::date,
                                registered_at),
       status        = coalesce(nullif(p_adeel ->> 'status', '')::member_status,
                                status),
-      notes         = p_adeel ->> 'notes',
+      notes         = CASE WHEN p_adeel ? 'notes'
+                           THEN p_adeel ->> 'notes' ELSE notes END,
       updated_by    = auth.uid()
      WHERE id = v_id;
     IF NOT FOUND THEN
@@ -488,7 +592,102 @@ BEGIN
   RETURN jsonb_build_object('adeelId', v_id, 'adeelCode', v_code);
 END $$;
 
--- == 6. The views ============================================================
+-- == 7. redeem_adeel_code — a SUSPENDED account cannot redeem its way back in =
+-- Folded in from the superseded PATCH_20260816_financial_hardening.sql, so that
+-- this file is the whole story and there is no second patch whose older
+-- update_settings could overwrite the officials half of this one.
+--
+-- guard_profile_change refuses every self-change of `status` except one: the
+-- pending → approved that redeeming performs on the caller's own row. Nothing
+-- distinguished suspended → approved from it, so an account an admin had
+-- suspended could restore itself by redeeming any unredeemed access code — and
+-- come back with read access to one عديل's dues, receipts and statement. Its
+-- role never changed, so no other guard had anything to notice.
+CREATE OR REPLACE FUNCTION public.redeem_adeel_code(p_code text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  v_norm  text;
+  v_row   record;
+  v_me    record;
+  v_adeel record;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'يجب تسجيل الدخول أولاً' USING ERRCODE = 'RUL14';
+  END IF;
+
+  SELECT * INTO v_me FROM public.profiles WHERE id = auth.uid();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'PROFILE_NOT_FOUND' USING ERRCODE = 'RUL14';
+  END IF;
+
+  IF v_me.role <> 'viewer' THEN
+    RAISE EXCEPTION 'هذا الحساب حساب إداري ولا يمكن ربطه بعديل'
+      USING ERRCODE = 'RUL14';
+  END IF;
+
+  -- A SUSPENDED account cannot redeem its way back in.
+  --
+  -- This is the one status that has to be checked here, and it is easy to miss
+  -- because the check that matters is not in this function — it is in
+  -- guard_profile_change. That trigger normally refuses any self-change of
+  -- `status`, and it makes ONE exception (`v_redeeming`) for the update below,
+  -- which sets status = 'approved' on the caller's own row. The exception exists
+  -- for pending → approved, which is the whole redemption flow.
+  --
+  -- Nothing distinguished suspended → approved from it. So an admin could
+  -- suspend an account and that account could restore itself to `approved` by
+  -- redeeming any unredeemed access code — coming back with read access to one
+  -- عديل's dues, receipts and statement. The role never changed, so no other
+  -- guard had anything to notice.
+  --
+  -- `pending` must still pass: a new Google account is created viewer/pending by
+  -- handle_new_user, and redeeming is exactly how an عديل turns that into access
+  -- without an admin approving him as staff. Only `suspended` is refused.
+  IF v_me.status = 'suspended' THEN
+    RAISE EXCEPTION 'هذا الحساب موقوف، راجع إدارة الجمعية'
+      USING ERRCODE = 'RUL14';
+  END IF;
+
+  -- Typed by a person off a phone screen: dashes, spaces and lower case are all
+  -- expected and none of them are part of the code.
+  v_norm := upper(regexp_replace(coalesce(p_code, ''), '[^0-9A-Za-z]', '', 'g'));
+
+  SELECT * INTO v_row FROM public.adeel_access_codes WHERE code = v_norm;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'رمز الدخول غير صحيح' USING ERRCODE = 'RUL14';
+  END IF;
+
+  -- One code, one man. A second person redeeming the same code would get his own
+  -- read-only view of someone else's figures — which is a decision for the admin
+  -- to make by reissuing, not something a forwarded WhatsApp message should be
+  -- able to do.
+  IF v_row.redeemed_at IS NOT NULL AND v_row.redeemed_by IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'هذا الرمز مستعمل بالفعل، اطلب رمزاً جديداً'
+      USING ERRCODE = 'RUL14';
+  END IF;
+
+  UPDATE public.profiles
+     SET adeel_id = v_row.adeel_id,
+         status   = 'approved',
+         role     = 'viewer'
+   WHERE id = auth.uid();
+
+  UPDATE public.adeel_access_codes
+     SET redeemed_at = now(), redeemed_by = auth.uid()
+   WHERE adeel_id = v_row.adeel_id;
+
+  SELECT adeel_code INTO v_adeel FROM public.adeels WHERE id = v_row.adeel_id;
+
+  PERFORM public.write_audit('adeel.code.redeem',
+    format('ربط حساب %s بالعديل %s', v_me.email, v_adeel.adeel_code),
+    v_adeel.adeel_code);
+
+  RETURN jsonb_build_object(
+    'adeelId', v_row.adeel_id, 'adeelCode', v_adeel.adeel_code);
+END $$;
+
+-- == 8. The views ============================================================
 -- v_officials is NOT touched: it reads the snapshot columns, which is what
 -- keeps it readable for an عديل on the portal. Only v_settings and v_payments
 -- gain columns, and CREATE OR REPLACE VIEW allows columns to be APPENDED and
@@ -504,7 +703,8 @@ SELECT
   -- rather than the admin-only settings shape: an عديل on the portal reads this
   -- view too, and he is the one being asked to transfer.
   bank_account_no                     AS "bankAccountNo",
-  bank_account_name                   AS "bankAccountName"
+  bank_account_name                   AS "bankAccountName",
+  bank_name                           AS "bankName"
 FROM public.association_settings;
 
 CREATE OR REPLACE VIEW public.v_payments WITH (security_invoker = on) AS
@@ -540,15 +740,16 @@ SELECT
   -- so it would fail only on the live project, which is the worst place to find
   -- out. Anything added later goes below these, for the same reason.
   --
-  -- The snapshot on the payment row, NOT a join to current settings: a receipt
-  -- reprinted after the association changes bank must still name the account
-  -- the money actually went to. Empty string for cash.
+  -- The PAYER'S account, as he gave it for THIS transfer — recorded on the row
+  -- because a member may transfer from more than one account and more than one
+  -- bank. Empty string for cash, which has no sending account.
   coalesce(p.bank_account_no, '')   AS "bankAccountNo",
-  coalesce(p.bank_account_name, '') AS "bankAccountName"
+  coalesce(p.bank_account_name, '') AS "bankAccountName",
+  coalesce(p.bank_name, '')         AS "bankName"
 FROM public.payments p
 JOIN public.adeels a ON a.id = p.adeel_id;
 
--- == 7. api_settings — now carries which عديل holds each post ================
+-- == 9. api_settings — now carries which عديل holds each post ================
 CREATE OR REPLACE FUNCTION public.api_settings() RETURNS jsonb
 LANGUAGE sql STABLE AS $$
   SELECT jsonb_build_object(
@@ -557,6 +758,7 @@ LANGUAGE sql STABLE AS $$
     'memberFee', s.member_fee::text,
     'systemStart', to_char(s.system_start, 'YYYY-MM-DD'),
     'autoClosePreviousMonths', s.auto_close_previous_months,
+    'bankName', s.bank_name,
     'bankAccountNo', s.bank_account_no,
     'bankAccountName', s.bank_account_name,
     -- adeelId is what the settings screen preselects in its dropdown; the name
@@ -574,7 +776,7 @@ LANGUAGE sql STABLE AS $$
   FROM public.association_settings s WHERE s.id = 1
 $$;
 
--- == 8. The sign-in guard ====================================================
+-- == 10. The sign-in guard ====================================================
 -- New in the schema, so it is created here before being called below.
 -- Read-only: it repairs nothing and names the file that does.
 CREATE OR REPLACE FUNCTION public.assert_signin_intact() RETURNS void
@@ -635,7 +837,7 @@ BEGIN
     RAISE WARNING
       'SIGN-IN: % account(s) exist with no profiles row. They can authenticate '
       'but the app will show "this account has no row in the database". Re-run '
-      'the bundle, or supabase/PATCH_20260816_restore_signin_trigger.sql, to '
+      'the bundle, or supabase/PATCH_20260816_signin_hardening.sql, to '
       'backfill them.', v_orphans;
   END IF;
 END $$;
@@ -669,16 +871,16 @@ UNION ALL SELECT 'update_settings saves the officials (the silent-save fix)',
 UNION ALL SELECT 'renaming an official refreshes the snapshot',
        (pg_get_functiondef('public.save_adeel(bigint,jsonb)'::regprocedure)
           LIKE '%treasurer_adeel_id%')::text
-UNION ALL SELECT 'settings and payments hold a bank account',
-       (SELECT count(*) = 4 FROM information_schema.columns
+UNION ALL SELECT 'settings and payments hold all three bank fields',
+       (SELECT count(*) = 6 FROM information_schema.columns
          WHERE table_schema = 'public'
-           AND column_name IN ('bank_account_no','bank_account_name')
+           AND column_name IN ('bank_name','bank_account_no','bank_account_name')
            AND table_name IN ('association_settings','payments'))::text
-UNION ALL SELECT 'register_payment still takes SIX parameters',
+UNION ALL SELECT 'register_payment now takes NINE parameters',
        (SELECT count(*) = 1 FROM pg_proc p
           JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'public' AND p.proname = 'register_payment'
-           AND p.pronargs = 6)::text
+           AND p.pronargs = 9)::text
 UNION ALL SELECT 'v_officials was left alone (portal still sees the names)',
        (SELECT count(*) = 3 FROM information_schema.columns
          WHERE table_schema = 'public' AND table_name = 'v_officials')::text

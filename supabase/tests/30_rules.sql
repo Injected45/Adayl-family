@@ -40,6 +40,37 @@ SELECT probe.eq('rule10', '...and there really are two of him now',
   $sql$ SELECT count(*)::text FROM public.adeels
          WHERE full_name = 'عديل جديد' $sql$, '2');
 
+-- ── An edit must not erase what it was not told about ───────────────────────
+-- save_adeel assigned `notes = p_adeel ->> 'notes'` unconditionally, and the
+-- عديل form has no notes field, so it never sends the key: ->> returned NULL
+-- and every edit silently wiped the note. The save succeeded, so nothing
+-- reported it and only whoever wrote the note would ever know.
+SELECT probe.succeeds('rule10', 'an عديل is given a note directly', $sql$
+  UPDATE public.adeels SET notes = 'ملاحظة يجب أن تبقى'
+   WHERE full_name = 'عديل جديد'
+$sql$);
+SELECT probe.become('00000000-0000-0000-0000-0000000000a2');   -- finance manager
+SELECT probe.succeeds('rule10', 'he is edited WITHOUT a notes key', $sql$
+  SELECT public.save_adeel(
+    (SELECT min(id) FROM public.adeels WHERE full_name = 'عديل جديد'),
+    jsonb_build_object('fullName', 'عديل جديد', 'phone', '0910000000'))
+$sql$);
+SELECT probe.eq('rule10', '...and the note survived the edit',
+  $sql$ SELECT notes FROM public.adeels
+         WHERE id = (SELECT min(id) FROM public.adeels
+                      WHERE full_name = 'عديل جديد') $sql$,
+  'ملاحظة يجب أن تبقى');
+-- The other direction: a key that IS sent, empty, still clears the field.
+SELECT probe.succeeds('rule10', 'sending an empty notes key DOES clear it', $sql$
+  SELECT public.save_adeel(
+    (SELECT min(id) FROM public.adeels WHERE full_name = 'عديل جديد'),
+    jsonb_build_object('fullName', 'عديل جديد', 'notes', ''))
+$sql$);
+SELECT probe.eq('rule10', '...so an absent key and an empty one differ',
+  $sql$ SELECT notes FROM public.adeels
+         WHERE id = (SELECT min(id) FROM public.adeels
+                      WHERE full_name = 'عديل جديد') $sql$, '');
+
 SELECT probe.raises('rule10', 'future date of birth is refused', $sql$
   INSERT INTO public.adeels (full_name, dob, registered_at)
   VALUES ('مستقبلي', (current_date + 1)::date, '2026-01-01')

@@ -64,6 +64,10 @@ CREATE TABLE public.association_settings (
   -- account numbers and whatever a given bank prints are all legitimate here,
   -- and a CHECK would refuse the association's real account on the day they
   -- open one at a different bank.
+  -- Three parts, because a transfer needs all three to be actionable: an
+  -- account number alone does not tell the sender WHICH bank to walk into, and
+  -- a Libyan account number is only unique within its own bank.
+  bank_name                   text          NOT NULL DEFAULT '',
   bank_account_no             text          NOT NULL DEFAULT '',
   bank_account_name           text          NOT NULL DEFAULT '',
 

@@ -59,6 +59,11 @@ abstract final class SupabaseFailures {
   /// render as an unexplained failure instead of "you do not have permission".
   static const Map<String, int> _statusForRule = <String, int>{
     'RUL00': 403, // require_role / self-elevation / last-admin guard
+    // RUL01 is assert_signin_intact(), and a client can never reach it — it is
+    // not on the lockdown allow-list and only an apply or a patch calls it. 500
+    // is right if it ever does surface: it means the schema is broken, which is
+    // not something the caller did wrong.
+    'RUL01': 500,
     'RUL04': 409, // one live receivable per (family, period)
     'RUL05': 409, // receivable snapshots are immutable
     'RUL07': 422, // payment bounds — a bad request, not a conflict
@@ -66,6 +71,17 @@ abstract final class SupabaseFailures {
     'RUL10': 422, // national id / date of birth
     'RUL12': 409, // audit log is append-only
     'RUL13': 422, // purge confirmation phrase did not match
+    // The portal: a wrong or already-redeemed access code, a suspended account,
+    // an admin trying to bind himself to an عديل. All "what you sent cannot be
+    // accepted", none of them a server fault.
+    'RUL14': 422,
+    // Closing a month out of range, twice, or out of order. A CONFLICT with the
+    // state of the books rather than a malformed request — the same period is
+    // perfectly valid once the earlier month is closed.
+    'RUL15': 409,
+    // The two officials: one man in both posts, or a post given to somebody who
+    // is not on the register.
+    'RUL16': 422,
   };
 
   static ApiException _fromPostgrest(PostgrestException error) {

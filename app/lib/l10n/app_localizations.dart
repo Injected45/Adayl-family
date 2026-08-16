@@ -295,6 +295,18 @@ abstract class L {
   /// **'الحساب المصرفي للجمعية'**
   String get bankAccountSection;
 
+  /// No description provided for @bankNameField.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم المصرف'**
+  String get bankNameField;
+
+  /// No description provided for @previouslyUsed.
+  ///
+  /// In ar, this message translates to:
+  /// **'المستعملة سابقاً'**
+  String get previouslyUsed;
+
   /// No description provided for @bankAccountNoField.
   ///
   /// In ar, this message translates to:

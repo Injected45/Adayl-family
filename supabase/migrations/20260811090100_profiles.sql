@@ -131,12 +131,16 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
--- DROP-then-CREATE, because Postgres has no CREATE OR REPLACE TRIGGER before 14
--- and this must succeed whether the trigger is missing, present, or half
--- restored by an earlier repair. Re-running the bundle is now a repair rather
--- than an error.
-DROP TRIGGER IF EXISTS trg_auth_user_created ON auth.users;
-CREATE TRIGGER trg_auth_user_created
+-- CREATE OR REPLACE TRIGGER (PostgreSQL 14+, and Supabase is well past it),
+-- deliberately in place of DROP-then-CREATE.
+--
+-- Both are idempotent, so re-running is a repair either way. The difference is
+-- that the DROP form leaves a window — however short — in which auth.users has
+-- NO trigger, and if the statement after it failed, the transaction would roll
+-- back but a reader of this file would still be looking at a DROP against the
+-- table sign-in depends on. There is now no statement anywhere in this schema,
+-- or in any patch generated from it, that removes anything from `auth`.
+CREATE OR REPLACE TRIGGER trg_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 

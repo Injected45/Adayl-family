@@ -46,6 +46,16 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   final TextEditingController _reference = TextEditingController();
   final TextEditingController _notes = TextEditingController();
 
+  /// The PAYER's account — his bank, the name on it, its number.
+  ///
+  /// Free text, and deliberately not a setting: an عديل may transfer from more
+  /// than one account and more than one bank, so which he used is a fact about
+  /// this collection. What makes retyping cheap is [_BankFields], which offers
+  /// what this same عديل used before and narrows each field by the one above it.
+  final TextEditingController _bankName = TextEditingController();
+  final TextEditingController _bankHolder = TextEditingController();
+  final TextEditingController _bankAccountNo = TextEditingController();
+
   /// Who took the money — one of the two officials named in settings, not free
   /// text.
   ///
@@ -65,6 +75,8 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   bool _submitting = false;
   String? _error;
 
+  bool get _isTransfer => _method == PaymentMethodWire.bankTransfer;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +88,9 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
     _amount.dispose();
     _reference.dispose();
     _notes.dispose();
+    _bankName.dispose();
+    _bankHolder.dispose();
+    _bankAccountNo.dispose();
     super.dispose();
   }
 
@@ -117,6 +132,12 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             reference: _reference.text.trim(),
             receiver: _receiver,
             notes: _notes.text.trim(),
+            // Only meaningful for a transfer. The server drops them for cash
+            // anyway, but sending text left over from a method the treasurer
+            // switched away from would be the client asserting something untrue.
+            bankName: _isTransfer ? _bankName.text.trim() : null,
+            bankAccountName: _isTransfer ? _bankHolder.text.trim() : null,
+            bankAccountNo: _isTransfer ? _bankAccountNo.text.trim() : null,
           );
 
       // Refresh everything the payment moved.
@@ -300,8 +321,13 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     decoration: InputDecoration(labelText: l.reference),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  const _BankAccountPanel(),
-                  const SizedBox(height: AppSpacing.md),
+                  _BankFields(
+                    adeelId: adeel?.id,
+                    bank: _bankName,
+                    holder: _bankHolder,
+                    account: _bankAccountNo,
+                    enabled: !_submitting,
+                  ),
                 ],
 
                 _ReceiverField(
@@ -351,117 +377,197 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
     );
   }
 }
+/// The payer's bank, the name on the account, and its number — typed, but
+/// offered from what this same عديل has used before.
+///
+/// ── Why these are not settings ──────────────────────────────────────────────
+/// An عديل may transfer from more than one account, and from more than one
+/// bank. Which he used is a fact about THIS collection, so fixing it anywhere
+/// would be wrong. But retyping three fields for every subscription is slow and
+/// is exactly where a digit goes missing, and a mistyped account number is the
+/// one thing here that makes a receipt impossible to match against the bank's
+/// own statement.
+///
+/// ── The cascade ─────────────────────────────────────────────────────────────
+/// Each field narrows the one below it, against this عديل's own history:
+///
+///   bank        → every bank he has ever transferred from
+///   holder      → only the names used AT THAT BANK
+///   account no. → only the numbers used by THAT NAME at THAT BANK
+///
+/// and when a field has exactly ONE candidate left, it fills itself. So the
+/// second time المهدي pays through المصرف التجاري and the treasurer picks علي,
+/// the account number appears on its own — because nothing else it could be has
+/// ever been recorded.
+///
+/// Free text throughout. A new bank or a new account is typed once and is then
+/// on the list for ever; the suggestions never refuse anything.
+///
+/// The history comes from `v_payments`, which the app already loads and which
+/// RLS already scopes — no new endpoint, and nothing here is trusted: the
+/// server stores exactly the three strings it is sent, and only for a transfer.
+class _BankFields extends ConsumerWidget {
+  const _BankFields({
+    required this.adeelId,
+    required this.bank,
+    required this.holder,
+    required this.account,
+    required this.enabled,
+  });
 
-/// The association's receiving bank account, shown when the method is a
-/// transfer.
-///
-/// READ-ONLY, and that is the design rather than a shortcut. The account is the
-/// association's own, so there is nothing for a treasurer to decide at
-/// collection time — and `register_payment` snapshots it onto the payment
-/// SERVER-SIDE from `association_settings`, so anything typed here could only
-/// disagree with what is actually recorded. Showing it is what the treasurer
-/// needs: the number to read out to whoever is transferring, and a check that
-/// the receipt will name the right account.
-///
-/// Copyable for the same reason — the number is meant to be sent to a member
-/// over WhatsApp, and retyping a bank account by hand is how a digit gets lost.
-class _BankAccountPanel extends ConsumerWidget {
-  const _BankAccountPanel();
+  final int? adeelId;
+  final TextEditingController bank;
+  final TextEditingController holder;
+  final TextEditingController account;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
-    final AsyncValue<AssociationSettingsView> settings = ref.watch(
-      settingsProvider,
-    );
-    final AssociationSettingsView? data = settings.valueOrNull;
 
-    // Not configured yet, or still loading: say where to set it rather than
-    // rendering two empty lines. The payment is NOT blocked — the server keeps
-    // both columns nullable, so a transfer taken before an account exists is
-    // recorded with none, which is the truth.
-    if (data == null || !data.hasBankAccount) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.warningSoft,
-          borderRadius: BorderRadius.circular(AppRadius.control),
-        ),
-        child: Text(
-          l.bankAccountNotConfigured,
-          style: const TextStyle(fontSize: 12, height: 1.5),
-        ),
-      );
+    // Only this عديل's own transfers, and only the ones that actually carry an
+    // account. A cancelled payment still describes an account he really used,
+    // so it stays in the history: the suggestion is about typing, not money.
+    final List<PaymentView> history = <PaymentView>[
+      for (final PaymentView p
+          in ref.watch(paymentsProvider).valueOrNull ?? const <PaymentView>[])
+        if (p.adeelId == adeelId && p.bankName.trim().isNotEmpty) p,
+    ];
+
+    String norm(String s) => s.trim().toLowerCase();
+
+    List<String> distinct(
+      String Function(PaymentView) pick,
+      bool Function(PaymentView) where,
+    ) {
+      final Map<String, String> seen = <String, String>{};
+      for (final PaymentView p in history) {
+        if (!where(p)) continue;
+        final String v = pick(p).trim();
+        if (v.isNotEmpty) seen.putIfAbsent(norm(v), () => v);
+      }
+      return seen.values.toList()..sort();
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.neutralSoft,
-        borderRadius: BorderRadius.circular(AppRadius.control),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            l.bankAccountSection,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _CopyableLine(label: l.bankAccountNoField, value: data.bankAccountNo),
-          if (data.bankAccountName.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.xs),
-            _CopyableLine(
-              label: l.bankAccountNameField,
-              value: data.bankAccountName,
-            ),
-          ],
-        ],
-      ),
+    final List<String> banks = distinct((PaymentView p) => p.bankName, (_) => true);
+    final List<String> holders = distinct(
+      (PaymentView p) => p.bankAccountName,
+      (PaymentView p) => norm(p.bankName) == norm(bank.text),
     );
-  }
-}
+    final List<String> accounts = distinct(
+      (PaymentView p) => p.bankAccountNo,
+      (PaymentView p) =>
+          norm(p.bankName) == norm(bank.text) &&
+          norm(p.bankAccountName) == norm(holder.text),
+    );
 
-class _CopyableLine extends StatelessWidget {
-  const _CopyableLine({required this.label, required this.value});
+    // "Exactly one candidate left" is the whole point — but only fill a field
+    // the treasurer has not already typed into, or this would overwrite him
+    // mid-keystroke.
+    void autofill(TextEditingController c, List<String> options) {
+      if (options.length == 1 && c.text.trim().isEmpty) c.text = options.single;
+    }
 
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+        _SuggestingField(
+          label: l.bankNameField,
+          controller: bank,
+          options: banks,
+          enabled: enabled,
+          // Changing the bank invalidates both fields below it: the name and
+          // number that belonged to the old bank are almost certainly wrong for
+          // the new one, and leaving them looks like they were confirmed.
+          onChanged: () {
+            holder.clear();
+            account.clear();
+          },
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: SelectableText(
-            value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-          ),
+        const SizedBox(height: AppSpacing.md),
+        _SuggestingField(
+          label: l.bankAccountNameField,
+          controller: holder,
+          options: holders,
+          enabled: enabled && bank.text.trim().isNotEmpty,
+          onChanged: account.clear,
         ),
-        IconButton(
-          icon: const Icon(Icons.copy, size: 16),
-          tooltip: l.copy,
-          visualDensity: VisualDensity.compact,
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: value));
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(l.copied)));
+        const SizedBox(height: AppSpacing.md),
+        Builder(
+          builder: (BuildContext context) {
+            autofill(account, accounts);
+            return _SuggestingField(
+              label: l.bankAccountNoField,
+              controller: account,
+              options: accounts,
+              enabled: enabled && holder.text.trim().isNotEmpty,
+              onChanged: () {},
+            );
           },
         ),
       ],
     );
   }
 }
+
+/// A text field that also offers what has been used before.
+///
+/// Typing is always allowed — the list narrows it, never restricts it. The
+/// suffix button opens the whole list, because a treasurer who has not started
+/// typing has nothing to filter by and would otherwise not know the history is
+/// there at all.
+class _SuggestingField extends StatefulWidget {
+  const _SuggestingField({
+    required this.label,
+    required this.controller,
+    required this.options,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final List<String> options;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  State<_SuggestingField> createState() => _SuggestingFieldState();
+}
+
+class _SuggestingFieldState extends State<_SuggestingField> {
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return TextField(
+      controller: widget.controller,
+      enabled: widget.enabled,
+      onChanged: (_) => setState(widget.onChanged),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        suffixIcon: widget.options.isEmpty
+            ? null
+            : PopupMenuButton<String>(
+                icon: const Icon(Icons.history, size: 20),
+                tooltip: l.previouslyUsed,
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  for (final String option in widget.options)
+                    PopupMenuItem<String>(
+                      value: option,
+                      child: Text(option, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onSelected: (String value) => setState(() {
+                  widget.controller.text = value;
+                  widget.onChanged();
+                }),
+              ),
+      ),
+    );
+  }
+}
+
 
 /// Who received the money, chosen from the two officials named in settings.
 ///
@@ -563,6 +669,10 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
           // The account the money went to, off the payment's own snapshot — so
           // this receipt keeps naming it even after the association banks
           // somewhere else. Absent for cash, which has none.
+          if (payment.bankName.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            LabelledValue(label: l.bankNameField, value: payment.bankName),
+          ],
           if (payment.bankAccountNo.trim().isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.md),
             LabelledValue(
