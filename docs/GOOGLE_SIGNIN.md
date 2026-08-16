@@ -159,12 +159,21 @@ Google mints an ID token only for a registered **package name + signing SHA-1**
 pair. A teammate who builds from source therefore cannot sign in: their machine
 has its own debug keystore, so the app they built is, to Google, a different app.
 
-That failure shows as the **generic** error, not as a cancellation. Under
-`google_sign_in` 7.x an unrecognised signature comes back as `NO_CREDENTIAL`,
-which `authenticate()` turns into `unknownError` — so the app falls to
-`LocalAuthError.googleFailed`. Do not go looking at keystores when the screen
-says "تم إلغاء تسجيل الدخول"; that message means something else entirely, and
-the table at the end of this file says what.
+**It shows as "تم إلغاء تسجيل الدخول", not as an error.** Play Services reports
+a refusal through the same `canceled` code the user's own back-press produces,
+with the real reason only in `GoogleSignInException.description` — observed
+values include `[16] Account reauth failed` and, for a signature Google does not
+recognise, an equally uninformative cancellation. That is why
+`google_auth_service.dart` logs the description on every occurrence, release
+builds included: the code alone cannot tell a refusal from a dismissal, and the
+description is the only thing that can.
+
+So a cancellation you did not perform is worth reading the log for before
+assuming anyone cancelled anything:
+
+```bash
+adb logcat | grep 'reported "canceled"'
+```
 
 Registering every developer's debug fingerprint does not scale and is not the
 fix. **Distribute a signed APK instead.** The signature travels inside the file,
@@ -229,11 +238,20 @@ after the account chooser closes.
 You used the Android client ID. Use the web one.
 
 **"تم إلغاء تسجيل الدخول" when you did not cancel anything.**
-This is the **consent screen refusing the account**, not a signing problem. The
-message is only ever shown for `GoogleSignInExceptionCode.canceled`, and under
-`google_sign_in` 7.x reaching that code proves the Android OAuth client already
-matched the package name and the signature — a mismatch would have arrived as
-`NO_CREDENTIAL`. What is left is the consent screen:
+Read the log line above before anything else — `description` names the cause and
+the three below are not otherwise distinguishable.
+
+**`[16] ...` on a machine other than the one that built the APK.** The build is
+signed with that machine's own debug key. This is the common one, and the
+section above is the fix: install the distributed APK, do not build.
+
+**`[16] Account reauth failed`.** The Google account on the DEVICE needs
+re-authenticating and the attempt failed — frequently because the device has no
+screen lock, which Google's reauth step requires. Set a lock, or remove and
+re-add the account. Nothing server-side is involved; the token never left the
+device.
+
+**Otherwise, the consent screen may be refusing the account:**
 
 - **Audience = Internal**, and the account is outside the organisation. A
   personal Gmail is always outside.
