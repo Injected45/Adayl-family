@@ -60,7 +60,7 @@ $SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 # An ordinary email/password account. Its role still comes from public.profiles
 # like everyone else's; it exists so the app is usable before Google sign-in is
 # switched on. It is an approved admin, so this APK embeds an admin password.
-$DEV_EMAIL = 'admin@fam.test'
+$DEV_EMAIL = 'admin@adayl.test'
 $DEV_PASS  = ''
 
 # The WEB client ID from Google Cloud - the SAME one entered in Supabase's Google
