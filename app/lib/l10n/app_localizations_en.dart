@@ -117,6 +117,10 @@ class LEn extends L {
       'The database does not match this build of the app. Retrying will not help — the schema needs to be applied.';
 
   @override
+  String get errorProfileMissing =>
+      'Signed in, but this account has no row in the database. Retrying will not help — contact the association\'s administrator.';
+
+  @override
   String get errorNetwork => 'No internet connection';
 
   @override

@@ -40,6 +40,7 @@
 
   "errorGeneric": "Something went wrong. Please try again later.",
   "errorSchemaMismatch": "The database does not match this build of the app. Retrying will not help — the schema needs to be applied.",
+  "errorProfileMissing": "Signed in, but this account has no row in the database. Retrying will not help — contact the association's administrator.",
   "errorNetwork": "No internet connection",
   "errorNetworkBody": "Could not reach the server. Check your connection and try again.",
   "errorTimeout": "The server took too long to respond",

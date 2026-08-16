@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -220,12 +221,26 @@ class AuthController extends Notifier<AuthState> {
           failureKind: failure.kind,
         ),
       };
-    } catch (_) {
+      // GoTrue's own sentence lives in `details`, because SupabaseFailures
+      // deliberately keeps it off the screen — it is English and written for a
+      // developer ("Unacceptable audience in id_token", "Database error saving
+      // new user"). Off the screen must not mean nowhere: every one of those
+      // renders as the same generic Arabic line, so without this the one fact
+      // that separates them is destroyed at the moment it arrives.
+      _logAuthFailure(failure.code, failure.details ?? failure.serverMessage);
+    } catch (error) {
+      _logAuthFailure(LocalAuthError.googleFailed, error);
       state = const AuthState(
         stage: AuthStage.signedOut,
         errorCode: LocalAuthError.googleFailed,
       );
     }
+  }
+
+  /// Release builds included — the APK the association runs is a release build,
+  /// so a kDebugMode gate would silence exactly the occurrence that matters.
+  static void _logAuthFailure(String? code, Object? detail) {
+    debugPrint('Sign-in failed [${code ?? 'unknown'}]: ${detail ?? '(none)'}');
   }
 
   static String? _emailFromDetails(Object? details) {

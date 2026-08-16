@@ -295,6 +295,12 @@ abstract class L {
   /// **'قاعدة البيانات لا تطابق هذا الإصدار من التطبيق. لن تنجح المحاولة مرة أخرى — يلزم تطبيق مخطط قاعدة البيانات.'**
   String get errorSchemaMismatch;
 
+  /// No description provided for @errorProfileMissing.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تسجيل الدخول، لكن لا يوجد سجل لهذا الحساب في قاعدة البيانات. لن تنجح المحاولة مرة أخرى — راجع إدارة الجمعية.'**
+  String get errorProfileMissing;
+
   /// No description provided for @errorNetwork.
   ///
   /// In ar, this message translates to:
