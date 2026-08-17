@@ -1225,22 +1225,22 @@ CREATE TABLE public.disbursements (
 
   -- ── THE TWO SHAPES, and nothing in between ─────────────────────────────────
   -- The kind is not a label on the row, it IS the row's shape, and this is what
-  -- makes that true. Two things are being enforced at once, and neither can be
-  -- said by a per-column constraint:
+  -- makes that true. Two rules at once, and neither can be said by a per-column
+  -- constraint:
   --
   --   1. THE PAYEE. لمشترك names a man; جماعي names nobody, by the
   --      association's own decision — nobody receives فطور رمضان the way a
   --      member receives aid. Without this a collective voucher could carry
   --      somebody's name, or a member voucher none.
   --
-  --   2. THE VALID وجه FOR THAT KIND. مولود is a family's and only ever goes
-  --      to a member; فطور رمضان is one table for everybody and is never one
-  --      man's. Stated as exclusions rather than as two lists, so adding a
-  --      seventh heading that BOTH kinds may use needs no edit here — only one
-  --      that belongs to a single kind does.
+  --   2. THE VALID وجه FOR THAT KIND. مولود is a family's and only ever goes to
+  --      a member; فطور رمضان is one table for everybody and is never one man's.
+  --      Written as exclusions rather than as two lists, so a seventh heading
+  --      that BOTH kinds may use needs no edit here — only one belonging to a
+  --      single kind does.
   --
-  -- All of it would otherwise pass every other check and surface on a screen
-  -- months later, filed under a heading it does not belong to.
+  -- All of it would otherwise pass every other check here and surface on a
+  -- screen months later, filed under a heading it does not belong to.
   CONSTRAINT ck_disb_shape CHECK (
     (kind = 'لمشترك'
        AND payee_adeel_id IS NOT NULL

@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A Flutter app on Supabase for a Libyan family association (جمعية العدايل): a
-register of عدايل, monthly subscription receivables, FIFO payment collection, a
-treasury ledger, and an append-only audit trail. **Arabic, right-to-left, forced
+register of عدايل, monthly subscription receivables, FIFO payment collection
+with a prepaid wallet, a treasury ledger with money going OUT as well as in
+(نظام الصرف), and an append-only audit trail. **Arabic, right-to-left, forced
 locale.** The Flutter project lives in `app/`; the database lives in `supabase/`.
 
 ## The عديل is the unit, and the family is gone
@@ -54,17 +55,19 @@ This dictates the data-access shape — do not deviate from it:
 
 - **Reads** → direct PostgREST against `v_*` views (or `api_*` functions), gated by
   RLS on the caller's role. Never read a base table.
-- **Writes** → only through the twelve `SECURITY DEFINER` RPC functions below. The
+- **Writes** → only through the fourteen `SECURITY DEFINER` RPC functions below. The
   `authenticated` role holds no INSERT/UPDATE/DELETE on any table and no table has a
   write policy, because a payment is not one row — registering it inserts a payment,
   N allocations, N receivable updates, and a cash movement, all-or-nothing. A
   function body is one transaction; a PostgREST call is not.
 
-  The twelve RPCs (in `supabase/migrations/…_rpc.sql`): `register_payment`,
+  The fourteen RPCs (in `supabase/migrations/…_rpc.sql`): `register_payment`,
   `cancel_payment`, `generate_period`, `auto_close_periods`, `save_adeel`,
   `delete_adeel`, `update_settings`, `set_user_access`, `purge_financial_data`,
-  `purge_all_data`, `issue_adeel_code`, `redeem_adeel_code`. (`write_audit`
-  exists but is called by triggers, never the client.)
+  `purge_all_data`, `issue_adeel_code`, `redeem_adeel_code`,
+  `register_disbursement`, `cancel_disbursement`. (`write_audit` and
+  `settle_from_credit` exist but are called by triggers and by other RPCs, never
+  by the client.)
   `20260811091200_function_lockdown.sql` holds the allow-list and asserts it is
   EXACT — a function added without being listed there is unreachable, and one
   listed but ungranted fails the migration.
@@ -120,6 +123,62 @@ This dictates the data-access shape — do not deviate from it:
   in the database records that it ran. Settings → منطقة الخطر is the only
   caller. `70_purge.sql` runs last because it erases the fixture.
 
+  **The wallet — a member may pay AHEAD.** Rule 7 used to refuse both paying an
+  عديل who owed nothing and paying more than he owed. Both are now allowed and
+  the surplus is CREDIT. There is no wallet column, deliberately: the credit is
+  the part of a payment the FIFO loop could not allocate —
+  `Σ payments − Σ allocations` — so it is a view over rows that already exist
+  and cannot drift from the money. Spending it means WRITING the missing
+  allocation, which is also what puts a prepaid month into the statement beside
+  the receipt that settled it. `settle_from_credit` is that spend, and
+  `generate_period` calls it per عديل the instant it raises his receivable, so a
+  man who paid a year ahead never sees the new month appear as a debt he already
+  covered. What this RELAXES: a treasurer who means 500 and types 5000 is no
+  longer stopped by the database — the audit entry names the surplus
+  («منها 4500 رصيد مقدم») so it is visible afterwards rather than only in the
+  arithmetic. What survives is that the amount must be positive and that every
+  unit is either allocated or counted as credit.
+
+  **Money OUT — نظام الصرف.** `disbursements` is where money leaves the
+  treasury: `voucher_no` generated as `EXP-000001`, admin-only (a rung above
+  even financeManager), recorded directly with no approval queue, and reversed
+  rather than deleted. A voucher takes one of TWO shapes and `ck_disb_shape`
+  enforces both halves at once: `لمشترك` names a man on the register and may not
+  be `فطور رمضان`; `جماعي` names nobody at all and may not be `مولود`. Both
+  carry a وجه from a fixed six-value enum, because "how much went on each" is
+  the only question that column exists to answer and free text turns
+  عزاء / العزاء / مصاريف عزاء into three answers to it.
+
+  Two rules make it safe, and they are the same rule read from each side.
+  `register_disbursement` locks the settings row and refuses to pay out more
+  than `Σ cash_movements − Σ disbursements`; `cancel_payment` takes the SAME
+  lock FIRST and refuses a cancellation that would leave the fund holding less
+  than what has already been spent, naming the value of vouchers to reverse
+  first. Without the second, collect 100 → spend 100 → cancel the receipt leaves
+  رصيد الجمعية at −100 silently, and every later disbursement is then refused
+  for a reason nobody was told.
+
+  ⚠ **A disbursement to an عديل is NOT a credit against his subscription.** It
+  never touches receivables, payments or his wallet and never appears in his
+  statement. The link exists so "how much aid went to this man" can be answered;
+  treating it as a payment would let the association's charity cancel its own
+  dues. And it is a SEPARATE table rather than a signed row in `cash_movements`,
+  because that table is the mirror of an approved payment — rule 8 gives it one
+  row per payment, `uq_cash_payment` forbids a duplicate, its `adeel_id` is NOT
+  NULL and the عديل portal reads it as "my receipts". Forcing an outflow in
+  would mean a nullable `payment_id`, a widened unique constraint, a sign on
+  every existing SUM and an RLS policy that must start distinguishing
+  directions — on the one table the working collection path depends on.
+
+  An عديل reads **no voucher row at all**, not even the one made out to him:
+  `read_disbursements` is staff-only, because a row saying a NAMED person
+  received aid is the most private fact the system holds. He does see the
+  association's TOTALS — `api_association_finance()`, aggregates only, no name
+  and no row — and that function is `SECURITY DEFINER` on purpose: pointing the
+  portal at `v_cash_summary` (SECURITY INVOKER) would have shown him HIS OWN
+  figures under headings that say "the association's", which is not a leak but
+  something worse — a wrong answer with nothing on screen to doubt.
+
 - **Money is text end to end.** Postgres serialises `numeric` as a bare JSON number
   and `dart:convert` decodes that to `double`. Every view casts amounts to text, and
   every RPC amount is sent from Dart as a `String` (not a number). Putting a treasury
@@ -151,8 +210,11 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
 - `features/auth` — Google + dev email/password sign-in, role/approval state.
 - `features/directory` — the register (`adeels_screen`), an عديل's detail and
   form, receivables, statements, officials, and the portal.
-- `features/finance` — payments, cash/treasury. `finance_repository.dart` is the
-  canonical example of the read-via-view / write-via-RPC pattern.
+- `features/finance` — payments, cash/treasury, and الصرف (money out).
+  `payments_screen.dart` carries both tabs — التحصيل and الصرف, the latter with
+  the voucher list and «الإنفاق حسب الوجه» — and `disbursement_sheet.dart` is
+  the voucher form, whose fields switch on the kind. `finance_repository.dart`
+  is the canonical example of the read-via-view / write-via-RPC pattern.
 - `features/oversight` — dashboard, alerts, reports, audit, settings, users.
 - `core/supabase` — client init, secure session storage (refresh token → keystore),
   error mapping (`SupabaseFailures.guard`).
@@ -279,15 +341,33 @@ to find, but a project still holding the OLD family/member schema, one where the
 bundle was never run, and one where `bootstrap_first_admin.sql` was skipped all
 look identical from the app — a login screen that goes nowhere. It names which.
 
+`supabase/WHICH_STATE.sql` is its counterpart for PATCHES, and also read-only.
+VERIFY_INSTALL holds a fixed list and asks "did the bundle land"; a project one
+patch behind passes it completely — nothing on its list is missing — and is
+still the wrong place to paste the next patch into. WHICH_STATE probes each
+patch by an object it ADDS (a column, a table, a function), in dependency order,
+and its last row says what to do: `READY`, `ALREADY applied`, or `STOP` naming
+the prerequisite that is missing. **Run it before proposing any patch for the
+live project, and reconstruct the state it reports locally before claiming the
+patch is safe** — a bundle from the matching commit plus `local_pg.sh` does this
+in minutes, and on 2026-08-18 it is what revealed the live project sitting on an
+OLDER build of `PATCH_20260817` (device lock in, نظام الصرف missing) rather than
+on nothing at all. Every count in it goes through `query_to_xml()` so that a
+missing table cannot kill the script on one of the states it exists to name.
+
 ## Testing model — two layers, both required
 
-- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 295
+- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 409
   checks. Each rule runs with a passing case *and a failing case* (the failing
   case is what proves the rule bites). It also races two psql sessions on one
-  balance to prove FIFO allocation can't double-spend, and injects a
-  mid-transaction failure to prove rollback. `EXPECTED_CHECKS` at the top of the
-  script must match, so a check whose SQL errors before recording anything
-  cannot hide.
+  balance to prove FIFO allocation can't double-spend, races two more on the
+  treasury to prove the fund cannot be overdrawn by simultaneous vouchers
+  (`68_spend_concurrency.sh`), and injects a mid-transaction failure to prove
+  rollback. `EXPECTED_CHECKS` at the top of the script must match, so a check
+  whose SQL errors before recording anything cannot hide — and the comment above
+  it derives the number from the files rather than from what a run reported,
+  because fitting it to a run is exactly how the count once certified a
+  duplicated suite.
 
   Rules 1 and 2 are GONE from it, not merely untested — they described the age
   gate. What replaced rule 1 is asserted under `rule03`: a seven-year-old عديل
