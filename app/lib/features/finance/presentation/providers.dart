@@ -30,3 +30,17 @@ final FutureProvider<List<ClosablePeriod>> closablePeriodsProvider =
     FutureProvider<List<ClosablePeriod>>(
       (Ref ref) => ref.watch(financeRepositoryProvider).closablePeriods(),
     );
+
+/// Every voucher, newest first. Invalidated after a disbursement is recorded or
+/// cancelled, alongside the treasury summary it moves.
+final FutureProvider<List<DisbursementView>> disbursementsProvider =
+    FutureProvider<List<DisbursementView>>(
+      (Ref ref) => ref.watch(financeRepositoryProvider).disbursements(),
+    );
+
+/// What each heading has cost. The reason the category is a fixed enum: this is
+/// the question a free-text field could not answer.
+final FutureProvider<List<ExpenseByCategory>> expenseByCategoryProvider =
+    FutureProvider<List<ExpenseByCategory>>(
+      (Ref ref) => ref.watch(financeRepositoryProvider).expenseByCategory(),
+    );

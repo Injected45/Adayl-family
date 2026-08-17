@@ -1,13 +1,29 @@
 -- ============================================================================
---  جمعية العدايل — PATCH: one عديل, one device.  2026-08-17.
+--  جمعية العدايل — PATCH 2026-08-17.  The device lock, the wallet, money out.
 --
 --  GENERATED FILE. Do not edit. Source of truth: supabase/migrations/.
 --
---  WHAT THIS DOES
+--  WHAT THIS DOES — five things, in one transaction
 --
---  An عديل's access code now opens the portal on ONE handset. The same account,
---  signed in with the same Google address on a second phone, sees nothing —
---  which is what the association asked for.
+--    §1–6  ONE عديل, ONE HANDSET. His access code opens the portal on a single
+--          phone; the same Google account on a second phone sees nothing.
+--    §7    THE STATEMENT SAYS WHAT, NOT WHICH REF. A transfer now reads
+--          «تحويل مصرفي» in the البيان column instead of a bare bank number
+--          that looked like a second amount.
+--    §8    THE WALLET. A member may pay AHEAD. The cap at "no more than owed"
+--          is gone; the surplus is credit, and generate_period() spends it the
+--          instant it raises the next month.
+--    §9–10 THE TREASURY, AND A MEMBER'S VIEW OF IT. v_cash_summary gains
+--          outstanding/disbursed/balance; api_association_finance() gives an
+--          عديل the association's TOTALS — aggregates only, never a row.
+--    §11   MONEY OUT. A disbursements table, an admin-only register/cancel
+--          pair, and the rule that makes it safe: the association cannot pay
+--          out money it does not hold.
+--
+--  Nothing here is destructive. One DROP FUNCTION (see below), no DROP TABLE,
+--  no TRUNCATE outside the two purge functions' own bodies, no row touched.
+--
+--  ── §1–6, in detail ────────────────────────────────────────────────────────
 --
 --  ⚠ IT IS NOT A MAC ADDRESS, AND NOTHING CAN BE.
 --     Android has returned the constant 02:00:00:00:00:00 to every app since
@@ -56,7 +72,7 @@
 --     CREATE OR REPLACE cannot add a parameter, and leaving the one-argument
 --     version beside the two-argument one makes every call ambiguous (42725).
 --     Dropping a FUNCTION destroys no data and touches no row. Its EXECUTE
---     grant goes with it and is re-issued by the lockdown sweep in section 12.
+--     grant goes with it and is re-issued by the lockdown sweep in section 13.
 --
 --     Nothing else is dropped. No DROP SCHEMA, no DROP TABLE, no DROP TRIGGER,
 --     no TRUNCATE, no DELETE, and nothing touching auth.users or profiles rows.
@@ -907,7 +923,23 @@ SELECT
   -- else; anything added later goes below it.
   coalesce((SELECT sum(r.balance) FROM public.receivables r
              WHERE r.status <> 'ملغي'), 0)::numeric(12,2)::text
-    AS "outstanding"
+    AS "outstanding",
+  -- ── Money OUT, and what the association actually still holds ──────────────
+  -- `total` above is everything ever COLLECTED and keeps that meaning. It was
+  -- also what the screen called "رصيد الجمعية", which was true only while money
+  -- could not leave — the moment disbursement exists, collected-to-date and
+  -- held-today are different numbers and calling the first one "the balance"
+  -- makes the screen lie by exactly what has been spent.
+  --
+  -- Two tables rather than one signed ledger: see the note on the disbursements
+  -- table. Nothing about the collection path had to change to make this work.
+  coalesce((SELECT sum(x.amount) FROM public.disbursements x
+             WHERE x.status <> 'ملغي'), 0)::numeric(12,2)::text
+    AS "disbursed",
+  (coalesce(sum(amount), 0)
+   - coalesce((SELECT sum(x.amount) FROM public.disbursements x
+                WHERE x.status <> 'ملغي'), 0))::numeric(12,2)::text
+    AS "balance"
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 
@@ -938,17 +970,30 @@ BEGIN
   END IF;
 
   SELECT jsonb_build_object(
-    'balance',  coalesce(sum(c.amount), 0)::numeric(12,2)::text,
-    'cash',     coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
-                         0)::numeric(12,2)::text,
-    'transfer', coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
-                         0)::numeric(12,2)::text)
+    'collected', coalesce(sum(c.amount), 0)::numeric(12,2)::text,
+    'cash',      coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
+                          0)::numeric(12,2)::text,
+    'transfer',  coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
+                          0)::numeric(12,2)::text)
     INTO v_out
     FROM public.cash_movements c
    WHERE c.status <> 'ملغي';
 
   RETURN v_out
     || jsonb_build_object(
+         -- ── Spent, and what is left ─────────────────────────────────────────
+         -- The member's transparency is not honest without the outgoing side:
+         -- showing him only what came in, under a heading that says "the
+         -- association's balance", would overstate the fund by everything it
+         -- has ever paid out. The TOTAL spent is his to see; who received it is
+         -- not — see the note on read_disbursements.
+         'disbursed', (SELECT coalesce(sum(x.amount), 0)::numeric(12,2)::text
+                         FROM public.disbursements x WHERE x.status <> 'ملغي'),
+         'balance', (
+           (SELECT coalesce(sum(c2.amount), 0) FROM public.cash_movements c2
+             WHERE c2.status <> 'ملغي')
+           - (SELECT coalesce(sum(x.amount), 0) FROM public.disbursements x
+               WHERE x.status <> 'ملغي'))::numeric(12,2)::text,
          'issued', (SELECT coalesce(sum(r.total), 0)::numeric(12,2)::text
                       FROM public.receivables r WHERE r.status <> 'ملغي'),
          'outstanding', (SELECT coalesce(sum(r.balance), 0)::numeric(12,2)::text
@@ -960,7 +1005,421 @@ BEGIN
                             WHERE status = 'نشط'));
 END $$;
 
--- == 11. The lockdown allow-list, restated for the new signature ============
+-- == 11. MONEY OUT — the disbursement system ================================
+-- Until now the association could only take money IN: cash_kind carried the
+-- single value 'تحصيل'. This is the other direction, in the shape the
+-- association chose:
+--
+--   • recorded DIRECTLY, like a collection — no approval queue, no pending
+--     state. A mistake is corrected by an explicit reversal that leaves both
+--     rows standing, exactly as a mistaken receipt is.
+--   • ADMIN only. Taking money in belongs to the treasurer; paying it out was
+--     put a rung above even the finance manager.
+--   • a FIXED list of headings, so "how much went on each" is answerable.
+--   • a payee who may be an عديل from the register OR a free name, because the
+--     association pays landlords and hospitals as well as its own members.
+--
+-- ⚠ THE RULE THAT MAKES IT SAFE: the association cannot pay out money it does
+--   not hold. register_disbursement refuses an overdraft, serialising on the
+--   settings row so two admins cannot both pass the check and leave the fund
+--   short by the smaller of the two.
+--
+-- ⚠ AID TO A MEMBER IS NOT A PAYMENT. A voucher never touches receivables,
+--   payments or a member's wallet, and never appears in his statement. The
+--   register link exists so "how much aid went to this man" can be answered;
+--   treating it as a payment would let the association's charity cancel its
+--   own dues.
+--
+-- A SEPARATE TABLE, not a row in cash_movements. That table is the mirror of an
+-- approved payment — rule 8 gives it one row per payment, uq_cash_payment makes
+-- a duplicate impossible, its adeel_id is NOT NULL and the عديل portal reads it
+-- as "my receipts". Forcing an outflow in would mean a nullable payment_id, a
+-- widened unique constraint, a sign on every existing SUM and an RLS policy
+-- that has to start distinguishing directions — on the one table the working
+-- collection path depends on. So the treasury became arithmetic over two
+-- tables, and nothing about collection had to change.
+--
+-- CREATE TYPE has no IF NOT EXISTS and CREATE TABLE's is not enough on its own,
+-- so both are wrapped in a guard that makes a second run a no-op.
+DO $mkenum$
+BEGIN
+  CREATE TYPE expense_category AS ENUM (
+    'إعانة اجتماعية',
+    'عزاء ووفاة',
+    'مناسبة زواج',
+    'علاج ومرض',
+    'مصاريف إدارية',
+    'إيجار وخدمات',
+    'ضيافة واجتماعات',
+    'رسوم مصرفية',
+    'أخرى'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $mkenum$;
+
+CREATE TABLE IF NOT EXISTS public.disbursements (
+  id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
+  amount        numeric(12,2) NOT NULL,
+  category      expense_category NOT NULL,
+  payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
+  payee_name    text          NOT NULL,
+  method        pay_method    NOT NULL,
+  reference     text,
+  bank_name         text,
+  bank_account_no   text,
+  bank_account_name text,
+  handed_by     text,
+  note          text,
+  status        pay_status    NOT NULL DEFAULT 'معتمد',
+  spent_at      timestamptz   NOT NULL DEFAULT now(),
+  created_by    uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancelled_at  timestamptz,
+  cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancel_reason text,
+
+  CONSTRAINT ck_disb_amount CHECK (amount > 0),
+  CONSTRAINT ck_disb_payee  CHECK (btrim(payee_name) <> ''),
+  CONSTRAINT ck_disb_cancel CHECK (
+    status <> 'ملغي' OR (cancelled_at IS NOT NULL
+                     AND btrim(coalesce(cancel_reason, '')) <> ''))
+);
+
+CREATE INDEX IF NOT EXISTS ix_disb_spent    ON public.disbursements (spent_at DESC);
+CREATE INDEX IF NOT EXISTS ix_disb_category ON public.disbursements (category);
+CREATE INDEX IF NOT EXISTS ix_disb_payee    ON public.disbursements (payee_adeel_id);
+
+-- Rule 9 applies here too: reversed, never removed. CREATE OR REPLACE TRIGGER
+-- rather than a DROP, so a re-run neither duplicates it nor leaves a window in
+-- which the guard is off.
+CREATE OR REPLACE TRIGGER trg_disb_no_delete BEFORE DELETE ON public.disbursements
+  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
+
+ALTER TABLE public.disbursements ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.disbursements TO authenticated;
+
+-- STAFF ONLY, and deliberately not extended to an عديل. He already sees the
+-- association's TOTAL spend through api_association_finance(); a voucher row
+-- says that a NAMED person received إعانة اجتماعية, which in a family
+-- association is the most private fact the system holds and belongs to the
+-- recipient rather than to the membership.
+DO $disbpol$
+BEGIN
+  CREATE POLICY read_disbursements ON public.disbursements
+    FOR SELECT TO authenticated USING (public.has_role('viewer'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $disbpol$;
+CREATE OR REPLACE FUNCTION public.register_disbursement(
+  p_amount            numeric,
+  p_category          expense_category,
+  p_payee_name        text,
+  p_method            pay_method,
+  p_payee_adeel_id    bigint DEFAULT NULL,
+  p_reference         text   DEFAULT NULL,
+  p_bank_name         text   DEFAULT NULL,
+  p_bank_account_name text   DEFAULT NULL,
+  p_bank_account_no   text   DEFAULT NULL,
+  p_handed_by         text   DEFAULT NULL,
+  p_note              text   DEFAULT NULL,
+  p_spent_at          date   DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  -- Unconstrained numeric for the same reason register_payment's is: the
+  -- individual amounts are bounded by their column, their SUM is not, and an
+  -- overflowing accumulator would report 22003 instead of a rule violation.
+  v_collected numeric;
+  v_spent     numeric;
+  v_available numeric;
+  v_payee     text;
+  v_bank      text;
+  v_acct_no   text;
+  v_acct_name text;
+  v_id        bigint;
+  v_voucher   text;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  p_amount := round(p_amount, 2);
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'قيمة الصرف يجب أن تكون أكبر من صفر' USING ERRCODE = 'RUL17';
+  END IF;
+
+  -- The treasury mutex. See the note above.
+  PERFORM 1 FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
+  SELECT coalesce(sum(amount), 0) INTO v_collected
+    FROM public.cash_movements WHERE status <> 'ملغي';
+  SELECT coalesce(sum(amount), 0) INTO v_spent
+    FROM public.disbursements  WHERE status <> 'ملغي';
+  v_available := v_collected - v_spent;
+
+  IF p_amount > v_available THEN
+    RAISE EXCEPTION 'الصرف % يتجاوز رصيد الصندوق %',
+      p_amount::text, v_available::text USING ERRCODE = 'RUL17';
+  END IF;
+
+  -- The beneficiary. An عديل's name is taken from HIS ROW rather than from the
+  -- client, so a voucher cannot name one man while pointing at another; a free
+  -- payee is whatever was typed, trimmed.
+  IF p_payee_adeel_id IS NOT NULL THEN
+    SELECT full_name INTO v_payee FROM public.adeels WHERE id = p_payee_adeel_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
+    END IF;
+  ELSE
+    v_payee := nullif(btrim(coalesce(p_payee_name, '')), '');
+    IF v_payee IS NULL THEN
+      RAISE EXCEPTION 'جهة الصرف مطلوبة' USING ERRCODE = 'RUL17';
+    END IF;
+  END IF;
+
+  -- Kept only for a transfer, exactly as on a collection: a cash payout has no
+  -- receiving account, and letting the columns carry anything for it would put
+  -- bank details beside نقداً on the voucher.
+  IF p_method = 'تحويل مصرفي' THEN
+    v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
+    v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
+    v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+  END IF;
+
+  INSERT INTO public.disbursements (
+    amount, category, payee_adeel_id, payee_name, method, reference,
+    bank_name, bank_account_no, bank_account_name, handed_by, note,
+    spent_at, created_by)
+  VALUES (
+    p_amount, p_category, p_payee_adeel_id, v_payee, p_method,
+    nullif(btrim(coalesce(p_reference, '')), ''),
+    v_bank, v_acct_no, v_acct_name,
+    nullif(btrim(coalesce(p_handed_by, '')), ''),
+    nullif(btrim(coalesce(p_note, '')), ''),
+    -- A back-dated voucher keeps the time of day it was entered, so two
+    -- vouchers on the same past date still order deterministically.
+    coalesce(p_spent_at + (now()::time), now()),
+    auth.uid())
+  RETURNING id, voucher_no INTO v_id, v_voucher;
+
+  PERFORM public.write_audit('disbursement.register',
+    format('صرف %s — %s إلى %s', p_amount::text, p_category::text, v_payee),
+    v_voucher);
+
+  RETURN jsonb_build_object(
+    'id', v_id, 'voucherNo', v_voucher,
+    'amount', p_amount::text, 'category', p_category::text,
+    'payeeName', v_payee,
+    -- What the treasury stands at AFTER this voucher. The screen states it back
+    -- so an admin who has just emptied the fund learns it now rather than on
+    -- the next attempt.
+    'balanceAfter', (v_available - p_amount)::text);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.cancel_disbursement(
+  p_id     bigint,
+  p_reason text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE v_row record;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  IF p_reason IS NULL OR btrim(p_reason) = '' THEN
+    RAISE EXCEPTION 'CANCEL_REASON_REQUIRED' USING ERRCODE = 'RUL17';
+  END IF;
+
+  SELECT * INTO v_row FROM public.disbursements WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'DISBURSEMENT_NOT_FOUND' USING ERRCODE = 'RUL17';
+  END IF;
+  IF v_row.status = 'ملغي' THEN
+    RAISE EXCEPTION 'DISBURSEMENT_ALREADY_CANCELLED' USING ERRCODE = 'RUL17';
+  END IF;
+
+  UPDATE public.disbursements
+     SET status = 'ملغي', cancelled_at = now(),
+         cancelled_by = auth.uid(), cancel_reason = p_reason
+   WHERE id = p_id;
+
+  PERFORM public.write_audit('disbursement.cancel',
+    format('إلغاء %s: %s', v_row.voucher_no, p_reason), v_row.voucher_no);
+
+  RETURN jsonb_build_object(
+    'id', p_id, 'voucherNo', v_row.voucher_no,
+    'status', 'ملغي', 'amount', v_row.amount::text, 'reason', p_reason);
+END $$;
+
+-- The purges must take the vouchers too. Omitting them would not merely leave
+-- data behind: disbursements.payee_adeel_id references adeels ON DELETE
+-- RESTRICT, so one surviving voucher would refuse the register's deletion and
+-- abort purge_all_data entirely.
+CREATE OR REPLACE FUNCTION public.purge_financial_data(p_confirm text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  v_recv  bigint;
+  v_pay   bigint;
+  v_alloc bigint;
+  v_cash  bigint;
+  v_audit bigint;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  -- The typed phrase. Not UX politeness: register_payment and save_adeel are
+  -- reachable by anyone who can read the anon key out of the APK, and so is
+  -- this. require_role stops a treasurer; the phrase stops an admin's own
+  -- mis-click and a replayed request. It must match wire_values.dart exactly.
+  IF btrim(coalesce(p_confirm, '')) <> 'مسح نهائي' THEN
+    RAISE EXCEPTION 'عبارة التأكيد غير مطابقة، لم يتم حذف أي شيء'
+      USING ERRCODE = 'RUL13';
+  END IF;
+
+  -- Counted before, because TRUNCATE reports no row count. These tables are
+  -- small enough that five counts cost nothing next to the truncate itself.
+  SELECT count(*) INTO v_recv  FROM public.receivables;
+  SELECT count(*) INTO v_pay   FROM public.payments;
+  SELECT count(*) INTO v_alloc FROM public.payment_allocations;
+  SELECT count(*) INTO v_cash  FROM public.cash_movements;
+  SELECT count(*) INTO v_audit FROM public.audit_log;
+
+  TRUNCATE public.payment_allocations,
+           public.cash_movements,
+           public.payments,
+           public.receivables,
+           public.closed_periods,
+           -- Money going OUT is financial data like any other. Omitting it here
+           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
+           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
+           -- so one surviving voucher would refuse the register's deletion and
+           -- abort the entire purge with a foreign-key error.
+           public.disbursements,
+           public.audit_log
+    RESTART IDENTITY;
+
+  RETURN jsonb_build_object(
+    'receivables',   v_recv,
+    'payments',      v_pay,
+    'allocations',   v_alloc,
+    'cashMovements', v_cash,
+    'auditEntries',  v_audit);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.purge_all_data(p_confirm text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  v_recv   bigint;
+  v_pay    bigint;
+  v_alloc  bigint;
+  v_cash   bigint;
+  v_audit  bigint;
+  v_adeels bigint;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  -- Distinct from purge_financial_data's phrase ON PURPOSE. See above.
+  IF btrim(coalesce(p_confirm, '')) <> 'مسح كل البيانات' THEN
+    RAISE EXCEPTION 'عبارة التأكيد غير مطابقة، لم يتم حذف أي شيء'
+      USING ERRCODE = 'RUL13';
+  END IF;
+
+  SELECT count(*) INTO v_recv   FROM public.receivables;
+  SELECT count(*) INTO v_pay    FROM public.payments;
+  SELECT count(*) INTO v_alloc  FROM public.payment_allocations;
+  SELECT count(*) INTO v_cash   FROM public.cash_movements;
+  SELECT count(*) INTO v_audit  FROM public.audit_log;
+  SELECT count(*) INTO v_adeels FROM public.adeels;
+
+  -- ── Why adeels is DELETEd while the five financial tables are TRUNCATEd ────
+  -- profiles.adeel_id references adeels, and TRUNCATE refuses whenever ANY table
+  -- outside its list carries a foreign key into one being truncated — the
+  -- constraint's existence is what it checks, not whether rows remain. So
+  -- emptying profiles first does not help: it still dies with 0A000 "cannot
+  -- truncate a table referenced in a foreign key constraint". Listing profiles
+  -- would delete the association's own staff accounts, and CASCADE would do the
+  -- same silently.
+  --
+  -- DELETE has no such rule, and adeels carries no refuse_delete trigger — that
+  -- guard is on the financial tables, which keep their TRUNCATE. The identity is
+  -- then restarted by hand, because that is the part RESTART IDENTITY was doing
+  -- and the reason the next عديل must be A-0001.
+  --
+  -- ORDER MATTERS, and not for the reason it looks like. The truncate comes
+  -- FIRST because receivables.created_by references profiles ON DELETE SET NULL,
+  -- and that SET NULL is an UPDATE which trg_recv_snapshot_immutable rejects
+  -- (created_by is a snapshot column). Deleting profiles while any receivable
+  -- survives would therefore abort the whole purge with RUL05. Emptying the
+  -- financial tables first leaves nothing for the cascade to touch.
+  TRUNCATE public.payment_allocations,
+           public.cash_movements,
+           public.payments,
+           public.receivables,
+           public.closed_periods,
+           -- Money going OUT is financial data like any other. Omitting it here
+           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
+           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
+           -- so one surviving voucher would refuse the register's deletion and
+           -- abort the entire purge with a foreign-key error.
+           public.disbursements,
+           public.audit_log
+    RESTART IDENTITY;
+
+  -- Portal accounts go entirely: their عديل is being erased, so leaving the
+  -- profile would leave a dangling scope and my_adeel_id() would answer with a
+  -- dead id. auth.users survives, so the same person can sign in again and redeem
+  -- a fresh code later.
+  DELETE FROM public.profiles WHERE adeel_id IS NOT NULL;
+
+  DELETE FROM public.adeels;
+
+  ALTER TABLE public.adeels ALTER COLUMN id RESTART WITH 1;
+
+  RETURN jsonb_build_object(
+    'receivables',   v_recv,
+    'payments',      v_pay,
+    'allocations',   v_alloc,
+    'cashMovements', v_cash,
+    'auditEntries',  v_audit,
+    'adeels',        v_adeels);
+END $$;
+
+-- The two read surfaces for money out. v_expense_by_category lists EVERY
+-- heading, including the ones nothing has been spent on — a report that omits
+-- a zero reads as one that forgot it.
+CREATE OR REPLACE VIEW public.v_disbursements WITH (security_invoker = on) AS
+SELECT
+  d.id                        AS "id",
+  d.voucher_no                AS "voucherNo",
+  d.amount::text              AS "amount",
+  d.category::text            AS "category",
+  d.payee_adeel_id            AS "payeeAdeelId",
+  d.payee_name                AS "payeeName",
+  coalesce(a.adeel_code, '')  AS "payeeCode",
+  d.method::text              AS "method",
+  coalesce(d.reference, '')          AS "reference",
+  coalesce(d.bank_name, '')          AS "bankName",
+  coalesce(d.bank_account_no, '')    AS "bankAccountNo",
+  coalesce(d.bank_account_name, '')  AS "bankAccountName",
+  coalesce(d.handed_by, '')   AS "handedBy",
+  coalesce(d.note, '')        AS "note",
+  d.status::text              AS "status",
+  to_char(d.spent_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "spentAt"
+FROM public.disbursements d
+LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
+
+CREATE OR REPLACE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
+SELECT
+  c.category::text                                AS "category",
+  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+  count(d.id)                                     AS "count"
+FROM unnest(enum_range(NULL::expense_category)) AS c(category)
+LEFT JOIN public.disbursements d
+       ON d.category = c.category AND d.status <> 'ملغي'
+GROUP BY c.category
+ORDER BY c.category;
+
+GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
+TO authenticated;
+
+-- == 12. The lockdown allow-list, restated for the new signature ============
 -- An EXACT set. It has to name redeem_adeel_code(text,text) and the new
 -- request_device_id(), or assert_function_grants() fails in both directions and
 -- the whole patch rolls back.
@@ -1011,6 +1470,12 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'issue_adeel_code(bigint)',
     'redeem_adeel_code(text,text)',
 
+    -- Money OUT. Both admin-gated inside their bodies; register_disbursement
+    -- also refuses to spend past the treasury balance, which is rule 7 read
+    -- backwards and the reason the fund cannot be overdrawn from a phone.
+    'register_disbursement(numeric,expense_category,text,pay_method,bigint,text,text,text,text,text,text,date)',
+    'cancel_disbursement(bigint,text)',
+
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',
     'adeel_json(bigint)',
@@ -1036,7 +1501,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions()
   FROM PUBLIC, anon, authenticated, service_role;
 
--- == 12. Re-run the lockdown sweep =========================================
+-- == 13. Re-run the lockdown sweep =========================================
 -- Byte-for-byte the loop from 20260811091200_function_lockdown.sql, which runs
 -- LAST on a full apply. A patch gets no such sweep for free, and every function
 -- it creates FRESH — request_device_id here, redeem_adeel_code after the DROP —
@@ -1115,6 +1580,40 @@ UNION ALL SELECT 'عدايل bound / of those, handset already claimed',
         || ' / ' ||
         (SELECT count(*) FROM public.profiles
           WHERE adeel_id IS NOT NULL AND device_id IS NOT NULL)::text)
+-- §8, the wallet. register_payment kept its name AND its signature, so the
+-- only evidence the patch landed is inside the body: the surplus is now named
+-- in the audit trail and returned as `credit`, neither of which existed while
+-- an over-payment was refused.
+UNION ALL SELECT 'a member may now pay AHEAD (the surplus becomes credit)',
+       (pg_get_functiondef('public.register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)'::regprocedure)
+          LIKE '%رصيد مقدم%')::text
+UNION ALL SELECT 'raising a month spends the wallet first',
+       (pg_get_functiondef('public.generate_period(bpchar)'::regprocedure)
+          LIKE '%settle_from_credit%')::text
+UNION ALL SELECT 'the register shows what each member holds or owes',
+       (EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'v_adeels'
+                   AND column_name = 'netBalance'))::text
+-- §11, money out.
+UNION ALL SELECT 'the disbursements table exists',
+       (to_regclass('public.disbursements') IS NOT NULL)::text
+UNION ALL SELECT 'all nine spending headings are defined',
+       (SELECT count(*) = 9 FROM unnest(enum_range(NULL::expense_category)))::text
+UNION ALL SELECT 'a voucher can be reversed but never deleted',
+       (SELECT count(*) = 1 FROM pg_trigger
+         WHERE tgname = 'trg_disb_no_delete' AND NOT tgisinternal)::text
+UNION ALL SELECT 'an عديل cannot read a single voucher row',
+       (SELECT count(*) = 1 FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'disbursements')::text
+UNION ALL SELECT 'the treasury reports what went out',
+       (EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'v_cash_summary'
+                   AND column_name = 'disbursed'))::text
+-- Informational. On a live project this is the treasury as it stands the
+-- moment the patch commits — collections minus vouchers, which right after
+-- this patch is still collections, because no voucher exists yet.
+UNION ALL SELECT 'treasury now / of which spent',
+       (SELECT "balance" || ' / ' || "disbursed" FROM public.v_cash_summary)
 UNION ALL SELECT 'Google sign-in trigger is STILL in place',
        (SELECT count(*) = 1 FROM pg_trigger
          WHERE tgname = 'trg_auth_user_created' AND NOT tgisinternal)::text

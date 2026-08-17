@@ -201,3 +201,94 @@ CREATE TRIGGER trg_audit_no_update BEFORE UPDATE ON public.audit_log
   FOR EACH ROW EXECUTE FUNCTION public.refuse_audit_change();
 CREATE TRIGGER trg_audit_no_delete BEFORE DELETE ON public.audit_log
   FOR EACH ROW EXECUTE FUNCTION public.refuse_audit_change();
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- disbursements — money going OUT of the treasury.
+--
+-- Until now the association could only take money in: `cash_kind` carried the
+-- single value 'تحصيل' and the comment above says so in as many words. This is
+-- the other direction, and the association chose its shape deliberately:
+--
+--   • recorded DIRECTLY, like a collection. No approval queue, no pending
+--     state. A mistake is corrected the way a mistaken receipt is — by an
+--     explicit reversal that leaves both rows standing.
+--   • ADMIN only. Taking money in is low-risk and belongs to the treasurer;
+--     paying it out is the direction that empties a treasury, and it was put a
+--     rung above even the finance manager.
+--
+-- ── Why a separate table, and not a row in cash_movements ────────────────────
+-- cash_movements is the mirror of an approved PAYMENT: rule 8 gives it exactly
+-- one row per payment, uq_cash_payment makes a duplicate structurally
+-- impossible, its adeel_id is NOT NULL, and the عديل portal's RLS reads it as
+-- "my receipts". A disbursement has no payment, often no عديل, and belongs to
+-- nobody's receipts. Forcing it in would mean a nullable payment_id, a widened
+-- unique constraint, a sign on every existing SUM, and an RLS policy that has
+-- to start distinguishing directions — on the one table the collection path
+-- already depends on and which is now carrying real money.
+--
+-- So the treasury is an ARITHMETIC of two tables rather than one signed ledger:
+--
+--     رصيد الجمعية  =  Σ cash_movements(معتمد)  −  Σ disbursements(معتمد)
+--
+-- v_cash_summary computes it, and nothing about collection had to change.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE TABLE public.disbursements (
+  id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  -- EXP-000001, mirroring PAY-000001. Generated, so no code path can mint one
+  -- and no two vouchers can carry the same number.
+  voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
+  amount        numeric(12,2) NOT NULL,
+  category      expense_category NOT NULL,
+
+  -- ── Who received it ────────────────────────────────────────────────────────
+  -- Either an عديل from the register, or a free name — the association pays
+  -- rent and hospitals as well as its own members, and a beneficiary field that
+  -- accepted only members could not record either.
+  --
+  -- `payee_name` is NOT NULL and is a SNAPSHOT even when the id is set, for the
+  -- same reason receivables.adeel_name is: a voucher reprinted after the man is
+  -- renamed must still say who was actually paid.
+  --
+  -- ⚠ A disbursement to an عديل is NOT a credit against his subscription. It
+  --   never touches receivables, payments or his wallet, and it does not appear
+  --   in his statement. The link exists so "how much aid went to this man" can
+  --   be answered, and for no other reason — treating it as a payment would let
+  --   the association's charity cancel its own dues.
+  payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
+  payee_name    text          NOT NULL,
+
+  method        pay_method    NOT NULL,
+  reference     text,
+  -- The account the money was sent TO, as given on the day. Same reasoning as
+  -- payments.bank_*: a join to current settings would restate history.
+  bank_name         text,
+  bank_account_no   text,
+  bank_account_name text,
+  -- Who physically handed it over. A name, not a user id: the man carrying the
+  -- cash to a hospital is not necessarily the one holding the phone.
+  handed_by     text,
+  note          text,
+
+  status        pay_status    NOT NULL DEFAULT 'معتمد',
+  spent_at      timestamptz   NOT NULL DEFAULT now(),
+  created_by    uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancelled_at  timestamptz,
+  cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancel_reason text,
+
+  CONSTRAINT ck_disb_amount CHECK (amount > 0),
+  CONSTRAINT ck_disb_payee  CHECK (btrim(payee_name) <> ''),
+  -- A cancelled voucher must say why, exactly as a cancelled receipt must.
+  CONSTRAINT ck_disb_cancel CHECK (
+    status <> 'ملغي' OR (cancelled_at IS NOT NULL
+                     AND btrim(coalesce(cancel_reason, '')) <> ''))
+);
+
+CREATE INDEX ix_disb_spent    ON public.disbursements (spent_at DESC);
+CREATE INDEX ix_disb_category ON public.disbursements (category);
+CREATE INDEX ix_disb_payee    ON public.disbursements (payee_adeel_id);
+
+-- Rule 9 applies here too: reversed, never removed. A voucher that could be
+-- deleted is a treasury that can be quietly rebalanced.
+CREATE TRIGGER trg_disb_no_delete BEFORE DELETE ON public.disbursements
+  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();

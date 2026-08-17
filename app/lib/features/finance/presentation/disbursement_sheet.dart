@@ -1,0 +1,441 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/config/glass.dart';
+import '../../../core/config/theme.dart';
+import '../../../core/domain/wire_values.dart';
+import '../../../core/format/formatters.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/async_view.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../directory/domain/models.dart' show AdeelListItem;
+import '../../directory/presentation/providers.dart' as directory;
+import '../domain/models.dart';
+import 'providers.dart';
+
+/// The voucher: money leaving the treasury.
+///
+/// Deliberately the same shape as the payment sheet — a bottom sheet, the same
+/// amount field, the same نقداً/تحويل control, the same bank block — because a
+/// treasurer who can take money in should not have to learn a second interface
+/// to pay it out. What differs is what the association decided differs:
+///
+///   • a CATEGORY, from a fixed list, because "how much went on each heading"
+///     is the only question a spend record exists to answer;
+///   • a payee who may be an عديل from the register OR a free name, because the
+///     association pays landlords and hospitals as well as its own members;
+///   • ADMIN only, which the server enforces and this sheet does not duplicate
+///     beyond not offering the button.
+void showDisbursementSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: AppColors.ink.withValues(alpha: 0.22),
+    builder: (BuildContext sheetContext) => const _DisbursementSheet(),
+  );
+}
+
+class _DisbursementSheet extends ConsumerStatefulWidget {
+  const _DisbursementSheet();
+
+  @override
+  ConsumerState<_DisbursementSheet> createState() => _DisbursementSheetState();
+}
+
+class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
+  final TextEditingController _amount = TextEditingController();
+  final TextEditingController _payee = TextEditingController();
+  final TextEditingController _reference = TextEditingController();
+  final TextEditingController _handedBy = TextEditingController();
+  final TextEditingController _note = TextEditingController();
+  final TextEditingController _bankName = TextEditingController();
+  final TextEditingController _bankAccountNo = TextEditingController();
+  final TextEditingController _bankAccountName = TextEditingController();
+
+  String _category = ExpenseCategoryWire.socialAid;
+  String _method = PaymentMethodWire.cash;
+
+  /// Null means the payee is a FREE NAME. Setting it switches the field for a
+  /// register picker and the server then takes the name off that man's own row,
+  /// so a voucher cannot name one person while pointing at another.
+  int? _payeeAdeelId;
+
+  DateTime _spentAt = DateTime.now();
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    for (final TextEditingController c in <TextEditingController>[
+      _amount,
+      _payee,
+      _reference,
+      _handedBy,
+      _note,
+      _bankName,
+      _bankAccountNo,
+      _bankAccountName,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String _date(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  /// Mirrors the server's guards so the button can be dead before a round trip.
+  /// The server re-reads the treasury under a lock and is the only authority;
+  /// this is an affordance, not a rule.
+  String? _validate(L l, String available) {
+    final double? value = double.tryParse(_amount.text.trim());
+    if (_amount.text.trim().isEmpty) return null;
+    if (value == null || value <= 0) return l.errorGeneric;
+
+    // ── The rule that makes this screen safe ────────────────────────────────
+    // A treasury that can go negative is one where the figure on the screen has
+    // stopped describing anything, and the association would find out from a
+    // bounced transfer rather than from the app.
+    final double have = double.tryParse(available) ?? 0;
+    if (value > have) return l.overTreasuryBalance(formatMoney(available));
+
+    if (_payeeAdeelId == null && _payee.text.trim().isEmpty) {
+      return l.payeeRequired;
+    }
+    return null;
+  }
+
+  Future<void> _submit(L l) async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final Map<String, dynamic> result = await ref
+          .read(financeRepositoryProvider)
+          .registerDisbursement(
+            amount: _amount.text.trim(),
+            category: _category,
+            payeeName: _payee.text.trim(),
+            payeeAdeelId: _payeeAdeelId,
+            method: _method,
+            reference: _reference.text.trim(),
+            bankName: _method == PaymentMethodWire.bankTransfer
+                ? _bankName.text.trim()
+                : null,
+            bankAccountNo: _method == PaymentMethodWire.bankTransfer
+                ? _bankAccountNo.text.trim()
+                : null,
+            bankAccountName: _method == PaymentMethodWire.bankTransfer
+                ? _bankAccountName.text.trim()
+                : null,
+            handedBy: _handedBy.text.trim(),
+            note: _note.text.trim(),
+            spentAt: _date(_spentAt),
+          );
+
+      // Everything the voucher moved. The treasury summary and the member
+      // portal's transparency figures both read the balance this changed.
+      ref
+        ..invalidate(disbursementsProvider)
+        ..invalidate(expenseByCategoryProvider)
+        ..invalidate(cashSummaryProvider);
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              l.disbursementSaved(
+                '${result['voucherNo']}',
+                formatMoney('${result['balanceAfter']}'),
+              ),
+            ),
+          ),
+        );
+    } on ApiException catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = describeApiFailure(l, failure);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final AsyncValue<CashSummaryView> summary = ref.watch(cashSummaryProvider);
+    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
+      directory.adeelsProvider(''),
+    );
+
+    return GlassSheet(
+      child: SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          ),
+          child: AsyncView<CashSummaryView>(
+            value: summary,
+            onRetry: () => ref.invalidate(cashSummaryProvider),
+            builder: (CashSummaryView cash) {
+              final String? problem = _validate(l, cash.balance);
+              final bool canSubmit =
+                  !_submitting &&
+                  problem == null &&
+                  _amount.text.trim().isNotEmpty;
+
+              return ListView(
+                shrinkWrap: true,
+                padding: screenPadding(context),
+                children: <Widget>[
+                  Text(
+                    l.registerDisbursement,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+
+                  // What the association actually holds, stated before the
+                  // amount is typed rather than after it is refused.
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutralSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.savings_outlined,
+                          size: 18,
+                          color: AppColors.muted,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: Text(l.associationBalance)),
+                        Text(
+                          formatMoney(cash.balance),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  TextField(
+                    controller: _amount,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: <TextInputFormatter>[
+                      ArabicDigitsFormatter(),
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'^\d*\.?\d{0,2}'),
+                      ),
+                    ],
+                    decoration: InputDecoration(
+                      labelText: l.amount,
+                      errorText: problem,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: l.expenseCategory),
+                    items: <DropdownMenuItem<String>>[
+                      for (final String c in ExpenseCategoryWire.all)
+                        DropdownMenuItem<String>(value: c, child: Text(c)),
+                    ],
+                    onChanged: (String? v) =>
+                        setState(() => _category = v ?? _category),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ── The payee: a member, or anybody ─────────────────────────
+                  // The switch is explicit rather than clever. A combined field
+                  // that guessed whether the typed text matched a member would
+                  // sometimes link a voucher to a man nobody meant.
+                  SegmentedButton<bool>(
+                    segments: <ButtonSegment<bool>>[
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text(l.payeeFreeName),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text(l.payeeFromRegister),
+                        icon: const Icon(Icons.groups_outlined, size: 18),
+                      ),
+                    ],
+                    selected: <bool>{_payeeAdeelId != null},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (Set<bool> v) => setState(() {
+                      _payeeAdeelId = null;
+                      _payee.clear();
+                      if (v.first) _payeeAdeelId = -1; // pick one below
+                    }),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+
+                  if (_payeeAdeelId == null)
+                    TextField(
+                      controller: _payee,
+                      decoration: InputDecoration(labelText: l.payee),
+                      onChanged: (_) => setState(() {}),
+                    )
+                  else
+                    adeels.when(
+                      loading: () => const LinearProgressIndicator(minHeight: 2),
+                      error: (Object e, StackTrace _) =>
+                          Text(describeApiFailure(l, e)),
+                      data: (List<AdeelListItem> options) =>
+                          DropdownButtonFormField<int>(
+                            initialValue: _payeeAdeelId == -1
+                                ? null
+                                : _payeeAdeelId,
+                            isExpanded: true,
+                            decoration: InputDecoration(labelText: l.payee),
+                            items: <DropdownMenuItem<int>>[
+                              for (final AdeelListItem a in options)
+                                DropdownMenuItem<int>(
+                                  value: a.id,
+                                  child: Text(
+                                    '${a.fullName} • ${a.adeelCode}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: (int? v) =>
+                                setState(() => _payeeAdeelId = v),
+                          ),
+                    ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  SegmentedButton<String>(
+                    segments: <ButtonSegment<String>>[
+                      ButtonSegment<String>(
+                        value: PaymentMethodWire.cash,
+                        label: Text(l.methodCash),
+                        icon: const Icon(Icons.payments_outlined, size: 18),
+                      ),
+                      ButtonSegment<String>(
+                        value: PaymentMethodWire.bankTransfer,
+                        label: Text(l.methodTransfer),
+                        icon: const Icon(
+                          Icons.account_balance_outlined,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                    selected: <String>{_method},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (Set<String> v) =>
+                        setState(() => _method = v.first),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  if (_method == PaymentMethodWire.bankTransfer) ...<Widget>[
+                    // Where the money was SENT. Recorded on the voucher rather
+                    // than joined to settings, for the same reason a receipt
+                    // snapshots the receiving account: this is history.
+                    TextField(
+                      controller: _bankName,
+                      decoration: InputDecoration(labelText: l.bankNameField),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: _bankAccountName,
+                      decoration: InputDecoration(
+                        labelText: l.bankAccountNameField,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: _bankAccountNo,
+                      decoration: InputDecoration(
+                        labelText: l.bankAccountNoField,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  TextField(
+                    controller: _reference,
+                    decoration: InputDecoration(labelText: l.reference),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _handedBy,
+                    decoration: InputDecoration(labelText: l.handedBy),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _note,
+                    maxLines: 2,
+                    decoration: InputDecoration(labelText: l.notesField),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_today, size: 18),
+                    title: Text(l.disbursementDate),
+                    subtitle: Text(formatDate(_date(_spentAt))),
+                    trailing: TextButton(
+                      onPressed: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _spentAt,
+                          firstDate: DateTime(2020),
+                          // Never the future: a voucher dated tomorrow is money
+                          // the association has not yet handed over.
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) setState(() => _spentAt = picked);
+                      },
+                      child: Text(l.change),
+                    ),
+                  ),
+
+                  if (_error != null) ...<Widget>[
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: AppColors.danger),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+
+                  FilledButton.icon(
+                    onPressed: canSubmit ? () => _submit(l) : null,
+                    icon: _submitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.north_east),
+                    label: Text(l.confirmDisbursement),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -379,6 +379,8 @@ class Statement {
 class AssociationFinance {
   const AssociationFinance({
     required this.balance,
+    required this.collected,
+    required this.disbursed,
     required this.cash,
     required this.transfer,
     required this.issued,
@@ -387,8 +389,14 @@ class AssociationFinance {
     required this.activeMembers,
   });
 
-  /// What the association holds: every approved collection, cancellations out.
+  /// What the association HOLDS: collections in, disbursements out.
+  ///
+  /// Distinct from [collected], which is everything that ever arrived. The two
+  /// were the same number while money could not leave; presenting the first as
+  /// the balance now would overstate the fund by every voucher written.
   final String balance;
+  final String collected;
+  final String disbursed;
   final String cash;
   final String transfer;
 
@@ -402,6 +410,8 @@ class AssociationFinance {
   factory AssociationFinance.fromJson(Map<String, dynamic> json) =>
       AssociationFinance(
         balance: _string(json['balance']),
+        collected: _string(json['collected']),
+        disbursed: _string(json['disbursed']),
         cash: _string(json['cash']),
         transfer: _string(json['transfer']),
         issued: _string(json['issued']),

@@ -152,4 +152,78 @@ class FinanceRepository {
             .map((dynamic e) => ClosablePeriod.fromJson(_obj(e)))
             .toList();
       });
+
+  // ── Money OUT ──────────────────────────────────────────────────────────────
+  // Reads through views, writes through RPCs, exactly like the collection side.
+  // The two RPCs are admin-gated in their own bodies, and register_disbursement
+  // additionally refuses to spend past the treasury balance — rule 7 read
+  // backwards, and the reason the fund cannot be overdrawn from a phone.
+
+  Future<List<DisbursementView>> disbursements() =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db
+            .from('v_disbursements')
+            .select()
+            .order('spentAt', ascending: false);
+        return _rows(rows).map(DisbursementView.fromJson).toList();
+      });
+
+  Future<List<ExpenseByCategory>> expenseByCategory() =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db.from('v_expense_by_category').select();
+        return _rows(rows).map(ExpenseByCategory.fromJson).toList();
+      });
+
+  /// Records a voucher and takes the money out of the treasury.
+  ///
+  /// `amount` is a STRING for the same reason every other amount is: sending it
+  /// as a JSON number would route the association's money through a double on
+  /// the way out.
+  Future<Map<String, dynamic>> registerDisbursement({
+    required String amount,
+    required String category,
+    required String payeeName,
+    required String method,
+    int? payeeAdeelId,
+    String? reference,
+    String? bankName,
+    String? bankAccountName,
+    String? bankAccountNo,
+    String? handedBy,
+    String? note,
+    String? spentAt,
+  }) => SupabaseFailures.guard(() async {
+    final dynamic payload = await _db.rpc<dynamic>(
+      'register_disbursement',
+      params: <String, dynamic>{
+        'p_amount': amount,
+        'p_category': category,
+        'p_payee_name': payeeName,
+        'p_method': method,
+        'p_payee_adeel_id': payeeAdeelId,
+        'p_reference': (reference?.isEmpty ?? true) ? null : reference,
+        'p_bank_name': (bankName?.isEmpty ?? true) ? null : bankName,
+        'p_bank_account_name': (bankAccountName?.isEmpty ?? true)
+            ? null
+            : bankAccountName,
+        'p_bank_account_no': (bankAccountNo?.isEmpty ?? true)
+            ? null
+            : bankAccountNo,
+        'p_handed_by': (handedBy?.isEmpty ?? true) ? null : handedBy,
+        'p_note': (note?.isEmpty ?? true) ? null : note,
+        'p_spent_at': (spentAt?.isEmpty ?? true) ? null : spentAt,
+      },
+    );
+    return _obj(payload);
+  });
+
+  /// Rule 9 in the outgoing direction: the voucher stays, struck through, and
+  /// the money returns to the treasury because every total filters on status.
+  Future<void> cancelDisbursement(int id, String reason) =>
+      SupabaseFailures.guard(() async {
+        await _db.rpc<dynamic>(
+          'cancel_disbursement',
+          params: <String, dynamic>{'p_id': id, 'p_reason': reason},
+        );
+      });
 }

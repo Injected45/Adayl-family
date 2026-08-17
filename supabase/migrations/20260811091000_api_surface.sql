@@ -256,7 +256,23 @@ SELECT
   -- else; anything added later goes below it.
   coalesce((SELECT sum(r.balance) FROM public.receivables r
              WHERE r.status <> 'ملغي'), 0)::numeric(12,2)::text
-    AS "outstanding"
+    AS "outstanding",
+  -- ── Money OUT, and what the association actually still holds ──────────────
+  -- `total` above is everything ever COLLECTED and keeps that meaning. It was
+  -- also what the screen called "رصيد الجمعية", which was true only while money
+  -- could not leave — the moment disbursement exists, collected-to-date and
+  -- held-today are different numbers and calling the first one "the balance"
+  -- makes the screen lie by exactly what has been spent.
+  --
+  -- Two tables rather than one signed ledger: see the note on the disbursements
+  -- table. Nothing about the collection path had to change to make this work.
+  coalesce((SELECT sum(x.amount) FROM public.disbursements x
+             WHERE x.status <> 'ملغي'), 0)::numeric(12,2)::text
+    AS "disbursed",
+  (coalesce(sum(amount), 0)
+   - coalesce((SELECT sum(x.amount) FROM public.disbursements x
+                WHERE x.status <> 'ملغي'), 0))::numeric(12,2)::text
+    AS "balance"
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 
@@ -299,4 +315,51 @@ GRANT SELECT ON
   public.v_receivables, public.v_payments,
   public.v_cash_movements, public.v_cash_summary,
   public.v_audit, public.v_users
+TO authenticated;
+
+-- ── Disbursements (DisbursementView) ─────────────────────────────────────────
+CREATE VIEW public.v_disbursements WITH (security_invoker = on) AS
+SELECT
+  d.id                        AS "id",
+  d.voucher_no                AS "voucherNo",
+  d.amount::text              AS "amount",
+  d.category::text            AS "category",
+  d.payee_adeel_id            AS "payeeAdeelId",
+  d.payee_name                AS "payeeName",
+  coalesce(a.adeel_code, '')  AS "payeeCode",
+  d.method::text              AS "method",
+  coalesce(d.reference, '')          AS "reference",
+  coalesce(d.bank_name, '')          AS "bankName",
+  coalesce(d.bank_account_no, '')    AS "bankAccountNo",
+  coalesce(d.bank_account_name, '')  AS "bankAccountName",
+  coalesce(d.handed_by, '')   AS "handedBy",
+  coalesce(d.note, '')        AS "note",
+  d.status::text              AS "status",
+  to_char(d.spent_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "spentAt"
+FROM public.disbursements d
+LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
+
+-- ── What each heading has cost (ExpenseByCategory) ───────────────────────────
+-- The reason the category is an ENUM rather than free text: this view is the
+-- question a fixed list exists to answer, and it cannot be asked of prose.
+--
+-- Every heading appears, including the ones nothing has been spent on yet — a
+-- report that silently omits a zero reads as a report that forgot it, and
+-- "nothing was spent on علاج ومرض this year" is itself an answer.
+--
+-- enum_range() is what makes that possible without a lookup table: it yields
+-- the nine labels in their declared order, and the LEFT JOIN fills in whatever
+-- has actually been spent against each.
+CREATE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
+SELECT
+  c.category::text                                AS "category",
+  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+  count(d.id)                                     AS "count"
+FROM unnest(enum_range(NULL::expense_category)) AS c(category)
+LEFT JOIN public.disbursements d
+       ON d.category = c.category AND d.status <> 'ملغي'
+GROUP BY c.category
+ORDER BY c.category;
+
+GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
 TO authenticated;

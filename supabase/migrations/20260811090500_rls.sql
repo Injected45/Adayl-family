@@ -43,6 +43,7 @@ ALTER TABLE public.closed_periods       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_allocations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_movements       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.disbursements        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
 
 -- ── SELECT: viewer and above ─────────────────────────────────────────────────
@@ -54,7 +55,8 @@ ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON
   public.association_settings, public.adeels,
   public.receivables, public.closed_periods, public.payments,
-  public.payment_allocations, public.cash_movements
+  public.payment_allocations, public.cash_movements,
+  public.disbursements
 TO authenticated;
 
 CREATE POLICY read_settings ON public.association_settings
@@ -72,6 +74,25 @@ CREATE POLICY read_payments ON public.payments
 CREATE POLICY read_allocations ON public.payment_allocations
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 CREATE POLICY read_cash ON public.cash_movements
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+
+-- ── Disbursements: STAFF ONLY, and deliberately not extended to an عديل ──────
+-- The association asked for "شفافية مطلقة" toward its members, and it has it:
+-- api_association_finance() gives every member the treasury's TOTALS, including
+-- what has been spent.
+--
+-- The vouchers themselves are a different thing. A row here says that a named
+-- person received إعانة اجتماعية — which in a family association is the most
+-- private fact the system holds, and it belongs to the recipient rather than to
+-- the membership. Transparency about the collective purse is not the same as
+-- publishing who needed help, and conflating them would be a decision nobody
+-- asked for taken on the association's behalf.
+--
+-- There is deliberately no عديل-scoped policy either, not even "his own": a
+-- member seeing a voucher made out to him is a reasonable feature, and it is a
+-- decision for the association to take on purpose rather than one that arrives
+-- as a side effect of this file.
+CREATE POLICY read_disbursements ON public.disbursements
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 
 -- ── audit_log: financeManager and above ──────────────────────────────────────

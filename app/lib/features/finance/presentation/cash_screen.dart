@@ -77,10 +77,19 @@ class CashScreen extends ConsumerWidget {
                     value: formatMoney(data.outstanding),
                     tone: AppColors.danger,
                   ),
+                  // ── COLLECTED is not the same as HELD ────────────────────
+                  // This tile showed `total` — everything ever collected —
+                  // which was true only while money could not leave. Now that
+                  // it can, the two differ by exactly what has been disbursed,
+                  // and calling the first one "the association's balance" would
+                  // overstate the fund by every voucher ever written.
+                  //
+                  // The subtitle carries what went out, so the difference is
+                  // visible on the same tile rather than inferred from two.
                   _StatCard(
                     label: l.associationBalance,
-                    value: formatMoney(data.total),
-                    sub: '${l.todayLabel} ${formatMoney(data.today)}',
+                    value: formatMoney(data.balance),
+                    sub: '${l.totalDisbursed} ${formatMoney(data.disbursed)}',
                   ),
                 ],
               ),

@@ -82,6 +82,12 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'issue_adeel_code(bigint)',
     'redeem_adeel_code(text,text)',
 
+    -- Money OUT. Both admin-gated inside their bodies; register_disbursement
+    -- also refuses to spend past the treasury balance, which is rule 7 read
+    -- backwards and the reason the fund cannot be overdrawn from a phone.
+    'register_disbursement(numeric,expense_category,text,pay_method,bigint,text,text,text,text,text,text,date)',
+    'cancel_disbursement(bigint,text)',
+
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',
     'adeel_json(bigint)',

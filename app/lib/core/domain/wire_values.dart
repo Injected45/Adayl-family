@@ -33,6 +33,40 @@ abstract final class PaymentMethodWire {
   static const String bankTransfer = 'تحويل مصرفي';
 }
 
+/// What the association spent the money ON — the `expense_category` enum.
+///
+/// A fixed list, and these nine strings are the database's own labels: the
+/// voucher stores the enum, so a heading here that does not match the enum
+/// exactly is a 22P02 at insert time rather than a mislabelled row.
+///
+/// [all] is the order the picker offers, which is the order they were declared
+/// in — general aid first, the specific occasions after it, the association's
+/// own running costs last, and `other` at the end where an escape hatch
+/// belongs.
+abstract final class ExpenseCategoryWire {
+  static const String socialAid = 'إعانة اجتماعية';
+  static const String condolence = 'عزاء ووفاة';
+  static const String wedding = 'مناسبة زواج';
+  static const String medical = 'علاج ومرض';
+  static const String administrative = 'مصاريف إدارية';
+  static const String rentAndUtilities = 'إيجار وخدمات';
+  static const String hospitality = 'ضيافة واجتماعات';
+  static const String bankFees = 'رسوم مصرفية';
+  static const String other = 'أخرى';
+
+  static const List<String> all = <String>[
+    socialAid,
+    condolence,
+    wedding,
+    medical,
+    administrative,
+    rentAndUtilities,
+    hospitality,
+    bankFees,
+    other,
+  ];
+}
+
 /// The two posts, as `v_officials` emits them.
 ///
 /// ASCII, unlike every other enum here, and that is the whole trap: the

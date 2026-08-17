@@ -414,17 +414,30 @@ BEGIN
   END IF;
 
   SELECT jsonb_build_object(
-    'balance',  coalesce(sum(c.amount), 0)::numeric(12,2)::text,
-    'cash',     coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
-                         0)::numeric(12,2)::text,
-    'transfer', coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
-                         0)::numeric(12,2)::text)
+    'collected', coalesce(sum(c.amount), 0)::numeric(12,2)::text,
+    'cash',      coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
+                          0)::numeric(12,2)::text,
+    'transfer',  coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
+                          0)::numeric(12,2)::text)
     INTO v_out
     FROM public.cash_movements c
    WHERE c.status <> 'ملغي';
 
   RETURN v_out
     || jsonb_build_object(
+         -- ── Spent, and what is left ─────────────────────────────────────────
+         -- The member's transparency is not honest without the outgoing side:
+         -- showing him only what came in, under a heading that says "the
+         -- association's balance", would overstate the fund by everything it
+         -- has ever paid out. The TOTAL spent is his to see; who received it is
+         -- not — see the note on read_disbursements.
+         'disbursed', (SELECT coalesce(sum(x.amount), 0)::numeric(12,2)::text
+                         FROM public.disbursements x WHERE x.status <> 'ملغي'),
+         'balance', (
+           (SELECT coalesce(sum(c2.amount), 0) FROM public.cash_movements c2
+             WHERE c2.status <> 'ملغي')
+           - (SELECT coalesce(sum(x.amount), 0) FROM public.disbursements x
+               WHERE x.status <> 'ملغي'))::numeric(12,2)::text,
          'issued', (SELECT coalesce(sum(r.total), 0)::numeric(12,2)::text
                       FROM public.receivables r WHERE r.status <> 'ملغي'),
          'outstanding', (SELECT coalesce(sum(r.balance), 0)::numeric(12,2)::text

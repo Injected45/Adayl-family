@@ -437,6 +437,73 @@ class LAr extends L {
   String get paymentCancelled => 'تم إلغاء الدفعة وعكس أثرها';
 
   @override
+  String get registerDisbursement => 'تسجيل صرف';
+
+  @override
+  String get confirmDisbursement => 'اعتماد الصرف';
+
+  @override
+  String get expenseCategory => 'بند الصرف';
+
+  @override
+  String get payee => 'جهة الصرف';
+
+  @override
+  String get payeeFreeName => 'اسم حر';
+
+  @override
+  String get payeeFromRegister => 'من المشتركين';
+
+  @override
+  String get payeeRequired => 'جهة الصرف مطلوبة';
+
+  @override
+  String get handedBy => 'المُسلِّم';
+
+  @override
+  String get disbursementDate => 'تاريخ الصرف';
+
+  @override
+  String get change => 'تغيير';
+
+  @override
+  String get voucherNo => 'رقم الإيصال';
+
+  @override
+  String get noDisbursements => 'لم يُسجَّل أي صرف بعد';
+
+  @override
+  String get totalDisbursed => 'إجمالي المصروف';
+
+  @override
+  String get expenseByCategory => 'المصروف حسب البند';
+
+  @override
+  String get disbursementsIntro =>
+      'كل عملية صرف تُخصم من رصيد الجمعية فوراً، ولا يمكن صرف أكثر مما في الصندوق.';
+
+  @override
+  String overTreasuryBalance(String amount) {
+    return 'رصيد الصندوق $amount فقط';
+  }
+
+  @override
+  String disbursementSaved(String voucher, String balance) {
+    return 'تم تسجيل الصرف $voucher — رصيد الصندوق الآن $balance';
+  }
+
+  @override
+  String get cancelDisbursement => 'إلغاء الصرف';
+
+  @override
+  String get cancelDisbursementWarning =>
+      'سيتم إلغاء إيصال الصرف وإعادة قيمته إلى رصيد الجمعية، مع بقاء السجل التاريخي.';
+
+  @override
+  String get disbursementCancelled =>
+      'تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق';
+
+  @override
   String get cashIntro => 'كل عملية تحصيل معتمدة تنعكس هنا تلقائياً.';
 
   @override

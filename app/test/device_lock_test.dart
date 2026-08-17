@@ -348,8 +348,13 @@ void _moreSheetTests() {
       associationFinanceProvider.overrideWith(
         (Ref ref) async =>
             finance ??
+            // collected 700, disbursed 60, so the association HOLDS 640. The
+            // three differ on purpose: a transparency panel that showed only
+            // what came in would overstate the fund by every voucher written.
             const AssociationFinance(
-              balance: '700.00',
+              balance: '640.00',
+              collected: '700.00',
+              disbursed: '60.00',
               cash: '450.00',
               transfer: '250.00',
               issued: '5600.00',
@@ -456,7 +461,8 @@ void _moreSheetTests() {
     await openSheet(tester, app());
 
     expect(find.text(l.navCash), findsOneWidget);
-    expect(find.text(formatMoney('700.00')), findsOneWidget);
+    expect(find.text(formatMoney('640.00')), findsOneWidget);
+    expect(find.text(formatMoney('60.00')), findsOneWidget);
     expect(find.text(formatMoney('450.00')), findsOneWidget);
     expect(find.text(formatMoney('4900.00')), findsOneWidget);
 

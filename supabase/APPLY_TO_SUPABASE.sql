@@ -62,6 +62,33 @@ CREATE TYPE pay_method     AS ENUM ('نقداً','تحويل مصرفي');
 CREATE TYPE pay_status     AS ENUM ('معتمد','ملغي');
 CREATE TYPE cash_kind      AS ENUM ('تحصيل');
 
+-- ── What the association spent the money ON ──────────────────────────────────
+-- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل بند" is
+-- the only question a disbursement record exists to answer, and free text turns
+-- كهرباء / الكهرباء / فاتورة كهرباء into three separate answers to it.
+--
+-- 'أخرى' is the escape hatch, and the voucher's free `note` is what explains it.
+-- Without it a spend that fits no heading could not be recorded at all, which
+-- would push the treasurer into miscategorising rather than into asking for a
+-- new heading.
+--
+-- An ENUM rather than a lookup table: the association named these nine and a
+-- tenth is a schema change, which is the correct amount of friction for a
+-- category that every historical report is grouped by. Postgres keeps the label
+-- on the row, so a heading retired later still reads correctly on the vouchers
+-- that used it.
+CREATE TYPE expense_category AS ENUM (
+  'إعانة اجتماعية',
+  'عزاء ووفاة',
+  'مناسبة زواج',
+  'علاج ومرض',
+  'مصاريف إدارية',
+  'إيجار وخدمات',
+  'ضيافة واجتماعات',
+  'رسوم مصرفية',
+  'أخرى'
+);
+
 -- ── updated_at ───────────────────────────────────────────────────────────────
 -- Postgres has no `ON UPDATE CURRENT_TIMESTAMP`, so it needs a trigger.
 
@@ -1078,6 +1105,97 @@ CREATE TRIGGER trg_audit_no_update BEFORE UPDATE ON public.audit_log
 CREATE TRIGGER trg_audit_no_delete BEFORE DELETE ON public.audit_log
   FOR EACH ROW EXECUTE FUNCTION public.refuse_audit_change();
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- disbursements — money going OUT of the treasury.
+--
+-- Until now the association could only take money in: `cash_kind` carried the
+-- single value 'تحصيل' and the comment above says so in as many words. This is
+-- the other direction, and the association chose its shape deliberately:
+--
+--   • recorded DIRECTLY, like a collection. No approval queue, no pending
+--     state. A mistake is corrected the way a mistaken receipt is — by an
+--     explicit reversal that leaves both rows standing.
+--   • ADMIN only. Taking money in is low-risk and belongs to the treasurer;
+--     paying it out is the direction that empties a treasury, and it was put a
+--     rung above even the finance manager.
+--
+-- ── Why a separate table, and not a row in cash_movements ────────────────────
+-- cash_movements is the mirror of an approved PAYMENT: rule 8 gives it exactly
+-- one row per payment, uq_cash_payment makes a duplicate structurally
+-- impossible, its adeel_id is NOT NULL, and the عديل portal's RLS reads it as
+-- "my receipts". A disbursement has no payment, often no عديل, and belongs to
+-- nobody's receipts. Forcing it in would mean a nullable payment_id, a widened
+-- unique constraint, a sign on every existing SUM, and an RLS policy that has
+-- to start distinguishing directions — on the one table the collection path
+-- already depends on and which is now carrying real money.
+--
+-- So the treasury is an ARITHMETIC of two tables rather than one signed ledger:
+--
+--     رصيد الجمعية  =  Σ cash_movements(معتمد)  −  Σ disbursements(معتمد)
+--
+-- v_cash_summary computes it, and nothing about collection had to change.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE TABLE public.disbursements (
+  id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  -- EXP-000001, mirroring PAY-000001. Generated, so no code path can mint one
+  -- and no two vouchers can carry the same number.
+  voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
+  amount        numeric(12,2) NOT NULL,
+  category      expense_category NOT NULL,
+
+  -- ── Who received it ────────────────────────────────────────────────────────
+  -- Either an عديل from the register, or a free name — the association pays
+  -- rent and hospitals as well as its own members, and a beneficiary field that
+  -- accepted only members could not record either.
+  --
+  -- `payee_name` is NOT NULL and is a SNAPSHOT even when the id is set, for the
+  -- same reason receivables.adeel_name is: a voucher reprinted after the man is
+  -- renamed must still say who was actually paid.
+  --
+  -- ⚠ A disbursement to an عديل is NOT a credit against his subscription. It
+  --   never touches receivables, payments or his wallet, and it does not appear
+  --   in his statement. The link exists so "how much aid went to this man" can
+  --   be answered, and for no other reason — treating it as a payment would let
+  --   the association's charity cancel its own dues.
+  payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
+  payee_name    text          NOT NULL,
+
+  method        pay_method    NOT NULL,
+  reference     text,
+  -- The account the money was sent TO, as given on the day. Same reasoning as
+  -- payments.bank_*: a join to current settings would restate history.
+  bank_name         text,
+  bank_account_no   text,
+  bank_account_name text,
+  -- Who physically handed it over. A name, not a user id: the man carrying the
+  -- cash to a hospital is not necessarily the one holding the phone.
+  handed_by     text,
+  note          text,
+
+  status        pay_status    NOT NULL DEFAULT 'معتمد',
+  spent_at      timestamptz   NOT NULL DEFAULT now(),
+  created_by    uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancelled_at  timestamptz,
+  cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancel_reason text,
+
+  CONSTRAINT ck_disb_amount CHECK (amount > 0),
+  CONSTRAINT ck_disb_payee  CHECK (btrim(payee_name) <> ''),
+  -- A cancelled voucher must say why, exactly as a cancelled receipt must.
+  CONSTRAINT ck_disb_cancel CHECK (
+    status <> 'ملغي' OR (cancelled_at IS NOT NULL
+                     AND btrim(coalesce(cancel_reason, '')) <> ''))
+);
+
+CREATE INDEX ix_disb_spent    ON public.disbursements (spent_at DESC);
+CREATE INDEX ix_disb_category ON public.disbursements (category);
+CREATE INDEX ix_disb_payee    ON public.disbursements (payee_adeel_id);
+
+-- Rule 9 applies here too: reversed, never removed. A voucher that could be
+-- deleted is a treasury that can be quietly rebalanced.
+CREATE TRIGGER trg_disb_no_delete BEFORE DELETE ON public.disbursements
+  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
+
 
 -- ==========================================================================
 -- 20260811090500_rls.sql
@@ -1128,6 +1246,7 @@ ALTER TABLE public.closed_periods       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_allocations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_movements       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.disbursements        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
 
 -- ── SELECT: viewer and above ─────────────────────────────────────────────────
@@ -1139,7 +1258,8 @@ ALTER TABLE public.audit_log            ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON
   public.association_settings, public.adeels,
   public.receivables, public.closed_periods, public.payments,
-  public.payment_allocations, public.cash_movements
+  public.payment_allocations, public.cash_movements,
+  public.disbursements
 TO authenticated;
 
 CREATE POLICY read_settings ON public.association_settings
@@ -1157,6 +1277,25 @@ CREATE POLICY read_payments ON public.payments
 CREATE POLICY read_allocations ON public.payment_allocations
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 CREATE POLICY read_cash ON public.cash_movements
+  FOR SELECT TO authenticated USING (public.has_role('viewer'));
+
+-- ── Disbursements: STAFF ONLY, and deliberately not extended to an عديل ──────
+-- The association asked for "شفافية مطلقة" toward its members, and it has it:
+-- api_association_finance() gives every member the treasury's TOTALS, including
+-- what has been spent.
+--
+-- The vouchers themselves are a different thing. A row here says that a named
+-- person received إعانة اجتماعية — which in a family association is the most
+-- private fact the system holds, and it belongs to the recipient rather than to
+-- the membership. Transparency about the collective purse is not the same as
+-- publishing who needed help, and conflating them would be a decision nobody
+-- asked for taken on the association's behalf.
+--
+-- There is deliberately no عديل-scoped policy either, not even "his own": a
+-- member seeing a voucher made out to him is a reasonable feature, and it is a
+-- decision for the association to take on purpose rather than one that arrives
+-- as a side effect of this file.
+CREATE POLICY read_disbursements ON public.disbursements
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 
 -- ── audit_log: financeManager and above ──────────────────────────────────────
@@ -2334,6 +2473,12 @@ BEGIN
            public.payments,
            public.receivables,
            public.closed_periods,
+           -- Money going OUT is financial data like any other. Omitting it here
+           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
+           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
+           -- so one surviving voucher would refuse the register's deletion and
+           -- abort the entire purge with a foreign-key error.
+           public.disbursements,
            public.audit_log
     RESTART IDENTITY;
 
@@ -2418,6 +2563,12 @@ BEGIN
            public.payments,
            public.receivables,
            public.closed_periods,
+           -- Money going OUT is financial data like any other. Omitting it here
+           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
+           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
+           -- so one surviving voucher would refuse the register's deletion and
+           -- abort the entire purge with a foreign-key error.
+           public.disbursements,
            public.audit_log
     RESTART IDENTITY;
 
@@ -2653,11 +2804,198 @@ GRANT EXECUTE ON FUNCTION
   public.purge_financial_data(text),
   public.purge_all_data(text),
   public.issue_adeel_code(bigint),
-  public.redeem_adeel_code(text)
+  -- TWO arguments. The device-lock patch added `p_device_id`, and a GRANT names
+  -- a function by its EXACT argument types — `redeem_adeel_code(text)` no
+  -- longer resolves and would abort a fresh apply with "function does not
+  -- exist". A default parameter does not make the one-argument form nameable.
+  public.redeem_adeel_code(text, text)
 TO authenticated;
 
 -- write_audit is NOT granted: it is an internal helper. Exposing it would let
 -- any signed-in user forge trail entries under someone else's name.
+--
+-- The disbursement pair is granted at the FOOT of this file, after the two
+-- functions exist. A GRANT cannot name a function Postgres has not created yet.
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- POST /disbursements.  Money leaving the treasury.
+--
+-- The mirror of register_payment, and the rule it enforces is rule 7 read
+-- backwards: **the association cannot pay out money it does not hold.**
+--
+--     available = Σ cash_movements(معتمد) − Σ disbursements(معتمد)
+--
+-- Refusing an overdraft is not bookkeeping fussiness. A treasury that can go
+-- negative is one where the figure on the screen has stopped describing
+-- anything, and the association would discover it from a bounced transfer
+-- rather than from the app.
+--
+-- ── The lock, and why it is on settings ─────────────────────────────────────
+-- Two admins disbursing at the same moment both read the same available
+-- balance and both pass the check, and the treasury ends the day short by the
+-- smaller of the two. register_payment solves the same race with FOR UPDATE on
+-- the عديل's receivables, but there is no per-row equivalent for "the whole
+-- treasury" — the quantity being guarded is an aggregate over two tables.
+--
+-- So the settings row serialises it. It is the one row every money-moving path
+-- can agree to queue behind, update_settings already locks it for its own
+-- reasons, and holding it costs nothing: the association has one of it, and no
+-- read path takes it.
+--
+-- ADMIN only, at the association's request. Taking money in belongs to the
+-- treasurer; paying it out was put a rung above even the finance manager.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.register_disbursement(
+  p_amount            numeric,
+  p_category          expense_category,
+  p_payee_name        text,
+  p_method            pay_method,
+  p_payee_adeel_id    bigint DEFAULT NULL,
+  p_reference         text   DEFAULT NULL,
+  p_bank_name         text   DEFAULT NULL,
+  p_bank_account_name text   DEFAULT NULL,
+  p_bank_account_no   text   DEFAULT NULL,
+  p_handed_by         text   DEFAULT NULL,
+  p_note              text   DEFAULT NULL,
+  p_spent_at          date   DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  -- Unconstrained numeric for the same reason register_payment's is: the
+  -- individual amounts are bounded by their column, their SUM is not, and an
+  -- overflowing accumulator would report 22003 instead of a rule violation.
+  v_collected numeric;
+  v_spent     numeric;
+  v_available numeric;
+  v_payee     text;
+  v_bank      text;
+  v_acct_no   text;
+  v_acct_name text;
+  v_id        bigint;
+  v_voucher   text;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  p_amount := round(p_amount, 2);
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'قيمة الصرف يجب أن تكون أكبر من صفر' USING ERRCODE = 'RUL17';
+  END IF;
+
+  -- The treasury mutex. See the note above.
+  PERFORM 1 FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
+  SELECT coalesce(sum(amount), 0) INTO v_collected
+    FROM public.cash_movements WHERE status <> 'ملغي';
+  SELECT coalesce(sum(amount), 0) INTO v_spent
+    FROM public.disbursements  WHERE status <> 'ملغي';
+  v_available := v_collected - v_spent;
+
+  IF p_amount > v_available THEN
+    RAISE EXCEPTION 'الصرف % يتجاوز رصيد الصندوق %',
+      p_amount::text, v_available::text USING ERRCODE = 'RUL17';
+  END IF;
+
+  -- The beneficiary. An عديل's name is taken from HIS ROW rather than from the
+  -- client, so a voucher cannot name one man while pointing at another; a free
+  -- payee is whatever was typed, trimmed.
+  IF p_payee_adeel_id IS NOT NULL THEN
+    SELECT full_name INTO v_payee FROM public.adeels WHERE id = p_payee_adeel_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
+    END IF;
+  ELSE
+    v_payee := nullif(btrim(coalesce(p_payee_name, '')), '');
+    IF v_payee IS NULL THEN
+      RAISE EXCEPTION 'جهة الصرف مطلوبة' USING ERRCODE = 'RUL17';
+    END IF;
+  END IF;
+
+  -- Kept only for a transfer, exactly as on a collection: a cash payout has no
+  -- receiving account, and letting the columns carry anything for it would put
+  -- bank details beside نقداً on the voucher.
+  IF p_method = 'تحويل مصرفي' THEN
+    v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
+    v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
+    v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+  END IF;
+
+  INSERT INTO public.disbursements (
+    amount, category, payee_adeel_id, payee_name, method, reference,
+    bank_name, bank_account_no, bank_account_name, handed_by, note,
+    spent_at, created_by)
+  VALUES (
+    p_amount, p_category, p_payee_adeel_id, v_payee, p_method,
+    nullif(btrim(coalesce(p_reference, '')), ''),
+    v_bank, v_acct_no, v_acct_name,
+    nullif(btrim(coalesce(p_handed_by, '')), ''),
+    nullif(btrim(coalesce(p_note, '')), ''),
+    -- A back-dated voucher keeps the time of day it was entered, so two
+    -- vouchers on the same past date still order deterministically.
+    coalesce(p_spent_at + (now()::time), now()),
+    auth.uid())
+  RETURNING id, voucher_no INTO v_id, v_voucher;
+
+  PERFORM public.write_audit('disbursement.register',
+    format('صرف %s — %s إلى %s', p_amount::text, p_category::text, v_payee),
+    v_voucher);
+
+  RETURN jsonb_build_object(
+    'id', v_id, 'voucherNo', v_voucher,
+    'amount', p_amount::text, 'category', p_category::text,
+    'payeeName', v_payee,
+    -- What the treasury stands at AFTER this voucher. The screen states it back
+    -- so an admin who has just emptied the fund learns it now rather than on
+    -- the next attempt.
+    'balanceAfter', (v_available - p_amount)::text);
+END $$;
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- POST /disbursements/:id/cancel.  Rule 9, applied to the outgoing direction.
+-- The voucher stays, struck through, and the money returns to the treasury
+-- because every total filters on status.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.cancel_disbursement(
+  p_id     bigint,
+  p_reason text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE v_row record;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  IF p_reason IS NULL OR btrim(p_reason) = '' THEN
+    RAISE EXCEPTION 'CANCEL_REASON_REQUIRED' USING ERRCODE = 'RUL17';
+  END IF;
+
+  SELECT * INTO v_row FROM public.disbursements WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'DISBURSEMENT_NOT_FOUND' USING ERRCODE = 'RUL17';
+  END IF;
+  IF v_row.status = 'ملغي' THEN
+    RAISE EXCEPTION 'DISBURSEMENT_ALREADY_CANCELLED' USING ERRCODE = 'RUL17';
+  END IF;
+
+  UPDATE public.disbursements
+     SET status = 'ملغي', cancelled_at = now(),
+         cancelled_by = auth.uid(), cancel_reason = p_reason
+   WHERE id = p_id;
+
+  PERFORM public.write_audit('disbursement.cancel',
+    format('إلغاء %s: %s', v_row.voucher_no, p_reason), v_row.voucher_no);
+
+  RETURN jsonb_build_object(
+    'id', p_id, 'voucherNo', v_row.voucher_no,
+    'status', 'ملغي', 'amount', v_row.amount::text, 'reason', p_reason);
+END $$;
+
+-- Both admin-gated inside their own bodies, so granting to `authenticated` is
+-- safe for the same reason it is safe for every other write here: a treasurer
+-- calling register_disbursement gets RUL00, not a voucher.
+GRANT EXECUTE ON FUNCTION
+  public.register_disbursement(numeric, expense_category, text, pay_method,
+                               bigint, text, text, text, text, text, text, date),
+  public.cancel_disbursement(bigint, text)
+TO authenticated;
 
 
 -- ==========================================================================
@@ -3071,7 +3409,23 @@ SELECT
   -- else; anything added later goes below it.
   coalesce((SELECT sum(r.balance) FROM public.receivables r
              WHERE r.status <> 'ملغي'), 0)::numeric(12,2)::text
-    AS "outstanding"
+    AS "outstanding",
+  -- ── Money OUT, and what the association actually still holds ──────────────
+  -- `total` above is everything ever COLLECTED and keeps that meaning. It was
+  -- also what the screen called "رصيد الجمعية", which was true only while money
+  -- could not leave — the moment disbursement exists, collected-to-date and
+  -- held-today are different numbers and calling the first one "the balance"
+  -- makes the screen lie by exactly what has been spent.
+  --
+  -- Two tables rather than one signed ledger: see the note on the disbursements
+  -- table. Nothing about the collection path had to change to make this work.
+  coalesce((SELECT sum(x.amount) FROM public.disbursements x
+             WHERE x.status <> 'ملغي'), 0)::numeric(12,2)::text
+    AS "disbursed",
+  (coalesce(sum(amount), 0)
+   - coalesce((SELECT sum(x.amount) FROM public.disbursements x
+                WHERE x.status <> 'ملغي'), 0))::numeric(12,2)::text
+    AS "balance"
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 
@@ -3114,6 +3468,53 @@ GRANT SELECT ON
   public.v_receivables, public.v_payments,
   public.v_cash_movements, public.v_cash_summary,
   public.v_audit, public.v_users
+TO authenticated;
+
+-- ── Disbursements (DisbursementView) ─────────────────────────────────────────
+CREATE VIEW public.v_disbursements WITH (security_invoker = on) AS
+SELECT
+  d.id                        AS "id",
+  d.voucher_no                AS "voucherNo",
+  d.amount::text              AS "amount",
+  d.category::text            AS "category",
+  d.payee_adeel_id            AS "payeeAdeelId",
+  d.payee_name                AS "payeeName",
+  coalesce(a.adeel_code, '')  AS "payeeCode",
+  d.method::text              AS "method",
+  coalesce(d.reference, '')          AS "reference",
+  coalesce(d.bank_name, '')          AS "bankName",
+  coalesce(d.bank_account_no, '')    AS "bankAccountNo",
+  coalesce(d.bank_account_name, '')  AS "bankAccountName",
+  coalesce(d.handed_by, '')   AS "handedBy",
+  coalesce(d.note, '')        AS "note",
+  d.status::text              AS "status",
+  to_char(d.spent_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "spentAt"
+FROM public.disbursements d
+LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
+
+-- ── What each heading has cost (ExpenseByCategory) ───────────────────────────
+-- The reason the category is an ENUM rather than free text: this view is the
+-- question a fixed list exists to answer, and it cannot be asked of prose.
+--
+-- Every heading appears, including the ones nothing has been spent on yet — a
+-- report that silently omits a zero reads as a report that forgot it, and
+-- "nothing was spent on علاج ومرض this year" is itself an answer.
+--
+-- enum_range() is what makes that possible without a lookup table: it yields
+-- the nine labels in their declared order, and the LEFT JOIN fills in whatever
+-- has actually been spent against each.
+CREATE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
+SELECT
+  c.category::text                                AS "category",
+  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+  count(d.id)                                     AS "count"
+FROM unnest(enum_range(NULL::expense_category)) AS c(category)
+LEFT JOIN public.disbursements d
+       ON d.category = c.category AND d.status <> 'ملغي'
+GROUP BY c.category
+ORDER BY c.category;
+
+GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
 TO authenticated;
 
 
@@ -3537,17 +3938,30 @@ BEGIN
   END IF;
 
   SELECT jsonb_build_object(
-    'balance',  coalesce(sum(c.amount), 0)::numeric(12,2)::text,
-    'cash',     coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
-                         0)::numeric(12,2)::text,
-    'transfer', coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
-                         0)::numeric(12,2)::text)
+    'collected', coalesce(sum(c.amount), 0)::numeric(12,2)::text,
+    'cash',      coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
+                          0)::numeric(12,2)::text,
+    'transfer',  coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
+                          0)::numeric(12,2)::text)
     INTO v_out
     FROM public.cash_movements c
    WHERE c.status <> 'ملغي';
 
   RETURN v_out
     || jsonb_build_object(
+         -- ── Spent, and what is left ─────────────────────────────────────────
+         -- The member's transparency is not honest without the outgoing side:
+         -- showing him only what came in, under a heading that says "the
+         -- association's balance", would overstate the fund by everything it
+         -- has ever paid out. The TOTAL spent is his to see; who received it is
+         -- not — see the note on read_disbursements.
+         'disbursed', (SELECT coalesce(sum(x.amount), 0)::numeric(12,2)::text
+                         FROM public.disbursements x WHERE x.status <> 'ملغي'),
+         'balance', (
+           (SELECT coalesce(sum(c2.amount), 0) FROM public.cash_movements c2
+             WHERE c2.status <> 'ملغي')
+           - (SELECT coalesce(sum(x.amount), 0) FROM public.disbursements x
+               WHERE x.status <> 'ملغي'))::numeric(12,2)::text,
          'issued', (SELECT coalesce(sum(r.total), 0)::numeric(12,2)::text
                       FROM public.receivables r WHERE r.status <> 'ملغي'),
          'outstanding', (SELECT coalesce(sum(r.balance), 0)::numeric(12,2)::text
@@ -3730,6 +4144,12 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- authorisation. It refuses anyone who is already staff.
     'issue_adeel_code(bigint)',
     'redeem_adeel_code(text,text)',
+
+    -- Money OUT. Both admin-gated inside their bodies; register_disbursement
+    -- also refuses to spend past the treasury balance, which is rule 7 read
+    -- backwards and the reason the fund cannot be overdrawn from a phone.
+    'register_disbursement(numeric,expense_category,text,pay_method,bigint,text,text,text,text,text,text,date)',
+    'cancel_disbursement(bigint,text)',
 
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',

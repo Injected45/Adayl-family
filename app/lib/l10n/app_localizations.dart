@@ -901,6 +901,126 @@ abstract class L {
   /// **'تم إلغاء الدفعة وعكس أثرها'**
   String get paymentCancelled;
 
+  /// No description provided for @registerDisbursement.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل صرف'**
+  String get registerDisbursement;
+
+  /// No description provided for @confirmDisbursement.
+  ///
+  /// In ar, this message translates to:
+  /// **'اعتماد الصرف'**
+  String get confirmDisbursement;
+
+  /// No description provided for @expenseCategory.
+  ///
+  /// In ar, this message translates to:
+  /// **'بند الصرف'**
+  String get expenseCategory;
+
+  /// No description provided for @payee.
+  ///
+  /// In ar, this message translates to:
+  /// **'جهة الصرف'**
+  String get payee;
+
+  /// No description provided for @payeeFreeName.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم حر'**
+  String get payeeFreeName;
+
+  /// No description provided for @payeeFromRegister.
+  ///
+  /// In ar, this message translates to:
+  /// **'من المشتركين'**
+  String get payeeFromRegister;
+
+  /// No description provided for @payeeRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'جهة الصرف مطلوبة'**
+  String get payeeRequired;
+
+  /// No description provided for @handedBy.
+  ///
+  /// In ar, this message translates to:
+  /// **'المُسلِّم'**
+  String get handedBy;
+
+  /// No description provided for @disbursementDate.
+  ///
+  /// In ar, this message translates to:
+  /// **'تاريخ الصرف'**
+  String get disbursementDate;
+
+  /// No description provided for @change.
+  ///
+  /// In ar, this message translates to:
+  /// **'تغيير'**
+  String get change;
+
+  /// No description provided for @voucherNo.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الإيصال'**
+  String get voucherNo;
+
+  /// No description provided for @noDisbursements.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُسجَّل أي صرف بعد'**
+  String get noDisbursements;
+
+  /// No description provided for @totalDisbursed.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي المصروف'**
+  String get totalDisbursed;
+
+  /// No description provided for @expenseByCategory.
+  ///
+  /// In ar, this message translates to:
+  /// **'المصروف حسب البند'**
+  String get expenseByCategory;
+
+  /// No description provided for @disbursementsIntro.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل عملية صرف تُخصم من رصيد الجمعية فوراً، ولا يمكن صرف أكثر مما في الصندوق.'**
+  String get disbursementsIntro;
+
+  /// Shown under the amount when a disbursement would overdraw the treasury. Mirrors rule 7's cap on the collection side, in the other direction: the association cannot pay out money it does not hold.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيد الصندوق {amount} فقط'**
+  String overTreasuryBalance(String amount);
+
+  /// The balance is restated with the voucher number so an admin who has just emptied the fund learns it now rather than on the next attempt.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تسجيل الصرف {voucher} — رصيد الصندوق الآن {balance}'**
+  String disbursementSaved(String voucher, String balance);
+
+  /// No description provided for @cancelDisbursement.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء الصرف'**
+  String get cancelDisbursement;
+
+  /// No description provided for @cancelDisbursementWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيتم إلغاء إيصال الصرف وإعادة قيمته إلى رصيد الجمعية، مع بقاء السجل التاريخي.'**
+  String get cancelDisbursementWarning;
+
+  /// No description provided for @disbursementCancelled.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق'**
+  String get disbursementCancelled;
+
   /// No description provided for @cashIntro.
   ///
   /// In ar, this message translates to:

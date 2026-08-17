@@ -1071,6 +1071,12 @@ BEGIN
            public.payments,
            public.receivables,
            public.closed_periods,
+           -- Money going OUT is financial data like any other. Omitting it here
+           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
+           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
+           -- so one surviving voucher would refuse the register's deletion and
+           -- abort the entire purge with a foreign-key error.
+           public.disbursements,
            public.audit_log
     RESTART IDENTITY;
 
@@ -1155,6 +1161,12 @@ BEGIN
            public.payments,
            public.receivables,
            public.closed_periods,
+           -- Money going OUT is financial data like any other. Omitting it here
+           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
+           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
+           -- so one surviving voucher would refuse the register's deletion and
+           -- abort the entire purge with a foreign-key error.
+           public.disbursements,
            public.audit_log
     RESTART IDENTITY;
 
@@ -1390,8 +1402,195 @@ GRANT EXECUTE ON FUNCTION
   public.purge_financial_data(text),
   public.purge_all_data(text),
   public.issue_adeel_code(bigint),
-  public.redeem_adeel_code(text)
+  -- TWO arguments. The device-lock patch added `p_device_id`, and a GRANT names
+  -- a function by its EXACT argument types — `redeem_adeel_code(text)` no
+  -- longer resolves and would abort a fresh apply with "function does not
+  -- exist". A default parameter does not make the one-argument form nameable.
+  public.redeem_adeel_code(text, text)
 TO authenticated;
 
 -- write_audit is NOT granted: it is an internal helper. Exposing it would let
 -- any signed-in user forge trail entries under someone else's name.
+--
+-- The disbursement pair is granted at the FOOT of this file, after the two
+-- functions exist. A GRANT cannot name a function Postgres has not created yet.
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- POST /disbursements.  Money leaving the treasury.
+--
+-- The mirror of register_payment, and the rule it enforces is rule 7 read
+-- backwards: **the association cannot pay out money it does not hold.**
+--
+--     available = Σ cash_movements(معتمد) − Σ disbursements(معتمد)
+--
+-- Refusing an overdraft is not bookkeeping fussiness. A treasury that can go
+-- negative is one where the figure on the screen has stopped describing
+-- anything, and the association would discover it from a bounced transfer
+-- rather than from the app.
+--
+-- ── The lock, and why it is on settings ─────────────────────────────────────
+-- Two admins disbursing at the same moment both read the same available
+-- balance and both pass the check, and the treasury ends the day short by the
+-- smaller of the two. register_payment solves the same race with FOR UPDATE on
+-- the عديل's receivables, but there is no per-row equivalent for "the whole
+-- treasury" — the quantity being guarded is an aggregate over two tables.
+--
+-- So the settings row serialises it. It is the one row every money-moving path
+-- can agree to queue behind, update_settings already locks it for its own
+-- reasons, and holding it costs nothing: the association has one of it, and no
+-- read path takes it.
+--
+-- ADMIN only, at the association's request. Taking money in belongs to the
+-- treasurer; paying it out was put a rung above even the finance manager.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.register_disbursement(
+  p_amount            numeric,
+  p_category          expense_category,
+  p_payee_name        text,
+  p_method            pay_method,
+  p_payee_adeel_id    bigint DEFAULT NULL,
+  p_reference         text   DEFAULT NULL,
+  p_bank_name         text   DEFAULT NULL,
+  p_bank_account_name text   DEFAULT NULL,
+  p_bank_account_no   text   DEFAULT NULL,
+  p_handed_by         text   DEFAULT NULL,
+  p_note              text   DEFAULT NULL,
+  p_spent_at          date   DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  -- Unconstrained numeric for the same reason register_payment's is: the
+  -- individual amounts are bounded by their column, their SUM is not, and an
+  -- overflowing accumulator would report 22003 instead of a rule violation.
+  v_collected numeric;
+  v_spent     numeric;
+  v_available numeric;
+  v_payee     text;
+  v_bank      text;
+  v_acct_no   text;
+  v_acct_name text;
+  v_id        bigint;
+  v_voucher   text;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  p_amount := round(p_amount, 2);
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'قيمة الصرف يجب أن تكون أكبر من صفر' USING ERRCODE = 'RUL17';
+  END IF;
+
+  -- The treasury mutex. See the note above.
+  PERFORM 1 FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
+  SELECT coalesce(sum(amount), 0) INTO v_collected
+    FROM public.cash_movements WHERE status <> 'ملغي';
+  SELECT coalesce(sum(amount), 0) INTO v_spent
+    FROM public.disbursements  WHERE status <> 'ملغي';
+  v_available := v_collected - v_spent;
+
+  IF p_amount > v_available THEN
+    RAISE EXCEPTION 'الصرف % يتجاوز رصيد الصندوق %',
+      p_amount::text, v_available::text USING ERRCODE = 'RUL17';
+  END IF;
+
+  -- The beneficiary. An عديل's name is taken from HIS ROW rather than from the
+  -- client, so a voucher cannot name one man while pointing at another; a free
+  -- payee is whatever was typed, trimmed.
+  IF p_payee_adeel_id IS NOT NULL THEN
+    SELECT full_name INTO v_payee FROM public.adeels WHERE id = p_payee_adeel_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
+    END IF;
+  ELSE
+    v_payee := nullif(btrim(coalesce(p_payee_name, '')), '');
+    IF v_payee IS NULL THEN
+      RAISE EXCEPTION 'جهة الصرف مطلوبة' USING ERRCODE = 'RUL17';
+    END IF;
+  END IF;
+
+  -- Kept only for a transfer, exactly as on a collection: a cash payout has no
+  -- receiving account, and letting the columns carry anything for it would put
+  -- bank details beside نقداً on the voucher.
+  IF p_method = 'تحويل مصرفي' THEN
+    v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
+    v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
+    v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+  END IF;
+
+  INSERT INTO public.disbursements (
+    amount, category, payee_adeel_id, payee_name, method, reference,
+    bank_name, bank_account_no, bank_account_name, handed_by, note,
+    spent_at, created_by)
+  VALUES (
+    p_amount, p_category, p_payee_adeel_id, v_payee, p_method,
+    nullif(btrim(coalesce(p_reference, '')), ''),
+    v_bank, v_acct_no, v_acct_name,
+    nullif(btrim(coalesce(p_handed_by, '')), ''),
+    nullif(btrim(coalesce(p_note, '')), ''),
+    -- A back-dated voucher keeps the time of day it was entered, so two
+    -- vouchers on the same past date still order deterministically.
+    coalesce(p_spent_at + (now()::time), now()),
+    auth.uid())
+  RETURNING id, voucher_no INTO v_id, v_voucher;
+
+  PERFORM public.write_audit('disbursement.register',
+    format('صرف %s — %s إلى %s', p_amount::text, p_category::text, v_payee),
+    v_voucher);
+
+  RETURN jsonb_build_object(
+    'id', v_id, 'voucherNo', v_voucher,
+    'amount', p_amount::text, 'category', p_category::text,
+    'payeeName', v_payee,
+    -- What the treasury stands at AFTER this voucher. The screen states it back
+    -- so an admin who has just emptied the fund learns it now rather than on
+    -- the next attempt.
+    'balanceAfter', (v_available - p_amount)::text);
+END $$;
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- POST /disbursements/:id/cancel.  Rule 9, applied to the outgoing direction.
+-- The voucher stays, struck through, and the money returns to the treasury
+-- because every total filters on status.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.cancel_disbursement(
+  p_id     bigint,
+  p_reason text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE v_row record;
+BEGIN
+  PERFORM public.require_role('admin');
+
+  IF p_reason IS NULL OR btrim(p_reason) = '' THEN
+    RAISE EXCEPTION 'CANCEL_REASON_REQUIRED' USING ERRCODE = 'RUL17';
+  END IF;
+
+  SELECT * INTO v_row FROM public.disbursements WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'DISBURSEMENT_NOT_FOUND' USING ERRCODE = 'RUL17';
+  END IF;
+  IF v_row.status = 'ملغي' THEN
+    RAISE EXCEPTION 'DISBURSEMENT_ALREADY_CANCELLED' USING ERRCODE = 'RUL17';
+  END IF;
+
+  UPDATE public.disbursements
+     SET status = 'ملغي', cancelled_at = now(),
+         cancelled_by = auth.uid(), cancel_reason = p_reason
+   WHERE id = p_id;
+
+  PERFORM public.write_audit('disbursement.cancel',
+    format('إلغاء %s: %s', v_row.voucher_no, p_reason), v_row.voucher_no);
+
+  RETURN jsonb_build_object(
+    'id', p_id, 'voucherNo', v_row.voucher_no,
+    'status', 'ملغي', 'amount', v_row.amount::text, 'reason', p_reason);
+END $$;
+
+-- Both admin-gated inside their own bodies, so granting to `authenticated` is
+-- safe for the same reason it is safe for every other write here: a treasurer
+-- calling register_disbursement gets RUL00, not a voucher.
+GRANT EXECUTE ON FUNCTION
+  public.register_disbursement(numeric, expense_category, text, pay_method,
+                               bigint, text, text, text, text, text, text, date),
+  public.cancel_disbursement(bigint, text)
+TO authenticated;

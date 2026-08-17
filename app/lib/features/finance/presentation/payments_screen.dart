@@ -16,6 +16,7 @@ import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../directory/presentation/providers.dart';
 import '../domain/models.dart';
+import 'disbursement_sheet.dart';
 import 'payment_sheet.dart';
 import 'providers.dart';
 
@@ -49,16 +50,27 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       // The button belongs to the TAB, not to the screen: "تسجيل سداد" on the
       // disbursement tab would take money in while the reader is looking at
       // money going out, which is the one confusion a two-direction screen
-      // exists to prevent. The disbursement tab has no button yet — there is
-      // nothing behind it to press.
-      floatingActionButton:
-          _tab == _Ops.collections && role.atLeast(AppRole.treasurer)
-          ? FloatingActionButton.extended(
-              onPressed: () => showPaymentSheet(context),
-              icon: const Icon(Icons.add),
-              label: Text(l.registerPayment),
-            )
-          : null,
+      // exists to prevent.
+      //
+      // The two directions also carry DIFFERENT ranks. Taking money in is the
+      // treasurer's; paying it out was put a rung above even the finance
+      // manager, at the association's request. Both are re-checked inside the
+      // RPC — hiding a button is the third layer, never the only one.
+      floatingActionButton: switch (_tab) {
+        _Ops.collections when role.atLeast(AppRole.treasurer) =>
+          FloatingActionButton.extended(
+            onPressed: () => showPaymentSheet(context),
+            icon: const Icon(Icons.add),
+            label: Text(l.registerPayment),
+          ),
+        _Ops.disbursements when role.atLeast(AppRole.admin) =>
+          FloatingActionButton.extended(
+            onPressed: () => showDisbursementSheet(context),
+            icon: const Icon(Icons.north_east),
+            label: Text(l.registerDisbursement),
+          ),
+        _ => null,
+      },
       body: (BuildContext context) => Column(
         children: <Widget>[
           Padding(
@@ -90,11 +102,7 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
           Expanded(
             child: _tab == _Ops.collections
                 ? const _CollectionsTab()
-                : EmptyStateView(
-                    icon: Icons.north_east,
-                    title: l.opsDisbursements,
-                    message: l.opsDisbursementsSoon,
-                  ),
+                : const _DisbursementsTab(),
           ),
         ],
       ),
@@ -287,4 +295,281 @@ Future<void> _confirmCancel(
       SnackBar(content: Text(describeApiFailure(l, failure))),
     );
   }
+}
+
+/// Money OUT: what each heading has cost, then the vouchers themselves.
+///
+/// The summary sits above the list rather than on its own screen because the
+/// two answer one question between them — "what are we spending on, and on
+/// what" — and a treasurer who has to navigate to find the second half will
+/// read the first half alone and act on it.
+class _DisbursementsTab extends ConsumerWidget {
+  const _DisbursementsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<List<DisbursementView>> vouchers = ref.watch(
+      disbursementsProvider,
+    );
+    final AsyncValue<List<ExpenseByCategory>> byCategory = ref.watch(
+      expenseByCategoryProvider,
+    );
+    final AppRole role =
+        ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
+
+    return AsyncView<List<DisbursementView>>(
+      value: vouchers,
+      onRetry: () => ref.invalidate(disbursementsProvider),
+      builder: (List<DisbursementView> items) => ListView(
+        padding: screenPadding(context),
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.warningSoft,
+              borderRadius: BorderRadius.circular(AppRadius.control),
+            ),
+            child: Text(
+              l.disbursementsIntro,
+              style: const TextStyle(fontSize: 12, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── What each heading has cost ───────────────────────────────────
+          // Headings with nothing against them are DROPPED here, unlike in the
+          // view behind it: a report page states the zero, a summary strip on a
+          // phone that listed nine headings to say eight of them are empty
+          // would bury the one that is not.
+          byCategory.when(
+            loading: () => const SizedBox.shrink(),
+            error: (Object e, StackTrace _) => const SizedBox.shrink(),
+            data: (List<ExpenseByCategory> rows) {
+              final List<ExpenseByCategory> spent = rows
+                  .where((ExpenseByCategory r) => !r.isEmpty)
+                  .toList();
+              if (spent.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  GlassPanel(
+                    title: l.expenseByCategory,
+                    icon: Icons.donut_small_outlined,
+                    child: Column(
+                      children: <Widget>[
+                        for (final ExpenseByCategory r in spent)
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    r.category,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                Text(
+                                  formatMoney(r.total),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.danger,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+              );
+            },
+          ),
+
+          if (items.isEmpty)
+            EmptyStateView(
+              icon: Icons.north_east,
+              title: l.noDisbursements,
+            )
+          else
+            for (final DisbursementView v in items)
+              _VoucherCard(voucher: v, role: role),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoucherCard extends ConsumerWidget {
+  const _VoucherCard({required this.voucher, required this.role});
+
+  final DisbursementView voucher;
+  final AppRole role;
+
+  Future<void> _cancel(BuildContext context, WidgetRef ref, L l) async {
+    // Resolved BEFORE the await, like the payment card's own cancel: the
+    // context may be gone by the time the dialog closes, and a messenger
+    // fetched afterwards is the classic use-after-dispose in this codebase.
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    final String? reason = await showTextPrompt(
+      context,
+      title: l.cancelDisbursement,
+      message: l.cancelDisbursementWarning,
+      fieldLabel: l.cancelReason,
+      hintText: l.cancelReasonHint,
+      confirmLabel: l.confirmCancel,
+      cancelLabel: l.cancel,
+      destructive: true,
+    );
+    if (reason == null || reason.trim().isEmpty) return;
+
+    try {
+      await ref
+          .read(financeRepositoryProvider)
+          .cancelDisbursement(voucher.id, reason.trim());
+      ref
+        ..invalidate(disbursementsProvider)
+        ..invalidate(expenseByCategoryProvider)
+        ..invalidate(cashSummaryProvider);
+      messenger.showSnackBar(SnackBar(content: Text(l.disbursementCancelled)));
+    } on ApiException catch (failure) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(describeApiFailure(l, failure))),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final bool cancelled = voucher.cancelled;
+
+    return Card(
+      margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  voucher.method == PaymentMethodWire.cash
+                      ? Icons.payments_outlined
+                      : Icons.account_balance_outlined,
+                  size: 18,
+                  color: cancelled ? AppColors.muted : AppColors.danger,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    voucher.voucherNo,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      // Rule 9: a voided voucher stays legible and visibly
+                      // struck through. Its amount is already out of every
+                      // total, because they all filter on status.
+                      decoration: cancelled ? TextDecoration.lineThrough : null,
+                      color: cancelled ? AppColors.muted : null,
+                    ),
+                  ),
+                ),
+                Text(
+                  formatMoney(voucher.amount),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: cancelled ? AppColors.muted : AppColors.danger,
+                    decoration: cancelled ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: <Widget>[
+                StatusBadge.neutral(label: voucher.category),
+                StatusBadge(
+                  label: voucher.method,
+                  tone: AppColors.info,
+                ),
+                if (cancelled)
+                  StatusBadge(label: l.voided, tone: AppColors.muted),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _VoucherLine(label: l.payee, value: voucher.payeeName),
+            if (voucher.payeeCode.isNotEmpty)
+              _VoucherLine(label: l.receiptNo, value: voucher.payeeCode),
+            _VoucherLine(
+              label: l.disbursementDate,
+              value: formatDateTime(voucher.spentAt),
+            ),
+            if (voucher.handedBy.isNotEmpty)
+              _VoucherLine(label: l.handedBy, value: voucher.handedBy),
+            if (voucher.reference.isNotEmpty)
+              _VoucherLine(label: l.reference, value: voucher.reference),
+            if (voucher.bankName.isNotEmpty)
+              _VoucherLine(label: l.bankNameField, value: voucher.bankName),
+            if (voucher.bankAccountNo.isNotEmpty)
+              _VoucherLine(
+                label: l.bankAccountNoField,
+                value: voucher.bankAccountNo,
+              ),
+            if (voucher.note.isNotEmpty)
+              _VoucherLine(label: l.notesField, value: voucher.note),
+
+            if (!cancelled && role.atLeast(AppRole.admin)) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => _cancel(context, ref, l),
+                  icon: const Icon(Icons.undo, size: 18),
+                  label: Text(l.cancelDisbursement),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoucherLine extends StatelessWidget {
+  const _VoucherLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsetsDirectional.only(bottom: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: 92,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+        ),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontSize: 13)),
+        ),
+      ],
+    ),
+  );
 }

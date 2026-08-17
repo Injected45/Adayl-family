@@ -31,6 +31,33 @@ CREATE TYPE pay_method     AS ENUM ('نقداً','تحويل مصرفي');
 CREATE TYPE pay_status     AS ENUM ('معتمد','ملغي');
 CREATE TYPE cash_kind      AS ENUM ('تحصيل');
 
+-- ── What the association spent the money ON ──────────────────────────────────
+-- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل بند" is
+-- the only question a disbursement record exists to answer, and free text turns
+-- كهرباء / الكهرباء / فاتورة كهرباء into three separate answers to it.
+--
+-- 'أخرى' is the escape hatch, and the voucher's free `note` is what explains it.
+-- Without it a spend that fits no heading could not be recorded at all, which
+-- would push the treasurer into miscategorising rather than into asking for a
+-- new heading.
+--
+-- An ENUM rather than a lookup table: the association named these nine and a
+-- tenth is a schema change, which is the correct amount of friction for a
+-- category that every historical report is grouped by. Postgres keeps the label
+-- on the row, so a heading retired later still reads correctly on the vouchers
+-- that used it.
+CREATE TYPE expense_category AS ENUM (
+  'إعانة اجتماعية',
+  'عزاء ووفاة',
+  'مناسبة زواج',
+  'علاج ومرض',
+  'مصاريف إدارية',
+  'إيجار وخدمات',
+  'ضيافة واجتماعات',
+  'رسوم مصرفية',
+  'أخرى'
+);
+
 -- ── updated_at ───────────────────────────────────────────────────────────────
 -- Postgres has no `ON UPDATE CURRENT_TIMESTAMP`, so it needs a trigger.
 

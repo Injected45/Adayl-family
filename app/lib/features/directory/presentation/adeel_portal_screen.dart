@@ -505,6 +505,14 @@ class _PortalMoreSheet extends ConsumerWidget {
                       label: l.dueFromMembers,
                       value: formatMoney(f.outstanding),
                     ),
+                    // The outgoing side. Transparency that showed only what
+                    // came in would overstate the fund by everything it has
+                    // ever paid out — which is the opposite of transparency.
+                    // The TOTAL is his to see; who received it is not.
+                    _SheetRow(
+                      label: l.totalDisbursed,
+                      value: formatMoney(f.disbursed),
+                    ),
                     _SheetRow(
                       label: l.associationBalance,
                       value: formatMoney(f.balance),

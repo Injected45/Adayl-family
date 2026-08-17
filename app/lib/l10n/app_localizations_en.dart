@@ -441,6 +441,73 @@ class LEn extends L {
   String get paymentCancelled => 'Payment cancelled and its effect reversed';
 
   @override
+  String get registerDisbursement => 'Record a disbursement';
+
+  @override
+  String get confirmDisbursement => 'Confirm disbursement';
+
+  @override
+  String get expenseCategory => 'Expense heading';
+
+  @override
+  String get payee => 'Paid to';
+
+  @override
+  String get payeeFreeName => 'Free name';
+
+  @override
+  String get payeeFromRegister => 'From the register';
+
+  @override
+  String get payeeRequired => 'A payee is required';
+
+  @override
+  String get handedBy => 'Handed over by';
+
+  @override
+  String get disbursementDate => 'Date of disbursement';
+
+  @override
+  String get change => 'Change';
+
+  @override
+  String get voucherNo => 'Voucher no.';
+
+  @override
+  String get noDisbursements => 'No disbursements recorded yet';
+
+  @override
+  String get totalDisbursed => 'Total disbursed';
+
+  @override
+  String get expenseByCategory => 'Spend by heading';
+
+  @override
+  String get disbursementsIntro =>
+      'Every disbursement is deducted from the association\'s balance immediately, and none may exceed what the treasury holds.';
+
+  @override
+  String overTreasuryBalance(String amount) {
+    return 'The treasury holds only $amount';
+  }
+
+  @override
+  String disbursementSaved(String voucher, String balance) {
+    return 'Disbursement $voucher recorded — the treasury now holds $balance';
+  }
+
+  @override
+  String get cancelDisbursement => 'Cancel disbursement';
+
+  @override
+  String get cancelDisbursementWarning =>
+      'The voucher will be cancelled and its amount returned to the association\'s balance, while the historical record is kept.';
+
+  @override
+  String get disbursementCancelled =>
+      'Disbursement cancelled and its amount returned to the treasury';
+
+  @override
   String get cashIntro =>
       'Every approved collection appears here automatically.';
 
