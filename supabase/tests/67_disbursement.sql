@@ -32,21 +32,26 @@ SELECT probe.raises('spend', 'and a negative one', $sql$
 $sql$, 'RUL17');
 
 -- ═════ THE TWO SHAPES ════════════════════════════════════════════════════════
--- A voucher is money to a NAMED man, or money on an OCCASION for everybody. The
--- columns each kind uses are disjoint, and the halves must not be mixable — a
--- row that is half of each reports under a heading it does not belong to and is
--- discovered on a screen months later, if at all.
-SELECT probe.raises('spend', 'صرف لمشترك without a member is refused', $sql$
-  SELECT public.register_disbursement(10, 'لمشترك', 'نقداً')
-$sql$, 'RUL17');
-SELECT probe.raises('spend', '...and it may not carry a بند as well', $sql$
-  SELECT public.register_disbursement(10, 'لمشترك', 'نقداً', 1, 'عزاء')
-$sql$, 'RUL17');
-SELECT probe.raises('spend', 'صرف جماعي without a بند is refused', $sql$
+-- A voucher is money to a NAMED man, or money on an OCCASION for everybody, and
+-- BOTH carry a وجه — who was paid and what for are different questions.
+--
+-- What separates them is the payee, and one heading each:
+--   مولود      is a family's, so it is لمشترك and never جماعي
+--   فطور رمضان is one table for everybody, so it is جماعي and never one man's
+SELECT probe.raises('spend', 'a voucher with no وجه is refused', $sql$
   SELECT public.register_disbursement(10, 'جماعي', 'نقداً')
 $sql$, 'RUL17');
-SELECT probe.raises('spend', '...and it may not name a member either', $sql$
+SELECT probe.raises('spend', 'صرف لمشترك without a member is refused', $sql$
+  SELECT public.register_disbursement(10, 'لمشترك', 'نقداً', NULL, 'عزاء')
+$sql$, 'RUL17');
+SELECT probe.raises('spend', 'صرف جماعي may not name a member', $sql$
   SELECT public.register_disbursement(10, 'جماعي', 'نقداً', 1, 'عزاء')
+$sql$, 'RUL17');
+SELECT probe.raises('spend', '«فطور رمضان» cannot be paid to one man', $sql$
+  SELECT public.register_disbursement(10, 'لمشترك', 'نقداً', 1, 'فطور رمضان')
+$sql$, 'RUL17');
+SELECT probe.raises('spend', 'and «مولود» cannot be collective', $sql$
+  SELECT public.register_disbursement(10, 'جماعي', 'نقداً', NULL, 'مولود')
 $sql$, 'RUL17');
 
 -- ═════ THE RULE: no overdraft ════════════════════════════════════════════════
@@ -92,30 +97,31 @@ SELECT probe.eq('spend', 'the heading carries the spend',
          WHERE "category" = 'فطور رمضان' $sql$, '10.00');
 -- Every heading appears, spent on or not: a report that omits a zero reads as
 -- one that forgot it.
-SELECT probe.eq('spend', 'the five headings are listed, plus the aid line',
+SELECT probe.eq('spend', 'all six أوجه are listed, including the empty',
   $sql$ SELECT count(*)::text FROM public.v_expense_by_category $sql$, '6');
 
--- ═════ صرف لمشترك — a named man, and no heading ══════════════════════════════
+-- ═════ صرف لمشترك — a named man, AND a وجه ═══════════════════════════════════
 -- The name is taken from HIS OWN ROW, never from the client, so a voucher
 -- cannot name one man while pointing at another.
 SELECT probe.succeeds('spend', 'a member may be the payee', $sql$
-  SELECT public.register_disbursement(5, 'لمشترك', 'نقداً', 1)
+  SELECT public.register_disbursement(5, 'لمشترك', 'نقداً', 1, 'مولود')
 $sql$);
 SELECT probe.eq('spend', '...and his name is snapshotted off the register',
   $sql$ SELECT (d.payee_name
               = (SELECT full_name FROM public.adeels WHERE id = 1))::text
           FROM public.disbursements d WHERE d.payee_adeel_id = 1 $sql$, 'true');
 SELECT probe.raises('spend', 'an unknown member is refused', $sql$
-  SELECT public.register_disbursement(5, 'لمشترك', 'نقداً', 999999)
+  SELECT public.register_disbursement(5, 'لمشترك', 'نقداً', 999999, 'عزاء')
 $sql$, 'RUL17');
 
--- ⚠ AND IT MUST STILL BE REPORTED. A member voucher carries no category, so a
--- report grouped on that column alone would omit every dirham of aid and still
--- read as complete. The aid line is what keeps the report's total equal to what
--- actually left the treasury.
-SELECT probe.eq('spend', 'aid is reported on its own line, not omitted',
+-- ⚠ WHO was paid and WHAT FOR are different questions, and the register of
+-- names cannot answer the second. This is the one that would be lost if a
+-- member voucher carried no وجه.
+SELECT probe.eq('spend', 'aid is filed under its own وجه, not merely a name',
   $sql$ SELECT "total" FROM public.v_expense_by_category
-         WHERE "category" = 'صرف للمشتركين' $sql$, '5.00');
+         WHERE "category" = 'مولود' $sql$, '5.00');
+-- Every voucher of BOTH kinds carries one, so this single grouping covers the
+-- whole outflow — nothing is left out and nothing is counted twice.
 SELECT probe.eq('spend', '...so the report totals what the treasury paid out',
   $sql$ SELECT (sum("total"::numeric)::numeric(12,2)::text
               = (SELECT "disbursed" FROM public.v_cash_summary))::text
@@ -135,9 +141,19 @@ SELECT probe.raises('spend', 'the TABLE itself refuses a MIXED row', $sql$
                                     payee_name, method)
   VALUES (1, 'جماعي', 'عزاء', 1, 'فلان', 'نقداً')
 $sql$, '23514');
-SELECT probe.raises('spend', '...and one that is NEITHER shape', $sql$
-  INSERT INTO public.disbursements (amount, kind, method)
-  VALUES (1, 'لمشترك', 'نقداً')
+SELECT probe.raises('spend', '...one with no payee where a payee is required',
+  $sql$ INSERT INTO public.disbursements (amount, kind, category, method)
+        VALUES (1, 'لمشترك', 'عزاء', 'نقداً') $sql$, '23514');
+-- The وجه pairing too, not only the payee. A caller that skips the RPC must not
+-- be able to file a birth as a collective expense or an iftar to one man.
+SELECT probe.raises('spend', '...and «مولود» stored as جماعي', $sql$
+  INSERT INTO public.disbursements (amount, kind, category, method)
+  VALUES (1, 'جماعي', 'مولود', 'نقداً')
+$sql$, '23514');
+SELECT probe.raises('spend', '...and «فطور رمضان» stored against one man', $sql$
+  INSERT INTO public.disbursements (amount, kind, category, payee_adeel_id,
+                                    payee_name, method)
+  VALUES (1, 'لمشترك', 'فطور رمضان', 1, 'فلان', 'نقداً')
 $sql$, '23514');
 
 -- ⚠ THE ONE THAT MATTERS MOST. Aid paid to a member is NOT a payment against

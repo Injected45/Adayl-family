@@ -12,6 +12,11 @@
 #   bash supabase/tests/extract_fixtures.sh
 set -euo pipefail
 
+# ON_ERROR_STOP on the SEEDING run below, not only on the captures. A statement
+# that failed there used to print to stderr and carry on, so the fixtures were
+# written from a half-seeded database — every capture succeeded, the script
+# reported success, and the missing rows only surfaced as an expectation failure
+# in supabase_contract_test.dart with nothing to point at.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=_env.sh
 . "$HERE/_env.sh"
@@ -31,7 +36,7 @@ FM='00000000-0000-0000-0000-0000000000a2'
 TR='00000000-0000-0000-0000-0000000000a3'
 # Money OUT is admin-only, so the vouchers below have to be written as one.
 AD='00000000-0000-0000-0000-0000000000a1'
-run > /dev/null <<SQL
+run -v ON_ERROR_STOP=1 > /dev/null <<SQL
 SELECT set_config('request.jwt.claims', '{"sub":"$FM","role":"authenticated"}', false);
 SELECT public.generate_period('2026-02');
 SELECT public.generate_period('2026-03');
@@ -57,7 +62,7 @@ SELECT public.register_disbursement(
   12, 'جماعي', 'نقداً', NULL, 'فطور رمضان',
   'INV-3', NULL, NULL, NULL, 'أمين الصندوق', 'إفطار الجمعية');
 SELECT public.register_disbursement(
-  4, 'لمشترك', 'تحويل مصرفي', 1, NULL,
+  4, 'لمشترك', 'تحويل مصرفي', 1, 'مولود',
   'TRX-77', 'المصرف التجاري الوطني', 'علي المهدي', '0021547');
 SELECT public.register_disbursement(3, 'جماعي', 'نقداً', NULL, 'عزاء');
 SELECT public.cancel_disbursement(3, 'تصحيح إدخال');

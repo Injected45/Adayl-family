@@ -79,20 +79,34 @@ CREATE TYPE cash_kind      AS ENUM ('تحصيل');
 -- CHECK constraint, which is where a rule of this kind belongs.
 CREATE TYPE disbursement_kind AS ENUM ('لمشترك','جماعي');
 
--- ── What a COLLECTIVE disbursement was for ───────────────────────────────────
--- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل بند" is
+-- ── وجه الصرف: what the money was for ────────────────────────────────────────
+-- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل وجه" is
 -- the only question this column exists to answer, and free text turns
 -- عزاء / العزاء / مصاريف عزاء into three separate answers to it.
 --
--- These five are the association's own, named by it. There is deliberately no
--- 'أخرى': the earlier nine had one because they tried to cover rent and bank
--- fees as well, and a list that broad always needs an escape hatch. These five
--- describe occasions the association actually holds, and an occasion that fits
--- none of them is a reason to name a sixth rather than to file it under a
--- heading that says nothing.
+-- BOTH kinds carry one. The عديل on a member voucher says WHO was paid, and
+-- that is a different question from what the money was for — a man may be given
+-- something for a wedding one month and a bereavement the next, and a register
+-- of names cannot tell them apart.
 --
--- An ENUM rather than a lookup table: a sixth is a schema change, which is the
--- correct amount of friction for a category every historical report groups by.
+-- ── Six values, and each kind may use five ──────────────────────────────────
+-- The two lists overlap in four and differ in one each, which is a fact about
+-- the association rather than an accident:
+--
+--   مولود        — only ever لمشترك. A birth is a family's, and the association
+--                   pays the father; there is no collective مولود.
+--   فطور رمضان   — only ever جماعي. The association holds one iftar for
+--                   everybody; it does not buy a man his own.
+--
+-- ck_disb_shape enforces that pairing, so neither list can be used for the
+-- wrong kind even by a caller that skips the RPC. Declared in the order the
+-- pickers offer them, so filtering by kind yields each list exactly as the
+-- association wrote it.
+--
+-- No 'أخرى': an occasion fitting none of these is a reason to name a seventh
+-- rather than to file it under a heading that says nothing. An ENUM rather than
+-- a lookup table because a seventh is a schema change, which is the correct
+-- amount of friction for a value every historical report groups by — and
 -- Postgres keeps the label on the row, so a heading retired later still reads
 -- correctly on the vouchers that used it.
 CREATE TYPE expense_category AS ENUM (
@@ -100,6 +114,7 @@ CREATE TYPE expense_category AS ENUM (
   'عزاء',
   'فطور رمضان',
   'مناسبة اجتماعية',
+  'مولود',
   'حالات طارئة'
 );
 
@@ -1179,9 +1194,13 @@ CREATE TABLE public.disbursements (
   payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
   payee_name    text,
 
-  -- ── جماعي: what it was for ─────────────────────────────────────────────────
-  -- NULL for a member voucher, where the man IS the heading.
-  category      expense_category,
+  -- ── وجه الصرف: what the money was for. BOTH kinds carry one ────────────────
+  -- The عديل above says WHO was paid, which is a different question: a man may
+  -- be given something for a wedding one month and a bereavement the next, and
+  -- a register of names cannot tell those apart.
+  --
+  -- Which of the six are legal depends on the kind — see ck_disb_shape.
+  category      expense_category NOT NULL,
 
   method        pay_method    NOT NULL,
   reference     text,
@@ -1206,24 +1225,32 @@ CREATE TABLE public.disbursements (
 
   -- ── THE TWO SHAPES, and nothing in between ─────────────────────────────────
   -- The kind is not a label on the row, it IS the row's shape, and this is what
-  -- makes that true. Without it every combination is storable: a member voucher
-  -- that also carries an occasion, a collective one with somebody's name on it,
-  -- or one that is neither and reports nothing. All three would pass every
-  -- other check here and only be discovered on a screen months later.
+  -- makes that true. Two things are being enforced at once, and neither can be
+  -- said by a per-column constraint:
   --
-  -- Written as one constraint rather than three NOT NULLs because the rule is
-  -- about the COMBINATION — no per-column check can say "this one must be null
-  -- exactly when that one is not".
+  --   1. THE PAYEE. لمشترك names a man; جماعي names nobody, by the
+  --      association's own decision — nobody receives فطور رمضان the way a
+  --      member receives aid. Without this a collective voucher could carry
+  --      somebody's name, or a member voucher none.
+  --
+  --   2. THE VALID وجه FOR THAT KIND. مولود is a family's and only ever goes
+  --      to a member; فطور رمضان is one table for everybody and is never one
+  --      man's. Stated as exclusions rather than as two lists, so adding a
+  --      seventh heading that BOTH kinds may use needs no edit here — only one
+  --      that belongs to a single kind does.
+  --
+  -- All of it would otherwise pass every other check and surface on a screen
+  -- months later, filed under a heading it does not belong to.
   CONSTRAINT ck_disb_shape CHECK (
     (kind = 'لمشترك'
        AND payee_adeel_id IS NOT NULL
        AND btrim(coalesce(payee_name, '')) <> ''
-       AND category IS NULL)
+       AND category <> 'فطور رمضان')
     OR
     (kind = 'جماعي'
        AND payee_adeel_id IS NULL
        AND payee_name IS NULL
-       AND category IS NOT NULL)
+       AND category <> 'مولود')
   ),
   -- A cancelled voucher must say why, exactly as a cancelled receipt must.
   CONSTRAINT ck_disb_cancel CHECK (
@@ -2953,6 +2980,7 @@ DECLARE
   v_bank      text;
   v_acct_no   text;
   v_acct_name text;
+  v_reference text;
   v_id        bigint;
   v_voucher   text;
 BEGIN
@@ -2981,12 +3009,19 @@ BEGIN
   -- ck_disb_shape is the guarantee; this is the message. A constraint violation
   -- arrives as 23514 with a constraint name, which is true and unreadable — the
   -- admin needs to be told he picked a kind and then filled in the other one.
+  -- Both kinds carry a وجه: WHO was paid and WHAT FOR are different questions,
+  -- and a register of names cannot answer the second.
+  IF p_category IS NULL THEN
+    RAISE EXCEPTION 'اختر وجه الصرف' USING ERRCODE = 'RUL17';
+  END IF;
+
   IF p_kind = 'لمشترك' THEN
     IF p_payee_adeel_id IS NULL THEN
       RAISE EXCEPTION 'اختر المشترك المستفيد' USING ERRCODE = 'RUL17';
     END IF;
-    IF p_category IS NOT NULL THEN
-      RAISE EXCEPTION 'الصرف لمشترك لا يحمل بنداً' USING ERRCODE = 'RUL17';
+    IF p_category = 'فطور رمضان' THEN
+      RAISE EXCEPTION '«فطور رمضان» وجه صرف جماعي — لا يُصرف لمشترك بعينه'
+        USING ERRCODE = 'RUL17';
     END IF;
     -- The name comes from HIS ROW, never from the client, so a voucher cannot
     -- name one man while pointing at another.
@@ -2995,11 +3030,12 @@ BEGIN
       RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
     END IF;
   ELSE
-    IF p_category IS NULL THEN
-      RAISE EXCEPTION 'اختر بند الصرف الجماعي' USING ERRCODE = 'RUL17';
-    END IF;
     IF p_payee_adeel_id IS NOT NULL THEN
       RAISE EXCEPTION 'الصرف الجماعي لا يُنسب إلى مشترك' USING ERRCODE = 'RUL17';
+    END IF;
+    IF p_category = 'مولود' THEN
+      RAISE EXCEPTION '«مولود» وجه صرف لمشترك — لا يكون جماعياً'
+        USING ERRCODE = 'RUL17';
     END IF;
     -- No payee at all, by the association's own decision: nobody receives
     -- فطور رمضان the way a member receives aid, and a name invented to fill the
@@ -3007,13 +3043,21 @@ BEGIN
     v_payee := NULL;
   END IF;
 
-  -- Kept only for a transfer, exactly as on a collection: a cash payout has no
-  -- receiving account, and letting the columns carry anything for it would put
-  -- bank details beside نقداً on the voucher.
+  -- Kept only for a transfer: a cash payout has no receiving account, and
+  -- letting the columns carry anything for it would put bank details beside
+  -- نقداً on the voucher.
+  --
+  -- `reference` goes with them, and that is the difference from a COLLECTION.
+  -- There it is a receipt-book number a treasurer writes for cash as readily as
+  -- for a transfer; here the field is «رقم مرجع التحويل», a number the BANK
+  -- issues, so on a cash payout there is nothing it could truthfully hold. The
+  -- screen hides it for cash — this is what makes that a rule rather than a
+  -- layout choice.
   IF p_method = 'تحويل مصرفي' THEN
     v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
     v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
     v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+    v_reference := nullif(btrim(coalesce(p_reference, '')), '');
   END IF;
 
   INSERT INTO public.disbursements (
@@ -3022,7 +3066,7 @@ BEGIN
     spent_at, created_by)
   VALUES (
     p_amount, p_kind, p_category, p_payee_adeel_id, v_payee, p_method,
-    nullif(btrim(coalesce(p_reference, '')), ''),
+    v_reference,
     v_bank, v_acct_no, v_acct_name,
     nullif(btrim(coalesce(p_handed_by, '')), ''),
     nullif(btrim(coalesce(p_note, '')), ''),
@@ -3592,9 +3636,9 @@ SELECT
   d.voucher_no                AS "voucherNo",
   d.amount::text              AS "amount",
   d.kind::text                AS "kind",
-  -- Both nullable on the row and both flattened to '' here, so the client never
-  -- branches on null: it branches on `kind`, which is the thing that decides.
-  coalesce(d.category::text, '') AS "category",
+  d.category::text            AS "category",
+  -- NULL for a collective voucher, flattened to '' so the client never branches
+  -- on null: it branches on `kind`, which is the thing that decides.
   d.payee_adeel_id            AS "payeeAdeelId",
   coalesce(d.payee_name, '')  AS "payeeName",
   coalesce(a.adeel_code, '')  AS "payeeCode",
@@ -3621,39 +3665,22 @@ LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
 -- enum_range() is what makes that possible without a lookup table: it yields
 -- the nine labels in their declared order, and the LEFT JOIN fills in whatever
 -- has actually been spent against each.
--- ⚠ AND IT MUST INCLUDE WHAT WENT TO MEMBERS, as one line.
--- A member voucher carries no category — the man is the heading — so grouping
--- on `category` alone would report the five occasions and silently omit every
--- dirham of aid. The totals would not add up to what left the treasury, and a
--- report that is short by an unnamed amount is worse than no report: it reads
--- as complete.
+-- EVERY voucher carries a وجه now, both kinds, so grouping on this one column
+-- covers the whole outflow and the totals tie back to v_cash_summary.disbursed.
+-- An earlier shape added a separate "صرف للمشتركين" line because member
+-- vouchers had no category; keeping it now would DOUBLE-COUNT every one of
+-- them, since they already appear under their own heading.
 CREATE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
-SELECT "category", "total", "count"
-FROM (
-  -- The five occasions, in the order the enum declares them.
-  SELECT
-    c.ord                                           AS ord,
-    c.category::text                                AS "category",
-    coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
-    count(d.id)                                     AS "count"
-  FROM unnest(enum_range(NULL::expense_category))
-         WITH ORDINALITY AS c(category, ord)
-  LEFT JOIN public.disbursements d
-         ON d.category = c.category AND d.status <> 'ملغي'
-  GROUP BY c.ord, c.category
-
-  UNION ALL
-
-  -- Then aid, last, so the occasions keep their declared order above it.
-  SELECT
-    9999,
-    'صرف للمشتركين',
-    coalesce(sum(d.amount), 0)::numeric(12,2)::text,
-    count(d.id)
-  FROM public.disbursements d
-  WHERE d.kind = 'لمشترك' AND d.status <> 'ملغي'
-) t
-ORDER BY t.ord;
+SELECT
+  c.category::text                                AS "category",
+  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+  count(d.id)                                     AS "count"
+FROM unnest(enum_range(NULL::expense_category))
+       WITH ORDINALITY AS c(category, ord)
+LEFT JOIN public.disbursements d
+       ON d.category = c.category AND d.status <> 'ملغي'
+GROUP BY c.ord, c.category
+ORDER BY c.ord;
 
 GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
 TO authenticated;

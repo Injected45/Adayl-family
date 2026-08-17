@@ -244,43 +244,38 @@ void main() {
     expect(confirm.onPressed, isNull);
   });
 
-  testWidgets('the kind asks ONE question, and switching clears the other', (
+  testWidgets('the kind adds the member question, and switching clears both', (
     WidgetTester tester,
   ) async {
-    // ck_disb_shape refuses a row that carries both a member and a heading, so
-    // the form must never be able to hold both. Only one question is on screen
-    // at a time, and switching drops the answer to the other — left behind, it
-    // would be sent, refused by RUL17, and read as the form being broken.
+    // Both kinds ask WHAT FOR; only لمشترك also asks WHO. Switching drops
+    // whatever was answered — left behind, a member would be sent with a
+    // collective voucher, refused by RUL17 and by ck_disb_shape underneath it,
+    // and read as the form being broken rather than as a leftover.
     await openSheet(tester, sheetHost());
 
-    // لمشترك asks WHO: a dropdown of the register, and no heading anywhere.
     expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
-    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
 
-    await tester.tap(
-      find.byType(DropdownButtonFormField<int>).first,
-    );
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('المهدي عبدالله محمد • A-0003').last);
     await tester.pumpAndSettle();
     expect(find.text('المهدي عبدالله محمد • A-0003'), findsOneWidget);
 
-    // جماعي asks WHAT FOR: the five occasions, and the member is gone.
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(ExpenseCategoryWire.newborn).last);
+    await tester.pumpAndSettle();
+
+    // جماعي drops the member outright — the question is not asked of it.
     await tester.tap(find.text(l.kindCollective));
     await tester.pumpAndSettle();
 
     expect(find.text('المهدي عبدالله محمد • A-0003'), findsNothing);
     expect(find.byType(DropdownButtonFormField<int>), findsNothing);
-    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
-
-    // ...and switching back drops the heading in turn.
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(ExpenseCategoryWire.ramadanIftar).last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(l.kindMember));
-    await tester.pumpAndSettle();
-    expect(find.text(ExpenseCategoryWire.ramadanIftar), findsNothing);
+    // ...and the وجه with it, because مولود is not one a collective voucher may
+    // carry. Left selected it would be sent and refused.
+    expect(find.text(ExpenseCategoryWire.newborn), findsNothing);
   });
 
   testWidgets('a collective voucher cannot be confirmed with no heading', (
@@ -395,22 +390,43 @@ void main() {
   testWidgets('every heading the database defines is offered', (
     WidgetTester tester,
   ) async {
-    // The dropdown is built from ExpenseCategoryWire.all, which must stay in
-    // step with the expense_category enum. A heading missing here is a heading
-    // no voucher can ever be filed under.
+    // The dropdown is built from ExpenseCategoryWire, which must stay in step
+    // with the expense_category enum. A heading missing here is a heading no
+    // voucher can ever be filed under.
     //
-    // Headings belong to صرف جماعي only — a member voucher has none, because
-    // the man IS the heading.
-    await openSheet(tester, sheetHost());
-    await tester.tap(find.text(l.kindCollective));
-    await tester.pumpAndSettle();
+    // Six exist and each kind may use five: مولود is a family's and never
+    // collective; فطور رمضان is one table for everybody and never one man's.
+    // ck_disb_shape refuses the wrong pairing outright, so a picker that
+    // offered it would only be inviting a refusal.
+    expect(ExpenseCategoryWire.all.length, 6);
 
+    await openSheet(tester, sheetHost());
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
 
-    expect(ExpenseCategoryWire.all.length, 5);
-    for (final String category in ExpenseCategoryWire.all) {
-      expect(find.text(category), findsWidgets, reason: category);
+    for (final String c in ExpenseCategoryWire.all) {
+      final bool offered = c != ExpenseCategoryWire.ramadanIftar;
+      expect(
+        find.text(c),
+        offered ? findsWidgets : findsNothing,
+        reason: 'لمشترك: $c',
+      );
+    }
+
+    await tester.tap(find.text(ExpenseCategoryWire.condolence).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+
+    for (final String c in ExpenseCategoryWire.all) {
+      final bool offered = c != ExpenseCategoryWire.newborn;
+      expect(
+        find.text(c),
+        offered ? findsWidgets : findsNothing,
+        reason: 'جماعي: $c',
+      );
     }
   });
 

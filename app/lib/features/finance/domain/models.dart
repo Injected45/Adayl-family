@@ -277,10 +277,10 @@ class DisbursementView {
     required this.voucherNo,
     required this.amount,
     required this.kind,
+    required this.category,
     required this.method,
     required this.status,
     required this.spentAt,
-    this.category = '',
     this.payeeName = '',
     this.payeeAdeelId,
     this.payeeCode = '',
@@ -304,9 +304,9 @@ class DisbursementView {
   /// be inferring the shape from a symptom instead of asking.
   final String kind;
 
-  /// One of [ExpenseCategoryWire.all], and EMPTY for a member voucher — the man
-  /// is the heading, so asking which category besides asks the same question
-  /// twice.
+  /// One of [ExpenseCategoryWire.all]. Present on BOTH kinds: the payee says
+  /// WHO was paid and this says WHAT FOR, which the register of names cannot
+  /// answer. Which five of the six are legal depends on [kind].
   final String category;
 
   /// A SNAPSHOT of the register row, and EMPTY for a collective voucher:

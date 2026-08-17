@@ -1507,6 +1507,7 @@ DECLARE
   v_bank      text;
   v_acct_no   text;
   v_acct_name text;
+  v_reference text;
   v_id        bigint;
   v_voucher   text;
 BEGIN
@@ -1535,12 +1536,19 @@ BEGIN
   -- ck_disb_shape is the guarantee; this is the message. A constraint violation
   -- arrives as 23514 with a constraint name, which is true and unreadable — the
   -- admin needs to be told he picked a kind and then filled in the other one.
+  -- Both kinds carry a وجه: WHO was paid and WHAT FOR are different questions,
+  -- and a register of names cannot answer the second.
+  IF p_category IS NULL THEN
+    RAISE EXCEPTION 'اختر وجه الصرف' USING ERRCODE = 'RUL17';
+  END IF;
+
   IF p_kind = 'لمشترك' THEN
     IF p_payee_adeel_id IS NULL THEN
       RAISE EXCEPTION 'اختر المشترك المستفيد' USING ERRCODE = 'RUL17';
     END IF;
-    IF p_category IS NOT NULL THEN
-      RAISE EXCEPTION 'الصرف لمشترك لا يحمل بنداً' USING ERRCODE = 'RUL17';
+    IF p_category = 'فطور رمضان' THEN
+      RAISE EXCEPTION '«فطور رمضان» وجه صرف جماعي — لا يُصرف لمشترك بعينه'
+        USING ERRCODE = 'RUL17';
     END IF;
     -- The name comes from HIS ROW, never from the client, so a voucher cannot
     -- name one man while pointing at another.
@@ -1549,11 +1557,12 @@ BEGIN
       RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
     END IF;
   ELSE
-    IF p_category IS NULL THEN
-      RAISE EXCEPTION 'اختر بند الصرف الجماعي' USING ERRCODE = 'RUL17';
-    END IF;
     IF p_payee_adeel_id IS NOT NULL THEN
       RAISE EXCEPTION 'الصرف الجماعي لا يُنسب إلى مشترك' USING ERRCODE = 'RUL17';
+    END IF;
+    IF p_category = 'مولود' THEN
+      RAISE EXCEPTION '«مولود» وجه صرف لمشترك — لا يكون جماعياً'
+        USING ERRCODE = 'RUL17';
     END IF;
     -- No payee at all, by the association's own decision: nobody receives
     -- فطور رمضان the way a member receives aid, and a name invented to fill the
@@ -1561,13 +1570,21 @@ BEGIN
     v_payee := NULL;
   END IF;
 
-  -- Kept only for a transfer, exactly as on a collection: a cash payout has no
-  -- receiving account, and letting the columns carry anything for it would put
-  -- bank details beside نقداً on the voucher.
+  -- Kept only for a transfer: a cash payout has no receiving account, and
+  -- letting the columns carry anything for it would put bank details beside
+  -- نقداً on the voucher.
+  --
+  -- `reference` goes with them, and that is the difference from a COLLECTION.
+  -- There it is a receipt-book number a treasurer writes for cash as readily as
+  -- for a transfer; here the field is «رقم مرجع التحويل», a number the BANK
+  -- issues, so on a cash payout there is nothing it could truthfully hold. The
+  -- screen hides it for cash — this is what makes that a rule rather than a
+  -- layout choice.
   IF p_method = 'تحويل مصرفي' THEN
     v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
     v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
     v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+    v_reference := nullif(btrim(coalesce(p_reference, '')), '');
   END IF;
 
   INSERT INTO public.disbursements (
@@ -1576,7 +1593,7 @@ BEGIN
     spent_at, created_by)
   VALUES (
     p_amount, p_kind, p_category, p_payee_adeel_id, v_payee, p_method,
-    nullif(btrim(coalesce(p_reference, '')), ''),
+    v_reference,
     v_bank, v_acct_no, v_acct_name,
     nullif(btrim(coalesce(p_handed_by, '')), ''),
     nullif(btrim(coalesce(p_note, '')), ''),

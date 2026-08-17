@@ -13,12 +13,26 @@
 --    §8    THE WALLET. A member may pay AHEAD. The cap at "no more than owed"
 --          is gone; the surplus is credit, and generate_period() spends it the
 --          instant it raises the next month.
---    §9–10 THE TREASURY, AND A MEMBER'S VIEW OF IT. v_cash_summary gains
---          outstanding/disbursed/balance; api_association_finance() gives an
---          عديل the association's TOTALS — aggregates only, never a row.
---    §11   MONEY OUT. A disbursements table, an admin-only register/cancel
---          pair, and the rule that makes it safe: the association cannot pay
---          out money it does not hold.
+--    §9     MONEY OUT — the table. A disbursements table with the two shapes a
+--           voucher may take, enforced by ck_disb_shape.
+--    §10–11 THE TREASURY, AND A MEMBER'S VIEW OF IT. v_cash_summary gains
+--           outstanding/disbursed/balance; api_association_finance() gives an
+--           عديل the association's TOTALS — aggregates only, never a row.
+--    §12    The register/cancel pair, the reads, and the rule that makes it
+--           safe: the association cannot pay out money it does not hold.
+--
+--  ⚠ §9 COMES BEFORE §10 FOR A REASON, and it did not always.
+--     v_cash_summary reads public.disbursements, and a VIEW's body is resolved
+--     when the view is created — unlike a plpgsql function, whose table
+--     references are looked up only when it RUNS. With the table created after
+--     it, §10 aborted the whole patch with
+--         42P01: relation "public.disbursements" does not exist
+--     while §11's api_association_finance, which reads the same table, was
+--     created without complaint and then failed on every call.
+--
+--     It was not caught because the patch was only ever tested against a
+--     database that already had the table — where the order cannot matter. A
+--     patch has to be tested against the schema it is FOR.
 --
 --  Nothing here is destructive. One DROP FUNCTION (see below), no DROP TABLE,
 --  no TRUNCATE outside the two purge functions' own bodies, no row touched.
@@ -882,7 +896,154 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
   FROM public.v_adeels v WHERE v."id" = p_adeel_id
 $$;
 
--- == 9. The treasury screen ================================================
+-- == 9. MONEY OUT — the table the treasury now depends on =================
+-- Until now the association could only take money IN: cash_kind carried the
+-- single value 'تحصيل'. This is the other direction, in the shape the
+-- association chose:
+--
+--   • recorded DIRECTLY, like a collection — no approval queue, no pending
+--     state. A mistake is corrected by an explicit reversal that leaves both
+--     rows standing, exactly as a mistaken receipt is.
+--   • ADMIN only. Taking money in belongs to the treasurer; paying it out was
+--     put a rung above even the finance manager.
+--   • a FIXED list of headings, so "how much went on each" is answerable.
+--   • a payee who may be an عديل from the register OR a free name, because the
+--     association pays landlords and hospitals as well as its own members.
+--
+-- ⚠ THE RULE THAT MAKES IT SAFE: the association cannot pay out money it does
+--   not hold. register_disbursement refuses an overdraft, serialising on the
+--   settings row so two admins cannot both pass the check and leave the fund
+--   short by the smaller of the two.
+--
+-- ⚠ AID TO A MEMBER IS NOT A PAYMENT. A voucher never touches receivables,
+--   payments or a member's wallet, and never appears in his statement. The
+--   register link exists so "how much aid went to this man" can be answered;
+--   treating it as a payment would let the association's charity cancel its
+--   own dues.
+--
+-- A SEPARATE TABLE, not a row in cash_movements. That table is the mirror of an
+-- approved payment — rule 8 gives it one row per payment, uq_cash_payment makes
+-- a duplicate impossible, its adeel_id is NOT NULL and the عديل portal reads it
+-- as "my receipts". Forcing an outflow in would mean a nullable payment_id, a
+-- widened unique constraint, a sign on every existing SUM and an RLS policy
+-- that has to start distinguishing directions — on the one table the working
+-- collection path depends on. So the treasury became arithmetic over two
+-- tables, and nothing about collection had to change.
+--
+-- CREATE TYPE has no IF NOT EXISTS and CREATE TABLE's is not enough on its own,
+-- so both are wrapped in a guard that makes a second run a no-op.
+-- ── THE TWO KINDS ───────────────────────────────────────────────────────────
+-- The association spends on exactly two things and asked for them separated at
+-- the top of the form: money to a NAMED man on the register, or money on an
+-- OCCASION for everybody. Everything else on the voucher follows — a member
+-- voucher carries no heading (the man IS the heading) and a collective one
+-- carries no payee at all, because nobody receives فطور رمضان the way a member
+-- receives aid.
+DO $mkkind$
+BEGIN
+  CREATE TYPE disbursement_kind AS ENUM ('لمشترك','جماعي');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $mkkind$;
+
+-- The five occasions, named by the association. No 'أخرى': a list this narrow
+-- describes things it actually holds, and an occasion fitting none of them is a
+-- reason to name a sixth rather than to file it under a heading that says
+-- nothing.
+DO $mkenum$
+BEGIN
+  CREATE TYPE expense_category AS ENUM (
+    'فرح',
+    'عزاء',
+    'فطور رمضان',
+    'مناسبة اجتماعية',
+    'مولود',
+    'حالات طارئة'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $mkenum$;
+
+CREATE TABLE IF NOT EXISTS public.disbursements (
+  id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
+  amount        numeric(12,2) NOT NULL,
+  kind          disbursement_kind NOT NULL,
+  -- Both halves nullable on the column and made exclusive by ck_disb_shape
+  -- below: no per-column NOT NULL can say "this one exactly when that one is
+  -- not".
+  payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
+  payee_name    text,
+  -- BOTH kinds carry a وجه. The payee says WHO was paid; this says WHAT FOR,
+  -- and a register of names cannot answer the second — a man may be given
+  -- something for a wedding one month and a bereavement the next.
+  category      expense_category NOT NULL,
+  method        pay_method    NOT NULL,
+  reference     text,
+  bank_name         text,
+  bank_account_no   text,
+  bank_account_name text,
+  handed_by     text,
+  note          text,
+  status        pay_status    NOT NULL DEFAULT 'معتمد',
+  spent_at      timestamptz   NOT NULL DEFAULT now(),
+  created_by    uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancelled_at  timestamptz,
+  cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cancel_reason text,
+
+  CONSTRAINT ck_disb_amount CHECK (amount > 0),
+
+  -- THE TWO SHAPES, and nothing in between. Two rules at once, neither of which
+  -- a per-column constraint can state:
+  --   1. لمشترك names a man; جماعي names nobody.
+  --   2. مولود is a family's and only ever goes to a member; فطور رمضان is one
+  --      table for everybody and is never one man's.
+  -- Written as exclusions, so a seventh heading BOTH kinds may use needs no edit
+  -- here. Without it a birth could be filed as a collective expense, or an iftar
+  -- against one man, and either would pass every other check and surface on a
+  -- screen months later.
+  CONSTRAINT ck_disb_shape CHECK (
+    (kind = 'لمشترك'
+       AND payee_adeel_id IS NOT NULL
+       AND btrim(coalesce(payee_name, '')) <> ''
+       AND category <> 'فطور رمضان')
+    OR
+    (kind = 'جماعي'
+       AND payee_adeel_id IS NULL
+       AND payee_name IS NULL
+       AND category <> 'مولود')
+  ),
+
+  CONSTRAINT ck_disb_cancel CHECK (
+    status <> 'ملغي' OR (cancelled_at IS NOT NULL
+                     AND btrim(coalesce(cancel_reason, '')) <> ''))
+);
+
+CREATE INDEX IF NOT EXISTS ix_disb_spent    ON public.disbursements (spent_at DESC);
+CREATE INDEX IF NOT EXISTS ix_disb_category ON public.disbursements (category);
+CREATE INDEX IF NOT EXISTS ix_disb_payee    ON public.disbursements (payee_adeel_id);
+
+-- Rule 9 applies here too: reversed, never removed. CREATE OR REPLACE TRIGGER
+-- rather than a DROP, so a re-run neither duplicates it nor leaves a window in
+-- which the guard is off.
+CREATE OR REPLACE TRIGGER trg_disb_no_delete BEFORE DELETE ON public.disbursements
+  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
+
+ALTER TABLE public.disbursements ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.disbursements TO authenticated;
+
+-- STAFF ONLY, and deliberately not extended to an عديل. He already sees the
+-- association's TOTAL spend through api_association_finance(); a voucher row
+-- says that a NAMED person received إعانة اجتماعية, which in a family
+-- association is the most private fact the system holds and belongs to the
+-- recipient rather than to the membership.
+DO $disbpol$
+BEGIN
+  CREATE POLICY read_disbursements ON public.disbursements
+    FOR SELECT TO authenticated USING (public.has_role('viewer'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $disbpol$;
+
+-- == 10. The treasury screen ==============================================
 -- v_cash_summary gains what is still OWED. It is the odd column here — every
 -- other figure in that view aggregates cash_movements and this one reaches into
 -- receivables — and it is there because the question a treasurer asks of the
@@ -943,7 +1104,7 @@ SELECT
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 
--- == 10. The treasury, for a MEMBER to read =================================
+-- == 11. The treasury, for a MEMBER to read ================================
 -- "شفافية مطلقة": the association wanted a member able to see where the
 -- collective money stands.
 --
@@ -1004,144 +1165,6 @@ BEGIN
          'activeMembers', (SELECT count(*) FROM public.adeels
                             WHERE status = 'نشط'));
 END $$;
-
--- == 11. MONEY OUT — the disbursement system ================================
--- Until now the association could only take money IN: cash_kind carried the
--- single value 'تحصيل'. This is the other direction, in the shape the
--- association chose:
---
---   • recorded DIRECTLY, like a collection — no approval queue, no pending
---     state. A mistake is corrected by an explicit reversal that leaves both
---     rows standing, exactly as a mistaken receipt is.
---   • ADMIN only. Taking money in belongs to the treasurer; paying it out was
---     put a rung above even the finance manager.
---   • a FIXED list of headings, so "how much went on each" is answerable.
---   • a payee who may be an عديل from the register OR a free name, because the
---     association pays landlords and hospitals as well as its own members.
---
--- ⚠ THE RULE THAT MAKES IT SAFE: the association cannot pay out money it does
---   not hold. register_disbursement refuses an overdraft, serialising on the
---   settings row so two admins cannot both pass the check and leave the fund
---   short by the smaller of the two.
---
--- ⚠ AID TO A MEMBER IS NOT A PAYMENT. A voucher never touches receivables,
---   payments or a member's wallet, and never appears in his statement. The
---   register link exists so "how much aid went to this man" can be answered;
---   treating it as a payment would let the association's charity cancel its
---   own dues.
---
--- A SEPARATE TABLE, not a row in cash_movements. That table is the mirror of an
--- approved payment — rule 8 gives it one row per payment, uq_cash_payment makes
--- a duplicate impossible, its adeel_id is NOT NULL and the عديل portal reads it
--- as "my receipts". Forcing an outflow in would mean a nullable payment_id, a
--- widened unique constraint, a sign on every existing SUM and an RLS policy
--- that has to start distinguishing directions — on the one table the working
--- collection path depends on. So the treasury became arithmetic over two
--- tables, and nothing about collection had to change.
---
--- CREATE TYPE has no IF NOT EXISTS and CREATE TABLE's is not enough on its own,
--- so both are wrapped in a guard that makes a second run a no-op.
--- ── THE TWO KINDS ───────────────────────────────────────────────────────────
--- The association spends on exactly two things and asked for them separated at
--- the top of the form: money to a NAMED man on the register, or money on an
--- OCCASION for everybody. Everything else on the voucher follows — a member
--- voucher carries no heading (the man IS the heading) and a collective one
--- carries no payee at all, because nobody receives فطور رمضان the way a member
--- receives aid.
-DO $mkkind$
-BEGIN
-  CREATE TYPE disbursement_kind AS ENUM ('لمشترك','جماعي');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $mkkind$;
-
--- The five occasions, named by the association. No 'أخرى': a list this narrow
--- describes things it actually holds, and an occasion fitting none of them is a
--- reason to name a sixth rather than to file it under a heading that says
--- nothing.
-DO $mkenum$
-BEGIN
-  CREATE TYPE expense_category AS ENUM (
-    'فرح',
-    'عزاء',
-    'فطور رمضان',
-    'مناسبة اجتماعية',
-    'حالات طارئة'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $mkenum$;
-
-CREATE TABLE IF NOT EXISTS public.disbursements (
-  id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
-  amount        numeric(12,2) NOT NULL,
-  kind          disbursement_kind NOT NULL,
-  -- Both halves nullable on the column and made exclusive by ck_disb_shape
-  -- below: no per-column NOT NULL can say "this one exactly when that one is
-  -- not".
-  payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
-  payee_name    text,
-  category      expense_category,
-  method        pay_method    NOT NULL,
-  reference     text,
-  bank_name         text,
-  bank_account_no   text,
-  bank_account_name text,
-  handed_by     text,
-  note          text,
-  status        pay_status    NOT NULL DEFAULT 'معتمد',
-  spent_at      timestamptz   NOT NULL DEFAULT now(),
-  created_by    uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
-  cancelled_at  timestamptz,
-  cancelled_by  uuid          REFERENCES public.profiles(id) ON DELETE SET NULL,
-  cancel_reason text,
-
-  CONSTRAINT ck_disb_amount CHECK (amount > 0),
-
-  -- THE TWO SHAPES, and nothing in between. Without this every combination is
-  -- storable: a member voucher that also carries an occasion, a collective one
-  -- with somebody's name on it, or one that is neither and reports nothing —
-  -- all three passing every other check and surfacing on a screen months later.
-  CONSTRAINT ck_disb_shape CHECK (
-    (kind = 'لمشترك'
-       AND payee_adeel_id IS NOT NULL
-       AND btrim(coalesce(payee_name, '')) <> ''
-       AND category IS NULL)
-    OR
-    (kind = 'جماعي'
-       AND payee_adeel_id IS NULL
-       AND payee_name IS NULL
-       AND category IS NOT NULL)
-  ),
-
-  CONSTRAINT ck_disb_cancel CHECK (
-    status <> 'ملغي' OR (cancelled_at IS NOT NULL
-                     AND btrim(coalesce(cancel_reason, '')) <> ''))
-);
-
-CREATE INDEX IF NOT EXISTS ix_disb_spent    ON public.disbursements (spent_at DESC);
-CREATE INDEX IF NOT EXISTS ix_disb_category ON public.disbursements (category);
-CREATE INDEX IF NOT EXISTS ix_disb_payee    ON public.disbursements (payee_adeel_id);
-
--- Rule 9 applies here too: reversed, never removed. CREATE OR REPLACE TRIGGER
--- rather than a DROP, so a re-run neither duplicates it nor leaves a window in
--- which the guard is off.
-CREATE OR REPLACE TRIGGER trg_disb_no_delete BEFORE DELETE ON public.disbursements
-  FOR EACH ROW EXECUTE FUNCTION public.refuse_delete();
-
-ALTER TABLE public.disbursements ENABLE ROW LEVEL SECURITY;
-GRANT SELECT ON public.disbursements TO authenticated;
-
--- STAFF ONLY, and deliberately not extended to an عديل. He already sees the
--- association's TOTAL spend through api_association_finance(); a voucher row
--- says that a NAMED person received إعانة اجتماعية, which in a family
--- association is the most private fact the system holds and belongs to the
--- recipient rather than to the membership.
-DO $disbpol$
-BEGIN
-  CREATE POLICY read_disbursements ON public.disbursements
-    FOR SELECT TO authenticated USING (public.has_role('viewer'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $disbpol$;
 CREATE OR REPLACE FUNCTION public.register_disbursement(
   p_amount            numeric,
   p_kind              disbursement_kind,
@@ -1168,6 +1191,7 @@ DECLARE
   v_bank      text;
   v_acct_no   text;
   v_acct_name text;
+  v_reference text;
   v_id        bigint;
   v_voucher   text;
 BEGIN
@@ -1196,12 +1220,19 @@ BEGIN
   -- ck_disb_shape is the guarantee; this is the message. A constraint violation
   -- arrives as 23514 with a constraint name, which is true and unreadable — the
   -- admin needs to be told he picked a kind and then filled in the other one.
+  -- Both kinds carry a وجه: WHO was paid and WHAT FOR are different questions,
+  -- and a register of names cannot answer the second.
+  IF p_category IS NULL THEN
+    RAISE EXCEPTION 'اختر وجه الصرف' USING ERRCODE = 'RUL17';
+  END IF;
+
   IF p_kind = 'لمشترك' THEN
     IF p_payee_adeel_id IS NULL THEN
       RAISE EXCEPTION 'اختر المشترك المستفيد' USING ERRCODE = 'RUL17';
     END IF;
-    IF p_category IS NOT NULL THEN
-      RAISE EXCEPTION 'الصرف لمشترك لا يحمل بنداً' USING ERRCODE = 'RUL17';
+    IF p_category = 'فطور رمضان' THEN
+      RAISE EXCEPTION '«فطور رمضان» وجه صرف جماعي — لا يُصرف لمشترك بعينه'
+        USING ERRCODE = 'RUL17';
     END IF;
     -- The name comes from HIS ROW, never from the client, so a voucher cannot
     -- name one man while pointing at another.
@@ -1210,11 +1241,12 @@ BEGIN
       RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
     END IF;
   ELSE
-    IF p_category IS NULL THEN
-      RAISE EXCEPTION 'اختر بند الصرف الجماعي' USING ERRCODE = 'RUL17';
-    END IF;
     IF p_payee_adeel_id IS NOT NULL THEN
       RAISE EXCEPTION 'الصرف الجماعي لا يُنسب إلى مشترك' USING ERRCODE = 'RUL17';
+    END IF;
+    IF p_category = 'مولود' THEN
+      RAISE EXCEPTION '«مولود» وجه صرف لمشترك — لا يكون جماعياً'
+        USING ERRCODE = 'RUL17';
     END IF;
     -- No payee at all, by the association's own decision: nobody receives
     -- فطور رمضان the way a member receives aid, and a name invented to fill the
@@ -1222,13 +1254,21 @@ BEGIN
     v_payee := NULL;
   END IF;
 
-  -- Kept only for a transfer, exactly as on a collection: a cash payout has no
-  -- receiving account, and letting the columns carry anything for it would put
-  -- bank details beside نقداً on the voucher.
+  -- Kept only for a transfer: a cash payout has no receiving account, and
+  -- letting the columns carry anything for it would put bank details beside
+  -- نقداً on the voucher.
+  --
+  -- `reference` goes with them, and that is the difference from a COLLECTION.
+  -- There it is a receipt-book number a treasurer writes for cash as readily as
+  -- for a transfer; here the field is «رقم مرجع التحويل», a number the BANK
+  -- issues, so on a cash payout there is nothing it could truthfully hold. The
+  -- screen hides it for cash — this is what makes that a rule rather than a
+  -- layout choice.
   IF p_method = 'تحويل مصرفي' THEN
     v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
     v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
     v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+    v_reference := nullif(btrim(coalesce(p_reference, '')), '');
   END IF;
 
   INSERT INTO public.disbursements (
@@ -1237,7 +1277,7 @@ BEGIN
     spent_at, created_by)
   VALUES (
     p_amount, p_kind, p_category, p_payee_adeel_id, v_payee, p_method,
-    nullif(btrim(coalesce(p_reference, '')), ''),
+    v_reference,
     v_bank, v_acct_no, v_acct_name,
     nullif(btrim(coalesce(p_handed_by, '')), ''),
     nullif(btrim(coalesce(p_note, '')), ''),
@@ -1545,9 +1585,9 @@ SELECT
   d.voucher_no                AS "voucherNo",
   d.amount::text              AS "amount",
   d.kind::text                AS "kind",
-  -- Both nullable on the row and both flattened to '' here, so the client never
-  -- branches on null: it branches on `kind`, which is the thing that decides.
-  coalesce(d.category::text, '') AS "category",
+  d.category::text            AS "category",
+  -- NULL for a collective voucher, flattened to '' so the client never branches
+  -- on null: it branches on `kind`, which is the thing that decides.
   d.payee_adeel_id            AS "payeeAdeelId",
   coalesce(d.payee_name, '')  AS "payeeName",
   coalesce(a.adeel_code, '')  AS "payeeCode",
@@ -1564,32 +1604,16 @@ FROM public.disbursements d
 LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
 
 CREATE OR REPLACE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
-SELECT "category", "total", "count"
-FROM (
-  -- The five occasions, in the order the enum declares them.
-  SELECT
-    c.ord                                           AS ord,
-    c.category::text                                AS "category",
-    coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
-    count(d.id)                                     AS "count"
-  FROM unnest(enum_range(NULL::expense_category))
-         WITH ORDINALITY AS c(category, ord)
-  LEFT JOIN public.disbursements d
-         ON d.category = c.category AND d.status <> 'ملغي'
-  GROUP BY c.ord, c.category
-
-  UNION ALL
-
-  -- Then aid, last, so the occasions keep their declared order above it.
-  SELECT
-    9999,
-    'صرف للمشتركين',
-    coalesce(sum(d.amount), 0)::numeric(12,2)::text,
-    count(d.id)
-  FROM public.disbursements d
-  WHERE d.kind = 'لمشترك' AND d.status <> 'ملغي'
-) t
-ORDER BY t.ord;
+SELECT
+  c.category::text                                AS "category",
+  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+  count(d.id)                                     AS "count"
+FROM unnest(enum_range(NULL::expense_category))
+       WITH ORDINALITY AS c(category, ord)
+LEFT JOIN public.disbursements d
+       ON d.category = c.category AND d.status <> 'ملغي'
+GROUP BY c.ord, c.category
+ORDER BY c.ord;
 
 GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
 TO authenticated;
@@ -1772,8 +1796,8 @@ UNION ALL SELECT 'the register shows what each member holds or owes',
 -- §11, money out.
 UNION ALL SELECT 'the disbursements table exists',
        (to_regclass('public.disbursements') IS NOT NULL)::text
-UNION ALL SELECT 'the five collective headings are defined',
-       (SELECT count(*) = 5 FROM unnest(enum_range(NULL::expense_category)))::text
+UNION ALL SELECT 'the six أوجه الصرف are defined',
+       (SELECT count(*) = 6 FROM unnest(enum_range(NULL::expense_category)))::text
 UNION ALL SELECT 'and a voucher must be one of the two kinds, never both',
        (SELECT count(*) = 1 FROM pg_constraint
          WHERE conname = 'ck_disb_shape'

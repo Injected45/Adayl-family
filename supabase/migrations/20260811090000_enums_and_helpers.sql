@@ -48,20 +48,34 @@ CREATE TYPE cash_kind      AS ENUM ('تحصيل');
 -- CHECK constraint, which is where a rule of this kind belongs.
 CREATE TYPE disbursement_kind AS ENUM ('لمشترك','جماعي');
 
--- ── What a COLLECTIVE disbursement was for ───────────────────────────────────
--- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل بند" is
+-- ── وجه الصرف: what the money was for ────────────────────────────────────────
+-- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل وجه" is
 -- the only question this column exists to answer, and free text turns
 -- عزاء / العزاء / مصاريف عزاء into three separate answers to it.
 --
--- These five are the association's own, named by it. There is deliberately no
--- 'أخرى': the earlier nine had one because they tried to cover rent and bank
--- fees as well, and a list that broad always needs an escape hatch. These five
--- describe occasions the association actually holds, and an occasion that fits
--- none of them is a reason to name a sixth rather than to file it under a
--- heading that says nothing.
+-- BOTH kinds carry one. The عديل on a member voucher says WHO was paid, and
+-- that is a different question from what the money was for — a man may be given
+-- something for a wedding one month and a bereavement the next, and a register
+-- of names cannot tell them apart.
 --
--- An ENUM rather than a lookup table: a sixth is a schema change, which is the
--- correct amount of friction for a category every historical report groups by.
+-- ── Six values, and each kind may use five ──────────────────────────────────
+-- The two lists overlap in four and differ in one each, which is a fact about
+-- the association rather than an accident:
+--
+--   مولود        — only ever لمشترك. A birth is a family's, and the association
+--                   pays the father; there is no collective مولود.
+--   فطور رمضان   — only ever جماعي. The association holds one iftar for
+--                   everybody; it does not buy a man his own.
+--
+-- ck_disb_shape enforces that pairing, so neither list can be used for the
+-- wrong kind even by a caller that skips the RPC. Declared in the order the
+-- pickers offer them, so filtering by kind yields each list exactly as the
+-- association wrote it.
+--
+-- No 'أخرى': an occasion fitting none of these is a reason to name a seventh
+-- rather than to file it under a heading that says nothing. An ENUM rather than
+-- a lookup table because a seventh is a schema change, which is the correct
+-- amount of friction for a value every historical report groups by — and
 -- Postgres keeps the label on the row, so a heading retired later still reads
 -- correctly on the vouchers that used it.
 CREATE TYPE expense_category AS ENUM (
@@ -69,6 +83,7 @@ CREATE TYPE expense_category AS ENUM (
   'عزاء',
   'فطور رمضان',
   'مناسبة اجتماعية',
+  'مولود',
   'حالات طارئة'
 );
 

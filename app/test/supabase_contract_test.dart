@@ -396,6 +396,11 @@ void main() {
       expect(collective.payeeAdeelId, isNull);
       expect(collective.payeeName, isEmpty);
       expect(collective.subject, 'فطور رمضان');
+      // ...and «فطور رمضان» is a heading only this kind may use.
+      expect(
+        ExpenseCategoryWire.forKind(DisbursementKindWire.member),
+        isNot(contains(ExpenseCategoryWire.ramadanIftar)),
+      );
 
       // لمشترك — a named man, and NO heading: he is the heading. The name comes
       // off HIS row, never off the client.
@@ -403,20 +408,27 @@ void main() {
         (DisbursementView v) => v.voucherNo == 'EXP-000002',
       );
       expect(member.isForMember, isTrue);
-      expect(member.category, isEmpty);
+      expect(member.category, 'مولود');
       expect(member.payeeAdeelId, 1);
       expect(member.payeeName, 'العديل الأول');
       expect(member.payeeCode, 'A-0001');
       expect(member.bankName, 'المصرف التجاري الوطني');
       expect(member.subject, 'العديل الأول');
 
-      // ★ The shapes are DISJOINT on the wire, not merely usually so. This is
-      //   ck_disb_shape arriving intact: every row fills exactly one side.
+      // ★ ck_disb_shape arriving intact. Every row carries a وجه, and a payee
+      //   exactly when it is a member voucher — never a collective one with a
+      //   name on it, never a member one without.
       for (final DisbursementView v in vouchers) {
+        expect(v.category, isNotEmpty, reason: v.voucherNo);
         expect(
-          v.category.isEmpty != v.payeeName.isEmpty,
-          isTrue,
-          reason: '${v.voucherNo} filled both halves or neither',
+          v.payeeName.isNotEmpty,
+          v.isForMember,
+          reason: '${v.voucherNo} has a payee that does not match its kind',
+        );
+        expect(
+          ExpenseCategoryWire.forKind(v.kind),
+          contains(v.category),
+          reason: '${v.voucherNo}: ${v.category} is not legal for ${v.kind}',
         );
       }
 
@@ -431,10 +443,9 @@ void main() {
       final List<ExpenseByCategory> rows = _list(
         'expense_by_category.json',
       ).map(ExpenseByCategory.fromJson).toList();
-      // The five occasions plus the aid line, not just the ones with a voucher
-      // against them. A report that silently omits a zero reads as one that
-      // forgot it.
-      expect(rows, hasLength(ExpenseCategoryWire.all.length + 1));
+      // All six أوجه, not just the ones with a voucher against them. A report
+      // that silently omits a zero reads as one that forgot it.
+      expect(rows, hasLength(ExpenseCategoryWire.all.length));
       expect(
         rows.where((ExpenseByCategory r) => r.isEmpty).length,
         greaterThan(0),
@@ -451,13 +462,13 @@ void main() {
             .total,
         '12.00',
       );
-      // ★ Aid carries no category, so a report grouped on that column alone
-      //   would omit it entirely and still read as complete. This line is what
-      //   keeps the report's total equal to what actually left the treasury.
-      final ExpenseByCategory aid = rows.firstWhere(
-        (ExpenseByCategory r) => r.category == ExpenseCategoryWire.memberAidLine,
+      // ★ A MEMBER voucher is filed under its own وجه too. Who was paid and
+      //   what for are different questions, and a report grouped on the payee
+      //   could not answer the second at all.
+      final ExpenseByCategory newborn = rows.firstWhere(
+        (ExpenseByCategory r) => r.category == ExpenseCategoryWire.newborn,
       );
-      expect(aid.total, '4.00');
+      expect(newborn.total, '4.00');
       final double reported = rows.fold(
         0,
         (double sum, ExpenseByCategory r) => sum + double.parse(r.total),

@@ -69,22 +69,38 @@ abstract final class ExpenseCategoryWire {
   static const String condolence = 'عزاء';
   static const String ramadanIftar = 'فطور رمضان';
   static const String socialOccasion = 'مناسبة اجتماعية';
+  static const String newborn = 'مولود';
   static const String emergency = 'حالات طارئة';
 
+  /// All six, in the enum's declared order — which is also the order
+  /// `v_expense_by_category` reports them in.
   static const List<String> all = <String>[
     wedding,
     condolence,
     ramadanIftar,
     socialOccasion,
+    newborn,
     emergency,
   ];
 
-  /// The line `v_expense_by_category` adds for everything paid to members.
+  /// ── What each kind may use ────────────────────────────────────────────────
+  /// Four are shared and one belongs to each kind alone:
   ///
-  /// Not a category and not in the enum — a member voucher has none. The report
-  /// carries it so its total equals what actually left the treasury; without it
-  /// the five headings would omit every dirham of aid and still read complete.
-  static const String memberAidLine = 'صرف للمشتركين';
+  ///   [newborn]      is a family's — the association pays the father, and
+  ///                  there is no collective مولود.
+  ///   [ramadanIftar] is one table for everybody — it is never bought for a
+  ///                  single man.
+  ///
+  /// Derived by exclusion rather than written out twice, so a seventh heading
+  /// that BOTH kinds may use needs no edit here. `ck_disb_shape` enforces the
+  /// same pairing in the database, so this only decides what the picker offers.
+  static List<String> forKind(String kind) => <String>[
+    for (final String c in all)
+      if (kind == DisbursementKindWire.member
+          ? c != ramadanIftar
+          : c != newborn)
+        c,
+  ];
 }
 
 /// The two posts, as `v_officials` emits them.

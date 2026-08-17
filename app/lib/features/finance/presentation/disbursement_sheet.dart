@@ -110,13 +110,12 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
     final double have = double.tryParse(available) ?? 0;
     if (value > have) return l.overTreasuryBalance(formatMoney(available));
 
-    // One question per kind, and the unanswered one is what blocks the button.
+    // The member comes first because it is the question the kind adds; the وجه
+    // is asked of both and is reported last.
     if (_kind == DisbursementKindWire.member && _payeeAdeelId == null) {
       return l.payeeRequired;
     }
-    if (_kind == DisbursementKindWire.collective && _category == null) {
-      return l.categoryRequired;
-    }
+    if (_category == null) return l.categoryRequired;
     return null;
   }
 
@@ -134,14 +133,14 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
             // refused twice over — by RUL17 and by ck_disb_shape — so this is
             // convenience, never the guarantee.
             kind: _kind,
-            category: _kind == DisbursementKindWire.collective
-                ? _category
-                : null,
+            category: _category,
             payeeAdeelId: _kind == DisbursementKindWire.member
                 ? _payeeAdeelId
                 : null,
             method: _method,
-            reference: _reference.text.trim(),
+            reference: _method == PaymentMethodWire.bankTransfer
+                ? _reference.text.trim()
+                : null,
             bankName: _method == PaymentMethodWire.bankTransfer
                 ? _bankName.text.trim()
                 : null,
@@ -300,7 +299,9 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
 
-                  if (_kind == DisbursementKindWire.member)
+                  // WHO — only for لمشترك, and above the وجه because the man is
+                  // what the admin came here knowing.
+                  if (_kind == DisbursementKindWire.member) ...<Widget>[
                     adeels.when(
                       loading: () => const LinearProgressIndicator(minHeight: 2),
                       error: (Object e, StackTrace _) =>
@@ -323,18 +324,28 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                             onChanged: (int? v) =>
                                 setState(() => _payeeAdeelId = v),
                           ),
-                    )
-                  else
-                    DropdownButtonFormField<String>(
-                      initialValue: _category,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: l.expenseCategory),
-                      items: <DropdownMenuItem<String>>[
-                        for (final String c in ExpenseCategoryWire.all)
-                          DropdownMenuItem<String>(value: c, child: Text(c)),
-                      ],
-                      onChanged: (String? v) => setState(() => _category = v),
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // WHAT FOR — for BOTH kinds. A man may be given something for
+                  // a wedding one month and a bereavement the next, and a list
+                  // of names cannot tell those apart.
+                  //
+                  // The options are filtered by kind: مولود is never collective
+                  // and فطور رمضان is never one man's. ck_disb_shape refuses the
+                  // pairing outright, so this only keeps the picker from
+                  // offering what the server would reject.
+                  DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: l.expenseCategory),
+                    items: <DropdownMenuItem<String>>[
+                      for (final String c in ExpenseCategoryWire.forKind(_kind))
+                        DropdownMenuItem<String>(value: c, child: Text(c)),
+                    ],
+                    onChanged: (String? v) => setState(() => _category = v),
+                  ),
                   const SizedBox(height: AppSpacing.md),
 
                   SegmentedButton<String>(
@@ -403,13 +414,18 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                       enabled: !_submitting,
                     ),
                     const SizedBox(height: AppSpacing.md),
+                    // INSIDE the transfer block. It is «رقم مرجع التحويل» — a
+                    // number the BANK issues — so on a cash payout there is
+                    // nothing it could hold. Left outside, it invited an admin
+                    // to write something beside نقداً that the voucher would
+                    // then print as a transfer reference.
+                    TextField(
+                      controller: _reference,
+                      decoration: InputDecoration(labelText: l.reference),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                   ],
 
-                  TextField(
-                    controller: _reference,
-                    decoration: InputDecoration(labelText: l.reference),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: _handedBy,
                     decoration: InputDecoration(labelText: l.handedBy),
