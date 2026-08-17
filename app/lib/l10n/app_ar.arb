@@ -46,6 +46,11 @@
   "previouslyUsed": "المستعملة سابقاً",
   "bankAccountNoField": "رقم الحساب",
   "bankAccountNameField": "اسم صاحب الحساب",
+  "bankAccountNotSetYet": "لم تُسجَّل بيانات حساب الجمعية بعد، راجع إدارة الجمعية قبل التحويل",
+  "treasuryReadOnlyNote": "أرقام الجمعية للاطلاع فقط — لا توجد أي عملية يمكنك إجراؤها من هنا",
+  "@treasuryReadOnlyNote": {
+    "description": "Under the treasury figures in the عديل portal's المزيد sheet. A member seeing the association's money for the first time will reasonably wonder whether he is meant to act on it; the answer is no, and saying so is cheaper than letting him hunt for a button."
+  },
   "bankAccountNotConfigured": "لم يُسجَّل الحساب المصرفي للجمعية بعد — أضفه من الإعدادات. يمكنك تسجيل الحوالة الآن، لكن الإيصال لن يذكر حساباً.",
   "loading": "جارٍ التحميل...",
 
@@ -59,8 +64,14 @@
 
   "navHome": "الرئيسية",
   "navReceivables": "الاستحقاقات",
-  "navPayments": "التحصيل والسداد",
-  "navPaymentsShort": "السداد",
+  "navPayments": "العمليات",
+  "@navPayments": {
+    "description": "Was التحصيل والسداد. Renamed because the screen is becoming the home of BOTH directions of money — collections in, and disbursements out of the treasury."
+  },
+  "navPaymentsShort": "العمليات",
+  "opsCollections": "التحصيل",
+  "opsDisbursements": "الصرف",
+  "opsDisbursementsSoon": "نظام الصرف قيد الإنشاء — لم تُحدَّد بعد بيانات إيصال الصرف",
   "navCash": "الصندوق",
   "navStatements": "كشوف الحساب",
   "navAlerts": "التنبيهات",

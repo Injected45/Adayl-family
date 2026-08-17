@@ -319,6 +319,18 @@ abstract class L {
   /// **'اسم صاحب الحساب'**
   String get bankAccountNameField;
 
+  /// No description provided for @bankAccountNotSetYet.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تُسجَّل بيانات حساب الجمعية بعد، راجع إدارة الجمعية قبل التحويل'**
+  String get bankAccountNotSetYet;
+
+  /// Under the treasury figures in the عديل portal's المزيد sheet. A member seeing the association's money for the first time will reasonably wonder whether he is meant to act on it; the answer is no, and saying so is cheaper than letting him hunt for a button.
+  ///
+  /// In ar, this message translates to:
+  /// **'أرقام الجمعية للاطلاع فقط — لا توجد أي عملية يمكنك إجراؤها من هنا'**
+  String get treasuryReadOnlyNote;
+
   /// No description provided for @bankAccountNotConfigured.
   ///
   /// In ar, this message translates to:
@@ -385,17 +397,35 @@ abstract class L {
   /// **'الاستحقاقات'**
   String get navReceivables;
 
-  /// No description provided for @navPayments.
+  /// Was التحصيل والسداد. Renamed because the screen is becoming the home of BOTH directions of money — collections in, and disbursements out of the treasury.
   ///
   /// In ar, this message translates to:
-  /// **'التحصيل والسداد'**
+  /// **'العمليات'**
   String get navPayments;
 
   /// No description provided for @navPaymentsShort.
   ///
   /// In ar, this message translates to:
-  /// **'السداد'**
+  /// **'العمليات'**
   String get navPaymentsShort;
+
+  /// No description provided for @opsCollections.
+  ///
+  /// In ar, this message translates to:
+  /// **'التحصيل'**
+  String get opsCollections;
+
+  /// No description provided for @opsDisbursements.
+  ///
+  /// In ar, this message translates to:
+  /// **'الصرف'**
+  String get opsDisbursements;
+
+  /// No description provided for @opsDisbursementsSoon.
+  ///
+  /// In ar, this message translates to:
+  /// **'نظام الصرف قيد الإنشاء — لم تُحدَّد بعد بيانات إيصال الصرف'**
+  String get opsDisbursementsSoon;
 
   /// No description provided for @navCash.
   ///

@@ -59,3 +59,11 @@ final FutureProvider<List<Official>> officialsProvider =
     FutureProvider<List<Official>>(
       (Ref ref) => ref.watch(directoryRepositoryProvider).officials(),
     );
+
+/// The association's treasury totals. Watched by the عديل portal's المزيد sheet
+/// and by nothing else — staff read the same figures through v_cash_summary,
+/// which their RLS lets them see whole.
+final FutureProvider<AssociationFinance> associationFinanceProvider =
+    FutureProvider<AssociationFinance>(
+      (Ref ref) => ref.watch(directoryRepositoryProvider).associationFinance(),
+    );

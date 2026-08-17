@@ -381,6 +381,61 @@ LANGUAGE sql STABLE AS $$
   FROM public.profiles p WHERE p.id = auth.uid()
 $$;
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- GET /association/finance — the treasury, in totals, for an عديل to READ.
+--
+-- The association asked for "شفافية مطلقة": a member should be able to see
+-- where the collective money stands. He could not, and the reason is worth
+-- stating because it is a trap rather than an omission.
+--
+-- v_cash_summary is SECURITY INVOKER, and an عديل's RLS on cash_movements is
+-- `adeel_id = my_adeel_id()`. Pointing the portal at that view would have shown
+-- him HIS OWN four figures under headings that say "the association's" — not a
+-- leak, something worse: a wrong answer he had no way to doubt.
+--
+-- So this is SECURITY DEFINER and returns AGGREGATES ONLY. No name, no receipt,
+-- no row belonging to anybody. What the association holds, what it collected in
+-- each form, and what is still owed to it in total — the figures a member is
+-- entitled to and which say nothing about any particular neighbour.
+--
+-- READ ONLY, and there is no write anywhere near it. Everything that MOVES
+-- money is a separate require_role()-gated function; this one has no INSERT,
+-- no UPDATE and no argument to abuse.
+--
+-- The gate: an approved staff member, or an عديل bound to a row. `my_adeel_id()`
+-- carries the one-device rule, so the wrong handset gets nothing here either —
+-- the same clause that empties his portal empties this.
+CREATE OR REPLACE FUNCTION public.api_association_finance() RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE v_out jsonb;
+BEGIN
+  IF public.my_role() IS NULL AND public.my_adeel_id() IS NULL THEN
+    RAISE EXCEPTION 'FORBIDDEN' USING ERRCODE = 'RUL00';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'balance',  coalesce(sum(c.amount), 0)::numeric(12,2)::text,
+    'cash',     coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
+                         0)::numeric(12,2)::text,
+    'transfer', coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
+                         0)::numeric(12,2)::text)
+    INTO v_out
+    FROM public.cash_movements c
+   WHERE c.status <> 'ملغي';
+
+  RETURN v_out
+    || jsonb_build_object(
+         'issued', (SELECT coalesce(sum(r.total), 0)::numeric(12,2)::text
+                      FROM public.receivables r WHERE r.status <> 'ملغي'),
+         'outstanding', (SELECT coalesce(sum(r.balance), 0)::numeric(12,2)::text
+                           FROM public.receivables r WHERE r.status <> 'ملغي'),
+         -- Counts, not money, and deliberately only the two a member can already
+         -- infer from the register he is part of. No breakdown by person.
+         'members', (SELECT count(*) FROM public.adeels),
+         'activeMembers', (SELECT count(*) FROM public.adeels
+                            WHERE status = 'نشط'));
+END $$;
+
 -- Records the sign-in. SECURITY DEFINER because `last_login_at` lives on a table
 -- the client cannot write — and must not be able to, or it could rewrite anyone's.
 -- The WHERE clause pins it to the caller's own row regardless.
@@ -457,7 +512,8 @@ GRANT EXECUTE ON FUNCTION
   public.api_closable_periods(),
   public.api_settings(),
   public.api_me(),
-  public.api_touch_login()
+  public.api_touch_login(),
+  public.api_association_finance()
 TO authenticated;
 
 SELECT public.assert_no_public_execute();

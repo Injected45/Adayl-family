@@ -94,7 +94,13 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'api_closable_periods()',
     'api_settings()',
     'api_me()',
-    'api_touch_login()'
+    'api_touch_login()',
+    -- Aggregates only, and SECURITY DEFINER on purpose: an عديل's RLS on
+    -- cash_movements is `adeel_id = my_adeel_id()`, so a SECURITY INVOKER
+    -- version would show him HIS OWN four figures under headings that say
+    -- "the association's" — a wrong answer he has no way to doubt. It returns
+    -- no name, no receipt and no row, takes no argument, and writes nothing.
+    'api_association_finance()'
   ]::text[]
 $$;
 

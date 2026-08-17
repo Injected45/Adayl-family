@@ -75,6 +75,7 @@ AdeelDetail _detail() => AdeelDetail.fromJson(<String, dynamic>{
 
 void main() {
   _walletTests();
+  _moreSheetTests();
 
   final L l = LAr();
 
@@ -292,5 +293,182 @@ void _walletTests() {
     expect(old.netBalance, '40.00');
     expect(old.owes, isTrue);
     expect(old.inCredit, isFalse);
+  });
+}
+
+/// The المزيد sheet: everything about him that is not a figure, plus the
+/// association's treasury for transparency.
+///
+/// The security-relevant test is the last one. `v_cash_summary` is SECURITY
+/// INVOKER and an عديل's RLS scopes cash_movements to his own receipts, so
+/// pointing this sheet at the admin's treasury source would have shown him HIS
+/// four figures under headings that say "the association's" — not a leak,
+/// something worse: a wrong answer he had no way to doubt. It must come from
+/// api_association_finance(), which is SECURITY DEFINER and aggregates only.
+void _moreSheetTests() {
+  final L l = LAr();
+
+  Widget app({
+    AssociationSettingsView? settings,
+    List<Official>? officials,
+    AssociationFinance? finance,
+  }) => ProviderScope(
+    overrides: <Override>[
+      authControllerProvider.overrideWith(() => _Auth(false)),
+      adeelDetailProvider(1).overrideWith((Ref ref) async => _detail()),
+      statementProvider(1).overrideWith(
+        (Ref ref) async => const Statement(
+          movements: <StatementMovement>[],
+          closingBalance: '20.00',
+        ),
+      ),
+      settingsProvider.overrideWith(
+        (Ref ref) async =>
+            settings ??
+            const AssociationSettingsView(
+              associationName: 'جمعية العدايل',
+              currency: 'د.ل',
+              memberFee: '100.00',
+              bankName: 'التجاري الوطني',
+              bankAccountNo: '0021-000-1234',
+              bankAccountName: 'جمعية العدايل',
+            ),
+      ),
+      officialsProvider.overrideWith(
+        (Ref ref) async =>
+            officials ??
+            const <Official>[
+              Official(
+                role: 'treasurer',
+                name: 'المهدي عبدالله محمد',
+                phone: '0925093709',
+              ),
+            ],
+      ),
+      associationFinanceProvider.overrideWith(
+        (Ref ref) async =>
+            finance ??
+            const AssociationFinance(
+              balance: '700.00',
+              cash: '450.00',
+              transfer: '250.00',
+              issued: '5600.00',
+              outstanding: '4900.00',
+              members: 8,
+              activeMembers: 8,
+            ),
+      ),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('ar'),
+      localizationsDelegates: L.localizationsDelegates,
+      supportedLocales: L.supportedLocales,
+      home: const AdeelPortalScreen(),
+    ),
+  );
+
+  Future<void> openSheet(WidgetTester tester, Widget w) async {
+    tester.view.physicalSize = const Size(411, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(w);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip(LAr().navMore));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('المزيد opens, and the page itself carries no logout button', (
+    WidgetTester tester,
+  ) async {
+    // Signing out moved INTO the sheet: it is the least used control on the
+    // screen and it was holding the header's only action slot.
+    //
+    // Sized like the other sheet tests — the sheet is capped at 75% of the
+    // viewport, and on the tester's default 800x600 the last item falls below
+    // the fold and is simply never built.
+    tester.view.physicalSize = const Size(411, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.byTooltip(l.signOut), findsNothing);
+    expect(find.byTooltip(l.navMore), findsOneWidget);
+
+    await tester.tap(find.byTooltip(l.navMore));
+    await tester.pumpAndSettle();
+    expect(find.text(l.signOut), findsOneWidget);
+  });
+
+  testWidgets('it tells him where to send a transfer', (
+    WidgetTester tester,
+  ) async {
+    // He is the man being asked to pay and the app never told him where. RLS
+    // already allowed it — read_settings_adeel exists for this reason.
+    await openSheet(tester, app());
+
+    expect(find.text(l.bankAccountSection), findsOneWidget);
+    expect(find.text('التجاري الوطني'), findsOneWidget);
+    expect(find.text('0021-000-1234'), findsOneWidget);
+  });
+
+  testWidgets('and who to ring, by post', (WidgetTester tester) async {
+    await openSheet(tester, app());
+
+    expect(find.text(l.treasurerSection), findsOneWidget);
+    expect(find.text('المهدي عبدالله محمد'), findsWidgets);
+    expect(find.text('0925093709'), findsOneWidget);
+    // The wire value must not reach the screen. It is ASCII, so the
+    // Arabic-literal lint cannot see it.
+    expect(find.text('treasurer'), findsNothing);
+  });
+
+  testWidgets('an unset bank account says so instead of showing blanks', (
+    WidgetTester tester,
+  ) async {
+    await openSheet(
+      tester,
+      app(
+        settings: const AssociationSettingsView(
+          associationName: 'جمعية العدايل',
+          currency: 'د.ل',
+          memberFee: '100.00',
+          bankName: '',
+          bankAccountNo: '',
+          bankAccountName: '',
+        ),
+      ),
+    );
+
+    expect(find.text(l.bankAccountNotSetYet), findsOneWidget);
+  });
+
+  testWidgets('the treasury is the ASSOCIATION\'s figures, and says it is read-only', (
+    WidgetTester tester,
+  ) async {
+    // The one that matters. His own balance is 20.00; the association's is
+    // 700.00 with 4,900.00 outstanding. If this section ever showed his own
+    // numbers — which is exactly what v_cash_summary would return for him,
+    // because it is SECURITY INVOKER — the headings would be lying and nothing
+    // on screen would betray it.
+    await openSheet(tester, app());
+
+    expect(find.text(l.navCash), findsOneWidget);
+    expect(find.text(formatMoney('700.00')), findsOneWidget);
+    expect(find.text(formatMoney('450.00')), findsOneWidget);
+    expect(find.text(formatMoney('4900.00')), findsOneWidget);
+
+    // Read-only, said out loud: a member seeing the treasury for the first
+    // time will look for something to do about it.
+    expect(find.text(l.treasuryReadOnlyNote), findsOneWidget);
+
+    // And nothing here is an action. The only button in the sheet is the way
+    // out of the app.
+    final Iterable<Widget> buttons = tester.widgetList(
+      find.byType(OutlinedButton),
+    );
+    expect(buttons.length, 1);
   });
 }

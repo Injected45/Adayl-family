@@ -128,6 +128,14 @@ class LAr extends L {
   String get bankAccountNameField => 'اسم صاحب الحساب';
 
   @override
+  String get bankAccountNotSetYet =>
+      'لم تُسجَّل بيانات حساب الجمعية بعد، راجع إدارة الجمعية قبل التحويل';
+
+  @override
+  String get treasuryReadOnlyNote =>
+      'أرقام الجمعية للاطلاع فقط — لا توجد أي عملية يمكنك إجراؤها من هنا';
+
+  @override
   String get bankAccountNotConfigured =>
       'لم يُسجَّل الحساب المصرفي للجمعية بعد — أضفه من الإعدادات. يمكنك تسجيل الحوالة الآن، لكن الإيصال لن يذكر حساباً.';
 
@@ -165,10 +173,20 @@ class LAr extends L {
   String get navReceivables => 'الاستحقاقات';
 
   @override
-  String get navPayments => 'التحصيل والسداد';
+  String get navPayments => 'العمليات';
 
   @override
-  String get navPaymentsShort => 'السداد';
+  String get navPaymentsShort => 'العمليات';
+
+  @override
+  String get opsCollections => 'التحصيل';
+
+  @override
+  String get opsDisbursements => 'الصرف';
+
+  @override
+  String get opsDisbursementsSoon =>
+      'نظام الصرف قيد الإنشاء — لم تُحدَّد بعد بيانات إيصال الصرف';
 
   @override
   String get navCash => 'الصندوق';

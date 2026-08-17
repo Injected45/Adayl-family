@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/glass.dart';
@@ -130,11 +131,22 @@ class AdeelPortalScreen extends ConsumerWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
+                    // ── المزيد ──────────────────────────────────────────────
+                    // Everything about HIM that is not a figure: his own
+                    // details, where to send a transfer, who to ring, and the
+                    // way out. Signing out moved inside it — it is the least
+                    // used control on the screen and it was occupying the only
+                    // action slot the header has.
+                    //
+                    // The sheet holds nothing the association owns. Every item
+                    // in it is already readable to him under RLS: his own row
+                    // through my_adeel_id(), and the bank account and officials
+                    // through read_settings_adeel, which exists precisely
+                    // because he is the man being asked to pay.
                     IconButton(
-                      onPressed: () =>
-                          ref.read(authControllerProvider.notifier).signOut(),
-                      icon: const Icon(Icons.logout),
-                      tooltip: l.signOut,
+                      onPressed: () => _showPortalMore(context, adeelId),
+                      icon: const Icon(Icons.grid_view_rounded),
+                      tooltip: l.navMore,
                     ),
                   ],
                 ),
@@ -275,6 +287,373 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
         const SizedBox(height: AppSpacing.xl),
         _IdentityPanel(detail: detail),
       ],
+    );
+  }
+}
+
+/// Everything about him that is not a figure.
+///
+/// The portal answers one question on its face — what do I owe — and the rest
+/// of what a member occasionally needs was either crowding that answer or had
+/// nowhere to live at all. This is where it went:
+///
+///   • his own details, which used to be a panel at the foot of the page;
+///   • the association's bank account, which he had NO way to see and is the
+///     man being asked to transfer to it;
+///   • the treasurer and the finance manager, with their numbers, so "who do I
+///     ring about this" has an answer inside the app;
+///   • signing out.
+///
+/// ── Nothing here is a new privilege ─────────────────────────────────────────
+/// Every item is already readable to him under the policies in
+/// 20260811090500_rls.sql. His own row comes through `my_adeel_id()`, and the
+/// bank account and the officials come through `read_settings_adeel`, which was
+/// written for exactly this reason: "he is being billed by these figures, so
+/// withholding them would make his own statement unreadable... that is who he
+/// pays." Not one line of SQL changed to build this screen, and if a policy
+/// ever tightened, these sections would empty out rather than leak.
+///
+/// There is deliberately no "settings" section. A member has nothing he can
+/// configure — every writable setting belongs to the association — and a page
+/// of controls that save nothing is worse than no page.
+void _showPortalMore(BuildContext context, int adeelId) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: AppColors.ink.withValues(alpha: 0.22),
+    builder: (BuildContext sheetContext) => _PortalMoreSheet(adeelId: adeelId),
+  );
+}
+
+class _PortalMoreSheet extends ConsumerWidget {
+  const _PortalMoreSheet({required this.adeelId});
+
+  final int adeelId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<AdeelDetail> detail = ref.watch(
+      adeelDetailProvider(adeelId),
+    );
+    final AsyncValue<AssociationSettingsView> settings = ref.watch(
+      settingsProvider,
+    );
+    final AsyncValue<List<Official>> officials = ref.watch(officialsProvider);
+    final AsyncValue<AssociationFinance> finance = ref.watch(
+      associationFinanceProvider,
+    );
+
+    return GlassSurface(
+      lifted: true,
+      fill: GlassColors.overlay,
+      margin: const EdgeInsets.all(AppSpacing.md),
+      child: SafeArea(
+        child: ConstrainedBox(
+          // Never taller than three quarters of the phone: a sheet that fills
+          // the screen is a page wearing the wrong shape, and the balance
+          // behind it is what tells him he has not left the portal.
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            children: <Widget>[
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.inkMuted.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // ── His own details ────────────────────────────────────────────
+              _SheetSection(icon: Icons.badge_outlined, title: l.myDetailsTitle),
+              detail.when(
+                loading: () => const LinearProgressIndicator(minHeight: 2),
+                error: (Object e, StackTrace _) =>
+                    _SheetNote(describeApiFailure(l, e)),
+                data: (AdeelDetail d) => Column(
+                  children: <Widget>[
+                    _SheetRow(label: l.fullNameField, value: d.adeel.fullName),
+                    _SheetRow(label: l.receiptNo, value: d.adeel.adeelCode),
+                    _SheetRow(
+                      label: l.statusLabel,
+                      value: d.adeel.membershipStatus,
+                    ),
+                    _SheetRow(label: l.phone, value: d.adeel.phone),
+                    _SheetRow(
+                      label: l.registeredAt,
+                      value: formatDate(d.adeel.registeredAt),
+                    ),
+                    _SheetRow(
+                      label: l.monthlyFeeLabel,
+                      value: formatMoney(d.monthlyExpected),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // ── Where to send a transfer ───────────────────────────────────
+              // He is the one being asked to pay and, until now, the app never
+              // told him where. `read_settings_adeel` was written for this.
+              _SheetSection(
+                icon: Icons.account_balance_outlined,
+                title: l.bankAccountSection,
+              ),
+              settings.when(
+                loading: () => const LinearProgressIndicator(minHeight: 2),
+                error: (Object e, StackTrace _) =>
+                    _SheetNote(describeApiFailure(l, e)),
+                data: (AssociationSettingsView s) => !s.hasBankAccount
+                    ? _SheetNote(l.bankAccountNotSetYet)
+                    : Column(
+                        children: <Widget>[
+                          _SheetRow(label: l.bankNameField, value: s.bankName),
+                          // COPYABLE, and only this one. An account number is
+                          // the single field here where retyping a digit sends
+                          // the money to a stranger.
+                          _SheetRow(
+                            label: l.bankAccountNoField,
+                            value: s.bankAccountNo,
+                            copyable: true,
+                          ),
+                          _SheetRow(
+                            label: l.bankAccountNameField,
+                            value: s.bankAccountName,
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // ── Who to ring ────────────────────────────────────────────────
+              _SheetSection(
+                icon: Icons.contact_phone_outlined,
+                title: l.navOfficials,
+              ),
+              officials.when(
+                loading: () => const LinearProgressIndicator(minHeight: 2),
+                error: (Object e, StackTrace _) =>
+                    _SheetNote(describeApiFailure(l, e)),
+                data: (List<Official> people) => Column(
+                  children: <Widget>[
+                    for (final Official o in people)
+                      _SheetRow(
+                        label: switch (o.role) {
+                          OfficialRoleWire.treasurer => l.treasurerSection,
+                          OfficialRoleWire.financeManager =>
+                            l.financeManagerSection,
+                          _ => o.role,
+                        },
+                        value: o.name.isEmpty ? l.notAssigned : o.name,
+                        trailing: o.phone.isEmpty ? null : o.phone,
+                        copyable: o.phone.isNotEmpty,
+                        copyText: o.phone,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // ── الصندوق, for a member to READ ──────────────────────────────
+              // "شفافية مطلقة": where the collective money stands, shown to the
+              // people it belongs to.
+              //
+              // It comes from api_association_finance(), NOT from the treasury
+              // view the admin screen uses. That view is SECURITY INVOKER and
+              // his RLS scopes cash_movements to `adeel_id = my_adeel_id()`, so
+              // pointing this at it would have shown him HIS OWN four figures
+              // under headings that say "the association's" — not a leak,
+              // something worse: a wrong answer he had no way to doubt.
+              //
+              // Aggregates only: no name, no receipt, no per-member figure. And
+              // no action anywhere on it — the note under it says so, because a
+              // member seeing the treasury for the first time will reasonably
+              // wonder whether he is meant to do something about it.
+              _SheetSection(
+                icon: Icons.savings_outlined,
+                title: l.navCash,
+              ),
+              finance.when(
+                loading: () => const LinearProgressIndicator(minHeight: 2),
+                error: (Object e, StackTrace _) =>
+                    _SheetNote(describeApiFailure(l, e)),
+                data: (AssociationFinance f) => Column(
+                  children: <Widget>[
+                    _SheetRow(
+                      label: l.collectedCash,
+                      value: formatMoney(f.cash),
+                    ),
+                    _SheetRow(
+                      label: l.collectedTransfer,
+                      value: formatMoney(f.transfer),
+                    ),
+                    _SheetRow(
+                      label: l.dueFromMembers,
+                      value: formatMoney(f.outstanding),
+                    ),
+                    _SheetRow(
+                      label: l.associationBalance,
+                      value: formatMoney(f.balance),
+                    ),
+                    _SheetRow(
+                      label: l.statAdeels,
+                      value: '${f.members}',
+                      trailing: l.subActive(f.activeMembers),
+                    ),
+                    _SheetNote(l.treasuryReadOnlyNote),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ref.read(authControllerProvider.notifier).signOut();
+                },
+                icon: const Icon(Icons.logout, color: AppColors.danger),
+                label: Text(
+                  l.signOut,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetSection extends StatelessWidget {
+  const _SheetSection({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+    child: Row(
+      children: <Widget>[
+        Icon(icon, size: 18, color: AppColors.brandDeep),
+        const SizedBox(width: AppSpacing.sm),
+        // Expanded, because a section heading is the one thing here whose width
+        // is not under this file's control: "الحساب المصرفي للجمعية" at a large
+        // system font overflows the row by a pixel or two, and an overflow is a
+        // rendering error rather than a cosmetic one.
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SheetNote extends StatelessWidget {
+  const _SheetNote(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.muted),
+    ),
+  );
+}
+
+class _SheetRow extends StatelessWidget {
+  const _SheetRow({
+    required this.label,
+    required this.value,
+    this.trailing,
+    this.copyable = false,
+    this.copyText,
+  });
+
+  final String label;
+  final String value;
+  final String? trailing;
+  final bool copyable;
+  final String? copyText;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final String shown = value.trim().isEmpty ? l.notProvided : value;
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: AppColors.muted),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  shown,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (trailing != null && trailing!.trim().isNotEmpty)
+                  Text(
+                    trailing!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.muted,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (copyable)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: l.copy,
+              icon: const Icon(Icons.copy, size: 16),
+              onPressed: () {
+                Clipboard.setData(
+                  ClipboardData(text: copyText ?? value),
+                );
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(SnackBar(content: Text(l.copied)));
+              },
+            ),
+        ],
+      ),
     );
   }
 }

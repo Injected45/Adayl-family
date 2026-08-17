@@ -129,6 +129,14 @@ class LEn extends L {
   String get bankAccountNameField => 'Account holder name';
 
   @override
+  String get bankAccountNotSetYet =>
+      'The association has not recorded its bank details yet — ask before transferring';
+
+  @override
+  String get treasuryReadOnlyNote =>
+      'The association figures are for information only — there is nothing to do from here';
+
+  @override
   String get bankAccountNotConfigured =>
       'No association bank account set yet — add it in Settings. You can still record the transfer, but the receipt will name no account.';
 
@@ -166,10 +174,20 @@ class LEn extends L {
   String get navReceivables => 'Receivables';
 
   @override
-  String get navPayments => 'Collections';
+  String get navPayments => 'Operations';
 
   @override
-  String get navPaymentsShort => 'Pay';
+  String get navPaymentsShort => 'Ops';
+
+  @override
+  String get opsCollections => 'Collections';
+
+  @override
+  String get opsDisbursements => 'Disbursements';
+
+  @override
+  String get opsDisbursementsSoon =>
+      'The disbursement system is being built — the voucher fields are not settled yet';
 
   @override
   String get navCash => 'Treasury';

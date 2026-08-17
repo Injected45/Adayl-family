@@ -43,6 +43,8 @@
   "previouslyUsed": "Used before",
   "bankAccountNoField": "Account number",
   "bankAccountNameField": "Account holder name",
+  "bankAccountNotSetYet": "The association has not recorded its bank details yet — ask before transferring",
+  "treasuryReadOnlyNote": "The association figures are for information only — there is nothing to do from here",
   "bankAccountNotConfigured": "No association bank account set yet — add it in Settings. You can still record the transfer, but the receipt will name no account.",
   "loading": "Loading...",
 
@@ -56,8 +58,11 @@
 
   "navHome": "Home",
   "navReceivables": "Receivables",
-  "navPayments": "Collections",
-  "navPaymentsShort": "Pay",
+  "navPayments": "Operations",
+  "navPaymentsShort": "Ops",
+  "opsCollections": "Collections",
+  "opsDisbursements": "Disbursements",
+  "opsDisbursementsSoon": "The disbursement system is being built — the voucher fields are not settled yet",
   "navCash": "Treasury",
   "navStatements": "Statements",
   "navAlerts": "Alerts",

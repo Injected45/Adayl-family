@@ -364,3 +364,49 @@ class Statement {
   final List<StatementMovement> movements;
   final String closingBalance;
 }
+
+/// The association's treasury, in totals, as an عديل may read it.
+///
+/// Every field is an AGGREGATE. There is no name, no receipt and no per-member
+/// figure in here, and that is the line between "transparency about the
+/// collective purse" and "reading a neighbour's affairs" — the association
+/// asked for the first and the second is what RLS spends its whole existence
+/// preventing.
+///
+/// Read-only in the strongest sense available: the RPC behind it takes no
+/// argument and performs no write, and nothing on the portal offers an action
+/// against it.
+class AssociationFinance {
+  const AssociationFinance({
+    required this.balance,
+    required this.cash,
+    required this.transfer,
+    required this.issued,
+    required this.outstanding,
+    required this.members,
+    required this.activeMembers,
+  });
+
+  /// What the association holds: every approved collection, cancellations out.
+  final String balance;
+  final String cash;
+  final String transfer;
+
+  /// Everything ever charged to everybody, and what of it is still unpaid.
+  final String issued;
+  final String outstanding;
+
+  final int members;
+  final int activeMembers;
+
+  factory AssociationFinance.fromJson(Map<String, dynamic> json) =>
+      AssociationFinance(
+        balance: _string(json['balance']),
+        cash: _string(json['cash']),
+        transfer: _string(json['transfer']),
+        issued: _string(json['issued']),
+        outstanding: _string(json['outstanding']),
+        members: _int(json['members']),
+        activeMembers: _int(json['activeMembers']),
+      );
+}

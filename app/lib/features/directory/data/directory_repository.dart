@@ -37,6 +37,24 @@ class DirectoryRepository {
         return AssociationSettingsView.fromJson(_obj(row));
       });
 
+  /// The association's treasury, in totals — readable by a member as well as by
+  /// staff, for the transparency the association asked for.
+  ///
+  /// An RPC rather than `v_cash_summary`, and that is the whole point: the view
+  /// is SECURITY INVOKER and an عديل's RLS on cash_movements scopes it to his
+  /// OWN receipts, so it would have shown him his four figures under headings
+  /// that say "the association's". `api_association_finance()` is SECURITY
+  /// DEFINER and returns aggregates only — no name, no receipt, no row.
+  Future<AssociationFinance> associationFinance() =>
+      SupabaseFailures.guard(() async {
+        final dynamic payload = await _db.rpc<dynamic>(
+          'api_association_finance',
+        );
+        return AssociationFinance.fromJson(
+          (payload as Map).cast<String, dynamic>(),
+        );
+      });
+
   Future<List<Official>> officials() => SupabaseFailures.guard(() async {
     final dynamic rows = await _db.from('v_officials').select();
     return _rows(rows).map(Official.fromJson).toList();

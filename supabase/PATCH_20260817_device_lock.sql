@@ -56,7 +56,7 @@
 --     CREATE OR REPLACE cannot add a parameter, and leaving the one-argument
 --     version beside the two-argument one makes every call ambiguous (42725).
 --     Dropping a FUNCTION destroys no data and touches no row. Its EXECUTE
---     grant goes with it and is re-issued by the lockdown sweep in section 11.
+--     grant goes with it and is re-issued by the lockdown sweep in section 12.
 --
 --     Nothing else is dropped. No DROP SCHEMA, no DROP TABLE, no DROP TRIGGER,
 --     no TRUNCATE, no DELETE, and nothing touching auth.users or profiles rows.
@@ -911,7 +911,56 @@ SELECT
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 
--- == 10. The lockdown allow-list, restated for the new signature ============
+-- == 10. The treasury, for a MEMBER to read =================================
+-- "شفافية مطلقة": the association wanted a member able to see where the
+-- collective money stands.
+--
+-- ⚠ IT CANNOT BE v_cash_summary, AND THE REASON IS A TRAP RATHER THAN A LIMIT.
+--   That view is SECURITY INVOKER, and an عديل's RLS on cash_movements is
+--   `adeel_id = my_adeel_id()`. Pointing the portal at it would have shown him
+--   HIS OWN four figures under headings that say "the association's" — not a
+--   leak, something worse: a wrong answer with nothing on screen to doubt.
+--
+-- So: SECURITY DEFINER, and AGGREGATES ONLY. No name, no receipt, no row
+-- belonging to anybody, no argument to abuse, and no write. What the
+-- association holds, how it arrived, and what is still owed to it in total —
+-- which says nothing about any particular neighbour.
+--
+-- The gate is approved staff OR an عديل bound to a row, and `my_adeel_id()`
+-- carries the one-device rule, so the wrong handset is refused here by the same
+-- clause that empties his portal.
+CREATE OR REPLACE FUNCTION public.api_association_finance() RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE v_out jsonb;
+BEGIN
+  IF public.my_role() IS NULL AND public.my_adeel_id() IS NULL THEN
+    RAISE EXCEPTION 'FORBIDDEN' USING ERRCODE = 'RUL00';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'balance',  coalesce(sum(c.amount), 0)::numeric(12,2)::text,
+    'cash',     coalesce(sum(c.amount) FILTER (WHERE c.method = 'نقداً'),
+                         0)::numeric(12,2)::text,
+    'transfer', coalesce(sum(c.amount) FILTER (WHERE c.method = 'تحويل مصرفي'),
+                         0)::numeric(12,2)::text)
+    INTO v_out
+    FROM public.cash_movements c
+   WHERE c.status <> 'ملغي';
+
+  RETURN v_out
+    || jsonb_build_object(
+         'issued', (SELECT coalesce(sum(r.total), 0)::numeric(12,2)::text
+                      FROM public.receivables r WHERE r.status <> 'ملغي'),
+         'outstanding', (SELECT coalesce(sum(r.balance), 0)::numeric(12,2)::text
+                           FROM public.receivables r WHERE r.status <> 'ملغي'),
+         -- Counts, not money, and deliberately only the two a member can already
+         -- infer from the register he is part of. No breakdown by person.
+         'members', (SELECT count(*) FROM public.adeels),
+         'activeMembers', (SELECT count(*) FROM public.adeels
+                            WHERE status = 'نشط'));
+END $$;
+
+-- == 11. The lockdown allow-list, restated for the new signature ============
 -- An EXACT set. It has to name redeem_adeel_code(text,text) and the new
 -- request_device_id(), or assert_function_grants() fails in both directions and
 -- the whole patch rolls back.
@@ -974,14 +1023,20 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'api_closable_periods()',
     'api_settings()',
     'api_me()',
-    'api_touch_login()'
+    'api_touch_login()',
+    -- Aggregates only, and SECURITY DEFINER on purpose: an عديل's RLS on
+    -- cash_movements is `adeel_id = my_adeel_id()`, so a SECURITY INVOKER
+    -- version would show him HIS OWN four figures under headings that say
+    -- "the association's" — a wrong answer he has no way to doubt. It returns
+    -- no name, no receipt and no row, takes no argument, and writes nothing.
+    'api_association_finance()'
   ]::text[]
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions()
   FROM PUBLIC, anon, authenticated, service_role;
 
--- == 11. Re-run the lockdown sweep =========================================
+-- == 12. Re-run the lockdown sweep =========================================
 -- Byte-for-byte the loop from 20260811091200_function_lockdown.sql, which runs
 -- LAST on a full apply. A patch gets no such sweep for free, and every function
 -- it creates FRESH — request_device_id here, redeem_adeel_code after the DROP —

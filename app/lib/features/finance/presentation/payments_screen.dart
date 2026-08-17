@@ -19,8 +19,91 @@ import '../domain/models.dart';
 import 'payment_sheet.dart';
 import 'providers.dart';
 
-class PaymentsScreen extends ConsumerWidget {
+/// Which direction of money the screen is showing.
+///
+/// The screen was «التحصيل والسداد» and listed one thing: money coming IN. It
+/// is becoming «العمليات» — both directions — because the association is adding
+/// disbursement, and a treasury app in which money can only arrive is not a
+/// treasury app.
+enum _Ops { collections, disbursements }
+
+class PaymentsScreen extends ConsumerStatefulWidget {
   const PaymentsScreen({super.key});
+
+  @override
+  ConsumerState<PaymentsScreen> createState() => _PaymentsScreenState();
+}
+
+class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
+  _Ops _tab = _Ops.collections;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final AppRole role =
+        ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
+
+    return AppScaffold(
+      title: l.navPayments,
+      currentRoute: AppRoutes.payments,
+      // The button belongs to the TAB, not to the screen: "تسجيل سداد" on the
+      // disbursement tab would take money in while the reader is looking at
+      // money going out, which is the one confusion a two-direction screen
+      // exists to prevent. The disbursement tab has no button yet — there is
+      // nothing behind it to press.
+      floatingActionButton:
+          _tab == _Ops.collections && role.atLeast(AppRole.treasurer)
+          ? FloatingActionButton.extended(
+              onPressed: () => showPaymentSheet(context),
+              icon: const Icon(Icons.add),
+              label: Text(l.registerPayment),
+            )
+          : null,
+      body: (BuildContext context) => Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              0,
+            ),
+            child: SegmentedButton<_Ops>(
+              segments: <ButtonSegment<_Ops>>[
+                ButtonSegment<_Ops>(
+                  value: _Ops.collections,
+                  label: Text(l.opsCollections),
+                  icon: const Icon(Icons.south_west, size: 18),
+                ),
+                ButtonSegment<_Ops>(
+                  value: _Ops.disbursements,
+                  label: Text(l.opsDisbursements),
+                  icon: const Icon(Icons.north_east, size: 18),
+                ),
+              ],
+              selected: <_Ops>{_tab},
+              showSelectedIcon: false,
+              onSelectionChanged: (Set<_Ops> v) =>
+                  setState(() => _tab = v.first),
+            ),
+          ),
+          Expanded(
+            child: _tab == _Ops.collections
+                ? const _CollectionsTab()
+                : EmptyStateView(
+                    icon: Icons.north_east,
+                    title: l.opsDisbursements,
+                    message: l.opsDisbursementsSoon,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionsTab extends ConsumerWidget {
+  const _CollectionsTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,48 +112,39 @@ class PaymentsScreen extends ConsumerWidget {
     final AppRole role =
         ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
 
-    return AppScaffold(
-      title: l.navPayments,
-      currentRoute: AppRoutes.payments,
-      // A treasurer may take money; a viewer may not.
-      floatingActionButton: role.atLeast(AppRole.treasurer)
-          ? FloatingActionButton.extended(
-              onPressed: () => showPaymentSheet(context),
-              icon: const Icon(Icons.add),
-              label: Text(l.registerPayment),
-            )
-          : null,
-      body: (BuildContext context) => AsyncView<List<PaymentView>>(
-        value: payments,
-        onRetry: () => ref.invalidate(paymentsProvider),
-        builder: (List<PaymentView> items) => ListView(
-          padding: screenPadding(context),
-          children: <Widget>[
-            // The FIFO rule must be visible, not implicit — index.html:597.
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.infoSoft,
-                borderRadius: BorderRadius.circular(AppRadius.control),
-              ),
-              child: Text(
-                l.paymentsIntro,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF1E3A8A),
-                  height: 1.5,
-                ),
+    // No AppScaffold here any more: this is a TAB inside one, and nesting a
+    // second scaffold would give the screen two app bars and two navigation
+    // pills. The bottom inset still comes from the outer scaffold, which
+    // publishes it as MediaQuery padding for exactly this reason.
+    return AsyncView<List<PaymentView>>(
+      value: payments,
+      onRetry: () => ref.invalidate(paymentsProvider),
+      builder: (List<PaymentView> items) => ListView(
+        padding: screenPadding(context),
+        children: <Widget>[
+          // The FIFO rule must be visible, not implicit — index.html:597.
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.infoSoft,
+              borderRadius: BorderRadius.circular(AppRadius.control),
+            ),
+            child: Text(
+              l.paymentsIntro,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF1E3A8A),
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            if (items.isEmpty)
-              EmptyStateView(icon: Icons.payments_outlined, title: l.noPayments)
-            else
-              for (final PaymentView payment in items)
-                _PaymentCard(payment: payment, role: role),
-            const SizedBox(height: 72),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (items.isEmpty)
+            EmptyStateView(icon: Icons.payments_outlined, title: l.noPayments)
+          else
+            for (final PaymentView payment in items)
+              _PaymentCard(payment: payment, role: role),
+        ],
       ),
     );
   }
