@@ -222,7 +222,18 @@ SELECT probe.eq('round', 'no payment anywhere carries more than two decimals',
   $sql$ SELECT count(*)::text FROM public.payments WHERE scale(amount) > 2 $sql$, '0');
 
 -- ═════════════════════════════════════════════════════════════════════════════
---  EXACTNESS — rule 7 bites at the cent, not near it
+--  EXACTNESS — the ALLOCATION bites at the cent, not near it
+--
+--  This group used to assert that rule 7 REFUSED a payment over the balance.
+--  That cap is gone, deliberately: the association asked for a wallet, and a man
+--  may now hand over more than he owes. What survives — and what actually
+--  protects the books — is that the surplus is never ALLOCATED. A cent that ends
+--  up on a receivable it does not belong to is money invented; a cent that ends
+--  up in the wallet is money held.
+--
+--  So the same fixture now proves the split rather than the refusal, and it is
+--  the stronger of the two: a refusal only says the number was rejected, while
+--  this says where every unit of it went.
 -- ═════════════════════════════════════════════════════════════════════════════
 
 SELECT probe.eq('exact', 'he now owes exactly 49.99',
@@ -233,19 +244,53 @@ SELECT probe.eq('exact', 'he now owes exactly 49.99',
 SET ROLE authenticated;
 SELECT probe.become('00000000-0000-0000-0000-0000000000a3');
 
-SELECT probe.raises('exact', 'one cent over the balance is refused',
-  $sql$ SELECT public.register_payment((SELECT payer FROM mfix), 50.00, 'نقداً') $sql$,
-  'RUL07');
-
-SELECT probe.succeeds('exact', 'the balance to the cent is accepted',
-  $sql$ SELECT public.register_payment((SELECT payer FROM mfix), 49.99,
-                                       'تحويل مصرفي') $sql$);
-
-SELECT probe.raises('exact', 'and nothing more can be collected from him',
-  $sql$ SELECT public.register_payment((SELECT payer FROM mfix), 0.01, 'نقداً') $sql$,
-  'RUL07');
+-- 50.00 against a 49.99 balance. One cent more than is owed, which is the
+-- smallest overpayment the schema can express.
+SELECT probe.succeeds('exact', 'one cent over the balance is now ACCEPTED', $sql$
+  SELECT public.register_payment((SELECT payer FROM mfix), 50.00, 'نقداً')
+$sql$);
 
 RESET ROLE;
+
+SELECT probe.eq('exact', '...allocating exactly 49.99 of it, not 50.00',
+  $sql$ SELECT coalesce(sum(a.amount), 0)::numeric(12,2)::text
+          FROM public.payment_allocations a
+          JOIN public.payments p ON p.id = a.payment_id
+         WHERE p.adeel_id = (SELECT payer FROM mfix) AND p.amount = 50.00
+           AND p.status <> 'ملغي' $sql$, '49.99');
+SELECT probe.eq('exact', '...and leaving the odd cent in his wallet',
+  $sql$ SELECT (p.amount - coalesce((SELECT sum(a.amount)
+                                       FROM public.payment_allocations a
+                                      WHERE a.payment_id = p.id), 0))
+               ::numeric(12,2)::text
+          FROM public.payments p
+         WHERE p.adeel_id = (SELECT payer FROM mfix) AND p.amount = 50.00
+           AND p.status <> 'ملغي' $sql$, '0.01');
+SELECT probe.eq('exact', '...so he owes nothing at all now',
+  $sql$ SELECT coalesce(sum(balance), 0)::numeric(12,2)::text
+          FROM public.receivables
+         WHERE adeel_id = (SELECT payer FROM mfix) AND status <> 'ملغي' $sql$,
+  '0.00');
+
+SET ROLE authenticated;
+SELECT probe.become('00000000-0000-0000-0000-0000000000a3');
+
+-- Paying a man who owes NOTHING was the other half of the old rule 7, and is
+-- now the wallet's whole purpose. It must allocate nothing whatsoever — the
+-- receivables are settled, and an allocation here would have to attach itself to
+-- a month already paid.
+SELECT probe.succeeds('exact', 'a man who owes nothing may still pay in', $sql$
+  SELECT public.register_payment((SELECT payer FROM mfix), 0.01, 'نقداً')
+$sql$);
+
+RESET ROLE;
+
+SELECT probe.eq('exact', '...and NONE of it is allocated to a settled month',
+  $sql$ SELECT coalesce(sum(a.amount), 0)::numeric(12,2)::text
+          FROM public.payment_allocations a
+          JOIN public.payments p ON p.id = a.payment_id
+         WHERE p.adeel_id = (SELECT payer FROM mfix) AND p.amount = 0.01 $sql$,
+  '0.00');
 
 SELECT probe.eq('exact', 'all three months settled to exactly zero',
   $sql$ SELECT coalesce(sum(balance), 0)::text || '/' || count(*)::text
@@ -346,10 +391,15 @@ SELECT "total"::numeric AS before_ FROM public.v_cash_summary;
 SET ROLE authenticated;
 SELECT probe.become('00000000-0000-0000-0000-0000000000a2');  -- finance manager
 
-SELECT probe.succeeds('reversal', 'the 49.99 transfer is cancelled', $sql$
+-- The 50.00 cash receipt — the one that settled him and left a cent over. It is
+-- the interesting one to reverse precisely BECAUSE it was split two ways: the
+-- 49.99 must come off the receivables and the 0.01 must leave the wallet, and a
+-- reversal that unpicked only the allocated part would leave credit behind that
+-- no payment funds.
+SELECT probe.succeeds('reversal', 'the 50.00 receipt is cancelled', $sql$
   SELECT public.cancel_payment(
     (SELECT id FROM public.payments
-      WHERE adeel_id = (SELECT payer FROM mfix) AND amount = 49.99
+      WHERE adeel_id = (SELECT payer FROM mfix) AND amount = 50.00
         AND status <> 'ملغي' ORDER BY id DESC LIMIT 1),
     'اختبار الدقة')
 $sql$);
@@ -366,8 +416,21 @@ SELECT probe.eq('reversal', 'the 10.01 already collected was NOT reversed with i
          WHERE adeel_id = (SELECT payer FROM mfix) $sql$, '10.01');
 
 SELECT probe.eq('reversal', 'the treasury dropped by exactly the cancelled amount',
-  $sql$ SELECT (("total"::numeric) = (SELECT before_ FROM mcash) - 49.99)::text
+  $sql$ SELECT (("total"::numeric) = (SELECT before_ FROM mcash) - 50.00)::text
           FROM public.v_cash_summary $sql$, 'true');
+
+-- The cent went with it. Reversing the receipt has to take back the credit it
+-- created as well as the allocation, or the wallet would hold money that no live
+-- payment accounts for — which is the one way a derived balance can still drift.
+SELECT probe.eq('reversal', '...and the odd cent left the wallet with it',
+  $sql$ SELECT (coalesce((SELECT sum(p.amount) FROM public.payments p
+                           WHERE p.adeel_id = (SELECT payer FROM mfix)
+                             AND p.status <> 'ملغي'), 0)
+              - coalesce((SELECT sum(a.amount) FROM public.payment_allocations a
+                            JOIN public.payments p2 ON p2.id = a.payment_id
+                           WHERE p2.adeel_id = (SELECT payer FROM mfix)
+                             AND p2.status <> 'ملغي'), 0))
+               ::numeric(12,2)::text $sql$, '0.01');
 
 SET ROLE authenticated;
 SELECT probe.become('00000000-0000-0000-0000-0000000000a3');
@@ -386,13 +449,36 @@ RESET ROLE;
 --  leaves both sums correct. These are the row-level forms.
 -- ═════════════════════════════════════════════════════════════════════════════
 
+-- This used to read `amount = Σ allocations`, an EQUALITY, and the wallet made
+-- it false by design: a payment's surplus is precisely the part no allocation
+-- claimed. Left as it was it would have gone red on every prepayment and been
+-- silenced as noise — so it is restated as the two halves that are still true
+-- and still load-bearing.
+--
+-- The first is the one that actually guards the money. Over-allocating is how a
+-- ledger invents it: a payment that allocated MORE than it collected has put
+-- units onto receivables that nobody ever handed over.
 SELECT probe.eq('identity',
-  'every approved payment equals the sum of its own allocations',
+  'no payment allocates MORE than it collected',
   $sql$ SELECT count(*)::text FROM public.payments p
          WHERE p.status <> 'ملغي'
-           AND p.amount <> (SELECT coalesce(sum(a.amount), 0)
-                              FROM public.payment_allocations a
-                             WHERE a.payment_id = p.id) $sql$, '0');
+           AND p.amount < (SELECT coalesce(sum(a.amount), 0)
+                             FROM public.payment_allocations a
+                            WHERE a.payment_id = p.id) $sql$, '0');
+
+-- The second closes the other direction. The wallet is DERIVED — Σ payments −
+-- Σ allocations — so it can never disagree with the money, but that identity
+-- only means anything while the difference stays non-negative. A negative
+-- wallet would be a man credited for money he never paid.
+SELECT probe.eq('identity',
+  'and no عديل holds a negative wallet',
+  $sql$ SELECT count(*)::text FROM public.adeels d
+         WHERE (SELECT coalesce(sum(p.amount), 0) FROM public.payments p
+                 WHERE p.adeel_id = d.id AND p.status <> 'ملغي')
+             < (SELECT coalesce(sum(a.amount), 0)
+                  FROM public.payment_allocations a
+                  JOIN public.payments p2 ON p2.id = a.payment_id
+                 WHERE p2.adeel_id = d.id AND p2.status <> 'ملغي') $sql$, '0');
 
 SELECT probe.eq('identity',
   'every receivable paid equals what live payments allocated to it',

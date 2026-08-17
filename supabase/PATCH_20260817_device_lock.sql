@@ -1247,6 +1247,111 @@ BEGIN
     'status', 'ملغي', 'amount', v_row.amount::text, 'reason', p_reason);
 END $$;
 
+-- ── AND THE SAME RULE FROM THE OTHER SIDE ───────────────────────────────────
+-- register_disbursement refuses to pay out money the association does not hold.
+-- On its own that is only half a guarantee, because the money can be taken back
+-- AFTER it is spent: collect 100, spend 100, then cancel the receipt that funded
+-- it, and the fund stands at −100 with nothing having refused anything. Every
+-- عديل reads that figure through api_association_finance() as رصيد الجمعية.
+--
+-- So cancel_payment now takes the SAME settings-row lock — first, so the two
+-- paths queue in one order and cannot deadlock — and refuses, naming the value
+-- of vouchers that have to be reversed before the receipt can go.
+--
+-- It MUST come after the disbursements table above: the new body reads it.
+-- CREATE OR REPLACE on a function that already exists keeps its ACL, so this one
+-- needs no re-grant of its own — unlike the pair above, which are created fresh.
+CREATE OR REPLACE FUNCTION public.cancel_payment(
+  p_payment_id bigint,
+  p_reason     text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  v_pay       record;
+  r           record;
+  v_collected numeric;
+  v_spent     numeric;
+BEGIN
+  PERFORM public.require_role('financeManager');
+
+  IF p_reason IS NULL OR btrim(p_reason) = '' THEN
+    RAISE EXCEPTION 'CANCEL_REASON_REQUIRED' USING ERRCODE = 'RUL09';
+  END IF;
+
+  -- ── The treasury mutex, taken FIRST ────────────────────────────────────────
+  -- Same row register_disbursement locks, and before the payment row rather
+  -- than after, so the two money-moving paths queue in ONE order. No cycle can
+  -- form: register_disbursement takes this row and nothing else, and
+  -- register_payment takes receivables and nothing else.
+  PERFORM 1 FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
+  SELECT * INTO v_pay FROM public.payments WHERE id = p_payment_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'PAYMENT_NOT_FOUND' USING ERRCODE = 'RUL09';
+  END IF;
+  IF v_pay.status = 'ملغي' THEN
+    RAISE EXCEPTION 'PAYMENT_ALREADY_CANCELLED' USING ERRCODE = 'RUL09';
+  END IF;
+
+  -- ── AND THE FUND CANNOT BE LEFT HOLDING LESS THAN NOTHING ──────────────────
+  -- register_disbursement refuses to pay out money the association does not
+  -- hold. Read only from that side the guarantee is half of one: collect 100,
+  -- spend 100, then cancel the receipt that funded it and the treasury stands at
+  -- −100 with nothing having refused anything. Every عديل reads that figure
+  -- through api_association_finance() under the heading رصيد الجمعية.
+  --
+  -- The arithmetic is not what is wrong — if the receipt was entered by mistake
+  -- and the money genuinely left, the fund really IS short. What is wrong is
+  -- that it happens SILENTLY, and that every disbursement afterwards is then
+  -- refused for a reason nobody was ever told. So the voucher is reversed first
+  -- and this cancellation goes through second; the message says which.
+  --
+  -- This payment's own cash movement is excluded rather than subtracted: it is
+  -- about to become 'ملغي', and rule 8 guarantees exactly one live row per live
+  -- payment, so excluding it IS the post-cancellation total.
+  SELECT coalesce(sum(amount), 0) INTO v_collected
+    FROM public.cash_movements
+   WHERE status <> 'ملغي' AND payment_id <> p_payment_id;
+  SELECT coalesce(sum(amount), 0) INTO v_spent
+    FROM public.disbursements WHERE status <> 'ملغي';
+
+  IF v_collected < v_spent THEN
+    RAISE EXCEPTION
+      'إلغاء الإيصال % يترك الصندوق سالباً — ألغِ سندات صرف بقيمة % أولاً',
+      v_pay.receipt_no, (v_spent - v_collected)::text
+      USING ERRCODE = 'RUL09';
+  END IF;
+
+  -- Same lock order as register_payment: period then id.
+  FOR r IN
+    SELECT a.receivable_id, a.amount, rc.period
+      FROM public.payment_allocations a
+      JOIN public.receivables rc ON rc.id = a.receivable_id
+     WHERE a.payment_id = p_payment_id
+     ORDER BY rc.period ASC, rc.id ASC
+       FOR UPDATE OF rc
+  LOOP
+    -- ck_recv_paid (paid >= 0) catches a double reversal.
+    UPDATE public.receivables SET paid = paid - r.amount
+     WHERE id = r.receivable_id;
+  END LOOP;
+
+  UPDATE public.payments
+     SET status = 'ملغي', cancelled_at = now(),
+         cancelled_by = auth.uid(), cancel_reason = p_reason
+   WHERE id = p_payment_id;
+
+  -- Voided, never deleted — the cash screen renders it struck through.
+  UPDATE public.cash_movements SET status = 'ملغي' WHERE payment_id = p_payment_id;
+
+  PERFORM public.write_audit('payment.cancel',
+    format('إلغاء %s: %s', v_pay.receipt_no, p_reason), v_pay.receipt_no);
+
+  RETURN jsonb_build_object(
+    'paymentId', p_payment_id, 'receiptNo', v_pay.receipt_no,
+    'status', 'ملغي', 'amount', v_pay.amount::text, 'reason', p_reason);
+END $$;
+
 -- The purges must take the vouchers too. Omitting them would not merely leave
 -- data behind: disbursements.payee_adeel_id references adeels ON DELETE
 -- RESTRICT, so one surviving voucher would refuse the register's deletion and

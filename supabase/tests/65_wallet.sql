@@ -101,8 +101,13 @@ SELECT probe.eq('wallet', 'the prepaid month names the receipt that paid it',
          WHERE p.reference = 'prepay' AND a.period = '2026-03' $sql$, '1');
 -- Oldest receipt first, so a later cancellation takes back credit that is still
 -- unspent rather than unpicking a month already settled from another receipt.
+-- numeric(12,2) before ::text. With no matching allocation `sum` is NULL and the
+-- coalesce falls back to the INTEGER 0, which renders as '0' — so this compared
+-- '0' against '0.00' and failed while proving exactly what it set out to prove.
+-- Every other money assertion in the suite casts to numeric(12,2) first, which
+-- is also the scale the views publish.
 SELECT probe.eq('wallet', 'the OLDEST receipt is the one spent first',
-  $sql$ SELECT coalesce(sum(a.amount), 0)::text
+  $sql$ SELECT coalesce(sum(a.amount), 0)::numeric(12,2)::text
           FROM public.payment_allocations a
           JOIN public.payments p ON p.id = a.payment_id
          WHERE p.reference = 'prepay-2' $sql$, '0.00');

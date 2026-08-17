@@ -16,8 +16,8 @@ export SP
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
 #
-#   30_rules 105 + 40_rls 86 + 45_portal 53 + 50_money 42 + 60_concurrency 5
-#   + 65_wallet 20 + 67_disbursement 28 + 70_purge 37 = 376
+#   30_rules 105 + 40_rls 86 + 45_portal 53 + 50_money 47 + 60_concurrency 6
+#   + 65_wallet 20 + 67_disbursement 39 + 68_spend_race 5 + 70_purge 37 = 398
 #
 # Count them the way the runtime does — call sites, which is a group name in
 # quotes right after the paren:
@@ -39,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=376
+EXPECTED_CHECKS=398
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"
@@ -88,6 +88,12 @@ run -f "$HERE/65_wallet.sql"          2>&1 | grep -vE '^(INSERT|UPDATE|DELETE|SE
 # total and before the purge that erases the lot.
 echo "=== disbursement (money leaving the treasury) ==="
 run -f "$HERE/67_disbursement.sql"    2>&1 | grep -vE '^(INSERT|UPDATE|DELETE|SELECT|SET) ' || true
+
+# Two admins on one treasury. AFTER 67, which asserts exact balances, because it
+# spends the fund down to zero; and it cannot live in 60_concurrency.sh, which
+# runs before disbursement exists at all.
+echo "=== concurrency: two admins, one treasury ==="
+bash "$HERE/68_spend_concurrency.sh"
 
 # LAST, and it has to be: the purge erases everything the four files above built,
 # so any group scheduled after it would assert against an empty database.

@@ -82,6 +82,14 @@ abstract final class SupabaseFailures {
     // The two officials: one man in both posts, or a post given to somebody who
     // is not on the register.
     'RUL16': 422,
+    // The disbursement rules: a voucher for nothing or for a negative, a payee
+    // who is not on the register, and above all spending past what the treasury
+    // holds. All "what you sent cannot be accepted" — the same class as RUL07,
+    // which is the same rule read in the other direction. Without this entry the
+    // code fell through to 500, so the association's own money rule was reported
+    // as a server fault; the Arabic message still reached the screen, because
+    // _isDisplayable keys on the RUL prefix rather than on this map.
+    'RUL17': 422,
   };
 
   static ApiException _fromPostgrest(PostgrestException error) {

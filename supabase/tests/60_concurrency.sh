@@ -11,8 +11,26 @@
 # itself. Two psql processes, deliberately overlapped.
 #
 # Fixture: an عديل owing exactly 100.00 in one receivable. Both sessions try to
-# pay 60.00. Correct outcome is one success and one RUL07 — never two successes,
-# because 120 collected against 100 owed is money invented from nothing.
+# pay 60.00.
+#
+# ── WHAT THIS PROVES CHANGED WHEN THE WALLET ARRIVED ──────────────────────────
+# It used to be one success and one RUL07: rule 7 capped a payment at the
+# balance, so the second 60.00 was refused outright and "winners = 1" was the
+# whole proof. That cap is gone deliberately — a man may now hand over more than
+# he owes and the surplus becomes credit — so BOTH sessions now succeed, and an
+# assertion of "winners = 1" would have failed forever while the code was right.
+#
+# The double-spend it was written to catch is untouched, and is now stated
+# directly instead of through the refusal:
+#
+#     the 100.00 balance must be ALLOCATED EXACTLY ONCE.
+#
+# Two unserialised sessions each read a 100.00 balance and each allocate 60.00,
+# and the receivable ends up 120.00 paid against a 100.00 charge — money invented
+# from nothing, exactly as before. Serialised, the second session sees the 40.00
+# that is left, allocates that, and puts 20.00 in the wallet. So: paid = 100.00,
+# collected = 120.00, credit = 20.00 — and it is the FIRST of those three that
+# is the guarantee.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,7 +77,10 @@ wait $PA; wait $PB
 OK_A=$(grep -c 'RESULT=PAY-' "$A" || true)
 OK_B=$(grep -c 'RESULT=PAY-' "$B" || true)
 WINNERS=$(( OK_A + OK_B ))
-LOSER_MSG="$(cat "$A" "$B" | grep -i 'Rule 7' | head -1 || true)"
+# Neither session may die. A deadlock or a serialisation abort would also leave
+# the ledger consistent, and would look like a pass on the allocation check while
+# meaning the treasurer's phone showed an error — so it is asserted separately.
+CRASHED="$(cat "$A" "$B" | grep -icE 'deadlock|could not serialize|server closed' || true)"
 
 PAID=$(Q -c "SELECT paid::text FROM public.receivables WHERE adeel_id = $AID;")
 # c.amount, qualified. Both cash_movements and payments have an `amount` column,
@@ -86,18 +107,24 @@ echo "  winners=$WINNERS paid=$PAID collected=$COLLECTED payments=$NPAY"
 # Record into the same results table the SQL probes use, so one report covers all.
 Q -v ON_ERROR_STOP=1 <<SQL
 SELECT probe.note('concurrency',
-  'exactly one of two simultaneous 60.00 payments succeeded',
-  $WINNERS = 1, 'winners=$WINNERS (a=$OK_A b=$OK_B)');
+  'both simultaneous 60.00 payments were accepted, as the wallet allows',
+  $WINNERS = 2, 'winners=$WINNERS (a=$OK_A b=$OK_B)');
 SELECT probe.note('concurrency',
-  'the loser was refused by rule 7, not by a deadlock or a crash',
-  $(if [ -n "$LOSER_MSG" ]; then echo true; else echo false; fi),
-  '$(printf '%s' "$LOSER_MSG" | tr -d "'" | cut -c1-100)');
+  'neither session died on a deadlock or a serialisation failure',
+  $CRASHED = 0, 'crash lines=$CRASHED');
+-- ★ THE GUARANTEE. Unserialised, both sessions read 100.00 owed and both
+--   allocate 60.00, leaving 120.00 paid against a 100.00 charge. This is the
+--   check that goes red the moment register_payment's FOR UPDATE is weakened.
+SELECT probe.note('concurrency',
+  'the 100.00 balance was allocated EXACTLY ONCE, not twice',
+  '$PAID'::numeric = 100.00, 'paid=$PAID');
 SELECT probe.note('concurrency',
   'paid never exceeded the 100.00 owed',
   '$PAID'::numeric <= 100.00, 'paid=$PAID');
 SELECT probe.note('concurrency',
-  'the treasury collected exactly what was allocated',
-  '$COLLECTED'::numeric = '$PAID'::numeric, 'collected=$COLLECTED paid=$PAID');
+  'and the 20.00 the months could not absorb sits in the wallet, unallocated',
+  '$COLLECTED'::numeric - '$PAID'::numeric = 20.00,
+  'collected=$COLLECTED paid=$PAID');
 SELECT probe.note('concurrency',
   'no orphan payment row from the losing session',
   $NPAY = $WINNERS, 'payments=$NPAY winners=$WINNERS');

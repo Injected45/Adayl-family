@@ -1732,8 +1732,10 @@ CREATE OR REPLACE FUNCTION public.cancel_payment(
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 DECLARE
-  v_pay record;
-  r     record;
+  v_pay       record;
+  r           record;
+  v_collected numeric;
+  v_spent     numeric;
 BEGIN
   PERFORM public.require_role('financeManager');
 
@@ -1741,12 +1743,48 @@ BEGIN
     RAISE EXCEPTION 'CANCEL_REASON_REQUIRED' USING ERRCODE = 'RUL09';
   END IF;
 
+  -- ── The treasury mutex, taken FIRST ────────────────────────────────────────
+  -- Same row register_disbursement locks, and before the payment row rather
+  -- than after, so the two money-moving paths queue in ONE order. No cycle can
+  -- form: register_disbursement takes this row and nothing else, and
+  -- register_payment takes receivables and nothing else.
+  PERFORM 1 FROM public.association_settings WHERE id = 1 FOR UPDATE;
+
   SELECT * INTO v_pay FROM public.payments WHERE id = p_payment_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'PAYMENT_NOT_FOUND' USING ERRCODE = 'RUL09';
   END IF;
   IF v_pay.status = 'ملغي' THEN
     RAISE EXCEPTION 'PAYMENT_ALREADY_CANCELLED' USING ERRCODE = 'RUL09';
+  END IF;
+
+  -- ── AND THE FUND CANNOT BE LEFT HOLDING LESS THAN NOTHING ──────────────────
+  -- register_disbursement refuses to pay out money the association does not
+  -- hold. Read only from that side the guarantee is half of one: collect 100,
+  -- spend 100, then cancel the receipt that funded it and the treasury stands at
+  -- −100 with nothing having refused anything. Every عديل reads that figure
+  -- through api_association_finance() under the heading رصيد الجمعية.
+  --
+  -- The arithmetic is not what is wrong — if the receipt was entered by mistake
+  -- and the money genuinely left, the fund really IS short. What is wrong is
+  -- that it happens SILENTLY, and that every disbursement afterwards is then
+  -- refused for a reason nobody was ever told. So the voucher is reversed first
+  -- and this cancellation goes through second; the message says which.
+  --
+  -- This payment's own cash movement is excluded rather than subtracted: it is
+  -- about to become 'ملغي', and rule 8 guarantees exactly one live row per live
+  -- payment, so excluding it IS the post-cancellation total.
+  SELECT coalesce(sum(amount), 0) INTO v_collected
+    FROM public.cash_movements
+   WHERE status <> 'ملغي' AND payment_id <> p_payment_id;
+  SELECT coalesce(sum(amount), 0) INTO v_spent
+    FROM public.disbursements WHERE status <> 'ملغي';
+
+  IF v_collected < v_spent THEN
+    RAISE EXCEPTION
+      'إلغاء الإيصال % يترك الصندوق سالباً — ألغِ سندات صرف بقيمة % أولاً',
+      v_pay.receipt_no, (v_spent - v_collected)::text
+      USING ERRCODE = 'RUL09';
   END IF;
 
   -- Same lock order as register_payment: period then id.
@@ -3066,7 +3104,21 @@ GRANT EXECUTE ON FUNCTION
   public.purge_financial_data(text),
   public.purge_all_data(text),
   public.issue_adeel_code(bigint),
-  public.redeem_adeel_code(text)
+  -- TWO arguments. The device-lock work added `p_device_id`, and a GRANT names a
+  -- function by its EXACT argument types — the one-argument form no longer
+  -- resolves and aborts the whole apply with "function does not exist". A
+  -- DEFAULT does not make the shorter form nameable. The same line in
+  -- 20260811090600_rpc.sql was corrected when the signature changed; this copy
+  -- was missed, which is the entire reason the schema stopped applying.
+  public.redeem_adeel_code(text, text),
+
+  -- Money OUT. Both admin-gated inside their bodies; register_disbursement also
+  -- refuses to spend past the treasury balance. Listed here because this file
+  -- claims above to be the COMPLETE answer to "what can a client call?", and a
+  -- grant that lives only in rpc.sql makes that claim false.
+  public.register_disbursement(numeric, expense_category, text, pay_method,
+                               bigint, text, text, text, text, text, text, date),
+  public.cancel_disbursement(bigint, text)
 TO authenticated;
 
 -- Deliberately NOT granted to anyone: write_audit (forgeable trail entries),

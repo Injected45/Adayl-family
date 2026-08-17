@@ -504,15 +504,19 @@ SELECT probe.succeeds('rule05', 'an official can be appointed from the register'
   $sql$ SELECT public.update_settings(
           jsonb_build_object('treasurerAdeelId',
             (SELECT id FROM public.adeels ORDER BY id LIMIT 1))) $sql$);
+-- ::text on the boolean, and 'true' rather than 't'. probe.eq compares the
+-- COLUMN cast to text, where Postgres renders a boolean as 'true'; 't' is how
+-- psql DISPLAYS one, which is a different thing and is what was written here.
+-- The check was red for a formatting reason while the rule it guards was fine.
 SELECT probe.eq('rule05', '...and his name is snapshotted off his own row',
-  $sql$ SELECT treasurer_name = (SELECT full_name FROM public.adeels
-                                  ORDER BY id LIMIT 1)
-          FROM public.association_settings WHERE id = 1 $sql$, 't');
+  $sql$ SELECT (treasurer_name = (SELECT full_name FROM public.adeels
+                                   ORDER BY id LIMIT 1))::text
+          FROM public.association_settings WHERE id = 1 $sql$, 'true');
 SELECT probe.succeeds('rule05', 'and the post can be vacated again',
   $sql$ SELECT public.update_settings('{"treasurerAdeelId":null}'::jsonb) $sql$);
 SELECT probe.eq('rule05', '...leaving the post empty, not the function broken',
-  $sql$ SELECT treasurer_adeel_id IS NULL
-          FROM public.association_settings WHERE id = 1 $sql$, 't');
+  $sql$ SELECT (treasurer_adeel_id IS NULL)::text
+          FROM public.association_settings WHERE id = 1 $sql$, 'true');
 -- The overlap rule still bites — the fixes above must not have unhooked it.
 SELECT probe.raises('rule05', 'one man still cannot hold both posts',
   $sql$ SELECT public.update_settings(

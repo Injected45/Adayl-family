@@ -62,7 +62,21 @@ GRANT EXECUTE ON FUNCTION
   public.purge_financial_data(text),
   public.purge_all_data(text),
   public.issue_adeel_code(bigint),
-  public.redeem_adeel_code(text)
+  -- TWO arguments. The device-lock work added `p_device_id`, and a GRANT names a
+  -- function by its EXACT argument types — the one-argument form no longer
+  -- resolves and aborts the whole apply with "function does not exist". A
+  -- DEFAULT does not make the shorter form nameable. The same line in
+  -- 20260811090600_rpc.sql was corrected when the signature changed; this copy
+  -- was missed, which is the entire reason the schema stopped applying.
+  public.redeem_adeel_code(text, text),
+
+  -- Money OUT. Both admin-gated inside their bodies; register_disbursement also
+  -- refuses to spend past the treasury balance. Listed here because this file
+  -- claims above to be the COMPLETE answer to "what can a client call?", and a
+  -- grant that lives only in rpc.sql makes that claim false.
+  public.register_disbursement(numeric, expense_category, text, pay_method,
+                               bigint, text, text, text, text, text, text, date),
+  public.cancel_disbursement(bigint, text)
 TO authenticated;
 
 -- Deliberately NOT granted to anyone: write_audit (forgeable trail entries),
