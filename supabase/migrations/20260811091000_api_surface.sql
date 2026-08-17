@@ -240,7 +240,23 @@ SELECT
     AS "month",
   coalesce(sum(amount) FILTER (WHERE date_trunc('year', occurred_at)
                                   = date_trunc('year', current_date)), 0)::numeric(12,2)::text
-    AS "year"
+    AS "year",
+  -- ── What is still OWED, on the treasury screen ────────────────────────────
+  -- The odd one out: every other figure here aggregates cash_movements, and
+  -- this one reaches into receivables. It is here because the question a
+  -- treasurer asks of this screen is "where does the association stand", and
+  -- half that answer is money that has not arrived.
+  --
+  -- It replaced "تحصيل السنة", which on an association in its first year was
+  -- the same number as "إجمالي المحصل" — two tiles, one figure, and no way to
+  -- tell they were not disagreeing with each other.
+  --
+  -- Cancelled receivables excluded, matching every other debt figure in the
+  -- schema. APPENDED at the end because CREATE OR REPLACE VIEW allows nothing
+  -- else; anything added later goes below it.
+  coalesce((SELECT sum(r.balance) FROM public.receivables r
+             WHERE r.status <> 'ملغي'), 0)::numeric(12,2)::text
+    AS "outstanding"
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 

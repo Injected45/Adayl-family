@@ -892,14 +892,26 @@ abstract class L {
   /// No description provided for @collectedTransfer.
   ///
   /// In ar, this message translates to:
-  /// **'التحويل المصرفي'**
+  /// **'المحصل بتحويل'**
   String get collectedTransfer;
 
-  /// No description provided for @collectedThisYear.
+  /// Treasury tile: every subscriber's unpaid balance, summed. Distinct from outstandingTotal (المديونية القائمة), which the admin receivables and reports screens use — the treasury asks a shorter question and the tile is narrow.
   ///
   /// In ar, this message translates to:
-  /// **'تحصيل السنة'**
-  String get collectedThisYear;
+  /// **'المستحقات'**
+  String get dueFromMembers;
+
+  /// The treasury total, renamed. It is the LAST tile because it is the conclusion of the three above it — cash in, transfers in, still owed — rather than a fourth independent fact. `collectedThisYear` was removed with it: in an association's first year that tile showed the same number as this one.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيد الجمعية'**
+  String get associationBalance;
+
+  /// How many live receipts are folded into one subscriber's row on the treasury screen. It is what tells a reader the row opens at all.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{لا إيصالات} =1{إيصال واحد} =2{إيصالان} few{{count} إيصالات} other{{count} إيصالاً}}'**
+  String receiptCount(int count);
 
   /// No description provided for @cashMovements.
   ///

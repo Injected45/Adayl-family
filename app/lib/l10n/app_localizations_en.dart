@@ -433,10 +433,25 @@ class LEn extends L {
   String get collectedCash => 'Collected in cash';
 
   @override
-  String get collectedTransfer => 'Bank transfers';
+  String get collectedTransfer => 'Collected by transfer';
 
   @override
-  String get collectedThisYear => 'Collected this year';
+  String get dueFromMembers => 'Due from members';
+
+  @override
+  String get associationBalance => 'Association balance';
+
+  @override
+  String receiptCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count receipts',
+      one: 'One receipt',
+      zero: 'No receipts',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get cashMovements => 'Treasury movements';

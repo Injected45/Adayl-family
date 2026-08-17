@@ -4,6 +4,15 @@ library;
 String _string(Object? value) => value == null ? '' : value.toString();
 int _int(Object? value) => value is num ? value.toInt() : 0;
 
+/// A key that may be ABSENT because the database predates it.
+///
+/// Not [_string], which turns a missing key into `''` — and an empty string is
+/// not a money value: `double.tryParse('')` is null and the figure would render
+/// as though it had failed to load. The fallback says what the older database
+/// meant instead.
+String _stringOr(Object? value, String fallback) =>
+    value == null ? fallback : value.toString();
+
 class PaymentAllocationView {
   const PaymentAllocationView({
     required this.receivableId,
@@ -96,6 +105,7 @@ class CashSummaryView {
     required this.today,
     required this.month,
     required this.year,
+    this.outstanding = '0.00',
   });
 
   final String total;
@@ -105,6 +115,13 @@ class CashSummaryView {
   final String month;
   final String year;
 
+  /// Every subscriber's unpaid balance, summed — the half of the treasury's
+  /// position that has NOT arrived.
+  ///
+  /// Replaced "collected this year", which in an association's first year is
+  /// the same figure as the total collected: two tiles showing one number.
+  final String outstanding;
+
   factory CashSummaryView.fromJson(Map<String, dynamic> json) =>
       CashSummaryView(
         total: _string(json['total']),
@@ -113,6 +130,7 @@ class CashSummaryView {
         today: _string(json['today']),
         month: _string(json['month']),
         year: _string(json['year']),
+        outstanding: _stringOr(json['outstanding'], '0.00'),
       );
 }
 
@@ -121,6 +139,8 @@ class CashMovementView {
     required this.id,
     required this.receiptNo,
     required this.adeelName,
+    required this.adeelId,
+    required this.adeelCode,
     required this.amount,
     required this.method,
     required this.movementType,
@@ -131,6 +151,12 @@ class CashMovementView {
   final int id;
   final String receiptNo;
   final String adeelName;
+
+  /// Grouped BY this, never by the name. The register has no natural key — two
+  /// men may be entered under the same spelling — and folding them into one
+  /// row on the treasury screen would merge two people's money.
+  final int adeelId;
+  final String adeelCode;
   final String amount;
   final String method;
   final String movementType;
@@ -142,6 +168,8 @@ class CashMovementView {
         id: _int(json['id']),
         receiptNo: _string(json['receiptNo']),
         adeelName: _string(json['adeelName']),
+        adeelId: _int(json['adeelId']),
+        adeelCode: _string(json['adeelCode']),
         amount: _string(json['amount']),
         method: _string(json['method']),
         movementType: _string(json['movementType']),

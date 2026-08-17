@@ -48,13 +48,19 @@ class CashScreen extends ConsumerWidget {
             AsyncView<CashSummaryView>(
               value: summary,
               onRetry: () => ref.invalidate(cashSummaryProvider),
+              // ── Money in, then money out there, then where it all stands ───
+              // The order is the reading order of the answer: what came in as
+              // cash, what came in by transfer, what has NOT come in, and the
+              // association's position last, because it is the conclusion of
+              // the three above it rather than a fourth fact.
+              //
+              // "تحصيل السنة" is gone. On an association in its first year it
+              // was the SAME NUMBER as the total collected — two tiles side by
+              // side showing one figure, with nothing to tell a reader they
+              // were not disagreeing. What replaced it is the thing the screen
+              // could not answer at all: what is still owed.
               builder: (CashSummaryView data) => StatCardGrid(
                 children: <Widget>[
-                  _StatCard(
-                    label: l.totalCollected,
-                    value: formatMoney(data.total),
-                    sub: '${l.todayLabel} ${formatMoney(data.today)}',
-                  ),
                   _StatCard(
                     label: l.collectedCash,
                     value: formatMoney(data.cash),
@@ -67,8 +73,14 @@ class CashScreen extends ConsumerWidget {
                     tone: AppColors.info,
                   ),
                   _StatCard(
-                    label: l.collectedThisYear,
-                    value: formatMoney(data.year),
+                    label: l.dueFromMembers,
+                    value: formatMoney(data.outstanding),
+                    tone: AppColors.danger,
+                  ),
+                  _StatCard(
+                    label: l.associationBalance,
+                    value: formatMoney(data.total),
+                    sub: '${l.todayLabel} ${formatMoney(data.today)}',
                   ),
                 ],
               ),
@@ -93,12 +105,137 @@ class CashScreen extends ConsumerWidget {
                 }
                 return Column(
                   children: <Widget>[
-                    for (final CashMovementView movement in items)
-                      _MovementTile(movement: movement),
+                    for (final _AdeelMovements group in _groupByAdeel(items))
+                      _AdeelGroup(group: group),
                   ],
                 );
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One subscriber's receipts, gathered.
+///
+/// The treasury list used to be one row PER RECEIPT, so a member who paid five
+/// times appeared five times, and a register of forty men with a year of
+/// collections behind it was hundreds of rows of repeated names. The list is now
+/// at most as long as the register, and every receipt lives inside the name it
+/// belongs to.
+class _AdeelMovements {
+  _AdeelMovements(this.adeelId, this.adeelName, this.adeelCode);
+
+  final int adeelId;
+  final String adeelName;
+  final String adeelCode;
+  final List<CashMovementView> movements = <CashMovementView>[];
+
+  /// Cancelled receipts are EXCLUDED from the total and still listed inside.
+  ///
+  /// Rule 9 keeps a voided receipt visible for ever — it is history, not a
+  /// mistake to be hidden — but a struck-through 200 must not be added to the
+  /// money the association holds. Summed as text→double at the display edge
+  /// only, which is where every other total on this screen is already read.
+  String get total {
+    double sum = 0;
+    for (final CashMovementView m in movements) {
+      if (m.status == ReceivableStatusWire.cancelled) continue;
+      sum += double.tryParse(m.amount) ?? 0;
+    }
+    return sum.toStringAsFixed(2);
+  }
+
+  int get liveCount => movements
+      .where((CashMovementView m) => m.status != ReceivableStatusWire.cancelled)
+      .length;
+}
+
+/// Grouped by `adeelId`, deliberately NOT by name.
+///
+/// The register has no natural key — CLAUDE.md is explicit that a second row for
+/// the same man is accepted — so two subscribers can carry the same spelling.
+/// Folding on the name would put two people's money under one heading and add
+/// it up, which is the one mistake a treasury screen must not make.
+///
+/// Insertion order is preserved, so the man with the most recent receipt stays
+/// at the top: the list arrives newest-first from the server and grouping does
+/// not re-sort it.
+List<_AdeelMovements> _groupByAdeel(List<CashMovementView> items) {
+  final Map<int, _AdeelMovements> byAdeel = <int, _AdeelMovements>{};
+  for (final CashMovementView m in items) {
+    byAdeel
+        .putIfAbsent(
+          m.adeelId,
+          () => _AdeelMovements(m.adeelId, m.adeelName, m.adeelCode),
+        )
+        .movements
+        .add(m);
+  }
+  return byAdeel.values.toList();
+}
+
+class _AdeelGroup extends StatelessWidget {
+  const _AdeelGroup({required this.group});
+
+  final _AdeelMovements group;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return GlassCard(
+      margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+      padding: EdgeInsets.zero,
+      child: Theme(
+        // Without this the ExpansionTile's own divider draws inside the card and
+        // it reads as two stacked cards.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.xs,
+          ),
+          childrenPadding: const EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          title: Text(
+            group.adeelName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          // The code, and how many receipts are folded in. The count is what
+          // tells a reader there is anything to open at all.
+          subtitle: Text(
+            '${group.adeelCode} • ${l.receiptCount(group.liveCount)}',
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+          // His total sits on the closed row, so the screen answers "how much
+          // has this man paid the association" without being opened.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                formatMoney(group.total),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              const Icon(Icons.expand_more, size: 20, color: AppColors.muted),
+            ],
+          ),
+          children: <Widget>[
+            for (final CashMovementView movement in group.movements)
+              _MovementTile(movement: movement),
           ],
         ),
       ),
@@ -199,16 +336,20 @@ class _MovementTile extends StatelessWidget {
             : Icons.account_balance_outlined,
         color: voided ? AppColors.muted : AppColors.brand,
       ),
+      // The RECEIPT leads, not the name — the name is the heading this tile
+      // now sits under, and repeating it on every line is exactly the crowding
+      // the grouping removed.
       title: Text(
-        movement.adeelName,
+        movement.receiptNo,
         style: TextStyle(
+          fontSize: 13,
           fontWeight: FontWeight.w700,
           decoration: voided ? TextDecoration.lineThrough : null,
           color: voided ? AppColors.muted : null,
         ),
       ),
       subtitle: Text(
-        '${movement.receiptNo} • ${formatDateTime(movement.occurredAt)}',
+        formatDateTime(movement.occurredAt),
         style: const TextStyle(fontSize: 11, color: AppColors.muted),
       ),
       trailing: Text(

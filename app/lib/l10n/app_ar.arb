@@ -158,8 +158,20 @@
   "cashIntro": "كل عملية تحصيل معتمدة تنعكس هنا تلقائياً.",
   "totalCollected": "إجمالي المحصل",
   "collectedCash": "المحصل نقداً",
-  "collectedTransfer": "التحويل المصرفي",
-  "collectedThisYear": "تحصيل السنة",
+  "collectedTransfer": "المحصل بتحويل",
+  "dueFromMembers": "المستحقات",
+  "@dueFromMembers": {
+    "description": "Treasury tile: every subscriber's unpaid balance, summed. Distinct from outstandingTotal (المديونية القائمة), which the admin receivables and reports screens use — the treasury asks a shorter question and the tile is narrow."
+  },
+  "associationBalance": "رصيد الجمعية",
+  "@associationBalance": {
+    "description": "The treasury total, renamed. It is the LAST tile because it is the conclusion of the three above it — cash in, transfers in, still owed — rather than a fourth independent fact. `collectedThisYear` was removed with it: in an association's first year that tile showed the same number as this one."
+  },
+  "receiptCount": "{count, plural, =0{لا إيصالات} =1{إيصال واحد} =2{إيصالان} few{{count} إيصالات} other{{count} إيصالاً}}",
+  "@receiptCount": {
+    "description": "How many live receipts are folded into one subscriber's row on the treasury screen. It is what tells a reader the row opens at all.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "cashMovements": "حركة الصندوق",
   "noCashMovements": "لم تُسجَّل أي حركة صندوق بعد",
   "todayLabel": "اليوم",

@@ -428,10 +428,27 @@ class LAr extends L {
   String get collectedCash => 'المحصل نقداً';
 
   @override
-  String get collectedTransfer => 'التحويل المصرفي';
+  String get collectedTransfer => 'المحصل بتحويل';
 
   @override
-  String get collectedThisYear => 'تحصيل السنة';
+  String get dueFromMembers => 'المستحقات';
+
+  @override
+  String get associationBalance => 'رصيد الجمعية';
+
+  @override
+  String receiptCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count إيصالاً',
+      few: '$count إيصالات',
+      two: 'إيصالان',
+      one: 'إيصال واحد',
+      zero: 'لا إيصالات',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get cashMovements => 'حركة الصندوق';

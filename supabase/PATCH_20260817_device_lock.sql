@@ -56,7 +56,7 @@
 --     CREATE OR REPLACE cannot add a parameter, and leaving the one-argument
 --     version beside the two-argument one makes every call ambiguous (42725).
 --     Dropping a FUNCTION destroys no data and touches no row. Its EXECUTE
---     grant goes with it and is re-issued by the lockdown sweep in section 10.
+--     grant goes with it and is re-issued by the lockdown sweep in section 11.
 --
 --     Nothing else is dropped. No DROP SCHEMA, no DROP TABLE, no DROP TRIGGER,
 --     no TRUNCATE, no DELETE, and nothing touching auth.users or profiles rows.
@@ -866,7 +866,52 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
   FROM public.v_adeels v WHERE v."id" = p_adeel_id
 $$;
 
--- == 9. The lockdown allow-list, restated for the new signature ============
+-- == 9. The treasury screen ================================================
+-- v_cash_summary gains what is still OWED. It is the odd column here — every
+-- other figure in that view aggregates cash_movements and this one reaches into
+-- receivables — and it is there because the question a treasurer asks of the
+-- screen is "where does the association stand", and half that answer is money
+-- that has not arrived.
+--
+-- It replaced "تحصيل السنة", which on an association in its first year was the
+-- same number as "إجمالي المحصل": two tiles side by side showing one figure,
+-- with nothing to tell a reader they were not disagreeing.
+--
+-- APPENDED at the end of the select list, like every other column added to a
+-- view in this schema — CREATE OR REPLACE VIEW allows nothing else.
+CREATE OR REPLACE VIEW public.v_cash_summary WITH (security_invoker = on) AS
+SELECT
+  coalesce(sum(amount), 0)::numeric(12,2)::text AS "total",
+  coalesce(sum(amount) FILTER (WHERE method = 'نقداً'), 0)::numeric(12,2)::text        AS "cash",
+  coalesce(sum(amount) FILTER (WHERE method = 'تحويل مصرفي'), 0)::numeric(12,2)::text AS "transfer",
+  coalesce(sum(amount) FILTER (WHERE occurred_at::date = current_date), 0)::numeric(12,2)::text
+    AS "today",
+  coalesce(sum(amount) FILTER (WHERE date_trunc('month', occurred_at)
+                                  = date_trunc('month', current_date)), 0)::numeric(12,2)::text
+    AS "month",
+  coalesce(sum(amount) FILTER (WHERE date_trunc('year', occurred_at)
+                                  = date_trunc('year', current_date)), 0)::numeric(12,2)::text
+    AS "year",
+  -- ── What is still OWED, on the treasury screen ────────────────────────────
+  -- The odd one out: every other figure here aggregates cash_movements, and
+  -- this one reaches into receivables. It is here because the question a
+  -- treasurer asks of this screen is "where does the association stand", and
+  -- half that answer is money that has not arrived.
+  --
+  -- It replaced "تحصيل السنة", which on an association in its first year was
+  -- the same number as "إجمالي المحصل" — two tiles, one figure, and no way to
+  -- tell they were not disagreeing with each other.
+  --
+  -- Cancelled receivables excluded, matching every other debt figure in the
+  -- schema. APPENDED at the end because CREATE OR REPLACE VIEW allows nothing
+  -- else; anything added later goes below it.
+  coalesce((SELECT sum(r.balance) FROM public.receivables r
+             WHERE r.status <> 'ملغي'), 0)::numeric(12,2)::text
+    AS "outstanding"
+FROM public.cash_movements
+WHERE status <> 'ملغي';
+
+-- == 10. The lockdown allow-list, restated for the new signature ============
 -- An EXACT set. It has to name redeem_adeel_code(text,text) and the new
 -- request_device_id(), or assert_function_grants() fails in both directions and
 -- the whole patch rolls back.
@@ -936,7 +981,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions()
   FROM PUBLIC, anon, authenticated, service_role;
 
--- == 10. Re-run the lockdown sweep =========================================
+-- == 11. Re-run the lockdown sweep =========================================
 -- Byte-for-byte the loop from 20260811091200_function_lockdown.sql, which runs
 -- LAST on a full apply. A patch gets no such sweep for free, and every function
 -- it creates FRESH — request_device_id here, redeem_adeel_code after the DROP —
