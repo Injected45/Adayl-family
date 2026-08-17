@@ -447,19 +447,22 @@ class LEn extends L {
   String get confirmDisbursement => 'Confirm disbursement';
 
   @override
+  String get kindMember => 'To a member';
+
+  @override
+  String get kindCollective => 'Collective';
+
+  @override
   String get expenseCategory => 'Expense heading';
 
   @override
-  String get payee => 'Paid to';
+  String get categoryRequired => 'Choose an expense heading';
 
   @override
-  String get payeeFreeName => 'Free name';
+  String get payee => 'Beneficiary';
 
   @override
-  String get payeeFromRegister => 'From the register';
-
-  @override
-  String get payeeRequired => 'A payee is required';
+  String get payeeRequired => 'Choose the beneficiary';
 
   @override
   String get handedBy => 'Handed over by';

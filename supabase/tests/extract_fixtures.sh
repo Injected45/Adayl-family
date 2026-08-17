@@ -47,19 +47,19 @@ SELECT public.cancel_payment(2, 'تصحيح إدخال');
 -- ── Money OUT ────────────────────────────────────────────────────────────────
 -- 30.00 was collected and 5.00 of it cancelled, so the treasury holds 30.00 and
 -- these three vouchers fit inside it. Deliberately varied, because a fixture is
--- only worth the shapes it contains:
---   • a cash voucher to a FREE payee, carrying reference/handedBy/note
---   • a TRANSFER to an عديل FROM THE REGISTER, so payeeAdeelId and the three
---     bank columns are non-null in at least one row
+-- only worth the shapes it contains — and there are exactly two shapes:
+--   • جماعي, cash, carrying reference/handedBy/note and NO payee at all
+--   • لمشترك by TRANSFER, so payeeAdeelId and the three bank columns are
+--     non-null in at least one row
 --   • one CANCELLED, so the voided shape is captured exactly as with payments
 SELECT set_config('request.jwt.claims', '{"sub":"$AD","role":"authenticated"}', false);
 SELECT public.register_disbursement(
-  12, 'مصاريف إدارية', 'مكتبة الوفاء', 'نقداً',
-  NULL, 'INV-3', NULL, NULL, NULL, 'أمين الصندوق', 'قرطاسية');
+  12, 'جماعي', 'نقداً', NULL, 'فطور رمضان',
+  'INV-3', NULL, NULL, NULL, 'أمين الصندوق', 'إفطار الجمعية');
 SELECT public.register_disbursement(
-  4, 'إعانة اجتماعية', 'سيُستبدل من السجل', 'تحويل مصرفي',
-  1, 'TRX-77', 'المصرف التجاري الوطني', 'علي المهدي', '0021547');
-SELECT public.register_disbursement(3, 'عزاء ووفاة', 'أسرة المرحوم', 'نقداً');
+  4, 'لمشترك', 'تحويل مصرفي', 1, NULL,
+  'TRX-77', 'المصرف التجاري الوطني', 'علي المهدي', '0021547');
+SELECT public.register_disbursement(3, 'جماعي', 'نقداً', NULL, 'عزاء');
 SELECT public.cancel_disbursement(3, 'تصحيح إدخال');
 SQL
 

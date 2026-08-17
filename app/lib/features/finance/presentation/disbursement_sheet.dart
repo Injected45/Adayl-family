@@ -55,12 +55,18 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
   final TextEditingController _bankAccountNo = TextEditingController();
   final TextEditingController _bankAccountName = TextEditingController();
 
-  String _category = ExpenseCategoryWire.socialAid;
+  /// The choice everything else on this form follows from. لمشترك asks WHO;
+  /// جماعي asks WHAT FOR. They are never both asked, because a voucher is
+  /// never both — `ck_disb_shape` refuses the row that tries.
+  String _kind = DisbursementKindWire.member;
   String _method = PaymentMethodWire.cash;
 
-  /// Null means the payee is a FREE NAME. Setting it switches the field for a
-  /// register picker and the server then takes the name off that man's own row,
-  /// so a voucher cannot name one person while pointing at another.
+  /// Only for جماعي. Starts null so the admin must choose: defaulting to فرح
+  /// would file an unreviewed voucher under a real occasion.
+  String? _category;
+
+  /// Only for لمشترك. The server takes the NAME off that man's own row, so a
+  /// voucher cannot name one person while pointing at another.
   int? _payeeAdeelId;
 
   DateTime _spentAt = DateTime.now();
@@ -104,8 +110,12 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
     final double have = double.tryParse(available) ?? 0;
     if (value > have) return l.overTreasuryBalance(formatMoney(available));
 
-    if (_payeeAdeelId == null && _payee.text.trim().isEmpty) {
+    // One question per kind, and the unanswered one is what blocks the button.
+    if (_kind == DisbursementKindWire.member && _payeeAdeelId == null) {
       return l.payeeRequired;
+    }
+    if (_kind == DisbursementKindWire.collective && _category == null) {
+      return l.categoryRequired;
     }
     return null;
   }
@@ -120,9 +130,16 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
           .read(financeRepositoryProvider)
           .registerDisbursement(
             amount: _amount.text.trim(),
-            category: _category,
-            payeeName: _payee.text.trim(),
-            payeeAdeelId: _payeeAdeelId,
+            // Each kind sends its own half and nulls the other. Sending both is
+            // refused twice over — by RUL17 and by ck_disb_shape — so this is
+            // convenience, never the guarantee.
+            kind: _kind,
+            category: _kind == DisbursementKindWire.collective
+                ? _category
+                : null,
+            payeeAdeelId: _kind == DisbursementKindWire.member
+                ? _payeeAdeelId
+                : null,
             method: _method,
             reference: _reference.text.trim(),
             bankName: _method == PaymentMethodWire.bankTransfer
@@ -251,62 +268,46 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  DropdownButtonFormField<String>(
-                    initialValue: _category,
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: l.expenseCategory),
-                    items: <DropdownMenuItem<String>>[
-                      for (final String c in ExpenseCategoryWire.all)
-                        DropdownMenuItem<String>(value: c, child: Text(c)),
-                    ],
-                    onChanged: (String? v) =>
-                        setState(() => _category = v ?? _category),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // ── The payee: a member, or anybody ─────────────────────────
-                  // The switch is explicit rather than clever. A combined field
-                  // that guessed whether the typed text matched a member would
-                  // sometimes link a voucher to a man nobody meant.
-                  SegmentedButton<bool>(
-                    segments: <ButtonSegment<bool>>[
-                      ButtonSegment<bool>(
-                        value: false,
-                        label: Text(l.payeeFreeName),
-                        icon: const Icon(Icons.edit_outlined, size: 18),
+                  // ── THE CHOICE EVERYTHING ELSE FOLLOWS FROM ─────────────────
+                  // Money to a NAMED man, or money on an OCCASION for everybody.
+                  // Explicit rather than clever: a combined field that guessed
+                  // from what was typed would sometimes attach a voucher to a
+                  // man nobody meant, and the association reads these two apart
+                  // in every report it asks for.
+                  SegmentedButton<String>(
+                    segments: <ButtonSegment<String>>[
+                      ButtonSegment<String>(
+                        value: DisbursementKindWire.member,
+                        label: Text(l.kindMember),
+                        icon: const Icon(Icons.person_outline, size: 18),
                       ),
-                      ButtonSegment<bool>(
-                        value: true,
-                        label: Text(l.payeeFromRegister),
+                      ButtonSegment<String>(
+                        value: DisbursementKindWire.collective,
+                        label: Text(l.kindCollective),
                         icon: const Icon(Icons.groups_outlined, size: 18),
                       ),
                     ],
-                    selected: <bool>{_payeeAdeelId != null},
+                    selected: <String>{_kind},
                     showSelectedIcon: false,
-                    onSelectionChanged: (Set<bool> v) => setState(() {
+                    // Switching CLEARS the other half. Left behind, it would be
+                    // sent, refused by RUL17, and read as the form being broken
+                    // rather than as a leftover.
+                    onSelectionChanged: (Set<String> v) => setState(() {
+                      _kind = v.first;
                       _payeeAdeelId = null;
-                      _payee.clear();
-                      if (v.first) _payeeAdeelId = -1; // pick one below
+                      _category = null;
                     }),
                   ),
                   const SizedBox(height: AppSpacing.sm),
 
-                  if (_payeeAdeelId == null)
-                    TextField(
-                      controller: _payee,
-                      decoration: InputDecoration(labelText: l.payee),
-                      onChanged: (_) => setState(() {}),
-                    )
-                  else
+                  if (_kind == DisbursementKindWire.member)
                     adeels.when(
                       loading: () => const LinearProgressIndicator(minHeight: 2),
                       error: (Object e, StackTrace _) =>
                           Text(describeApiFailure(l, e)),
                       data: (List<AdeelListItem> options) =>
                           DropdownButtonFormField<int>(
-                            initialValue: _payeeAdeelId == -1
-                                ? null
-                                : _payeeAdeelId,
+                            initialValue: _payeeAdeelId,
                             isExpanded: true,
                             decoration: InputDecoration(labelText: l.payee),
                             items: <DropdownMenuItem<int>>[
@@ -322,6 +323,17 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                             onChanged: (int? v) =>
                                 setState(() => _payeeAdeelId = v),
                           ),
+                    )
+                  else
+                    DropdownButtonFormField<String>(
+                      initialValue: _category,
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: l.expenseCategory),
+                      items: <DropdownMenuItem<String>>[
+                        for (final String c in ExpenseCategoryWire.all)
+                          DropdownMenuItem<String>(value: c, child: Text(c)),
+                      ],
+                      onChanged: (String? v) => setState(() => _category = v),
                     ),
                   const SizedBox(height: AppSpacing.md),
 
@@ -358,26 +370,27 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     // implementations of one cascade drift and the second one to
                     // drift is the one nobody is looking at.
                     //
-                    // ── Scoped to the PAYEE, which has two shapes ────────────
-                    // An عديل is matched by his id; a free payee — a landlord, a
-                    // hospital, a supplier — has no id, so he is matched by the
-                    // name as typed. That is weaker, and deliberately so: it is
-                    // a typing aid, and the alternative is offering one
-                    // supplier's account number while paying another.
+                    // ── Scoped by whatever the kind gives us to scope BY ─────
+                    // لمشترك has a man, so it is his own accounts and nobody
+                    // else's — offering another member's would invite paying
+                    // one into the other's account.
                     //
-                    // With no payee chosen yet there is nothing to scope by, and
-                    // the list is empty rather than "everyone's accounts".
+                    // جماعي has no payee at all, by the association's own
+                    // decision, so there is nothing to narrow by and the honest
+                    // scope is every collective voucher: the association sends
+                    // to the same caterer and the same hall each year, and that
+                    // history is exactly what the field exists to save. Mixing
+                    // the two pools is what must not happen.
                     BankFields(
                       history: <BankUsage>[
                         for (final DisbursementView d
                             in ref.watch(disbursementsProvider).valueOrNull ??
                                 const <DisbursementView>[])
                           if (d.bankName.trim().isNotEmpty &&
-                              (_payeeAdeelId != null
-                                  ? d.payeeAdeelId == _payeeAdeelId
-                                  : _payee.text.trim().isNotEmpty &&
-                                        d.payeeName.trim().toLowerCase() ==
-                                            _payee.text.trim().toLowerCase()))
+                              (_kind == DisbursementKindWire.member
+                                  ? _payeeAdeelId != null &&
+                                        d.payeeAdeelId == _payeeAdeelId
+                                  : !d.isForMember))
                             BankUsage(
                               bank: d.bankName,
                               holder: d.bankAccountName,

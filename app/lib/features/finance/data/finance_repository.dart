@@ -181,9 +181,9 @@ class FinanceRepository {
   /// the way out.
   Future<Map<String, dynamic>> registerDisbursement({
     required String amount,
-    required String category,
-    required String payeeName,
+    required String kind,
     required String method,
+    String? category,
     int? payeeAdeelId,
     String? reference,
     String? bankName,
@@ -197,10 +197,14 @@ class FinanceRepository {
       'register_disbursement',
       params: <String, dynamic>{
         'p_amount': amount,
-        'p_category': category,
-        'p_payee_name': payeeName,
+        // The kind decides which of the next two is sent and which is null.
+        // Sending both is refused by RUL17 and, underneath it, by
+        // ck_disb_shape — the screen must not be the only thing keeping them
+        // apart.
+        'p_kind': kind,
         'p_method': method,
         'p_payee_adeel_id': payeeAdeelId,
+        'p_category': (category?.isEmpty ?? true) ? null : category,
         'p_reference': (reference?.isEmpty ?? true) ? null : reference,
         'p_bank_name': (bankName?.isEmpty ?? true) ? null : bankName,
         'p_bank_account_name': (bankAccountName?.isEmpty ?? true)

@@ -238,14 +238,19 @@ CREATE TABLE public.disbursements (
   -- and no two vouchers can carry the same number.
   voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
   amount        numeric(12,2) NOT NULL,
-  category      expense_category NOT NULL,
 
-  -- ── Who received it ────────────────────────────────────────────────────────
-  -- Either an عديل from the register, or a free name — the association pays
-  -- rent and hospitals as well as its own members, and a beneficiary field that
-  -- accepted only members could not record either.
+  -- ── WHICH OF THE TWO SHAPES THIS ROW IS ────────────────────────────────────
+  -- Everything below hangs off this. A voucher is either to a named man on the
+  -- register, or on an occasion for everybody — and the columns each kind uses
+  -- are disjoint, which is what ck_disb_shape at the foot enforces.
+  kind          disbursement_kind NOT NULL,
+
+  -- ── لمشترك: who received it ────────────────────────────────────────────────
+  -- Both NULL for a collective voucher. The association asked for it that way:
+  -- nobody "receives" فطور رمضان, and a name invented to satisfy a NOT NULL
+  -- would be a fact the books assert without knowing it.
   --
-  -- `payee_name` is NOT NULL and is a SNAPSHOT even when the id is set, for the
+  -- `payee_name` is a SNAPSHOT even though the id is right beside it, for the
   -- same reason receivables.adeel_name is: a voucher reprinted after the man is
   -- renamed must still say who was actually paid.
   --
@@ -255,7 +260,11 @@ CREATE TABLE public.disbursements (
   --   be answered, and for no other reason — treating it as a payment would let
   --   the association's charity cancel its own dues.
   payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
-  payee_name    text          NOT NULL,
+  payee_name    text,
+
+  -- ── جماعي: what it was for ─────────────────────────────────────────────────
+  -- NULL for a member voucher, where the man IS the heading.
+  category      expense_category,
 
   method        pay_method    NOT NULL,
   reference     text,
@@ -277,7 +286,28 @@ CREATE TABLE public.disbursements (
   cancel_reason text,
 
   CONSTRAINT ck_disb_amount CHECK (amount > 0),
-  CONSTRAINT ck_disb_payee  CHECK (btrim(payee_name) <> ''),
+
+  -- ── THE TWO SHAPES, and nothing in between ─────────────────────────────────
+  -- The kind is not a label on the row, it IS the row's shape, and this is what
+  -- makes that true. Without it every combination is storable: a member voucher
+  -- that also carries an occasion, a collective one with somebody's name on it,
+  -- or one that is neither and reports nothing. All three would pass every
+  -- other check here and only be discovered on a screen months later.
+  --
+  -- Written as one constraint rather than three NOT NULLs because the rule is
+  -- about the COMBINATION — no per-column check can say "this one must be null
+  -- exactly when that one is not".
+  CONSTRAINT ck_disb_shape CHECK (
+    (kind = 'لمشترك'
+       AND payee_adeel_id IS NOT NULL
+       AND btrim(coalesce(payee_name, '')) <> ''
+       AND category IS NULL)
+    OR
+    (kind = 'جماعي'
+       AND payee_adeel_id IS NULL
+       AND payee_name IS NULL
+       AND category IS NOT NULL)
+  ),
   -- A cancelled voucher must say why, exactly as a cancelled receipt must.
   CONSTRAINT ck_disb_cancel CHECK (
     status <> 'ملغي' OR (cancelled_at IS NOT NULL

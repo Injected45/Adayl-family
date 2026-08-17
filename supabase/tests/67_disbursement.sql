@@ -16,22 +16,37 @@ SET client_min_messages = warning;
 -- treasurer; paying it out was put a rung above even the finance manager.
 SELECT probe.become('00000000-0000-0000-0000-0000000000a3');  -- treasurer
 SELECT probe.raises('spend', 'a treasurer may NOT disburse', $sql$
-  SELECT public.register_disbursement(10, 'مصاريف إدارية', 'مكتبة', 'نقداً')
+  SELECT public.register_disbursement(10, 'جماعي', 'نقداً', NULL, 'عزاء')
 $sql$, 'RUL00');
 SELECT probe.become('00000000-0000-0000-0000-0000000000a2');  -- finance manager
 SELECT probe.raises('spend', 'nor may the finance manager', $sql$
-  SELECT public.register_disbursement(10, 'مصاريف إدارية', 'مكتبة', 'نقداً')
+  SELECT public.register_disbursement(10, 'جماعي', 'نقداً', NULL, 'عزاء')
 $sql$, 'RUL00');
 
 SELECT probe.become('00000000-0000-0000-0000-0000000000a1');  -- admin
 SELECT probe.raises('spend', 'a zero disbursement is refused', $sql$
-  SELECT public.register_disbursement(0, 'مصاريف إدارية', 'مكتبة', 'نقداً')
+  SELECT public.register_disbursement(0, 'جماعي', 'نقداً', NULL, 'عزاء')
 $sql$, 'RUL17');
 SELECT probe.raises('spend', 'and a negative one', $sql$
-  SELECT public.register_disbursement(-5, 'مصاريف إدارية', 'مكتبة', 'نقداً')
+  SELECT public.register_disbursement(-5, 'جماعي', 'نقداً', NULL, 'عزاء')
 $sql$, 'RUL17');
-SELECT probe.raises('spend', 'a nameless payee is refused', $sql$
-  SELECT public.register_disbursement(10, 'مصاريف إدارية', '   ', 'نقداً')
+
+-- ═════ THE TWO SHAPES ════════════════════════════════════════════════════════
+-- A voucher is money to a NAMED man, or money on an OCCASION for everybody. The
+-- columns each kind uses are disjoint, and the halves must not be mixable — a
+-- row that is half of each reports under a heading it does not belong to and is
+-- discovered on a screen months later, if at all.
+SELECT probe.raises('spend', 'صرف لمشترك without a member is refused', $sql$
+  SELECT public.register_disbursement(10, 'لمشترك', 'نقداً')
+$sql$, 'RUL17');
+SELECT probe.raises('spend', '...and it may not carry a بند as well', $sql$
+  SELECT public.register_disbursement(10, 'لمشترك', 'نقداً', 1, 'عزاء')
+$sql$, 'RUL17');
+SELECT probe.raises('spend', 'صرف جماعي without a بند is refused', $sql$
+  SELECT public.register_disbursement(10, 'جماعي', 'نقداً')
+$sql$, 'RUL17');
+SELECT probe.raises('spend', '...and it may not name a member either', $sql$
+  SELECT public.register_disbursement(10, 'جماعي', 'نقداً', 1, 'عزاء')
 $sql$, 'RUL17');
 
 -- ═════ THE RULE: no overdraft ════════════════════════════════════════════════
@@ -44,19 +59,25 @@ SELECT probe.note('spend', 'the treasury holds something to spend',
 SELECT probe.raises('spend', 'spending MORE than the treasury holds is refused',
   $sql$ SELECT public.register_disbursement(
           (SELECT "balance"::numeric + 1 FROM public.v_cash_summary),
-          'مصاريف إدارية', 'مورد', 'نقداً') $sql$, 'RUL17');
+          'جماعي', 'نقداً', NULL, 'حالات طارئة') $sql$, 'RUL17');
 SELECT probe.eq('spend', '...and the refusal left no voucher behind',
   $sql$ SELECT count(*)::text FROM public.disbursements $sql$, '0');
 
--- ═════ A voucher that IS within the balance ══════════════════════════════════
+-- ═════ صرف جماعي — an occasion, and nobody's name on it ══════════════════════
 SELECT probe.succeeds('spend', 'spending within the balance is accepted', $sql$
   SELECT public.register_disbursement(
-    10, 'مصاريف إدارية', 'مكتبة الوفاء', 'نقداً',
-    NULL, 'INV-9', NULL, NULL, NULL, 'أمين الصندوق', 'قرطاسية')
+    10, 'جماعي', 'نقداً', NULL, 'فطور رمضان',
+    'INV-9', NULL, NULL, NULL, 'أمين الصندوق', 'إفطار الجمعية')
 $sql$);
 SELECT probe.eq('spend', 'the voucher is numbered EXP-000001',
   $sql$ SELECT voucher_no FROM public.disbursements ORDER BY id LIMIT 1 $sql$,
   'EXP-000001');
+-- The association's own decision: nobody RECEIVES فطور رمضان the way a member
+-- receives aid, so the column is empty rather than carrying an invented name.
+SELECT probe.eq('spend', 'and it records no payee at all',
+  $sql$ SELECT (payee_name IS NULL AND payee_adeel_id IS NULL)::text
+          FROM public.disbursements WHERE voucher_no = 'EXP-000001' $sql$,
+  'true');
 SELECT probe.eq('spend', 'and the treasury balance drops by exactly that',
   $sql$ SELECT ("total"::numeric - "balance"::numeric)::text
           FROM public.v_cash_summary $sql$, '10.00');
@@ -68,26 +89,56 @@ SELECT probe.eq('spend', 'what was COLLECTED is unchanged by a disbursement',
           FROM public.v_cash_summary $sql$, 'true');
 SELECT probe.eq('spend', 'the heading carries the spend',
   $sql$ SELECT "total" FROM public.v_expense_by_category
-         WHERE "category" = 'مصاريف إدارية' $sql$, '10.00');
+         WHERE "category" = 'فطور رمضان' $sql$, '10.00');
 -- Every heading appears, spent on or not: a report that omits a zero reads as
 -- one that forgot it.
-SELECT probe.eq('spend', 'all nine headings are listed, including the empty',
-  $sql$ SELECT count(*)::text FROM public.v_expense_by_category $sql$, '9');
+SELECT probe.eq('spend', 'the five headings are listed, plus the aid line',
+  $sql$ SELECT count(*)::text FROM public.v_expense_by_category $sql$, '6');
 
--- ═════ A payee from the register ═════════════════════════════════════════════
+-- ═════ صرف لمشترك — a named man, and no heading ══════════════════════════════
 -- The name is taken from HIS OWN ROW, never from the client, so a voucher
 -- cannot name one man while pointing at another.
 SELECT probe.succeeds('spend', 'a member may be the payee', $sql$
-  SELECT public.register_disbursement(
-    5, 'إعانة اجتماعية', 'اسم سيُتجاهل', 'نقداً', 1)
+  SELECT public.register_disbursement(5, 'لمشترك', 'نقداً', 1)
 $sql$);
-SELECT probe.eq('spend', '...and the register overrides whatever was typed',
+SELECT probe.eq('spend', '...and his name is snapshotted off the register',
   $sql$ SELECT (d.payee_name
               = (SELECT full_name FROM public.adeels WHERE id = 1))::text
           FROM public.disbursements d WHERE d.payee_adeel_id = 1 $sql$, 'true');
 SELECT probe.raises('spend', 'an unknown member is refused', $sql$
-  SELECT public.register_disbursement(5, 'إعانة اجتماعية', 'x', 'نقداً', 999999)
+  SELECT public.register_disbursement(5, 'لمشترك', 'نقداً', 999999)
 $sql$, 'RUL17');
+
+-- ⚠ AND IT MUST STILL BE REPORTED. A member voucher carries no category, so a
+-- report grouped on that column alone would omit every dirham of aid and still
+-- read as complete. The aid line is what keeps the report's total equal to what
+-- actually left the treasury.
+SELECT probe.eq('spend', 'aid is reported on its own line, not omitted',
+  $sql$ SELECT "total" FROM public.v_expense_by_category
+         WHERE "category" = 'صرف للمشتركين' $sql$, '5.00');
+SELECT probe.eq('spend', '...so the report totals what the treasury paid out',
+  $sql$ SELECT (sum("total"::numeric)::numeric(12,2)::text
+              = (SELECT "disbursed" FROM public.v_cash_summary))::text
+          FROM public.v_expense_by_category $sql$, 'true');
+
+-- ═════ The CONSTRAINT underneath, proved on its own ══════════════════════════
+-- The four refusals above are the RPC's, and they exist to give an admin a
+-- sentence he can act on. This is ck_disb_shape itself: the guarantee has to
+-- hold for anything that reaches the TABLE, not only for what came through the
+-- function — a future RPC, a patch, an import.
+--
+-- Placed after the successful vouchers deliberately. A failed INSERT still
+-- consumes an identity value, so running these earlier renumbered EXP-000001
+-- out of existence and broke two checks that had nothing to do with shapes.
+SELECT probe.raises('spend', 'the TABLE itself refuses a MIXED row', $sql$
+  INSERT INTO public.disbursements (amount, kind, category, payee_adeel_id,
+                                    payee_name, method)
+  VALUES (1, 'جماعي', 'عزاء', 1, 'فلان', 'نقداً')
+$sql$, '23514');
+SELECT probe.raises('spend', '...and one that is NEITHER shape', $sql$
+  INSERT INTO public.disbursements (amount, kind, method)
+  VALUES (1, 'لمشترك', 'نقداً')
+$sql$, '23514');
 
 -- ⚠ THE ONE THAT MATTERS MOST. Aid paid to a member is NOT a payment against
 -- his subscription: it never touches receivables, payments or his wallet. If it
@@ -113,7 +164,7 @@ SELECT probe.eq('spend', '...the voucher STAYS, struck through',
          WHERE id = (SELECT min(id) FROM public.disbursements) $sql$, 'ملغي');
 SELECT probe.eq('spend', '...and its heading no longer counts it',
   $sql$ SELECT "total" FROM public.v_expense_by_category
-         WHERE "category" = 'مصاريف إدارية' $sql$, '0.00');
+         WHERE "category" = 'فطور رمضان' $sql$, '0.00');
 SELECT probe.raises('spend', 'cancelling it twice is refused', $sql$
   SELECT public.cancel_disbursement(
     (SELECT min(id) FROM public.disbursements), 'مرة أخرى')
@@ -146,7 +197,7 @@ SELECT probe.become('00000000-0000-0000-0000-0000000000a1');  -- admin
 SELECT probe.succeeds('spend', '...and the whole fund is spent', $sql$
   SELECT public.register_disbursement(
     (SELECT "balance"::numeric FROM public.v_cash_summary),
-    'إيجار وخدمات', 'مالك المقر', 'نقداً')
+    'جماعي', 'نقداً', NULL, 'حالات طارئة')
 $sql$);
 SELECT probe.eq('spend', '...leaving the treasury at exactly zero',
   $sql$ SELECT "balance" FROM public.v_cash_summary $sql$, '0.00');

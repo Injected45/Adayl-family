@@ -443,19 +443,22 @@ class LAr extends L {
   String get confirmDisbursement => 'اعتماد الصرف';
 
   @override
+  String get kindMember => 'صرف لمشترك';
+
+  @override
+  String get kindCollective => 'صرف جماعي';
+
+  @override
   String get expenseCategory => 'بند الصرف';
 
   @override
-  String get payee => 'جهة الصرف';
+  String get categoryRequired => 'اختر بند الصرف';
 
   @override
-  String get payeeFreeName => 'اسم حر';
+  String get payee => 'المشترك المستفيد';
 
   @override
-  String get payeeFromRegister => 'من المشتركين';
-
-  @override
-  String get payeeRequired => 'جهة الصرف مطلوبة';
+  String get payeeRequired => 'اختر المشترك المستفيد';
 
   @override
   String get handedBy => 'المُسلِّم';

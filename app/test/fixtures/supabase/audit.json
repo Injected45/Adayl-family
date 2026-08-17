@@ -1,9 +1,9 @@
-[{"id":1,"eventType":"receivables.generate","detail":"إنشاء استحقاقات 2026-02: 2 سجل","ref":"2026-02","actorName":"المدير المالي","occurredAt":"2026-08-17T09:35:12.644Z"}, 
- {"id":2,"eventType":"receivables.generate","detail":"إنشاء استحقاقات 2026-03: 2 سجل","ref":"2026-03","actorName":"المدير المالي","occurredAt":"2026-08-17T09:35:12.649Z"}, 
- {"id":3,"eventType":"payment.register","detail":"تحصيل 30.00 من العديل 1","ref":"PAY-000001","actorName":"أمين الصندوق","occurredAt":"2026-08-17T09:35:12.655Z"}, 
- {"id":4,"eventType":"payment.register","detail":"تحصيل 5.00 من العديل 2","ref":"PAY-000002","actorName":"أمين الصندوق","occurredAt":"2026-08-17T09:35:12.657Z"}, 
- {"id":5,"eventType":"payment.cancel","detail":"إلغاء PAY-000002: تصحيح إدخال","ref":"PAY-000002","actorName":"المدير المالي","occurredAt":"2026-08-17T09:35:12.660Z"}, 
- {"id":6,"eventType":"disbursement.register","detail":"صرف 12.00 — مصاريف إدارية إلى مكتبة الوفاء","ref":"EXP-000001","actorName":"مدير النظام","occurredAt":"2026-08-17T09:35:12.662Z"}, 
- {"id":7,"eventType":"disbursement.register","detail":"صرف 4.00 — إعانة اجتماعية إلى العديل الأول","ref":"EXP-000002","actorName":"مدير النظام","occurredAt":"2026-08-17T09:35:12.663Z"}, 
- {"id":8,"eventType":"disbursement.register","detail":"صرف 3.00 — عزاء ووفاة إلى أسرة المرحوم","ref":"EXP-000003","actorName":"مدير النظام","occurredAt":"2026-08-17T09:35:12.664Z"}, 
- {"id":9,"eventType":"disbursement.cancel","detail":"إلغاء EXP-000003: تصحيح إدخال","ref":"EXP-000003","actorName":"مدير النظام","occurredAt":"2026-08-17T09:35:12.665Z"}]
+[{"id":1,"eventType":"receivables.generate","detail":"إنشاء استحقاقات 2026-02: 2 سجل","ref":"2026-02","actorName":"المدير المالي","occurredAt":"2026-08-17T10:10:47.867Z"}, 
+ {"id":2,"eventType":"receivables.generate","detail":"إنشاء استحقاقات 2026-03: 2 سجل","ref":"2026-03","actorName":"المدير المالي","occurredAt":"2026-08-17T10:10:47.871Z"}, 
+ {"id":3,"eventType":"payment.register","detail":"تحصيل 30.00 من العديل 1","ref":"PAY-000001","actorName":"أمين الصندوق","occurredAt":"2026-08-17T10:10:47.876Z"}, 
+ {"id":4,"eventType":"payment.register","detail":"تحصيل 5.00 من العديل 2","ref":"PAY-000002","actorName":"أمين الصندوق","occurredAt":"2026-08-17T10:10:47.878Z"}, 
+ {"id":5,"eventType":"payment.cancel","detail":"إلغاء PAY-000002: تصحيح إدخال","ref":"PAY-000002","actorName":"المدير المالي","occurredAt":"2026-08-17T10:10:47.882Z"}, 
+ {"id":6,"eventType":"disbursement.register","detail":"صرف 12.00 — فطور رمضان","ref":"EXP-000001","actorName":"مدير النظام","occurredAt":"2026-08-17T10:10:47.884Z"}, 
+ {"id":7,"eventType":"disbursement.register","detail":"صرف 4.00 — إلى العديل الأول","ref":"EXP-000002","actorName":"مدير النظام","occurredAt":"2026-08-17T10:10:47.885Z"}, 
+ {"id":8,"eventType":"disbursement.register","detail":"صرف 3.00 — عزاء","ref":"EXP-000003","actorName":"مدير النظام","occurredAt":"2026-08-17T10:10:47.886Z"}, 
+ {"id":9,"eventType":"disbursement.cancel","detail":"إلغاء EXP-000003: تصحيح إدخال","ref":"EXP-000003","actorName":"مدير النظام","occurredAt":"2026-08-17T10:10:47.887Z"}]

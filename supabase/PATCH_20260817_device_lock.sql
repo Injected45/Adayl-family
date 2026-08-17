@@ -1041,18 +1041,31 @@ END $$;
 --
 -- CREATE TYPE has no IF NOT EXISTS and CREATE TABLE's is not enough on its own,
 -- so both are wrapped in a guard that makes a second run a no-op.
+-- ── THE TWO KINDS ───────────────────────────────────────────────────────────
+-- The association spends on exactly two things and asked for them separated at
+-- the top of the form: money to a NAMED man on the register, or money on an
+-- OCCASION for everybody. Everything else on the voucher follows — a member
+-- voucher carries no heading (the man IS the heading) and a collective one
+-- carries no payee at all, because nobody receives فطور رمضان the way a member
+-- receives aid.
+DO $mkkind$
+BEGIN
+  CREATE TYPE disbursement_kind AS ENUM ('لمشترك','جماعي');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $mkkind$;
+
+-- The five occasions, named by the association. No 'أخرى': a list this narrow
+-- describes things it actually holds, and an occasion fitting none of them is a
+-- reason to name a sixth rather than to file it under a heading that says
+-- nothing.
 DO $mkenum$
 BEGIN
   CREATE TYPE expense_category AS ENUM (
-    'إعانة اجتماعية',
-    'عزاء ووفاة',
-    'مناسبة زواج',
-    'علاج ومرض',
-    'مصاريف إدارية',
-    'إيجار وخدمات',
-    'ضيافة واجتماعات',
-    'رسوم مصرفية',
-    'أخرى'
+    'فرح',
+    'عزاء',
+    'فطور رمضان',
+    'مناسبة اجتماعية',
+    'حالات طارئة'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $mkenum$;
@@ -1061,9 +1074,13 @@ CREATE TABLE IF NOT EXISTS public.disbursements (
   id            bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   voucher_no    text          GENERATED ALWAYS AS ('EXP-' || lpad(id::text, 6, '0')) STORED,
   amount        numeric(12,2) NOT NULL,
-  category      expense_category NOT NULL,
+  kind          disbursement_kind NOT NULL,
+  -- Both halves nullable on the column and made exclusive by ck_disb_shape
+  -- below: no per-column NOT NULL can say "this one exactly when that one is
+  -- not".
   payee_adeel_id bigint       REFERENCES public.adeels(id) ON DELETE RESTRICT,
-  payee_name    text          NOT NULL,
+  payee_name    text,
+  category      expense_category,
   method        pay_method    NOT NULL,
   reference     text,
   bank_name         text,
@@ -1079,7 +1096,23 @@ CREATE TABLE IF NOT EXISTS public.disbursements (
   cancel_reason text,
 
   CONSTRAINT ck_disb_amount CHECK (amount > 0),
-  CONSTRAINT ck_disb_payee  CHECK (btrim(payee_name) <> ''),
+
+  -- THE TWO SHAPES, and nothing in between. Without this every combination is
+  -- storable: a member voucher that also carries an occasion, a collective one
+  -- with somebody's name on it, or one that is neither and reports nothing —
+  -- all three passing every other check and surfacing on a screen months later.
+  CONSTRAINT ck_disb_shape CHECK (
+    (kind = 'لمشترك'
+       AND payee_adeel_id IS NOT NULL
+       AND btrim(coalesce(payee_name, '')) <> ''
+       AND category IS NULL)
+    OR
+    (kind = 'جماعي'
+       AND payee_adeel_id IS NULL
+       AND payee_name IS NULL
+       AND category IS NOT NULL)
+  ),
+
   CONSTRAINT ck_disb_cancel CHECK (
     status <> 'ملغي' OR (cancelled_at IS NOT NULL
                      AND btrim(coalesce(cancel_reason, '')) <> ''))
@@ -1111,10 +1144,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $disbpol$;
 CREATE OR REPLACE FUNCTION public.register_disbursement(
   p_amount            numeric,
-  p_category          expense_category,
-  p_payee_name        text,
+  p_kind              disbursement_kind,
   p_method            pay_method,
   p_payee_adeel_id    bigint DEFAULT NULL,
+  p_category          expense_category DEFAULT NULL,
   p_reference         text   DEFAULT NULL,
   p_bank_name         text   DEFAULT NULL,
   p_bank_account_name text   DEFAULT NULL,
@@ -1159,19 +1192,34 @@ BEGIN
       p_amount::text, v_available::text USING ERRCODE = 'RUL17';
   END IF;
 
-  -- The beneficiary. An عديل's name is taken from HIS ROW rather than from the
-  -- client, so a voucher cannot name one man while pointing at another; a free
-  -- payee is whatever was typed, trimmed.
-  IF p_payee_adeel_id IS NOT NULL THEN
+  -- ── The two shapes, refused here as well as CHECKed on the row ─────────────
+  -- ck_disb_shape is the guarantee; this is the message. A constraint violation
+  -- arrives as 23514 with a constraint name, which is true and unreadable — the
+  -- admin needs to be told he picked a kind and then filled in the other one.
+  IF p_kind = 'لمشترك' THEN
+    IF p_payee_adeel_id IS NULL THEN
+      RAISE EXCEPTION 'اختر المشترك المستفيد' USING ERRCODE = 'RUL17';
+    END IF;
+    IF p_category IS NOT NULL THEN
+      RAISE EXCEPTION 'الصرف لمشترك لا يحمل بنداً' USING ERRCODE = 'RUL17';
+    END IF;
+    -- The name comes from HIS ROW, never from the client, so a voucher cannot
+    -- name one man while pointing at another.
     SELECT full_name INTO v_payee FROM public.adeels WHERE id = p_payee_adeel_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
     END IF;
   ELSE
-    v_payee := nullif(btrim(coalesce(p_payee_name, '')), '');
-    IF v_payee IS NULL THEN
-      RAISE EXCEPTION 'جهة الصرف مطلوبة' USING ERRCODE = 'RUL17';
+    IF p_category IS NULL THEN
+      RAISE EXCEPTION 'اختر بند الصرف الجماعي' USING ERRCODE = 'RUL17';
     END IF;
+    IF p_payee_adeel_id IS NOT NULL THEN
+      RAISE EXCEPTION 'الصرف الجماعي لا يُنسب إلى مشترك' USING ERRCODE = 'RUL17';
+    END IF;
+    -- No payee at all, by the association's own decision: nobody receives
+    -- فطور رمضان the way a member receives aid, and a name invented to fill the
+    -- column would be a fact the books assert without knowing it.
+    v_payee := NULL;
   END IF;
 
   -- Kept only for a transfer, exactly as on a collection: a cash payout has no
@@ -1184,11 +1232,11 @@ BEGIN
   END IF;
 
   INSERT INTO public.disbursements (
-    amount, category, payee_adeel_id, payee_name, method, reference,
+    amount, kind, category, payee_adeel_id, payee_name, method, reference,
     bank_name, bank_account_no, bank_account_name, handed_by, note,
     spent_at, created_by)
   VALUES (
-    p_amount, p_category, p_payee_adeel_id, v_payee, p_method,
+    p_amount, p_kind, p_category, p_payee_adeel_id, v_payee, p_method,
     nullif(btrim(coalesce(p_reference, '')), ''),
     v_bank, v_acct_no, v_acct_name,
     nullif(btrim(coalesce(p_handed_by, '')), ''),
@@ -1200,12 +1248,14 @@ BEGIN
   RETURNING id, voucher_no INTO v_id, v_voucher;
 
   PERFORM public.write_audit('disbursement.register',
-    format('صرف %s — %s إلى %s', p_amount::text, p_category::text, v_payee),
+    format('صرف %s — %s', p_amount::text,
+           coalesce('إلى ' || v_payee, p_category::text)),
     v_voucher);
 
   RETURN jsonb_build_object(
     'id', v_id, 'voucherNo', v_voucher,
-    'amount', p_amount::text, 'category', p_category::text,
+    'amount', p_amount::text, 'kind', p_kind::text,
+    'category', p_category::text,
     'payeeName', v_payee,
     -- What the treasury stands at AFTER this voucher. The screen states it back
     -- so an admin who has just emptied the fund learns it now rather than on
@@ -1494,9 +1544,12 @@ SELECT
   d.id                        AS "id",
   d.voucher_no                AS "voucherNo",
   d.amount::text              AS "amount",
-  d.category::text            AS "category",
+  d.kind::text                AS "kind",
+  -- Both nullable on the row and both flattened to '' here, so the client never
+  -- branches on null: it branches on `kind`, which is the thing that decides.
+  coalesce(d.category::text, '') AS "category",
   d.payee_adeel_id            AS "payeeAdeelId",
-  d.payee_name                AS "payeeName",
+  coalesce(d.payee_name, '')  AS "payeeName",
   coalesce(a.adeel_code, '')  AS "payeeCode",
   d.method::text              AS "method",
   coalesce(d.reference, '')          AS "reference",
@@ -1511,15 +1564,32 @@ FROM public.disbursements d
 LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
 
 CREATE OR REPLACE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
-SELECT
-  c.category::text                                AS "category",
-  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
-  count(d.id)                                     AS "count"
-FROM unnest(enum_range(NULL::expense_category)) AS c(category)
-LEFT JOIN public.disbursements d
-       ON d.category = c.category AND d.status <> 'ملغي'
-GROUP BY c.category
-ORDER BY c.category;
+SELECT "category", "total", "count"
+FROM (
+  -- The five occasions, in the order the enum declares them.
+  SELECT
+    c.ord                                           AS ord,
+    c.category::text                                AS "category",
+    coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+    count(d.id)                                     AS "count"
+  FROM unnest(enum_range(NULL::expense_category))
+         WITH ORDINALITY AS c(category, ord)
+  LEFT JOIN public.disbursements d
+         ON d.category = c.category AND d.status <> 'ملغي'
+  GROUP BY c.ord, c.category
+
+  UNION ALL
+
+  -- Then aid, last, so the occasions keep their declared order above it.
+  SELECT
+    9999,
+    'صرف للمشتركين',
+    coalesce(sum(d.amount), 0)::numeric(12,2)::text,
+    count(d.id)
+  FROM public.disbursements d
+  WHERE d.kind = 'لمشترك' AND d.status <> 'ملغي'
+) t
+ORDER BY t.ord;
 
 GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
 TO authenticated;
@@ -1578,7 +1648,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- Money OUT. Both admin-gated inside their bodies; register_disbursement
     -- also refuses to spend past the treasury balance, which is rule 7 read
     -- backwards and the reason the fund cannot be overdrawn from a phone.
-    'register_disbursement(numeric,expense_category,text,pay_method,bigint,text,text,text,text,text,text,date)',
+    'register_disbursement(numeric,disbursement_kind,pay_method,bigint,expense_category,text,text,text,text,text,text,date)',
     'cancel_disbursement(bigint,text)',
 
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
@@ -1702,8 +1772,12 @@ UNION ALL SELECT 'the register shows what each member holds or owes',
 -- §11, money out.
 UNION ALL SELECT 'the disbursements table exists',
        (to_regclass('public.disbursements') IS NOT NULL)::text
-UNION ALL SELECT 'all nine spending headings are defined',
-       (SELECT count(*) = 9 FROM unnest(enum_range(NULL::expense_category)))::text
+UNION ALL SELECT 'the five collective headings are defined',
+       (SELECT count(*) = 5 FROM unnest(enum_range(NULL::expense_category)))::text
+UNION ALL SELECT 'and a voucher must be one of the two kinds, never both',
+       (SELECT count(*) = 1 FROM pg_constraint
+         WHERE conname = 'ck_disb_shape'
+           AND conrelid = 'public.disbursements'::regclass)::text
 UNION ALL SELECT 'a voucher can be reversed but never deleted',
        (SELECT count(*) = 1 FROM pg_trigger
          WHERE tgname = 'trg_disb_no_delete' AND NOT tgisinternal)::text

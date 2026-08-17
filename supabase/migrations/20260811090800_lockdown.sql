@@ -74,8 +74,9 @@ GRANT EXECUTE ON FUNCTION
   -- refuses to spend past the treasury balance. Listed here because this file
   -- claims above to be the COMPLETE answer to "what can a client call?", and a
   -- grant that lives only in rpc.sql makes that claim false.
-  public.register_disbursement(numeric, expense_category, text, pay_method,
-                               bigint, text, text, text, text, text, text, date),
+  public.register_disbursement(numeric, disbursement_kind, pay_method, bigint,
+                               expense_category, text, text, text, text, text,
+                               text, date),
   public.cancel_disbursement(bigint, text)
 TO authenticated;
 

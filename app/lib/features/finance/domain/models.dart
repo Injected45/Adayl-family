@@ -276,11 +276,12 @@ class DisbursementView {
     required this.id,
     required this.voucherNo,
     required this.amount,
-    required this.category,
-    required this.payeeName,
+    required this.kind,
     required this.method,
     required this.status,
     required this.spentAt,
+    this.category = '',
+    this.payeeName = '',
     this.payeeAdeelId,
     this.payeeCode = '',
     this.reference = '',
@@ -297,14 +298,30 @@ class DisbursementView {
   final String voucherNo;
   final String amount;
 
-  /// One of [ExpenseCategoryWire.all]. Stored as the database's own enum label.
+  /// [DisbursementKindWire.member] or [DisbursementKindWire.collective], and
+  /// the only field to branch on. The two below are each empty for one kind,
+  /// which `ck_disb_shape` guarantees — so reading `payeeName` to decide would
+  /// be inferring the shape from a symptom instead of asking.
+  final String kind;
+
+  /// One of [ExpenseCategoryWire.all], and EMPTY for a member voucher — the man
+  /// is the heading, so asking which category besides asks the same question
+  /// twice.
   final String category;
 
-  /// A SNAPSHOT even when [payeeAdeelId] is set: a voucher reprinted after the
-  /// man is renamed must still say who was actually paid.
+  /// A SNAPSHOT of the register row, and EMPTY for a collective voucher:
+  /// nobody receives فطور رمضان the way a member receives aid. A snapshot even
+  /// though [payeeAdeelId] sits beside it, because a voucher reprinted after
+  /// the man is renamed must still say who was actually paid.
   final String payeeName;
   final int? payeeAdeelId;
   final String payeeCode;
+
+  bool get isForMember => kind == DisbursementKindWire.member;
+
+  /// What to put on the voucher card where a name would go. One or the other is
+  /// always present, so the card never has to render an empty line.
+  String get subject => isForMember ? payeeName : category;
 
   final String method;
   final String reference;
@@ -329,6 +346,7 @@ class DisbursementView {
         id: _int(json['id']),
         voucherNo: _string(json['voucherNo']),
         amount: _string(json['amount']),
+        kind: _string(json['kind']),
         category: _string(json['category']),
         payeeName: _string(json['payeeName']),
         payeeAdeelId: (json['payeeAdeelId'] as num?)?.toInt(),

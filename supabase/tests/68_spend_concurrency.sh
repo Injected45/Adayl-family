@@ -46,7 +46,7 @@ SELECT set_config('request.jwt.claims', '$CLAIMS', true);
 -- function, so they meet at the lock rather than one after the other.
 SELECT pg_sleep(0.05);
 SELECT 'RESULT=' || (public.register_disbursement(
-         $BAL, 'مصاريف إدارية', 'مورد التزامن', 'نقداً') ->> 'voucherNo');
+         $BAL, 'جماعي', 'نقداً', NULL, 'حالات طارئة') ->> 'voucherNo');
 COMMIT;
 SQL
 }

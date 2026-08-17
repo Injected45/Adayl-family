@@ -31,31 +31,45 @@ CREATE TYPE pay_method     AS ENUM ('نقداً','تحويل مصرفي');
 CREATE TYPE pay_status     AS ENUM ('معتمد','ملغي');
 CREATE TYPE cash_kind      AS ENUM ('تحصيل');
 
--- ── What the association spent the money ON ──────────────────────────────────
+-- ── The TWO kinds of spending, which are different in kind and not in degree ──
+-- The association spends its money on exactly two things, and it asked for them
+-- to be told apart at the top of the form rather than buried in one long list:
+--
+--   لمشترك — money to a NAMED man on the register. The عديل IS the heading;
+--            asking which category besides would be asking the same question
+--            twice.
+--   جماعي  — money spent on an OCCASION, for everybody. Nobody receives it in
+--            the sense a member does, so there is no payee at all, and the
+--            heading is the whole answer to "what was it for".
+--
+-- Modelled as an enum on the row rather than as two tables: they share every
+-- money column, the treasury sums both, and rule 9 reverses both identically.
+-- What differs is only which of two shapes the row must take — and that is a
+-- CHECK constraint, which is where a rule of this kind belongs.
+CREATE TYPE disbursement_kind AS ENUM ('لمشترك','جماعي');
+
+-- ── What a COLLECTIVE disbursement was for ───────────────────────────────────
 -- A FIXED list, chosen over free text deliberately: "كم أنفقنا على كل بند" is
--- the only question a disbursement record exists to answer, and free text turns
--- كهرباء / الكهرباء / فاتورة كهرباء into three separate answers to it.
+-- the only question this column exists to answer, and free text turns
+-- عزاء / العزاء / مصاريف عزاء into three separate answers to it.
 --
--- 'أخرى' is the escape hatch, and the voucher's free `note` is what explains it.
--- Without it a spend that fits no heading could not be recorded at all, which
--- would push the treasurer into miscategorising rather than into asking for a
--- new heading.
+-- These five are the association's own, named by it. There is deliberately no
+-- 'أخرى': the earlier nine had one because they tried to cover rent and bank
+-- fees as well, and a list that broad always needs an escape hatch. These five
+-- describe occasions the association actually holds, and an occasion that fits
+-- none of them is a reason to name a sixth rather than to file it under a
+-- heading that says nothing.
 --
--- An ENUM rather than a lookup table: the association named these nine and a
--- tenth is a schema change, which is the correct amount of friction for a
--- category that every historical report is grouped by. Postgres keeps the label
--- on the row, so a heading retired later still reads correctly on the vouchers
--- that used it.
+-- An ENUM rather than a lookup table: a sixth is a schema change, which is the
+-- correct amount of friction for a category every historical report groups by.
+-- Postgres keeps the label on the row, so a heading retired later still reads
+-- correctly on the vouchers that used it.
 CREATE TYPE expense_category AS ENUM (
-  'إعانة اجتماعية',
-  'عزاء ووفاة',
-  'مناسبة زواج',
-  'علاج ومرض',
-  'مصاريف إدارية',
-  'إيجار وخدمات',
-  'ضيافة واجتماعات',
-  'رسوم مصرفية',
-  'أخرى'
+  'فرح',
+  'عزاء',
+  'فطور رمضان',
+  'مناسبة اجتماعية',
+  'حالات طارئة'
 );
 
 -- ── updated_at ───────────────────────────────────────────────────────────────

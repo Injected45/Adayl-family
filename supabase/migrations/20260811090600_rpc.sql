@@ -1483,10 +1483,10 @@ TO authenticated;
 -- ═════════════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.register_disbursement(
   p_amount            numeric,
-  p_category          expense_category,
-  p_payee_name        text,
+  p_kind              disbursement_kind,
   p_method            pay_method,
   p_payee_adeel_id    bigint DEFAULT NULL,
+  p_category          expense_category DEFAULT NULL,
   p_reference         text   DEFAULT NULL,
   p_bank_name         text   DEFAULT NULL,
   p_bank_account_name text   DEFAULT NULL,
@@ -1531,19 +1531,34 @@ BEGIN
       p_amount::text, v_available::text USING ERRCODE = 'RUL17';
   END IF;
 
-  -- The beneficiary. An عديل's name is taken from HIS ROW rather than from the
-  -- client, so a voucher cannot name one man while pointing at another; a free
-  -- payee is whatever was typed, trimmed.
-  IF p_payee_adeel_id IS NOT NULL THEN
+  -- ── The two shapes, refused here as well as CHECKed on the row ─────────────
+  -- ck_disb_shape is the guarantee; this is the message. A constraint violation
+  -- arrives as 23514 with a constraint name, which is true and unreadable — the
+  -- admin needs to be told he picked a kind and then filled in the other one.
+  IF p_kind = 'لمشترك' THEN
+    IF p_payee_adeel_id IS NULL THEN
+      RAISE EXCEPTION 'اختر المشترك المستفيد' USING ERRCODE = 'RUL17';
+    END IF;
+    IF p_category IS NOT NULL THEN
+      RAISE EXCEPTION 'الصرف لمشترك لا يحمل بنداً' USING ERRCODE = 'RUL17';
+    END IF;
+    -- The name comes from HIS ROW, never from the client, so a voucher cannot
+    -- name one man while pointing at another.
     SELECT full_name INTO v_payee FROM public.adeels WHERE id = p_payee_adeel_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'المستفيد المختار ليس في سجل العدايل' USING ERRCODE = 'RUL17';
     END IF;
   ELSE
-    v_payee := nullif(btrim(coalesce(p_payee_name, '')), '');
-    IF v_payee IS NULL THEN
-      RAISE EXCEPTION 'جهة الصرف مطلوبة' USING ERRCODE = 'RUL17';
+    IF p_category IS NULL THEN
+      RAISE EXCEPTION 'اختر بند الصرف الجماعي' USING ERRCODE = 'RUL17';
     END IF;
+    IF p_payee_adeel_id IS NOT NULL THEN
+      RAISE EXCEPTION 'الصرف الجماعي لا يُنسب إلى مشترك' USING ERRCODE = 'RUL17';
+    END IF;
+    -- No payee at all, by the association's own decision: nobody receives
+    -- فطور رمضان the way a member receives aid, and a name invented to fill the
+    -- column would be a fact the books assert without knowing it.
+    v_payee := NULL;
   END IF;
 
   -- Kept only for a transfer, exactly as on a collection: a cash payout has no
@@ -1556,11 +1571,11 @@ BEGIN
   END IF;
 
   INSERT INTO public.disbursements (
-    amount, category, payee_adeel_id, payee_name, method, reference,
+    amount, kind, category, payee_adeel_id, payee_name, method, reference,
     bank_name, bank_account_no, bank_account_name, handed_by, note,
     spent_at, created_by)
   VALUES (
-    p_amount, p_category, p_payee_adeel_id, v_payee, p_method,
+    p_amount, p_kind, p_category, p_payee_adeel_id, v_payee, p_method,
     nullif(btrim(coalesce(p_reference, '')), ''),
     v_bank, v_acct_no, v_acct_name,
     nullif(btrim(coalesce(p_handed_by, '')), ''),
@@ -1572,12 +1587,14 @@ BEGIN
   RETURNING id, voucher_no INTO v_id, v_voucher;
 
   PERFORM public.write_audit('disbursement.register',
-    format('صرف %s — %s إلى %s', p_amount::text, p_category::text, v_payee),
+    format('صرف %s — %s', p_amount::text,
+           coalesce('إلى ' || v_payee, p_category::text)),
     v_voucher);
 
   RETURN jsonb_build_object(
     'id', v_id, 'voucherNo', v_voucher,
-    'amount', p_amount::text, 'category', p_category::text,
+    'amount', p_amount::text, 'kind', p_kind::text,
+    'category', p_category::text,
     'payeeName', v_payee,
     -- What the treasury stands at AFTER this voucher. The screen states it back
     -- so an admin who has just emptied the fund learns it now rather than on
@@ -1628,7 +1645,8 @@ END $$;
 -- safe for the same reason it is safe for every other write here: a treasurer
 -- calling register_disbursement gets RUL00, not a voucher.
 GRANT EXECUTE ON FUNCTION
-  public.register_disbursement(numeric, expense_category, text, pay_method,
-                               bigint, text, text, text, text, text, text, date),
+  public.register_disbursement(numeric, disbursement_kind, pay_method, bigint,
+                               expense_category, text, text, text, text, text,
+                               text, date),
   public.cancel_disbursement(bigint, text)
 TO authenticated;

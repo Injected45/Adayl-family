@@ -168,11 +168,18 @@
 
   "registerDisbursement": "تسجيل صرف",
   "confirmDisbursement": "اعتماد الصرف",
+  "kindMember": "صرف لمشترك",
+  "@kindMember": {
+    "description": "One of the two shapes a voucher takes. The عديل IS the heading, so this kind asks WHO and never which category."
+  },
+  "kindCollective": "صرف جماعي",
+  "@kindCollective": {
+    "description": "The other shape: money spent on an occasion for everybody. Asks WHAT FOR, and records no payee at all — nobody receives فطور رمضان the way a member receives aid."
+  },
   "expenseCategory": "بند الصرف",
-  "payee": "جهة الصرف",
-  "payeeFreeName": "اسم حر",
-  "payeeFromRegister": "من المشتركين",
-  "payeeRequired": "جهة الصرف مطلوبة",
+  "categoryRequired": "اختر بند الصرف",
+  "payee": "المشترك المستفيد",
+  "payeeRequired": "اختر المشترك المستفيد",
   "handedBy": "المُسلِّم",
   "disbursementDate": "تاريخ الصرف",
   "change": "تغيير",

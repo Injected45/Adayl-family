@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:family_app/core/domain/wire_values.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/directory/domain/models.dart';
 import 'package:family_app/features/finance/domain/models.dart';
@@ -378,30 +379,46 @@ void main() {
       expect(summary.balance, '14.00');
     });
 
-    test('vouchers parse — free payee, register payee, and a voided one', () {
+    test('vouchers parse as TWO disjoint shapes, and a voided one', () {
       final List<DisbursementView> vouchers = _list(
         'disbursements.json',
       ).map(DisbursementView.fromJson).toList();
       expect(vouchers, hasLength(3));
 
-      // A payee who is NOT on the register: rent, a supplier, a hospital. The
-      // whole reason payee_adeel_id is nullable.
-      final DisbursementView free = vouchers.firstWhere(
+      // جماعي — an occasion, for everybody. The association's own decision:
+      // nobody RECEIVES فطور رمضان the way a member receives aid, so there is
+      // no payee at all rather than an invented name.
+      final DisbursementView collective = vouchers.firstWhere(
         (DisbursementView v) => v.voucherNo == 'EXP-000001',
       );
-      expect(free.payeeAdeelId, isNull);
-      expect(free.payeeName, 'مكتبة الوفاء');
-      expect(free.amount, '12.00');
+      expect(collective.isForMember, isFalse);
+      expect(collective.category, 'فطور رمضان');
+      expect(collective.payeeAdeelId, isNull);
+      expect(collective.payeeName, isEmpty);
+      expect(collective.subject, 'فطور رمضان');
 
-      // A payee who IS. The name comes off HIS row, never off the client — the
-      // form sent 'سيُستبدل من السجل' and the register overrode it.
+      // لمشترك — a named man, and NO heading: he is the heading. The name comes
+      // off HIS row, never off the client.
       final DisbursementView member = vouchers.firstWhere(
         (DisbursementView v) => v.voucherNo == 'EXP-000002',
       );
+      expect(member.isForMember, isTrue);
+      expect(member.category, isEmpty);
       expect(member.payeeAdeelId, 1);
       expect(member.payeeName, 'العديل الأول');
       expect(member.payeeCode, 'A-0001');
       expect(member.bankName, 'المصرف التجاري الوطني');
+      expect(member.subject, 'العديل الأول');
+
+      // ★ The shapes are DISJOINT on the wire, not merely usually so. This is
+      //   ck_disb_shape arriving intact: every row fills exactly one side.
+      for (final DisbursementView v in vouchers) {
+        expect(
+          v.category.isEmpty != v.payeeName.isEmpty,
+          isTrue,
+          reason: '${v.voucherNo} filled both halves or neither',
+        );
+      }
 
       // Rule 9 outgoing: reversed, never removed. The screen strikes it through.
       expect(
@@ -414,24 +431,42 @@ void main() {
       final List<ExpenseByCategory> rows = _list(
         'expense_by_category.json',
       ).map(ExpenseByCategory.fromJson).toList();
-      // All nine, not just the three with a voucher against them. A report that
-      // silently omits a zero reads as one that forgot it.
-      expect(rows, hasLength(9));
+      // The five occasions plus the aid line, not just the ones with a voucher
+      // against them. A report that silently omits a zero reads as one that
+      // forgot it.
+      expect(rows, hasLength(ExpenseCategoryWire.all.length + 1));
       expect(
         rows.where((ExpenseByCategory r) => r.isEmpty).length,
         greaterThan(0),
         reason: 'the empty headings must survive the trip, not be filtered out',
       );
-      // The cancelled 3.00 voucher is NOT counted against عزاء ووفاة.
+      // The cancelled 3.00 voucher is NOT counted against عزاء.
       expect(
-        rows.firstWhere((ExpenseByCategory r) => r.category == 'عزاء ووفاة').total,
+        rows.firstWhere((ExpenseByCategory r) => r.category == 'عزاء').total,
         '0.00',
       );
       expect(
         rows
-            .firstWhere((ExpenseByCategory r) => r.category == 'مصاريف إدارية')
+            .firstWhere((ExpenseByCategory r) => r.category == 'فطور رمضان')
             .total,
         '12.00',
+      );
+      // ★ Aid carries no category, so a report grouped on that column alone
+      //   would omit it entirely and still read as complete. This line is what
+      //   keeps the report's total equal to what actually left the treasury.
+      final ExpenseByCategory aid = rows.firstWhere(
+        (ExpenseByCategory r) => r.category == ExpenseCategoryWire.memberAidLine,
+      );
+      expect(aid.total, '4.00');
+      final double reported = rows.fold(
+        0,
+        (double sum, ExpenseByCategory r) => sum + double.parse(r.total),
+      );
+      expect(
+        reported,
+        double.parse(
+          CashSummaryView.fromJson(_obj('cash_summary.json')).disbursed,
+        ),
       );
     });
 

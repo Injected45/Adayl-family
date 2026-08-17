@@ -33,38 +33,58 @@ abstract final class PaymentMethodWire {
   static const String bankTransfer = 'تحويل مصرفي';
 }
 
-/// What the association spent the money ON — the `expense_category` enum.
+/// WHICH OF THE TWO SHAPES a voucher is — the `disbursement_kind` enum.
 ///
-/// A fixed list, and these nine strings are the database's own labels: the
+/// The association spends on exactly two things and asked for them separated at
+/// the top of the form: money to a NAMED man on the register, or money on an
+/// OCCASION for everybody. Everything else on the voucher follows from this —
+/// a member voucher carries no heading (the man IS the heading) and a
+/// collective one carries no payee at all.
+///
+/// `ck_disb_shape` enforces that in the database. This is only which word goes
+/// on the wire.
+abstract final class DisbursementKindWire {
+  static const String member = 'لمشترك';
+  static const String collective = 'جماعي';
+
+  static const List<String> all = <String>[member, collective];
+}
+
+/// What a COLLECTIVE voucher was for — the `expense_category` enum.
+///
+/// A fixed list, and these five strings are the database's own labels: the
 /// voucher stores the enum, so a heading here that does not match the enum
 /// exactly is a 22P02 at insert time rather than a mislabelled row.
 ///
-/// [all] is the order the picker offers, which is the order they were declared
-/// in — general aid first, the specific occasions after it, the association's
-/// own running costs last, and `other` at the end where an escape hatch
-/// belongs.
+/// There is deliberately no `أخرى`. The earlier list had one because it tried
+/// to cover rent and bank fees as well, and a list that broad always needs an
+/// escape hatch. These five describe occasions the association actually holds,
+/// and one that fits none of them is a reason to name a sixth rather than to
+/// file it under a heading that says nothing.
+///
+/// [all] is the order the picker offers, and it is the order the enum declares
+/// — so the dropdown and `v_expense_by_category` read the same way down.
 abstract final class ExpenseCategoryWire {
-  static const String socialAid = 'إعانة اجتماعية';
-  static const String condolence = 'عزاء ووفاة';
-  static const String wedding = 'مناسبة زواج';
-  static const String medical = 'علاج ومرض';
-  static const String administrative = 'مصاريف إدارية';
-  static const String rentAndUtilities = 'إيجار وخدمات';
-  static const String hospitality = 'ضيافة واجتماعات';
-  static const String bankFees = 'رسوم مصرفية';
-  static const String other = 'أخرى';
+  static const String wedding = 'فرح';
+  static const String condolence = 'عزاء';
+  static const String ramadanIftar = 'فطور رمضان';
+  static const String socialOccasion = 'مناسبة اجتماعية';
+  static const String emergency = 'حالات طارئة';
 
   static const List<String> all = <String>[
-    socialAid,
-    condolence,
     wedding,
-    medical,
-    administrative,
-    rentAndUtilities,
-    hospitality,
-    bankFees,
-    other,
+    condolence,
+    ramadanIftar,
+    socialOccasion,
+    emergency,
   ];
+
+  /// The line `v_expense_by_category` adds for everything paid to members.
+  ///
+  /// Not a category and not in the enum — a member voucher has none. The report
+  /// carries it so its total equals what actually left the treasury; without it
+  /// the five headings would omit every dirham of aid and still read complete.
+  static const String memberAidLine = 'صرف للمشتركين';
 }
 
 /// The two posts, as `v_officials` emits them.

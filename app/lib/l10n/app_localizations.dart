@@ -913,34 +913,40 @@ abstract class L {
   /// **'اعتماد الصرف'**
   String get confirmDisbursement;
 
+  /// One of the two shapes a voucher takes. The عديل IS the heading, so this kind asks WHO and never which category.
+  ///
+  /// In ar, this message translates to:
+  /// **'صرف لمشترك'**
+  String get kindMember;
+
+  /// The other shape: money spent on an occasion for everybody. Asks WHAT FOR, and records no payee at all — nobody receives فطور رمضان the way a member receives aid.
+  ///
+  /// In ar, this message translates to:
+  /// **'صرف جماعي'**
+  String get kindCollective;
+
   /// No description provided for @expenseCategory.
   ///
   /// In ar, this message translates to:
   /// **'بند الصرف'**
   String get expenseCategory;
 
+  /// No description provided for @categoryRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر بند الصرف'**
+  String get categoryRequired;
+
   /// No description provided for @payee.
   ///
   /// In ar, this message translates to:
-  /// **'جهة الصرف'**
+  /// **'المشترك المستفيد'**
   String get payee;
-
-  /// No description provided for @payeeFreeName.
-  ///
-  /// In ar, this message translates to:
-  /// **'اسم حر'**
-  String get payeeFreeName;
-
-  /// No description provided for @payeeFromRegister.
-  ///
-  /// In ar, this message translates to:
-  /// **'من المشتركين'**
-  String get payeeFromRegister;
 
   /// No description provided for @payeeRequired.
   ///
   /// In ar, this message translates to:
-  /// **'جهة الصرف مطلوبة'**
+  /// **'اختر المشترك المستفيد'**
   String get payeeRequired;
 
   /// No description provided for @handedBy.

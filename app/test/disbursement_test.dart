@@ -72,8 +72,12 @@ DisbursementView _voucher({
   int id = 1,
   String amount = '60.00',
   String status = 'معتمد',
-  String category = 'إعانة اجتماعية',
-  String payeeName = 'مكتبة الوفاء',
+  // Defaults to a COLLECTIVE voucher, which is the shape with no payee — so a
+  // test that forgets to say which kind it means cannot accidentally assert
+  // against a name it never set.
+  String kind = 'جماعي',
+  String category = 'عزاء',
+  String payeeName = '',
   String method = 'نقداً',
   int? payeeAdeelId,
   String bankName = '',
@@ -83,6 +87,7 @@ DisbursementView _voucher({
   id: id,
   voucherNo: 'EXP-${id.toString().padLeft(6, '0')}',
   amount: amount,
+  kind: kind,
   category: category,
   payeeName: payeeName,
   payeeAdeelId: payeeAdeelId,
@@ -202,7 +207,13 @@ void main() {
     await openSheet(tester, sheetHost());
 
     await tester.enterText(find.widgetWithText(TextField, l.amount), '640.00');
-    await tester.enterText(find.widgetWithText(TextField, l.payee), 'مورد');
+    // A collective voucher, which is the shorter of the two forms to complete:
+    // a heading and nothing else. The boundary is the point here, not the kind.
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(ExpenseCategoryWire.emergency).last);
     await tester.pumpAndSettle();
 
     // Matched on the message's own PREFIX, split off around a sentinel. The
@@ -233,28 +244,60 @@ void main() {
     expect(confirm.onPressed, isNull);
   });
 
-  testWidgets('switching the payee to the register clears the typed name', (
+  testWidgets('the kind asks ONE question, and switching clears the other', (
     WidgetTester tester,
   ) async {
-    // The two halves of the payee must never both be set. The server prefers
-    // the register and takes the name off that man's own row, so a stale free
-    // name would be shown on screen and NOT be what the voucher records.
+    // ck_disb_shape refuses a row that carries both a member and a heading, so
+    // the form must never be able to hold both. Only one question is on screen
+    // at a time, and switching drops the answer to the other — left behind, it
+    // would be sent, refused by RUL17, and read as the form being broken.
     await openSheet(tester, sheetHost());
 
-    await tester.enterText(
-      find.widgetWithText(TextField, l.payee),
-      'اسم سيُتجاهل',
+    // لمشترك asks WHO: a dropdown of the register, and no heading anywhere.
+    expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+
+    await tester.tap(
+      find.byType(DropdownButtonFormField<int>).first,
     );
     await tester.pumpAndSettle();
-    expect(find.text('اسم سيُتجاهل'), findsOneWidget);
+    await tester.tap(find.text('المهدي عبدالله محمد • A-0003').last);
+    await tester.pumpAndSettle();
+    expect(find.text('المهدي عبدالله محمد • A-0003'), findsOneWidget);
 
-    await tester.tap(find.text(l.payeeFromRegister));
+    // جماعي asks WHAT FOR: the five occasions, and the member is gone.
+    await tester.tap(find.text(l.kindCollective));
     await tester.pumpAndSettle();
 
-    expect(find.text('اسم سيُتجاهل'), findsNothing);
-    // The free-text field is replaced outright, not merely emptied: two ways to
-    // name a payee visible at once is the ambiguity this control removes.
-    expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
+    expect(find.text('المهدي عبدالله محمد • A-0003'), findsNothing);
+    expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+
+    // ...and switching back drops the heading in turn.
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(ExpenseCategoryWire.ramadanIftar).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.kindMember));
+    await tester.pumpAndSettle();
+    expect(find.text(ExpenseCategoryWire.ramadanIftar), findsNothing);
+  });
+
+  testWidgets('a collective voucher cannot be confirmed with no heading', (
+    WidgetTester tester,
+  ) async {
+    // Nothing is preselected. Defaulting to فرح would file an unreviewed
+    // voucher under a real occasion, and the report would carry it for ever.
+    await openSheet(tester, sheetHost());
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, l.amount), '10');
+    await tester.pumpAndSettle();
+
+    final FilledButton confirm = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, l.confirmDisbursement),
+    );
+    expect(confirm.onPressed, isNull);
   });
 
   testWidgets('bank details appear only for a transfer', (
@@ -283,15 +326,19 @@ void main() {
     // one thing here that makes a voucher impossible to match against the
     // bank's own statement.
     //
-    // Scoped to THIS payee. The history below holds an account for a different
-    // supplier too, and offering it here would be worse than offering nothing.
+    // Scoped to THIS member. The history below also holds a COLLECTIVE
+    // voucher's account, and offering that here would be worse than offering
+    // nothing: the two pools answer different questions.
     await openSheet(
       tester,
       sheetHost(
         history: <DisbursementView>[
           _voucher(
             id: 1,
-            payeeName: 'مالك المقر',
+            kind: 'لمشترك',
+            category: '',
+            payeeAdeelId: 3,
+            payeeName: 'المهدي عبدالله محمد',
             method: 'تحويل مصرفي',
             bankName: 'المصرف التجاري الوطني',
             bankAccountName: 'علي المهدي',
@@ -299,7 +346,6 @@ void main() {
           ),
           _voucher(
             id: 2,
-            payeeName: 'مورد آخر',
             method: 'تحويل مصرفي',
             bankName: 'مصرف الوحدة',
             bankAccountName: 'سالم',
@@ -309,10 +355,10 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.widgetWithText(TextField, l.payee),
-      'مالك المقر',
-    );
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المهدي عبدالله محمد • A-0003').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text(l.methodTransfer));
     await tester.pumpAndSettle();
 
@@ -352,12 +398,17 @@ void main() {
     // The dropdown is built from ExpenseCategoryWire.all, which must stay in
     // step with the expense_category enum. A heading missing here is a heading
     // no voucher can ever be filed under.
+    //
+    // Headings belong to صرف جماعي only — a member voucher has none, because
+    // the man IS the heading.
     await openSheet(tester, sheetHost());
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
 
-    expect(ExpenseCategoryWire.all.length, 9);
+    expect(ExpenseCategoryWire.all.length, 5);
     for (final String category in ExpenseCategoryWire.all) {
       expect(find.text(category), findsWidgets, reason: category);
     }
@@ -374,12 +425,12 @@ void main() {
       expenseByCategoryProvider.overrideWith(
         (Ref ref) async => <ExpenseByCategory>[
           const ExpenseByCategory(
-            category: 'إعانة اجتماعية',
+            category: 'عزاء',
             total: '60.00',
             count: 1,
           ),
           const ExpenseByCategory(
-            category: 'رسوم مصرفية',
+            category: 'فرح',
             total: '0.00',
             count: 0,
           ),
@@ -481,8 +532,8 @@ void main() {
   testWidgets('a heading nothing was spent on is not listed on the phone', (
     WidgetTester tester,
   ) async {
-    // v_expense_by_category returns all nine so a REPORT can state the zero.
-    // A summary strip on a phone that listed nine headings to say eight are
+    // v_expense_by_category returns every heading so a REPORT can state the
+    // zero. A summary strip on a phone that listed them all to say most are
     // empty would bury the one that is not.
     await openTab(
       tester,
@@ -491,8 +542,8 @@ void main() {
     );
 
     expect(find.text(l.expenseByCategory), findsOneWidget);
-    expect(find.text('إعانة اجتماعية'), findsWidgets);
-    expect(find.text('رسوم مصرفية'), findsNothing);
+    expect(find.text('عزاء'), findsWidgets);
+    expect(find.text('فرح'), findsNothing);
   });
 
   testWidgets('an empty ledger says so rather than showing a blank page', (

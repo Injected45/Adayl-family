@@ -323,9 +323,12 @@ SELECT
   d.id                        AS "id",
   d.voucher_no                AS "voucherNo",
   d.amount::text              AS "amount",
-  d.category::text            AS "category",
+  d.kind::text                AS "kind",
+  -- Both nullable on the row and both flattened to '' here, so the client never
+  -- branches on null: it branches on `kind`, which is the thing that decides.
+  coalesce(d.category::text, '') AS "category",
   d.payee_adeel_id            AS "payeeAdeelId",
-  d.payee_name                AS "payeeName",
+  coalesce(d.payee_name, '')  AS "payeeName",
   coalesce(a.adeel_code, '')  AS "payeeCode",
   d.method::text              AS "method",
   coalesce(d.reference, '')          AS "reference",
@@ -350,16 +353,39 @@ LEFT JOIN public.adeels a ON a.id = d.payee_adeel_id;
 -- enum_range() is what makes that possible without a lookup table: it yields
 -- the nine labels in their declared order, and the LEFT JOIN fills in whatever
 -- has actually been spent against each.
+-- ⚠ AND IT MUST INCLUDE WHAT WENT TO MEMBERS, as one line.
+-- A member voucher carries no category — the man is the heading — so grouping
+-- on `category` alone would report the five occasions and silently omit every
+-- dirham of aid. The totals would not add up to what left the treasury, and a
+-- report that is short by an unnamed amount is worse than no report: it reads
+-- as complete.
 CREATE VIEW public.v_expense_by_category WITH (security_invoker = on) AS
-SELECT
-  c.category::text                                AS "category",
-  coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
-  count(d.id)                                     AS "count"
-FROM unnest(enum_range(NULL::expense_category)) AS c(category)
-LEFT JOIN public.disbursements d
-       ON d.category = c.category AND d.status <> 'ملغي'
-GROUP BY c.category
-ORDER BY c.category;
+SELECT "category", "total", "count"
+FROM (
+  -- The five occasions, in the order the enum declares them.
+  SELECT
+    c.ord                                           AS ord,
+    c.category::text                                AS "category",
+    coalesce(sum(d.amount), 0)::numeric(12,2)::text AS "total",
+    count(d.id)                                     AS "count"
+  FROM unnest(enum_range(NULL::expense_category))
+         WITH ORDINALITY AS c(category, ord)
+  LEFT JOIN public.disbursements d
+         ON d.category = c.category AND d.status <> 'ملغي'
+  GROUP BY c.ord, c.category
+
+  UNION ALL
+
+  -- Then aid, last, so the occasions keep their declared order above it.
+  SELECT
+    9999,
+    'صرف للمشتركين',
+    coalesce(sum(d.amount), 0)::numeric(12,2)::text,
+    count(d.id)
+  FROM public.disbursements d
+  WHERE d.kind = 'لمشترك' AND d.status <> 'ملغي'
+) t
+ORDER BY t.ord;
 
 GRANT SELECT ON public.v_disbursements, public.v_expense_by_category
 TO authenticated;
