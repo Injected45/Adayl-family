@@ -8,7 +8,6 @@ import 'package:family_app/features/directory/presentation/providers.dart';
 import 'package:family_app/l10n/app_localizations.dart';
 import 'package:family_app/l10n/app_localizations_ar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -277,7 +276,8 @@ void main() {
     // outside the viewport by a fixed width, its centre would fall beyond 360.
     for (final String heading in <String>[
       l.ledgerParticulars,
-      l.ledgerDebitCredit,
+      l.ledgerDebit,
+      l.ledgerCredit,
       l.ledgerBalance,
     ]) {
       final Offset centre = tester.getCenter(find.text(heading));
@@ -365,19 +365,24 @@ void main() {
     expect(find.text(l.outstandingTotal), findsOneWidget);
   });
 
-  testWidgets('a four-figure amount fits its column without being shrunk', (
+  testWidgets('a four-figure amount stays inside its column', (
     WidgetTester tester,
   ) async {
-    // This is the reason the ledger runs smaller than the rest of the portal.
+    // "ولا تجعل البيانات تخرج عن مساحة الشاشة", made mechanical.
     //
-    // Each money column is 22% of a 360dp screen. If the common case still
-    // overflows it, FittedBox rescues the cell — nothing looks broken — but
-    // that one cell renders smaller than the ones above and below it, and a
-    // column of figures at inconsistent sizes is precisely what is hard to read
-    // down. Uniformly a point smaller beats occasionally a point smaller.
+    // Four columns on a 360dp phone give each money column about 64dp, and a
+    // figure that will not fit has exactly two possible fates: it spills over
+    // the column edge, or FittedBox scales it down. Only the second is
+    // acceptable on a statement — a clipped amount reads as a DIFFERENT amount.
     //
-    // 9,840.00 is past anything this association will show: 20/month is 240 a
-    // year, so four figures covers a lifetime of arrears.
+    // This used to assert the stronger "and it is never scaled at all", which
+    // held while مدين and دائن shared one 35% column. Four columns cannot also
+    // promise that at a readable size; the arithmetic does not allow it. What
+    // is promised instead is what was actually asked for: nothing leaves the
+    // screen, and nothing is cut off.
+    //
+    // 9,840.00 is past anything this association will show: 100/month is 1,200
+    // a year, so four figures covers years of arrears.
     tester.view.physicalSize = const Size(1080, 2280);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
@@ -411,28 +416,101 @@ void main() {
     // FittedBox in the tree belongs to a SegmentedButton label, and measuring
     // that instead reports a failure that has nothing to do with the ledger.
     for (final String raw in <String>['1025.00', '9840.00']) {
-      final Finder cell = find.ancestor(
+      // The same figure appears in the hero, the totals strip and the table,
+      // so every shrink-to-fit cell carrying it is checked rather than one
+      // picked by index — which would silently start measuring a different
+      // widget the next time the page gains a card.
+      final Finder cells = find.ancestor(
         of: find.text(formatMoney(raw)),
         matching: find.byType(FittedBox),
       );
-      expect(cell, findsWidgets, reason: '$raw is not rendered in a money cell');
+      expect(cells, findsWidgets, reason: '$raw is not rendered in a money cell');
 
-      final RenderBox box = tester.renderObject<RenderBox>(cell.first);
-      final RenderBox child =
-          (box as RenderProxyBox).child!;
+      for (int i = 0; i < cells.evaluate().length; i++) {
+        final Finder cell = cells.at(i);
+        final Rect column = tester.getRect(cell);
+        // The PAINTED extent, transform and all — which is the thing that
+        // either stays inside the column or does not.
+        final Rect painted = tester.getRect(
+          find.descendant(of: cell, matching: find.text(formatMoney(raw))),
+        );
 
-      // A FittedBox only scales when the child cannot fit. Comparing the two
-      // is what distinguishes "it fits" from "it was made to fit" — and the
-      // second is what puts one row of a figures column at a different size
-      // from its neighbours.
-      expect(
-        child.size.width,
-        lessThanOrEqualTo(box.size.width + 0.5),
-        reason:
-            '$raw needs ${child.size.width.toStringAsFixed(1)}dp in a '
-            '${box.size.width.toStringAsFixed(1)}dp column — the ledger type '
-            'is still too large for a four-figure amount',
-      );
+        expect(
+          painted.width,
+          lessThanOrEqualTo(column.width + 0.5),
+          reason:
+              '$raw paints ${painted.width.toStringAsFixed(1)}dp inside a '
+              '${column.width.toStringAsFixed(1)}dp cell',
+        );
+        expect(painted.left, greaterThanOrEqualTo(-0.5));
+        expect(painted.right, lessThanOrEqualTo(360.5));
+      }
     }
+
+    // A RenderFlex that could not fit its children reports through the test
+    // framework rather than the console, so an overflow anywhere in the table
+    // fails here instead of being a yellow stripe nobody screenshots.
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('مدين and دائن are separate columns, and only one is filled', (
+    WidgetTester tester,
+  ) async {
+    // The association asked for البيان | مدين | دائن | الرصيد. The two were
+    // briefly merged to buy width, with colour carrying the distinction — which
+    // works when you read one row across and fails at the thing a statement is
+    // for, which is reading a column down.
+    tester.view.physicalSize = const Size(1080, 2280);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      app(
+        _detail(
+          debt: '100.00',
+          receivables: <Map<String, dynamic>>[
+            _due('2026-02', 'غير مسدد', '100.00'),
+          ],
+        ),
+        const <StatementMovement>[
+          StatementMovement(
+            date: '2026-01-15',
+            reference: '2026-01',
+            type: 'استحقاق',
+            debit: '100.00',
+            credit: null,
+            balance: '100.00',
+            note: 'يناير 2026',
+          ),
+          StatementMovement(
+            date: '2026-01-20',
+            reference: 'PAY-000001',
+            type: 'دفعة',
+            debit: null,
+            credit: '40.00',
+            balance: '60.00',
+            // What the server now sends for a payment: the METHOD, not the
+            // bank's transfer reference, which used to land here as a bare
+            // number sitting beside the amount.
+            note: 'تحويل مصرفي',
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.myStatementSection).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.ledgerDebit), findsOneWidget);
+    expect(find.text(l.ledgerCredit), findsOneWidget);
+    expect(find.text(l.ledgerDebitCredit), findsNothing);
+
+    // A charge fills مدين and leaves دائن ruled, and the receipt does the
+    // reverse. Two em dashes and two figures across the two rows.
+    expect(find.text('—'), findsNWidgets(2));
+
+    // And the payment line says what it WAS, not the number the bank gave it.
+    expect(find.text('تحويل مصرفي'), findsOneWidget);
+    expect(find.text('PAY-000001'), findsNothing);
   });
 }

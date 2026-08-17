@@ -8,6 +8,7 @@ import 'package:family_app/features/directory/domain/models.dart';
 import 'package:family_app/features/directory/presentation/adeel_portal_screen.dart';
 import 'package:family_app/features/directory/presentation/providers.dart';
 import 'package:family_app/l10n/app_localizations.dart';
+import 'package:family_app/l10n/app_localizations_ar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,6 +132,17 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/adeel_portal.png'),
+      );
+
+      // The LEDGER, which is behind the segmented control and is the half of
+      // this screen that most needs looking at: four columns —
+      // البيان | مدين | دائن | الرصيد — on a phone-width card, where the
+      // question "does it fit" cannot be answered by reading the code.
+      await tester.tap(find.text(LAr().myStatementSection).last);
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/adeel_portal_ledger.png'),
       );
     },
     skip: !write,

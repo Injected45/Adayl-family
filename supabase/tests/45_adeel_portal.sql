@@ -149,6 +149,65 @@ SELECT probe.eq('portal', 'no cash movement of another عديل reaches him',
   $sql$ SELECT (count(*) FILTER (WHERE adeel_id <> 1))::text
           FROM public.cash_movements $sql$, '0');
 
+-- ═════ ONE عديل, ONE DEVICE ══════════════════════════════════════════════════
+-- The association asked for a code that opens on a single handset and refuses
+-- every other one, "even if he signs in with the same email". Same account,
+-- same JWT, same everything — only the x-device-id header differs.
+--
+-- Enforced in my_adeel_id() rather than in the portal's read functions, so a
+-- client talking to PostgREST directly is refused by the same clause the app
+-- is. Returning NULL is the mechanism: it matches no row, so the second handset
+-- gets an EMPTY portal, not a refused one.
+SELECT probe.become('00000000-0000-0000-0000-0000000000b1', 'authenticated',
+                    'some-other-handset');
+SELECT probe.eq('portal', 'the same عديل on a SECOND device is nobody',
+  $sql$ SELECT coalesce(public.my_adeel_id()::text, 'null') $sql$, 'null');
+SELECT probe.eq('portal', '...so his own register row is invisible there too',
+  $sql$ SELECT count(*)::text FROM public.adeels $sql$, '0');
+-- Silence would read as a broken app. api_me() says WHY, without being what
+-- enforces it — the two answers are computed from the same three states.
+SELECT probe.eq('portal', 'api_me() explains the lock instead of going quiet',
+  $sql$ SELECT (public.api_me() ->> 'deviceLocked') $sql$, 'true');
+
+-- Reissuing the code is the ONLY release, and it is an admin act: a lost or
+-- replaced handset is otherwise a permanent lockout.
+SELECT probe.become('00000000-0000-0000-0000-0000000000a1');  -- admin
+SELECT probe.succeeds('portal', 'reissuing his code releases the device',
+  $sql$ SELECT public.issue_adeel_code(1) $sql$);
+SELECT probe.eq('portal', '...but leaves the binding, so he is never a plain viewer',
+  $sql$ SELECT (adeel_id::text || '/' || coalesce(device_id, 'null'))
+          FROM public.profiles
+         WHERE id = '00000000-0000-0000-0000-0000000000b1' $sql$, '1/null');
+
+-- Released is NOT unlocked: until a handset claims it, every device is refused.
+-- Reading a NULL device_id as a pass would turn one admin click into an unlock
+-- for the whole world, which is the opposite of the feature.
+SELECT probe.become('00000000-0000-0000-0000-0000000000b1', 'authenticated',
+                    'the-replacement-phone');
+SELECT probe.eq('portal', 'a released lock is refused, not left open',
+  $sql$ SELECT coalesce(public.my_adeel_id()::text, 'null') $sql$, 'null');
+SELECT probe.succeeds('portal', 'the new handset claims it on first launch',
+  $sql$ SELECT public.api_touch_login() $sql$);
+SELECT probe.eq('portal', '...and only then does he see his own row again',
+  $sql$ SELECT public.my_adeel_id()::text $sql$, '1');
+
+-- The claim is once. A second handset calling the same function must not be
+-- able to take a binding that is already held — otherwise the lock would be
+-- released by anyone who simply opened the app.
+SELECT probe.become('00000000-0000-0000-0000-0000000000b1', 'authenticated',
+                    'a-third-phone');
+SELECT probe.succeeds('portal', 'a third handset may still record its login',
+  $sql$ SELECT public.api_touch_login() $sql$);
+SELECT probe.eq('portal', '...but it does NOT steal the claim',
+  $sql$ SELECT coalesce(public.my_adeel_id()::text, 'null') $sql$, 'null');
+
+-- Back to the handset that holds it, for the rest of the group.
+SELECT probe.become('00000000-0000-0000-0000-0000000000b1', 'authenticated',
+                    'the-replacement-phone');
+SELECT probe.eq('portal', 'the claiming handset still sees exactly himself',
+  $sql$ SELECT count(*)::text || '/' || coalesce(min(id)::text, '-')
+          FROM public.adeels $sql$, '1/1');
+
 -- payment_allocations carries no adeel_id of its own and is scoped through its
 -- parent — the join most likely to be written wrong, and the one a column-shaped
 -- policy could not express at all.

@@ -923,6 +923,13 @@ class LAr extends L {
   String get myBalanceNow => 'رصيدك الآن';
 
   @override
+  String get deviceLockedTitle => 'هذا الاشتراك مرتبط بجهاز آخر';
+
+  @override
+  String get deviceLockedBody =>
+      'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.';
+
+  @override
   String get myDetailsTitle => 'تفاصيل اشتراكي';
 
   @override

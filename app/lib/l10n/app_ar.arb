@@ -344,6 +344,11 @@
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "إجمالي المستحق",
   "myBalanceNow": "رصيدك الآن",
+  "deviceLockedTitle": "هذا الاشتراك مرتبط بجهاز آخر",
+  "@deviceLockedTitle": {
+    "description": "Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app."
+  },
+  "deviceLockedBody": "رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.",
   "myDetailsTitle": "تفاصيل اشتراكي",
   "@myDetailsTitle": {
     "description": "Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee."

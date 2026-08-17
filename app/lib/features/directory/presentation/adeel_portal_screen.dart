@@ -13,14 +13,27 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
-/// Column shares, summing to 100. The three money columns are equal because
-/// the figures in them are the same size; the particulars take what is left.
+/// Column shares, summing to 100: البيان | مدين | دائن | الرصيد.
 ///
 /// Shares, not pixels: four fixed columns needed 448dp and a Galaxy Note 10 has
 /// 360, so the table used to scroll sideways. Proportions fit every screen and
-/// every system font size by construction.
-const int _particularsFlex = 30;
-const int _moneyFlex = 35;
+/// every system font size by construction, and the table is exactly as wide as
+/// the card — never one pixel more, whatever the figures are.
+///
+/// مدين and دائن were briefly ONE column, on the grounds that a movement is
+/// never both and the screen had no width to spare. That is true of the rows
+/// and false of the LEDGER: a statement is read down its columns — everything
+/// charged on one side, everything received on the other — and a merged column
+/// where colour carries the distinction cannot be read that way at all. It also
+/// left the totals row with four cells above three, so the closing figures did
+/// not line up with the column they belonged to.
+///
+/// The width is bought back from the particulars, which hold short text (a
+/// month name, a payment method) rather than figures, and from the subtitle,
+/// which no longer repeats a movement's type now that the column it sits in
+/// says it.
+const int _particularsFlex = 34;
+const int _moneyFlex = 22;
 
 /// The ledger runs SMALLER than the rest of the portal, on purpose.
 ///
@@ -34,6 +47,14 @@ const int _moneyFlex = 35;
 /// realistically show — thousands, with separators — at full size, which makes
 /// the shrink path a genuine last resort rather than the normal case.
 const double _ledgerMoneySize = 12;
+
+/// What stands in the money column a movement did not touch.
+///
+/// An em dash, not an empty cell: blank reads as a figure that failed to load,
+/// and on a statement that is the worst possible ambiguity. Not a localised
+/// string either — it is punctuation, identical in both languages, and putting
+/// it in the ARB would invite it being "translated".
+const String _absent = '—';
 const double _ledgerHeadSize = 12;
 const double _ledgerTitleSize = 14;
 const double _ledgerNoteSize = 12;
@@ -63,6 +84,33 @@ class AdeelPortalScreen extends ConsumerWidget {
     // The router guarantees this. Without it, the frame between redeeming a
     // code and the redirect landing would be a crash rather than a spinner.
     if (adeelId == null) return const LoadingStateView();
+
+    // ── The wrong handset ────────────────────────────────────────────────────
+    // His code opens on ONE device. `my_adeel_id()` already returns NULL here,
+    // so RLS would hand this screen an empty register, an empty ledger and a
+    // zero balance — a page that looks broken rather than closed.
+    //
+    // Said in words instead, with the sign-out button kept: the man holding the
+    // wrong phone needs a way out of this screen, and telling him to ring the
+    // association is the only action that can actually resolve it. Only an
+    // admin reissuing his code releases the lock.
+    if (auth.user?.deviceLocked ?? false) {
+      return CenteredMessage(
+        icon: Icons.phonelink_lock_outlined,
+        iconColor: AppColors.warning,
+        title: l.deviceLockedTitle,
+        body: l.deviceLockedBody,
+        footnote: auth.user?.adeelCode,
+        actions: <Widget>[
+          OutlinedButton.icon(
+            onPressed: () =>
+                ref.read(authControllerProvider.notifier).signOut(),
+            icon: const Icon(Icons.logout),
+            label: Text(l.signOut),
+          ),
+        ],
+      );
+    }
 
     return Scaffold(
       body: AppBackground(
@@ -896,18 +944,14 @@ class _LedgerHead extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          Expanded(
-            flex: _particularsFlex,
-            child: Text(l.ledgerParticulars, style: style),
-          ),
-          _Cell(
-            flex: _moneyFlex,
-            child: Text(l.ledgerDebitCredit, style: style),
-          ),
-          _Cell(
-            flex: _moneyFlex,
-            child: Text(l.ledgerBalance, style: style),
-          ),
+          // Every heading shrinks to fit rather than clipping. A money column
+          // is 22% of the screen — about 64dp on a Note 10 — and "الرصيد" at a
+          // system font scale of 1.3 is wider than that. Ellipsis on a column
+          // heading is worse than small type: "الرص…" names nothing.
+          _HeadCell(flex: _particularsFlex, label: l.ledgerParticulars, style: style),
+          _HeadCell(flex: _moneyFlex, label: l.ledgerDebit, style: style),
+          _HeadCell(flex: _moneyFlex, label: l.ledgerCredit, style: style),
+          _HeadCell(flex: _moneyFlex, label: l.ledgerBalance, style: style),
         ],
       ),
     );
@@ -959,9 +1003,11 @@ class _LedgerRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  // The kind of movement in words, so the column a figure sits
-                  // in is not the only thing that says what it was.
-                  '${movement.type} • ${formatDate(movement.date)}',
+                  // The DATE alone. It used to read "دفعة • 16/08/2026", and
+                  // the type half of that is now said by which of the two money
+                  // columns the figure landed in — repeating it here would cost
+                  // the width those columns were just given.
+                  formatDate(movement.date),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -972,18 +1018,24 @@ class _LedgerRow extends StatelessWidget {
               ],
             ),
           ),
-          // ONE column for both, because a movement is never both. The old
-          // layout gave مدين and دائن a column each and then printed a rule in
-          // whichever was empty — half the table's width spent showing that a
-          // figure is absent, on the screen with the least width to spare.
+          // ── مدين, then دائن, and the empty one shows a rule ────────────────
+          // A movement is never both, so one of these is always blank — and the
+          // blank is the point. It is what makes the two columns readable DOWN:
+          // everything the association charged him in one, everything he paid
+          // in the other, each summed on the closing line directly beneath.
           //
-          // Colour carries the distinction the two columns used to: a charge is
-          // red, a receipt is green, and the type is spelled out in words on the
-          // line beneath the particulars.
+          // An em dash rather than nothing at all, because an empty cell reads
+          // as a figure that failed to load. Colour still separates the two, so
+          // the distinction survives for anyone reading a single row across.
           _Money(
             flex: _moneyFlex,
-            text: isCharge ? formatMoney(debit) : formatMoney(credit),
-            tone: isCharge ? AppColors.danger : AppColors.success,
+            text: isCharge ? formatMoney(debit) : _absent,
+            tone: isCharge ? AppColors.danger : AppColors.muted,
+          ),
+          _Money(
+            flex: _moneyFlex,
+            text: isCharge ? _absent : formatMoney(credit),
+            tone: isCharge ? AppColors.muted : AppColors.success,
           ),
           _Money(
             flex: _moneyFlex,
@@ -1078,6 +1130,29 @@ class _Cell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(flex: flex, child: child);
+}
+
+/// A column heading, which never clips and never wraps.
+class _HeadCell extends StatelessWidget {
+  const _HeadCell({
+    required this.flex,
+    required this.label,
+    required this.style,
+  });
+
+  final int flex;
+  final String label;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => _Cell(
+    flex: flex,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Text(label, maxLines: 1, style: style),
+    ),
+  );
 }
 
 /// A figure in a money column.

@@ -931,6 +931,13 @@ class LEn extends L {
   String get myBalanceNow => 'Your balance now';
 
   @override
+  String get deviceLockedTitle => 'This subscription is tied to another device';
+
+  @override
+  String get deviceLockedBody =>
+      'Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.';
+
+  @override
   String get myDetailsTitle => 'My subscription details';
 
   @override

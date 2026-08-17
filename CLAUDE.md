@@ -179,8 +179,29 @@ for staff, so they never match the عديل-scoped policies. Both directions are
 asserted in `supabase/tests/45_adeel_portal.sql` — they are silent failure modes,
 not visible ones.
 
+**One عديل, one handset.** `profiles.device_id` holds a SHA-256 of the device's
+platform id, and `my_adeel_id()` returns NULL unless it equals the
+`x-device-id` request header — so the rule sits in the one function every
+عديل-scoped policy already goes through, and a client talking to PostgREST
+directly is refused by the same clause the app is. NULL is a REFUSAL, not a
+pass: "released, not yet claimed" is what an account looks like the instant an
+admin reissues a code, and reading it as a pass would make one click an unlock
+for every device at once. `api_touch_login` claims an unclaimed device and
+never replaces a held one; `api_me` reports `deviceLocked` so the wrong handset
+is told why instead of shown an empty portal.
+
+It is **not a MAC address** — Android has returned `02:00:00:00:00:00` to every
+app since API 23 and randomises it per network since 10, and iOS never exposed
+one. And a header is client-set, so this stops SHARING, not forgery; the code
+remains the authorisation.
+
 `issue_adeel_code(bigint)` is admin-only and overwrites (one row each, so
-regenerating revokes the old code without signing out anyone already bound).
+regenerating revokes the old code without signing out anyone already bound). It
+also clears `device_id`, which is the only release a lost phone has. It
+deliberately leaves `adeel_id` alone: clearing that too would drop the man to a
+plain approved viewer — who reads the WHOLE association, because `my_role()`
+only returns NULL while an `adeel_id` is set — so the unlock would be a
+privilege escalation with a time window.
 `redeem_adeel_code(text)` is the one write a signed-in stranger may call: until
 he redeems, he has no role and no binding, so the code IS the authorisation. It
 refuses anyone already on the staff ladder — an admin who redeemed would set his

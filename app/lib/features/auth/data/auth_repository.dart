@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+import '../../../core/device/device_identity.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/supabase_failures.dart';
@@ -88,10 +89,17 @@ class AuthRepository {
   /// is why `redeem_adeel_code` carries no require_role() gate. It refuses
   /// anyone who is already staff, and refuses a code already redeemed by
   /// somebody else.
+  /// [DeviceIdentity] travels explicitly as well as in the header, so the
+  /// redemption and the device lock are written by the same statement. A code
+  /// that could be spent without establishing a lock would leave an account
+  /// permanently open with nothing on screen to show for it.
   Future<void> redeemAdeelCode(String code) => SupabaseFailures.guard(() async {
     await _db.rpc<dynamic>(
       'redeem_adeel_code',
-      params: <String, dynamic>{'p_code': code},
+      params: <String, dynamic>{
+        'p_code': code,
+        'p_device_id': await DeviceIdentity.resolve(),
+      },
     );
   });
 

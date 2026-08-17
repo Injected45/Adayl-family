@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
+import '../../../core/domain/wire_values.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
@@ -41,7 +42,21 @@ class OfficialsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        official.role,
+                        // `official.role` is the WIRE value — 'treasurer' /
+                        // 'financeManager' — and it was printed here verbatim,
+                        // so an Arabic-only screen carried two English
+                        // identifiers as its headings. Being ASCII is exactly
+                        // why it survived: the Arabic-literal lint watches for
+                        // Arabic in widget code, and there was none to find.
+                        switch (official.role) {
+                          OfficialRoleWire.treasurer => l.treasurerSection,
+                          OfficialRoleWire.financeManager =>
+                            l.financeManagerSection,
+                          // A post the database grows later shows its raw name
+                          // rather than nothing — visibly untranslated beats
+                          // silently blank.
+                          _ => official.role,
+                        },
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -53,7 +68,11 @@ class OfficialsScreen extends ConsumerWidget {
                         runSpacing: AppSpacing.md,
                         children: <Widget>[
                           LabelledValue(
-                            label: l.navOfficials,
+                            // `الاسم`, not `المسؤولون`: the card is already
+                            // headed with the post, so labelling the man's name
+                            // with the screen's own title read as a heading
+                            // repeated inside itself.
+                            label: l.fullNameField,
                             value: official.name.isEmpty
                                 ? l.notAssigned
                                 : official.name,

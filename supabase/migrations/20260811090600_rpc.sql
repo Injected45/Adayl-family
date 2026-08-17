@@ -1096,6 +1096,26 @@ BEGIN
     -- Cleared: this is a NEW code, and it has not been redeemed.
     redeemed_at = NULL, redeemed_by = NULL;
 
+  -- ── Reissuing IS the way to release a lost phone ──────────────────────────
+  -- Clearing device_id here is the only unlock the system has, and it was a
+  -- deliberate choice over a second button: an عديل whose handset is stolen,
+  -- wiped or replaced is otherwise locked out permanently, and the admin has to
+  -- reissue his code in that situation anyway.
+  --
+  -- The binding itself (`adeel_id`) is deliberately LEFT ALONE. Clearing it too
+  -- would drop him back to a plain approved viewer for as long as it took him
+  -- to redeem again — and a viewer with no adeel_id reads the WHOLE
+  -- association, because my_role() only returns NULL while an adeel_id is set.
+  -- The unlock would have been a privilege escalation with a time window.
+  --
+  -- So he stays bound and stays locked out — my_adeel_id() refuses a NULL
+  -- device_id — until the phone holding the new code opens the app and
+  -- api_touch_login() claims it.
+  UPDATE public.profiles
+     SET device_id = NULL
+   WHERE adeel_id = p_adeel_id
+     AND device_id IS NOT NULL;
+
   PERFORM public.write_audit('adeel.code.issue',
     format('إصدار رمز دخول للعديل %s', v_adeel.adeel_code), v_adeel.adeel_code);
 
@@ -1115,14 +1135,21 @@ END $$;
 -- a code would set his own adeel_id, my_role() would start returning NULL, and
 -- he would lock himself out of the association's own app — possibly as the last
 -- admin, which no other guard would catch because his role never changed.
-CREATE OR REPLACE FUNCTION public.redeem_adeel_code(p_code text)
-RETURNS jsonb
+-- `p_device_id` is the handset this code is being spent on, and it is the
+-- moment the one-device rule is established. Passed as an argument rather than
+-- read from the header so that the binding is written by the same statement
+-- that grants it: a redemption cannot succeed and leave the account unlocked.
+CREATE OR REPLACE FUNCTION public.redeem_adeel_code(
+  p_code      text,
+  p_device_id text DEFAULT NULL
+) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 DECLARE
-  v_norm  text;
-  v_row   record;
-  v_me    record;
-  v_adeel record;
+  v_norm   text;
+  v_device text;
+  v_row    record;
+  v_me     record;
+  v_adeel  record;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'يجب تسجيل الدخول أولاً' USING ERRCODE = 'RUL14';
@@ -1179,10 +1206,22 @@ BEGIN
       USING ERRCODE = 'RUL14';
   END IF;
 
+  -- The device this code is being spent on. The header is the fallback so a
+  -- client that sets it globally does not have to pass it twice, but ONE of the
+  -- two must arrive: an unlocked binding is not a weaker version of the
+  -- feature, it is the absence of it, and it would be invisible afterwards.
+  v_device := coalesce(nullif(btrim(coalesce(p_device_id, '')), ''),
+                       public.request_device_id());
+  IF v_device IS NULL THEN
+    RAISE EXCEPTION 'تعذّر التعرّف على الجهاز، حدِّث التطبيق وأعد المحاولة'
+      USING ERRCODE = 'RUL14';
+  END IF;
+
   UPDATE public.profiles
-     SET adeel_id = v_row.adeel_id,
-         status   = 'approved',
-         role     = 'viewer'
+     SET adeel_id  = v_row.adeel_id,
+         status    = 'approved',
+         role      = 'viewer',
+         device_id = v_device
    WHERE id = auth.uid();
 
   UPDATE public.adeel_access_codes

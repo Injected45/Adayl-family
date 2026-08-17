@@ -42,6 +42,21 @@ CREATE TABLE public.profiles (
   role          app_role    NOT NULL DEFAULT 'viewer',
   status        app_status  NOT NULL DEFAULT 'pending',
   adeel_id      bigint,
+  -- ── The one device this عديل's portal opens on ───────────────────────────
+  -- A hash of a per-device identifier, claimed when he redeems his code and
+  -- compared on every request thereafter by my_adeel_id(). NULL means "not yet
+  -- claimed", which is a REFUSAL, not a pass: see that function.
+  --
+  -- Staff never have one. Their reach is decided by `role`, and locking an
+  -- admin to a handset would strand the association the first time a phone was
+  -- replaced.
+  --
+  -- Not a MAC address, which is what was asked for and is no longer obtainable:
+  -- Android has returned 02:00:00:00:00:00 to every app since API 23 and
+  -- randomises it per network since 10, and iOS never exposed it at all. What
+  -- the client sends is ANDROID_ID (or identifierForVendor), hashed — the
+  -- closest stable thing the platform still gives out.
+  device_id     text,
   approved_by   uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
   approved_at   timestamptz,
   last_login_at timestamptz,
@@ -257,12 +272,62 @@ $$;
 -- SECURITY DEFINER for the same reason my_role() is: a policy ON profiles that
 -- selects FROM profiles re-enters its own policy and Postgres raises "infinite
 -- recursion detected in policy".
+-- ── ONE عديل, ONE DEVICE ────────────────────────────────────────────────────
+-- Every عديل-scoped RLS policy goes through this function, so the device check
+-- belongs here and nowhere else: put it in the portal's read functions instead
+-- and a client talking to PostgREST directly would walk straight past it.
+-- Returning NULL is the whole enforcement — a NULL adeel_id matches no row, so
+-- the wrong device sees an empty portal rather than a refused one.
+--
+-- `request.headers` is what PostgREST publishes for the current request, so
+-- `x-device-id` is whatever the app put in its header. That makes this a lock
+-- against SHARING — the member opening his account on a second handset, or
+-- handing his Google password to a cousin — and NOT against a determined
+-- attacker with the anon key, who can put any string in a header he likes. It
+-- is worth saying plainly: the code is the authorisation, the device is a
+-- constraint on convenience, and no header can ever be more than that.
+--
+-- Three states, and the middle one is the one to get right:
+--
+--   device_id IS NULL      → REFUSE. "Not yet claimed", which is what an
+--                            account looks like the instant an admin reissues
+--                            a code to release a lost phone. Treating it as a
+--                            pass would make reissuing an unlock for EVERY
+--                            device at once, which is the opposite of the
+--                            feature. api_touch_login() claims it on the next
+--                            launch from the phone that actually has the code.
+--   device_id = header     → allow.
+--   device_id <> header    → refuse.
+--
+-- Staff are unaffected: they have no adeel_id, so this returns NULL for them
+-- exactly as it always did, and my_role() — which they DO go through — never
+-- looks at device_id.
+-- The header, isolated so there is one definition of "which device is asking".
+--
+-- Declared BEFORE my_adeel_id() on purpose: `check_function_bodies` is on, so a
+-- SQL function that calls one Postgres has not seen yet fails at CREATE time
+-- and takes the apply with it.
+--
+-- `true` on current_setting means "NULL if unset" rather than an error. The
+-- setting does not exist at all outside a PostgREST request — in psql, in the
+-- probe suite, during a migration — and throwing there would be a function that
+-- only works in production.
+CREATE OR REPLACE FUNCTION public.request_device_id() RETURNS text
+LANGUAGE sql STABLE AS $$
+  SELECT nullif(
+    btrim(coalesce(
+      current_setting('request.headers', true)::json ->> 'x-device-id', '')),
+    '')
+$$;
+
 CREATE OR REPLACE FUNCTION public.my_adeel_id() RETURNS bigint
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
   SELECT p.adeel_id
     FROM public.profiles p
    WHERE p.id = auth.uid()
      AND p.status = 'approved'
+     AND p.device_id IS NOT NULL
+     AND p.device_id = public.request_device_id()
 $$;
 
 CREATE OR REPLACE FUNCTION public.has_role(minimum app_role) RETURNS boolean

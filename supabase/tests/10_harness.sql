@@ -95,7 +95,8 @@ END $$;
 -- Impersonation. This is what makes the RLS probes meaningful: PostgREST issues
 -- exactly these two statements per request — the role from the JWT's `role`
 -- claim, and the claims themselves as a GUC that auth.uid() reads.
-CREATE OR REPLACE FUNCTION probe.become(p_uid uuid, p_role text DEFAULT 'authenticated')
+CREATE OR REPLACE FUNCTION probe.become(p_uid uuid, p_role text DEFAULT 'authenticated',
+                                        p_device text DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   -- is_local = FALSE deliberately. psql autocommits every statement, so a
@@ -107,6 +108,21 @@ BEGIN
     PERFORM set_config('request.jwt.claims',
       json_build_object('sub', p_uid, 'role', p_role)::text, false);
   END IF;
+
+  -- ── The handset, as PostgREST would publish it ────────────────────────────
+  -- my_adeel_id() reads `x-device-id` out of request.headers to enforce one
+  -- عديل per device. That setting does not exist in psql, so without this every
+  -- portal check would run as an unrecognised device and the whole group would
+  -- fail for a reason that has nothing to do with what it is testing.
+  --
+  -- One device per user by default, which is also the realistic shape. Pass
+  -- p_device to put the SAME user on a DIFFERENT handset — which is the only
+  -- way to test the rule that matters.
+  PERFORM set_config(
+    'request.headers',
+    json_build_object('x-device-id',
+      coalesce(p_device, 'dev-' || coalesce(p_uid::text, 'anon')))::text,
+    false);
 END $$;
 
 -- Reports, and fails if any check failed OR if the number of checks is not the

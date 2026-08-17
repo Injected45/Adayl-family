@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
+import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
@@ -750,45 +751,11 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// Rewrites Arabic-Indic digits to ASCII as they are typed.
-///
-/// The app forces the `ar` locale, so the keyboard offers ٠١٢٣٤٥٦٧٨٩ and a
-/// treasurer typing a fee naturally produces them. Every numeric cast on the
-/// server is ASCII-only, and Dart's own `\d` is too — so without this the digits
-/// are not merely wrong, they are invisible: the filter drops them keystroke by
-/// keystroke and the box never fills.
-///
-/// The Arabic decimal separator ٫ (U+066B) is folded to '.' for the same reason.
-class _ArabicDigitsFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final StringBuffer out = StringBuffer();
-    for (final int rune in newValue.text.runes) {
-      if (rune >= 0x0660 && rune <= 0x0669) {
-        out.writeCharCode(0x30 + rune - 0x0660); // ٠-٩
-      } else if (rune >= 0x06F0 && rune <= 0x06F9) {
-        out.writeCharCode(0x30 + rune - 0x06F0); // ۰-۹ (extended)
-      } else if (rune == 0x066B) {
-        out.writeCharCode(0x2E); // ٫ → .
-      } else {
-        out.writeCharCode(rune);
-      }
-    }
-    final String text = out.toString();
-    if (text == newValue.text) return newValue;
-
-    // Length is unchanged by a one-for-one fold, so the caret can keep its
-    // offset — recomputing it would move the cursor mid-typing.
-    return TextEditingValue(
-      text: text,
-      selection: newValue.selection,
-      composing: TextRange.empty,
-    );
-  }
-}
+// The Arabic-digit fold used to live here as a private class. It now sits in
+// core/format/formatters.dart, because the fee was not the only box that casts
+// on the server — the system-start date and an عديل's telephone need the same
+// treatment, and both were written without it while a private copy sat one
+// file away.
 
 class _Field extends StatelessWidget {
   // `integer: true` went with the two whole-number fields this screen used to
@@ -834,7 +801,7 @@ class _Field extends StatelessWidget {
           // Folding to ASCII before filtering means ٢٠ and 20 are the same
           // keystroke as far as this box is concerned. The value on the wire
           // stays ASCII, which is what Postgres can cast.
-          if (money || date) _ArabicDigitsFormatter(),
+          if (money || date) ArabicDigitsFormatter(),
           if (money)
             FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
           // Digits and the separator only. Postgres is strict about a date and

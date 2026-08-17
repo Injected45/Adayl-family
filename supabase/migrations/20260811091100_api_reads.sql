@@ -71,7 +71,20 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
            'دفعة'::text,
            NULL::numeric,
            p.amount,
-           coalesce(nullif(p.reference, ''), p.method::text)
+           -- ── The METHOD, in words. Not the transfer reference. ────────────
+           -- This read `coalesce(nullif(p.reference,''), p.method::text)`, so a
+           -- transfer that carried a reference put a bare number in the
+           -- statement's البيان column — "34871" against 250.00, which tells a
+           -- member nothing about what the line is and reads like a second
+           -- amount next to the first.
+           --
+           -- The reference identifies the transfer to the BANK; it is not what
+           -- the movement was. What it was is "تحويل مصرفي" or "نقداً", which is
+           -- also the one thing on the line he can check against his own
+           -- records. It stays on the payment row and on the collections
+           -- screen, where a treasurer reconciling with a bank statement is the
+           -- person who actually needs it.
+           p.method::text
       FROM public.payments p
      WHERE p.adeel_id = p_adeel_id AND p.status <> 'ملغي'
   ), ordered AS (
@@ -348,16 +361,45 @@ LANGUAGE sql STABLE AS $$
     'role', p.role::text,
     'status', p.status::text,
     'adeelId', p.adeel_id,
-    'adeelCode', (SELECT a.adeel_code FROM public.adeels a WHERE a.id = p.adeel_id))
+    'adeelCode', (SELECT a.adeel_code FROM public.adeels a WHERE a.id = p.adeel_id),
+    -- ── Why the portal is empty, said out loud ──────────────────────────────
+    -- my_adeel_id() enforces the one-device rule by returning NULL, so a عديل
+    -- on the wrong handset gets a portal with no dues, no ledger and no
+    -- explanation — which reads as a broken app, not as a rule.
+    --
+    -- This flag is the explanation, and it is deliberately NOT the enforcement:
+    -- it is computed from the same three states my_adeel_id() decides on, but
+    -- nothing depends on the client honouring it. Hiding the message would
+    -- change what he is told, never what he can read.
+    'deviceLocked', (p.adeel_id IS NOT NULL
+                     AND p.device_id IS DISTINCT FROM public.request_device_id()))
   FROM public.profiles p WHERE p.id = auth.uid()
 $$;
 
 -- Records the sign-in. SECURITY DEFINER because `last_login_at` lives on a table
 -- the client cannot write — and must not be able to, or it could rewrite anyone's.
 -- The WHERE clause pins it to the caller's own row regardless.
+-- It also CLAIMS an unclaimed device, which is how a released lock is taken up
+-- again — and how the عدايل who were already bound before the rule existed keep
+-- working instead of all being locked out by the migration that introduced it.
+--
+-- `device_id IS NULL` is the only case it writes. It never REPLACES a claim, so
+-- a second handset calling this cannot steal the binding: it writes nothing and
+-- my_adeel_id() goes on refusing it. Releasing is an admin act — reissue the
+-- code — and this is the other half of it.
+--
+-- Staff are excluded by `adeel_id IS NOT NULL`. Stamping a device on an admin
+-- would lock the association out of its own app the first time a phone was
+-- replaced, and nothing would read the column anyway.
 CREATE OR REPLACE FUNCTION public.api_touch_login() RETURNS void
 LANGUAGE sql SECURITY DEFINER SET search_path = public, auth AS $$
-  UPDATE public.profiles SET last_login_at = now() WHERE id = auth.uid()
+  UPDATE public.profiles
+     SET last_login_at = now(),
+         device_id = CASE
+           WHEN adeel_id IS NOT NULL AND device_id IS NULL
+             THEN public.request_device_id()
+           ELSE device_id END
+   WHERE id = auth.uid()
 $$;
 
 -- ── Re-run the standing guarantees ───────────────────────────────────────────
@@ -398,7 +440,7 @@ GRANT EXECUTE ON FUNCTION
   public.purge_financial_data(text),
   public.purge_all_data(text),
   public.issue_adeel_code(bigint),
-  public.redeem_adeel_code(text),
+  public.redeem_adeel_code(text, text),
   public.period_label(text),
   public.adeel_json(bigint),
   public.api_adeel_detail(bigint),

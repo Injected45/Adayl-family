@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../device/device_identity.dart';
 import 'secure_local_storage.dart';
 import 'supabase_config.dart';
 
@@ -15,6 +16,18 @@ Future<bool> initialiseSupabase() async {
 
   await Supabase.initialize(
     url: SupabaseConfig.url,
+    // ── The handset, on EVERY request ────────────────────────────────────────
+    // `my_adeel_id()` reads `x-device-id` out of PostgREST's request.headers and
+    // refuses to answer when it does not match the device the عديل's access code
+    // was redeemed on. Setting it here rather than per call is the point: the
+    // rule is enforced by a clause inside an RLS-facing function, so it has to
+    // arrive with every read the client makes, including ones nobody remembers
+    // to thread it through.
+    //
+    // Resolved BEFORE initialize because these headers are fixed at client
+    // construction. It is a hash, it never throws, and it costs one platform
+    // call at startup.
+    headers: <String, String>{'x-device-id': await DeviceIdentity.resolve()},
     // `publishableKey`, not the deprecated `anonKey`. Supabase renamed the
     // concept; the parameter accepts either the legacy JWT anon key or a new
     // sb_publishable_… key, so the --dart-define keeps its familiar name.

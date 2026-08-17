@@ -50,6 +50,10 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- and the failure surfaces as "permission denied for function my_adeel_id"
     -- on screens that have nothing to do with the portal.
     'my_adeel_id()',
+    -- Echoes the caller's own x-device-id header back. api_me() is SECURITY
+    -- INVOKER and calls it, so the caller must hold EXECUTE or every launch
+    -- fails with "permission denied for function request_device_id".
+    'request_device_id()',
 
     -- Writes. Each require_role()-gated, each one transaction.
     'register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)',
@@ -76,7 +80,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- code he has no role and no binding, and the code itself is the
     -- authorisation. It refuses anyone who is already staff.
     'issue_adeel_code(bigint)',
-    'redeem_adeel_code(text)',
+    'redeem_adeel_code(text,text)',
 
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',

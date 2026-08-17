@@ -317,6 +317,8 @@
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "Total charged",
   "myBalanceNow": "Your balance now",
+  "deviceLockedTitle": "This subscription is tied to another device",
+  "deviceLockedBody": "Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.",
   "myDetailsTitle": "My subscription details",
   "ofTotal": "of {amount}",
   "settledUpTitle": "Nothing outstanding",

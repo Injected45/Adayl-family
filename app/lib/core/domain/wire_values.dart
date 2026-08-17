@@ -33,6 +33,18 @@ abstract final class PaymentMethodWire {
   static const String bankTransfer = 'تحويل مصرفي';
 }
 
+/// The two posts, as `v_officials` emits them.
+///
+/// ASCII, unlike every other enum here, and that is the whole trap: the
+/// Arabic-literal lint had nothing to object to, so the officials screen
+/// printed `treasurer` and `financeManager` straight onto an Arabic-only page
+/// and nothing failed. A wire value is a wire value whatever alphabet it is
+/// written in — it belongs here, and the screen translates it.
+abstract final class OfficialRoleWire {
+  static const String treasurer = 'treasurer';
+  static const String financeManager = 'financeManager';
+}
+
 // MemberRelationWire ('أب' / 'ابن') is GONE. It labelled a person's place inside
 // a household, and the association stopped billing households: every عديل is
 // billed in his own right, so there is no relation left to state. Removing it

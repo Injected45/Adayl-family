@@ -146,6 +146,21 @@ CREATE TABLE public.profiles (
   role          app_role    NOT NULL DEFAULT 'viewer',
   status        app_status  NOT NULL DEFAULT 'pending',
   adeel_id      bigint,
+  -- ── The one device this عديل's portal opens on ───────────────────────────
+  -- A hash of a per-device identifier, claimed when he redeems his code and
+  -- compared on every request thereafter by my_adeel_id(). NULL means "not yet
+  -- claimed", which is a REFUSAL, not a pass: see that function.
+  --
+  -- Staff never have one. Their reach is decided by `role`, and locking an
+  -- admin to a handset would strand the association the first time a phone was
+  -- replaced.
+  --
+  -- Not a MAC address, which is what was asked for and is no longer obtainable:
+  -- Android has returned 02:00:00:00:00:00 to every app since API 23 and
+  -- randomises it per network since 10, and iOS never exposed it at all. What
+  -- the client sends is ANDROID_ID (or identifierForVendor), hashed — the
+  -- closest stable thing the platform still gives out.
+  device_id     text,
   approved_by   uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
   approved_at   timestamptz,
   last_login_at timestamptz,
@@ -361,12 +376,62 @@ $$;
 -- SECURITY DEFINER for the same reason my_role() is: a policy ON profiles that
 -- selects FROM profiles re-enters its own policy and Postgres raises "infinite
 -- recursion detected in policy".
+-- ── ONE عديل, ONE DEVICE ────────────────────────────────────────────────────
+-- Every عديل-scoped RLS policy goes through this function, so the device check
+-- belongs here and nowhere else: put it in the portal's read functions instead
+-- and a client talking to PostgREST directly would walk straight past it.
+-- Returning NULL is the whole enforcement — a NULL adeel_id matches no row, so
+-- the wrong device sees an empty portal rather than a refused one.
+--
+-- `request.headers` is what PostgREST publishes for the current request, so
+-- `x-device-id` is whatever the app put in its header. That makes this a lock
+-- against SHARING — the member opening his account on a second handset, or
+-- handing his Google password to a cousin — and NOT against a determined
+-- attacker with the anon key, who can put any string in a header he likes. It
+-- is worth saying plainly: the code is the authorisation, the device is a
+-- constraint on convenience, and no header can ever be more than that.
+--
+-- Three states, and the middle one is the one to get right:
+--
+--   device_id IS NULL      → REFUSE. "Not yet claimed", which is what an
+--                            account looks like the instant an admin reissues
+--                            a code to release a lost phone. Treating it as a
+--                            pass would make reissuing an unlock for EVERY
+--                            device at once, which is the opposite of the
+--                            feature. api_touch_login() claims it on the next
+--                            launch from the phone that actually has the code.
+--   device_id = header     → allow.
+--   device_id <> header    → refuse.
+--
+-- Staff are unaffected: they have no adeel_id, so this returns NULL for them
+-- exactly as it always did, and my_role() — which they DO go through — never
+-- looks at device_id.
+-- The header, isolated so there is one definition of "which device is asking".
+--
+-- Declared BEFORE my_adeel_id() on purpose: `check_function_bodies` is on, so a
+-- SQL function that calls one Postgres has not seen yet fails at CREATE time
+-- and takes the apply with it.
+--
+-- `true` on current_setting means "NULL if unset" rather than an error. The
+-- setting does not exist at all outside a PostgREST request — in psql, in the
+-- probe suite, during a migration — and throwing there would be a function that
+-- only works in production.
+CREATE OR REPLACE FUNCTION public.request_device_id() RETURNS text
+LANGUAGE sql STABLE AS $$
+  SELECT nullif(
+    btrim(coalesce(
+      current_setting('request.headers', true)::json ->> 'x-device-id', '')),
+    '')
+$$;
+
 CREATE OR REPLACE FUNCTION public.my_adeel_id() RETURNS bigint
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
   SELECT p.adeel_id
     FROM public.profiles p
    WHERE p.id = auth.uid()
      AND p.status = 'approved'
+     AND p.device_id IS NOT NULL
+     AND p.device_id = public.request_device_id()
 $$;
 
 CREATE OR REPLACE FUNCTION public.has_role(minimum app_role) RETURNS boolean
@@ -2294,6 +2359,26 @@ BEGIN
     -- Cleared: this is a NEW code, and it has not been redeemed.
     redeemed_at = NULL, redeemed_by = NULL;
 
+  -- ── Reissuing IS the way to release a lost phone ──────────────────────────
+  -- Clearing device_id here is the only unlock the system has, and it was a
+  -- deliberate choice over a second button: an عديل whose handset is stolen,
+  -- wiped or replaced is otherwise locked out permanently, and the admin has to
+  -- reissue his code in that situation anyway.
+  --
+  -- The binding itself (`adeel_id`) is deliberately LEFT ALONE. Clearing it too
+  -- would drop him back to a plain approved viewer for as long as it took him
+  -- to redeem again — and a viewer with no adeel_id reads the WHOLE
+  -- association, because my_role() only returns NULL while an adeel_id is set.
+  -- The unlock would have been a privilege escalation with a time window.
+  --
+  -- So he stays bound and stays locked out — my_adeel_id() refuses a NULL
+  -- device_id — until the phone holding the new code opens the app and
+  -- api_touch_login() claims it.
+  UPDATE public.profiles
+     SET device_id = NULL
+   WHERE adeel_id = p_adeel_id
+     AND device_id IS NOT NULL;
+
   PERFORM public.write_audit('adeel.code.issue',
     format('إصدار رمز دخول للعديل %s', v_adeel.adeel_code), v_adeel.adeel_code);
 
@@ -2313,14 +2398,21 @@ END $$;
 -- a code would set his own adeel_id, my_role() would start returning NULL, and
 -- he would lock himself out of the association's own app — possibly as the last
 -- admin, which no other guard would catch because his role never changed.
-CREATE OR REPLACE FUNCTION public.redeem_adeel_code(p_code text)
-RETURNS jsonb
+-- `p_device_id` is the handset this code is being spent on, and it is the
+-- moment the one-device rule is established. Passed as an argument rather than
+-- read from the header so that the binding is written by the same statement
+-- that grants it: a redemption cannot succeed and leave the account unlocked.
+CREATE OR REPLACE FUNCTION public.redeem_adeel_code(
+  p_code      text,
+  p_device_id text DEFAULT NULL
+) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 DECLARE
-  v_norm  text;
-  v_row   record;
-  v_me    record;
-  v_adeel record;
+  v_norm   text;
+  v_device text;
+  v_row    record;
+  v_me     record;
+  v_adeel  record;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'يجب تسجيل الدخول أولاً' USING ERRCODE = 'RUL14';
@@ -2377,10 +2469,22 @@ BEGIN
       USING ERRCODE = 'RUL14';
   END IF;
 
+  -- The device this code is being spent on. The header is the fallback so a
+  -- client that sets it globally does not have to pass it twice, but ONE of the
+  -- two must arrive: an unlocked binding is not a weaker version of the
+  -- feature, it is the absence of it, and it would be invisible afterwards.
+  v_device := coalesce(nullif(btrim(coalesce(p_device_id, '')), ''),
+                       public.request_device_id());
+  IF v_device IS NULL THEN
+    RAISE EXCEPTION 'تعذّر التعرّف على الجهاز، حدِّث التطبيق وأعد المحاولة'
+      USING ERRCODE = 'RUL14';
+  END IF;
+
   UPDATE public.profiles
-     SET adeel_id = v_row.adeel_id,
-         status   = 'approved',
-         role     = 'viewer'
+     SET adeel_id  = v_row.adeel_id,
+         status    = 'approved',
+         role      = 'viewer',
+         device_id = v_device
    WHERE id = auth.uid();
 
   UPDATE public.adeel_access_codes
@@ -2907,7 +3011,20 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
            'دفعة'::text,
            NULL::numeric,
            p.amount,
-           coalesce(nullif(p.reference, ''), p.method::text)
+           -- ── The METHOD, in words. Not the transfer reference. ────────────
+           -- This read `coalesce(nullif(p.reference,''), p.method::text)`, so a
+           -- transfer that carried a reference put a bare number in the
+           -- statement's البيان column — "34871" against 250.00, which tells a
+           -- member nothing about what the line is and reads like a second
+           -- amount next to the first.
+           --
+           -- The reference identifies the transfer to the BANK; it is not what
+           -- the movement was. What it was is "تحويل مصرفي" or "نقداً", which is
+           -- also the one thing on the line he can check against his own
+           -- records. It stays on the payment row and on the collections
+           -- screen, where a treasurer reconciling with a bank statement is the
+           -- person who actually needs it.
+           p.method::text
       FROM public.payments p
      WHERE p.adeel_id = p_adeel_id AND p.status <> 'ملغي'
   ), ordered AS (
@@ -3184,16 +3301,45 @@ LANGUAGE sql STABLE AS $$
     'role', p.role::text,
     'status', p.status::text,
     'adeelId', p.adeel_id,
-    'adeelCode', (SELECT a.adeel_code FROM public.adeels a WHERE a.id = p.adeel_id))
+    'adeelCode', (SELECT a.adeel_code FROM public.adeels a WHERE a.id = p.adeel_id),
+    -- ── Why the portal is empty, said out loud ──────────────────────────────
+    -- my_adeel_id() enforces the one-device rule by returning NULL, so a عديل
+    -- on the wrong handset gets a portal with no dues, no ledger and no
+    -- explanation — which reads as a broken app, not as a rule.
+    --
+    -- This flag is the explanation, and it is deliberately NOT the enforcement:
+    -- it is computed from the same three states my_adeel_id() decides on, but
+    -- nothing depends on the client honouring it. Hiding the message would
+    -- change what he is told, never what he can read.
+    'deviceLocked', (p.adeel_id IS NOT NULL
+                     AND p.device_id IS DISTINCT FROM public.request_device_id()))
   FROM public.profiles p WHERE p.id = auth.uid()
 $$;
 
 -- Records the sign-in. SECURITY DEFINER because `last_login_at` lives on a table
 -- the client cannot write — and must not be able to, or it could rewrite anyone's.
 -- The WHERE clause pins it to the caller's own row regardless.
+-- It also CLAIMS an unclaimed device, which is how a released lock is taken up
+-- again — and how the عدايل who were already bound before the rule existed keep
+-- working instead of all being locked out by the migration that introduced it.
+--
+-- `device_id IS NULL` is the only case it writes. It never REPLACES a claim, so
+-- a second handset calling this cannot steal the binding: it writes nothing and
+-- my_adeel_id() goes on refusing it. Releasing is an admin act — reissue the
+-- code — and this is the other half of it.
+--
+-- Staff are excluded by `adeel_id IS NOT NULL`. Stamping a device on an admin
+-- would lock the association out of its own app the first time a phone was
+-- replaced, and nothing would read the column anyway.
 CREATE OR REPLACE FUNCTION public.api_touch_login() RETURNS void
 LANGUAGE sql SECURITY DEFINER SET search_path = public, auth AS $$
-  UPDATE public.profiles SET last_login_at = now() WHERE id = auth.uid()
+  UPDATE public.profiles
+     SET last_login_at = now(),
+         device_id = CASE
+           WHEN adeel_id IS NOT NULL AND device_id IS NULL
+             THEN public.request_device_id()
+           ELSE device_id END
+   WHERE id = auth.uid()
 $$;
 
 -- ── Re-run the standing guarantees ───────────────────────────────────────────
@@ -3234,7 +3380,7 @@ GRANT EXECUTE ON FUNCTION
   public.purge_financial_data(text),
   public.purge_all_data(text),
   public.issue_adeel_code(bigint),
-  public.redeem_adeel_code(text),
+  public.redeem_adeel_code(text, text),
   public.period_label(text),
   public.adeel_json(bigint),
   public.api_adeel_detail(bigint),
@@ -3309,6 +3455,10 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- and the failure surfaces as "permission denied for function my_adeel_id"
     -- on screens that have nothing to do with the portal.
     'my_adeel_id()',
+    -- Echoes the caller's own x-device-id header back. api_me() is SECURITY
+    -- INVOKER and calls it, so the caller must hold EXECUTE or every launch
+    -- fails with "permission denied for function request_device_id".
+    'request_device_id()',
 
     -- Writes. Each require_role()-gated, each one transaction.
     'register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)',
@@ -3335,7 +3485,7 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- code he has no role and no binding, and the code itself is the
     -- authorisation. It refuses anyone who is already staff.
     'issue_adeel_code(bigint)',
-    'redeem_adeel_code(text)',
+    'redeem_adeel_code(text,text)',
 
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',

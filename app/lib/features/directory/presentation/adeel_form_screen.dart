@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
+import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_background.dart';
@@ -239,7 +241,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty) ? required : null,
                 ),
-                _Input(label: l.phone, controller: _phone),
+                _Input(label: l.phone, controller: _phone, phone: true),
                 _DobInput(label: l.dateOfBirth, controller: _dob),
                 Padding(
                   padding: const EdgeInsetsDirectional.only(
@@ -323,11 +325,26 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _Input extends StatelessWidget {
-  const _Input({required this.label, required this.controller, this.validator});
+  const _Input({
+    required this.label,
+    required this.controller,
+    this.validator,
+    this.phone = false,
+  });
 
   final String label;
   final TextEditingController controller;
   final String? Function(String?)? validator;
+
+  /// A telephone box: numeric keypad, Arabic-Indic digits folded to ASCII, and
+  /// nothing but digits and the few separators a Libyan number uses.
+  ///
+  /// A live register already carries `₩912346` — a keyboard slip nobody could
+  /// see was a slip, because the box accepted any character at all and the
+  /// number is only ever read back, never dialled by the app. A phone number
+  /// that silently holds a currency sign is worse than a blank one: it looks
+  /// like data.
+  final bool phone;
 
   @override
   Widget build(BuildContext context) {
@@ -336,6 +353,17 @@ class _Input extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         validator: validator,
+        keyboardType: phone ? TextInputType.phone : TextInputType.text,
+        inputFormatters: phone
+            ? <TextInputFormatter>[
+                // Fold FIRST, filter second — the same order the settings fee
+                // box needs, and for the same reason: Dart's `\d` is ASCII
+                // only, so filtering before folding eats ٠١٢٣ keystroke by
+                // keystroke and leaves the box empty with no explanation.
+                ArabicDigitsFormatter(),
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\- ]')),
+              ]
+            : const <TextInputFormatter>[],
         decoration: InputDecoration(labelText: label, isDense: true),
       ),
     );

@@ -49,6 +49,7 @@ class AppUser {
     this.pictureUrl,
     this.adeelId,
     this.adeelCode,
+    this.deviceLocked = false,
   });
 
   /// A uuid, not a number. Identity belongs to Supabase Auth (auth.users.id)
@@ -74,6 +75,19 @@ class AppUser {
   /// A-0001 and the like, for the portal's heading. Null for staff.
   final String? adeelCode;
 
+  /// This handset is not the one his access code was redeemed on.
+  ///
+  /// An EXPLANATION, never the enforcement. `my_adeel_id()` already returns
+  /// NULL for the wrong device, so RLS hands him nothing whatever this says —
+  /// which is exactly the problem it solves: without it he would see a portal
+  /// with no dues, no ledger and no reason given, and read that as a broken
+  /// app rather than as a rule the association set.
+  ///
+  /// Defaults to false so a project whose database predates the rule behaves
+  /// as it did before, rather than locking every member out of a screen the
+  /// server is perfectly willing to fill.
+  final bool deviceLocked;
+
   bool get isApproved => status == AccountStatus.approved;
 
   /// Read-only access to exactly his own record, and nothing of the association's.
@@ -88,6 +102,7 @@ class AppUser {
     status: AccountStatus.fromWire(json['status'] as String?),
     adeelId: (json['adeelId'] as num?)?.toInt(),
     adeelCode: json['adeelCode'] as String?,
+    deviceLocked: json['deviceLocked'] == true,
   );
 }
 

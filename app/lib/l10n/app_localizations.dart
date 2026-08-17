@@ -1783,6 +1783,18 @@ abstract class L {
   /// **'رصيدك الآن'**
   String get myBalanceNow;
 
+  /// Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الاشتراك مرتبط بجهاز آخر'**
+  String get deviceLockedTitle;
+
+  /// No description provided for @deviceLockedBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.'**
+  String get deviceLockedBody;
+
   /// Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee.
   ///
   /// In ar, this message translates to:
