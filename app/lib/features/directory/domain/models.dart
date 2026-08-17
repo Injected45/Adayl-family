@@ -8,6 +8,16 @@ library;
 String _string(Object? value) => value == null ? '' : value.toString();
 int _int(Object? value) => value is num ? value.toInt() : 0;
 
+/// A key that may be ABSENT because the database predates it.
+///
+/// Distinct from [_string], which turns a missing key into `''` — and an empty
+/// string is not a money value: `double.tryParse('')` is null, every comparison
+/// against it is false, and a wallet the schema simply has not grown yet would
+/// read as a figure that failed to load. The fallback says what the older
+/// database MEANT instead.
+String _stringOr(Object? value, String fallback) =>
+    value == null ? fallback : value.toString();
+
 class AssociationSettingsView {
   const AssociationSettingsView({
     required this.associationName,
@@ -133,6 +143,8 @@ class AdeelView {
     required this.debt,
     required this.paid,
     required this.issued,
+    this.credit = '0.00',
+    this.netBalance = '0.00',
   });
 
   final int id;
@@ -148,6 +160,18 @@ class AdeelView {
   final String debt;
   final String paid;
   final String issued;
+
+  /// Money he has handed over that no month has claimed yet — the wallet.
+  ///
+  /// Derived server-side as Σ payments − Σ allocations, never stored, so it
+  /// cannot drift from the receipts it is made of. Defaults to '0.00' for a
+  /// database that predates it, which reads as "no credit" rather than as a
+  /// parse failure.
+  final String credit;
+
+  /// debt − credit. POSITIVE means he owes, NEGATIVE means the association is
+  /// holding his money. One figure, and its sign is what the portal paints.
+  final String netBalance;
 
   bool get hasDebt => (double.tryParse(debt) ?? 0) > 0;
 
@@ -165,6 +189,8 @@ class AdeelView {
     debt: _string(json['debt']),
     paid: _string(json['paid']),
     issued: _string(json['issued']),
+    credit: _stringOr(json['credit'], '0.00'),
+    netBalance: _stringOr(json['netBalance'], _string(json['debt'])),
   );
 }
 
@@ -178,6 +204,8 @@ class AdeelDetail {
     required this.paid,
     required this.openPeriods,
     required this.receivables,
+    this.credit = '0.00',
+    this.netBalance = '0.00',
   });
 
   final AdeelView adeel;
@@ -185,6 +213,22 @@ class AdeelDetail {
   final String issued;
   final String debt;
   final String paid;
+
+  /// The wallet — see [AdeelView.credit].
+  final String credit;
+
+  /// `debt − credit`, and the ONE figure the portal leads with.
+  final String netBalance;
+
+  /// He owes the association. Red.
+  bool get owes => (double.tryParse(netBalance) ?? 0) > 0;
+
+  /// The association is holding money for him. Green.
+  ///
+  /// Not `!owes`: a balance of exactly zero is neither, and it deserves its own
+  /// wording — "settled up" is an answer, "you have 0.00 in credit" is not.
+  bool get inCredit => (double.tryParse(netBalance) ?? 0) < 0;
+
   final int openPeriods;
   final List<ReceivableItem> receivables;
 
@@ -197,6 +241,12 @@ class AdeelDetail {
       issued: _string(kpis['issued']),
       debt: _string(kpis['debt']),
       paid: _string(kpis['paid']),
+      credit: _stringOr(kpis['credit'], '0.00'),
+      // Falls back to `debt`, which is what the net balance WAS before a wallet
+      // existed: with no credit possible, what he owed and where he stood were
+      // the same number. A build pointed at an older database therefore shows
+      // exactly what it used to, rather than a zero balance for everyone.
+      netBalance: _stringOr(kpis['netBalance'], _string(kpis['debt'])),
       openPeriods: _int(kpis['openPeriods']),
       receivables: (json['receivables'] as List<dynamic>? ?? <dynamic>[])
           .map(

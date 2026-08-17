@@ -691,8 +691,7 @@ class LEn extends L {
   String get myStatementSection => 'Statement';
 
   @override
-  String get statementSearchHint =>
-      'Search the statement: date, reference, amount, type...';
+  String get statementSearchHint => 'Search';
 
   @override
   String get clearSearch => 'Clear search';
@@ -929,6 +928,27 @@ class LEn extends L {
 
   @override
   String get myBalanceNow => 'Your balance now';
+
+  @override
+  String get myIssuedTotal => 'Subscriptions';
+
+  @override
+  String get myPaidTotal => 'Paid';
+
+  @override
+  String get myRemainingTotal => 'Balance';
+
+  @override
+  String get myWalletTitle => 'Your credit with the association';
+
+  @override
+  String get myWalletBody =>
+      'Paid in advance; each new month is deducted from it automatically';
+
+  @override
+  String creditNotice(String amount) {
+    return '$amount more than owed — it goes to his credit and covers coming months';
+  }
 
   @override
   String get deviceLockedTitle => 'This subscription is tied to another device';

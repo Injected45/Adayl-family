@@ -684,8 +684,7 @@ class LAr extends L {
   String get myStatementSection => 'كشف الحساب';
 
   @override
-  String get statementSearchHint =>
-      'ابحث في الكشف: تاريخ، مرجع، مبلغ، نوع الحركة...';
+  String get statementSearchHint => 'بحث';
 
   @override
   String get clearSearch => 'مسح البحث';
@@ -921,6 +920,27 @@ class LAr extends L {
 
   @override
   String get myBalanceNow => 'رصيدك الآن';
+
+  @override
+  String get myIssuedTotal => 'الاشتراكات';
+
+  @override
+  String get myPaidTotal => 'المسدد';
+
+  @override
+  String get myRemainingTotal => 'الرصيد';
+
+  @override
+  String get myWalletTitle => 'رصيدك لدى الجمعية';
+
+  @override
+  String get myWalletBody =>
+      'مبلغ مدفوع مقدماً، يُخصم تلقائياً من اشتراك كل شهر جديد';
+
+  @override
+  String creditNotice(String amount) {
+    return 'أكثر من المستحق بـ $amount — تُضاف إلى رصيده وتُخصم من الأشهر القادمة';
+  }
 
   @override
   String get deviceLockedTitle => 'هذا الاشتراك مرتبط بجهاز آخر';

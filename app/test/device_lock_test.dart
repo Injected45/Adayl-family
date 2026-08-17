@@ -1,4 +1,5 @@
 import 'package:family_app/core/config/theme.dart';
+import 'package:family_app/core/format/formatters.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/directory/domain/models.dart';
@@ -73,6 +74,8 @@ AdeelDetail _detail() => AdeelDetail.fromJson(<String, dynamic>{
 });
 
 void main() {
+  _walletTests();
+
   final L l = LAr();
 
   Widget app({required bool locked}) => ProviderScope(
@@ -157,5 +160,137 @@ void main() {
       'adeelId': 1,
     });
     expect(parsed.deviceLocked, isFalse);
+  });
+}
+
+/// The wallet, as the portal states it.
+///
+/// The association opened prepayment: a member may hand over a year at once and
+/// the surplus sits against his name. That gives the hero a THIRD state, and
+/// the sign of one server-computed figure is what picks it. These pin the two
+/// things a member could be misled by — a credit shown as a debt, and a minus
+/// sign left on a figure that is his.
+void _walletTests() {
+  final L l = LAr();
+
+  AdeelDetail detail({
+    required String debt,
+    required String credit,
+    required String netBalance,
+  }) => AdeelDetail.fromJson(<String, dynamic>{
+    'adeel': <String, dynamic>{
+      'id': 1,
+      'adeelCode': 'A-0001',
+      'fullName': 'المهدي العدولي',
+      'phone': '0910000000',
+      'notes': '',
+      'registeredAt': '2026-01-01',
+      'dob': '1980-01-01',
+      'age': 46,
+      'membershipStatus': 'نشط',
+      'debt': debt,
+      'paid': '0.00',
+      'issued': '20.00',
+      'monthlyExpected': '20.00',
+    },
+    'kpis': <String, dynamic>{
+      'monthlyExpected': '20.00',
+      'issued': '20.00',
+      'debt': debt,
+      'paid': '0.00',
+      'credit': credit,
+      'netBalance': netBalance,
+      'openPeriods': 0,
+    },
+    'receivables': <dynamic>[],
+    'payments': <dynamic>[],
+  });
+
+  Widget app(AdeelDetail d) => ProviderScope(
+    overrides: <Override>[
+      authControllerProvider.overrideWith(() => _Auth(false)),
+      adeelDetailProvider(1).overrideWith((Ref ref) async => d),
+      statementProvider(1).overrideWith(
+        (Ref ref) async => const Statement(
+          movements: <StatementMovement>[],
+          closingBalance: '0.00',
+        ),
+      ),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('ar'),
+      localizationsDelegates: L.localizationsDelegates,
+      supportedLocales: L.supportedLocales,
+      home: const AdeelPortalScreen(),
+    ),
+  );
+
+  testWidgets('credit reads as HIS money, in green, with no minus sign', (
+    WidgetTester tester,
+  ) async {
+    // netBalance is −30: the server's way of saying the association holds 30
+    // for him. Printing that verbatim would put "‑30.00" under a heading about
+    // his balance, which is a puzzle. The figure shown is the credit itself.
+    await tester.pumpWidget(
+      app(detail(debt: '0.00', credit: '30.00', netBalance: '-30.00')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.myWalletTitle), findsOneWidget);
+    expect(find.text(l.myWalletBody), findsOneWidget);
+    expect(find.text(formatMoney('30.00')), findsWidgets);
+    expect(find.text(formatMoney('-30.00')), findsNothing);
+
+    // Green, and the LABEL changed too — colour is never the only signal.
+    final Text figure = tester.widget<Text>(
+      find.text(formatMoney('30.00')).first,
+    );
+    expect(figure.style?.color, AppColors.success);
+  });
+
+  testWidgets('a debt still reads red, and says how many months', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      app(detail(debt: '40.00', credit: '0.00', netBalance: '40.00')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.myBalanceNow), findsOneWidget);
+    expect(find.text(l.myWalletTitle), findsNothing);
+    final Text figure = tester.widget<Text>(
+      find.text(formatMoney('40.00')).first,
+    );
+    expect(figure.style?.color, AppColors.danger);
+  });
+
+  testWidgets('exactly zero is settled up, not a wallet of nothing', (
+    WidgetTester tester,
+  ) async {
+    // The third state is its own sentence. "You have 0.00 in credit" answers
+    // nothing; "settled up" is the news he opened the app for.
+    await tester.pumpWidget(
+      app(detail(debt: '0.00', credit: '0.00', netBalance: '0.00')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.settledUpTitle), findsWidgets);
+    expect(find.text(l.myWalletBody), findsNothing);
+  });
+
+  test('a database with no wallet yet reports the debt, not zero', () {
+    // api_adeel_detail on an unpatched project sends neither key. Defaulting
+    // netBalance to 0 would show every member as settled up while he owed.
+    final AdeelDetail old = AdeelDetail.fromJson(<String, dynamic>{
+      'adeel': <String, dynamic>{'id': 1, 'fullName': 'x', 'debt': '40.00'},
+      'kpis': <String, dynamic>{'debt': '40.00', 'openPeriods': 2},
+      'receivables': <dynamic>[],
+    });
+    expect(old.credit, '0.00');
+    expect(old.netBalance, '40.00');
+    expect(old.owes, isTrue);
+    expect(old.inCredit, isFalse);
   });
 }

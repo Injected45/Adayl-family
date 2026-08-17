@@ -204,7 +204,10 @@ void main() {
     );
 
     expect(find.text('شهر 2026-02'), findsOneWidget);
-    expect(find.text(l.movementBalance), findsNothing); // ledger head column
+    // البيان, not الرصيد: the totals strip above the tabs now says "الرصيد" too
+    // — the member's own word for where he stands — so it is no longer unique
+    // to the ledger and cannot be its sentinel.
+    expect(find.text(l.ledgerParticulars), findsNothing);
 
     await tester.tap(find.text(l.myStatementSection).last);
     await tester.pumpAndSettle();
@@ -274,13 +277,26 @@ void main() {
 
     // Every ledger column heading is on screen at once. If any had been pushed
     // outside the viewport by a fixed width, its centre would fall beyond 360.
+    // Scoped to the header ROW. "الرصيد" is also the totals strip's third cell
+    // now, so an unscoped find.text would match two widgets and getCenter would
+    // refuse — and picking one by index would quietly start measuring the wrong
+    // one the next time the page grows a card.
+    final Finder headRow = find
+        .ancestor(
+          of: find.text(l.ledgerParticulars),
+          matching: find.byType(Row),
+        )
+        .first;
+    Finder head(String label) =>
+        find.descendant(of: headRow, matching: find.text(label));
+
     for (final String heading in <String>[
       l.ledgerParticulars,
       l.ledgerDebit,
       l.ledgerCredit,
       l.ledgerBalance,
     ]) {
-      final Offset centre = tester.getCenter(find.text(heading));
+      final Offset centre = tester.getCenter(head(heading));
       expect(
         centre.dx,
         inInclusiveRange(0, 360),
@@ -295,8 +311,8 @@ void main() {
     // (Not "no horizontal Scrollable exists" — a single-line TextField carries
     // one internally for its own cursor, so the search box would fail that
     // check while the table was perfectly fine.)
-    final Rect particulars = tester.getRect(find.text(l.ledgerParticulars));
-    final Rect balance = tester.getRect(find.text(l.ledgerBalance));
+    final Rect particulars = tester.getRect(head(l.ledgerParticulars));
+    final Rect balance = tester.getRect(head(l.ledgerBalance));
     final double left = particulars.left < balance.left
         ? particulars.left
         : balance.left;
@@ -360,9 +376,56 @@ void main() {
 
     expect(find.text('−'), findsOneWidget);
     expect(find.text('='), findsOneWidget);
-    expect(find.text(l.issuedTotal), findsOneWidget);
-    expect(find.text(l.collectedTotal), findsOneWidget);
-    expect(find.text(l.outstandingTotal), findsOneWidget);
+    expect(find.text(l.myIssuedTotal), findsOneWidget);
+    expect(find.text(l.myPaidTotal), findsOneWidget);
+    expect(find.text(l.myRemainingTotal), findsOneWidget);
+
+    // The portal says it in the member's words. "الاستحقاقات المنشأة" is the
+    // accounting term and the title of an admin screen; those keys stay, and
+    // stay off this page.
+    expect(find.text(l.issuedTotal), findsNothing);
+    expect(find.text(l.outstandingTotal), findsNothing);
+  });
+
+  testWidgets('a short statement carries no search box and no counter', (
+    WidgetTester tester,
+  ) async {
+    // Less on screen, for a reason rather than by taste. A search finds what
+    // you cannot see; with three movements all of them are visible, so the box
+    // could only ever hide rows the reader is already looking at. The counter
+    // is the same argument: "عرض ٣ من ٣" states the obvious and costs a line.
+    tester.view.physicalSize = const Size(411, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      app(
+        _detail(
+          debt: '20.00',
+          receivables: <Map<String, dynamic>>[
+            _due('2026-02', 'غير مسدد', '20.00'),
+          ],
+        ),
+        <StatementMovement>[
+          for (int i = 1; i <= 3; i++)
+            StatementMovement(
+              date: '2026-0$i-15',
+              reference: '2026-0$i',
+              type: 'استحقاق',
+              debit: '20.00',
+              credit: null,
+              balance: '${i * 20}.00',
+              note: 'شهر 2026-0$i',
+            ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.myStatementSection).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.ledgerParticulars), findsOneWidget); // the table IS there
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(l.statementShowing(3, 3)), findsNothing);
   });
 
   testWidgets('a four-figure amount stays inside its column', (

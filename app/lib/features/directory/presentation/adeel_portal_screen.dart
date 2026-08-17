@@ -306,9 +306,28 @@ class _BalanceHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final L l = L.of(context);
     final AdeelView adeel = detail.adeel;
-    // A comparison, not arithmetic: money stays text end to end, and the only
-    // thing decided here is which colour the figure wears.
-    final bool owes = (double.tryParse(detail.debt) ?? 0) > 0;
+
+    // ── THREE states now, not two ────────────────────────────────────────────
+    // The association opened the door to prepayment, so a member is no longer
+    // either in debt or square: he can be holding credit with the association,
+    // and the figure that describes him has a SIGN.
+    //
+    //   owes      → red.    What he must pay.
+    //   in credit → green.  What the association is holding for him, which the
+    //                       next month's charge will draw on by itself.
+    //   neither   → green.  Settled up; a different sentence from "you have
+    //                       0.00 in credit", which is not an answer to anything.
+    //
+    // A comparison, not arithmetic: money stays text end to end. The server
+    // computed `netBalance` as debt − credit, and all that happens here is
+    // reading its sign and dropping the minus — "‑50 مستحق" is a puzzle, and
+    // "50 لك" is the same fact stated so it can be acted on.
+    final bool owes = detail.owes;
+    final bool inCredit = detail.inCredit;
+    final Color tone = owes ? AppColors.danger : AppColors.success;
+    final String figure = inCredit
+        ? formatMoney(detail.credit)
+        : formatMoney(detail.netBalance);
 
     final Color statusTone = switch (adeel.membershipStatus) {
       MembershipStatusWire.active => AppColors.success,
@@ -386,13 +405,25 @@ class _BalanceHero extends StatelessWidget {
           Row(
             children: <Widget>[
               Icon(
-                owes ? Icons.account_balance_wallet : Icons.verified,
+                owes
+                    ? Icons.account_balance_wallet
+                    : inCredit
+                    ? Icons.savings_outlined
+                    : Icons.verified,
                 size: 18,
-                color: owes ? AppColors.danger : AppColors.success,
+                color: tone,
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                l.myBalanceNow,
+                // The LABEL changes with the sign, not just the colour. Colour
+                // alone would leave a member who cannot distinguish red from
+                // green — or who is reading in sunlight — with a bare figure
+                // and no way to tell whether it is his or theirs.
+                owes
+                    ? l.myBalanceNow
+                    : inCredit
+                    ? l.myWalletTitle
+                    : l.myBalanceNow,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -403,18 +434,22 @@ class _BalanceHero extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            formatMoney(detail.debt),
+            figure,
             style: TextStyle(
               fontFamily: AppFonts.display,
               fontSize: 40,
               height: 1.1,
               fontWeight: FontWeight.w800,
-              color: owes ? AppColors.danger : AppColors.success,
+              color: tone,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            owes ? l.openMonthsCount(openCount) : l.settledUpTitle,
+            owes
+                ? l.openMonthsCount(openCount)
+                : inCredit
+                ? l.myWalletBody
+                : l.settledUpTitle,
             style: const TextStyle(fontSize: 15, color: AppColors.muted),
           ),
         ],
@@ -450,12 +485,18 @@ class _TotalsStrip extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          _StripCell(label: l.issuedTotal, value: detail.issued),
+          // The portal's own words, not the staff screens'. "الاستحقاقات
+          // المنشأة" is the accounting term and the name of a whole admin
+          // screen; the man reading this is not looking at an accounts ledger,
+          // he is looking at what he was asked to pay, what he paid, and what
+          // is left. Shorter labels also stop this strip — three figures and
+          // two operators on a phone — reading as a wall.
+          _StripCell(label: l.myIssuedTotal, value: detail.issued),
           const _StripOperator('−'),
-          _StripCell(label: l.collectedTotal, value: detail.paid),
+          _StripCell(label: l.myPaidTotal, value: detail.paid),
           const _StripOperator('='),
           _StripCell(
-            label: l.outstandingTotal,
+            label: l.myRemainingTotal,
             value: detail.debt,
             bold: true,
           ),
@@ -680,36 +721,53 @@ class _LedgerState extends State<_Ledger> {
     final int shown = (_pagesShown * _Ledger.rowsPerPage).clamp(0, total);
     final int remaining = total - shown;
 
+    // ── The search box earns its place, or it is not there ───────────────────
+    // A search exists to find something you cannot see. A member three months
+    // into his subscription has three movements, all of them on screen at once,
+    // and a search field above them is a control that can only ever hide rows
+    // he was already looking at — the definition of clutter on the narrowest
+    // screen in the app.
+    //
+    // The threshold is the page size, not a taste: below it the whole statement
+    // is on one page by construction, so there is nothing the box could reveal.
+    // It appears the moment paging does, and once it is on screen it STAYS —
+    // keyed off the unfiltered count, or typing a query that matches two rows
+    // would make the box that produced them disappear under the reader's hand.
+    final bool searchable =
+        widget.statement.movements.length > _Ledger.rowsPerPage;
+
     return GlassPanel(
       title: l.myStatementSection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          // OUTSIDE the horizontal scroller below on purpose: the table may be
-          // wider than the panel and scroll sideways, and a search box that
-          // slid away with it would be unreachable exactly when the table is
-          // at its most crowded.
-          TextField(
-            controller: _search,
-            onChanged: (_) => _onQueryChanged(),
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: l.statementSearchHint,
-              prefixIcon: const Icon(Icons.search, size: 20),
-              suffixIcon: _search.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      tooltip: l.clearSearch,
-                      onPressed: () {
-                        _search.clear();
-                        _onQueryChanged();
-                      },
-                    ),
+          if (searchable) ...<Widget>[
+            // OUTSIDE the horizontal scroller below on purpose: the table may
+            // be wider than the panel and scroll sideways, and a search box
+            // that slid away with it would be unreachable exactly when the
+            // table is at its most crowded.
+            TextField(
+              controller: _search,
+              onChanged: (_) => _onQueryChanged(),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: l.statementSearchHint,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _search.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: l.clearSearch,
+                        onPressed: () {
+                          _search.clear();
+                          _onQueryChanged();
+                        },
+                      ),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
+          ],
 
           if (total == 0)
             Padding(
@@ -749,7 +807,11 @@ class _LedgerState extends State<_Ledger> {
               ],
             ),
 
-          if (total > 0) ...<Widget>[
+          // "عرض ٣ من ٣ حركة" under a table showing all three of them states
+          // the obvious and costs a line. The counter is only informative while
+          // something is HIDDEN — either paged away, or filtered out by a query
+          // the reader can then see the effect of.
+          if (total > 0 && (remaining > 0 || _search.text.isNotEmpty)) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             _LedgerPager(
               shown: shown,

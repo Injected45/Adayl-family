@@ -247,9 +247,10 @@ SELECT probe.eq('rule07', 'outstanding for عديل 1 is 40.00',
   $sql$ SELECT sum(balance)::text FROM public.receivables
          WHERE adeel_id = 1 AND status <> 'ملغي' $sql$, '40.00');
 
-SELECT probe.raises('rule07', 'paying more than is owed is refused', $sql$
-  SELECT public.register_payment(1, 40.01, 'نقداً')
-$sql$, 'RUL07');
+-- Paying MORE than is owed used to raise RUL07 here. It is accepted now and
+-- becomes credit — the whole wallet group is at the FOOT of this file, on an
+-- عديل of its own, because an overpayment settles every open month and would
+-- pull the FIFO checks below out from under themselves.
 
 -- 30 must fill February (the OLDER period) first, then spill 10 into March.
 SELECT probe.succeeds('rule07', 'a 30.00 payment is accepted', $sql$
@@ -519,3 +520,4 @@ SELECT probe.raises('rule05', 'one man still cannot hold both posts',
             'treasurerAdeelId', (SELECT id FROM public.adeels ORDER BY id LIMIT 1),
             'financeAdeelId',   (SELECT id FROM public.adeels ORDER BY id LIMIT 1))) $sql$,
   'RUL16');
+

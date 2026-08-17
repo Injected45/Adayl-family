@@ -260,7 +260,7 @@
   "myFamilyTitle": "اشتراكي",
   "myFamilyIntro": "بيانات اشتراكك ومدفوعاتك. للاطلاع فقط.",
   "myStatementSection": "كشف الحساب",
-  "statementSearchHint": "ابحث في الكشف: تاريخ، مرجع، مبلغ، نوع الحركة...",
+  "statementSearchHint": "بحث",
   "clearSearch": "مسح البحث",
   "statementShowing": "عرض {shown} من {total} حركة",
   "@statementShowing": { "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } } },
@@ -344,6 +344,22 @@
   "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
   "issuedLabel": "إجمالي المستحق",
   "myBalanceNow": "رصيدك الآن",
+  "myIssuedTotal": "الاشتراكات",
+  "@myIssuedTotal": {
+    "description": "The portal's own word for what the association has charged him, with myPaidTotal and myRemainingTotal beside it. The staff screens keep issuedTotal — the accounting term, and the name of a whole admin screen. A member is not reading an accounts ledger; he is reading what he was asked to pay, what he paid, and what is left."
+  },
+  "myPaidTotal": "المسدد",
+  "myRemainingTotal": "الرصيد",
+  "myWalletTitle": "رصيدك لدى الجمعية",
+  "@myWalletTitle": {
+    "description": "Heads the hero when netBalance is NEGATIVE — the association is holding prepaid money for him. The LABEL changes with the sign, not only the colour, so red-green is never the only thing carrying the meaning."
+  },
+  "myWalletBody": "مبلغ مدفوع مقدماً، يُخصم تلقائياً من اشتراك كل شهر جديد",
+  "creditNotice": "أكثر من المستحق بـ {amount} — تُضاف إلى رصيده وتُخصم من الأشهر القادمة",
+  "@creditNotice": {
+    "description": "Shown in the payment sheet the moment the typed amount passes what the member owes. Overpaying is allowed now; this is what stops a treasurer who typed 5000 for 500 finding out from the receipt.",
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "deviceLockedTitle": "هذا الاشتراك مرتبط بجهاز آخر",
   "@deviceLockedTitle": {
     "description": "Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app."

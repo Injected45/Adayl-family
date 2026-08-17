@@ -35,6 +35,11 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
       'issued', v."issued",
       'debt', v."debt",
       'paid', v."paid",
+      -- The wallet, and the one signed figure the portal leads with. Both come
+      -- off v_adeels rather than being recomputed here, so the member's screen
+      -- and the register cannot disagree about what he stands at.
+      'credit', v."credit",
+      'netBalance', v."netBalance",
       'openPeriods', (SELECT count(*) FROM public.receivables r
                        WHERE r.adeel_id = p_adeel_id
                          AND r.status <> 'ملغي' AND r.balance > 0)),

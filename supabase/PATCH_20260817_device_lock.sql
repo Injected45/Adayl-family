@@ -56,7 +56,7 @@
 --     CREATE OR REPLACE cannot add a parameter, and leaving the one-argument
 --     version beside the two-argument one makes every call ambiguous (42725).
 --     Dropping a FUNCTION destroys no data and touches no row. Its EXECUTE
---     grant goes with it and is re-issued by the lockdown sweep in section 9.
+--     grant goes with it and is re-issued by the lockdown sweep in section 10.
 --
 --     Nothing else is dropped. No DROP SCHEMA, no DROP TABLE, no DROP TRIGGER,
 --     no TRUNCATE, no DELETE, and nothing touching auth.users or profiles rows.
@@ -371,7 +371,502 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
                  ORDER BY o.at DESC, o.reference DESC LIMIT 1), '0.00'))
 $$;
 
--- == 8. The lockdown allow-list, restated for the new signature ============
+-- == 8. THE WALLET ==========================================================
+-- register_payment no longer caps the amount at what is owed, and no longer
+-- refuses a member who owes nothing. The surplus becomes CREDIT.
+--
+-- There is no wallet column, and that is the design rather than an economy:
+-- the credit is the part of a payment the FIFO loop could not allocate —
+-- Σ payments − Σ allocations — so it is a view over rows that already exist and
+-- cannot drift from the money. Spending it means WRITING the missing
+-- allocation, which is also what puts a prepaid month into the member's
+-- statement beside the receipt that settled it, months after the fact.
+--
+-- settle_from_credit() is that spend, and generate_period() calls it the
+-- instant it raises a receivable: a member who paid a year ahead must never see
+-- the new month appear as a debt he already covered, not even between two
+-- statements.
+--
+-- ⚠ WHAT THIS RELAXES. Rule 7's cap is gone, so a treasurer who means 500 and
+--   types 5000 is no longer stopped by the database. The app states the surplus
+--   back to him while the keyboard is still open, and the audit entry names it
+--   — "منها 4500 رصيد مقدم" — so it is visible afterwards rather than only in
+--   the arithmetic. What survives is that the amount must be positive and that
+--   every unit is either allocated or counted as credit.
+CREATE OR REPLACE FUNCTION public.settle_from_credit(p_adeel_id bigint)
+RETURNS numeric
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  v_applied numeric(12,2) := 0;
+  v_take    numeric(12,2);
+  v_left    numeric(12,2);
+  rcv       record;
+  pay       record;
+BEGIN
+  FOR rcv IN
+    SELECT r.id, r.period, r.balance
+      FROM public.receivables r
+     WHERE r.adeel_id = p_adeel_id
+       AND r.status <> 'ملغي'
+       AND r.balance > 0
+     ORDER BY r.period ASC, r.id ASC
+       FOR UPDATE
+  LOOP
+    v_left := rcv.balance;
+
+    FOR pay IN
+      SELECT p.id,
+             p.amount - coalesce(
+               (SELECT sum(a.amount) FROM public.payment_allocations a
+                 WHERE a.payment_id = p.id), 0) AS spare
+        FROM public.payments p
+       WHERE p.adeel_id = p_adeel_id
+         AND p.status <> 'ملغي'
+       ORDER BY p.paid_at ASC, p.id ASC
+         FOR UPDATE
+    LOOP
+      EXIT WHEN v_left <= 0;
+      CONTINUE WHEN pay.spare <= 0;
+
+      v_take := least(v_left, pay.spare);
+
+      -- sequence_no continues this payment's own numbering rather than
+      -- restarting: uq_alloc_pay_recv already stops the same payment paying the
+      -- same receivable twice, and a receipt whose allocations read 1,2,1 would
+      -- be unreadable on a statement.
+      INSERT INTO public.payment_allocations
+        (payment_id, receivable_id, period, amount, sequence_no)
+      VALUES (
+        pay.id, rcv.id, rcv.period, v_take,
+        coalesce((SELECT max(a.sequence_no) FROM public.payment_allocations a
+                   WHERE a.payment_id = pay.id), 0) + 1);
+
+      UPDATE public.receivables SET paid = paid + v_take WHERE id = rcv.id;
+
+      v_left    := v_left - v_take;
+      v_applied := v_applied + v_take;
+    END LOOP;
+  END LOOP;
+
+  RETURN v_applied;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.register_payment(
+  p_adeel_id  bigint,
+  p_amount    numeric,
+  p_method    pay_method,
+  p_reference text DEFAULT NULL,
+  p_receiver  text DEFAULT NULL,
+  p_notes     text DEFAULT NULL,
+  p_bank_name         text DEFAULT NULL,
+  p_bank_account_name text DEFAULT NULL,
+  p_bank_account_no   text DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  -- Unconstrained numeric, NOT numeric(12,2). Individual amounts are bounded by
+  -- the column type, but their SUM is not: an عديل with enough open periods
+  -- overflows a 12-digit accumulator and the call dies with 22003 instead of
+  -- reporting the balance. Found by the probe suite, which pushed a large total
+  -- through and got "numeric field overflow" where it expected a rule violation.
+  v_outstanding numeric;
+  v_remaining   numeric;
+  v_payment_id  bigint;
+  v_receipt     text;
+  v_take        numeric(12,2);
+  v_bank        text;
+  v_acct_no     text;
+  v_acct_name   text;
+  v_seq         smallint := 0;
+  r             record;
+  v_allocs      jsonb := '[]'::jsonb;
+BEGIN
+  PERFORM public.require_role('treasurer');
+
+  -- Round to minor units up front. A client can post 10.005; accepting it would
+  -- put a third decimal into an allocation and the sums would stop tying out.
+  p_amount := round(p_amount, 2);
+
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'Rule 7: payment amount must be greater than zero'
+      USING ERRCODE = 'RUL07';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.adeels WHERE id = p_adeel_id) THEN
+    RAISE EXCEPTION 'ADEEL_NOT_FOUND' USING ERRCODE = 'RUL07';
+  END IF;
+
+  -- Lock every open receivable for this عديل, oldest first. Once locked, no
+  -- other transaction can move them for the rest of this one, so the total below
+  -- and the loop further down both read the same reality — which is the whole
+  -- point. ORDER BY also fixes a consistent lock acquisition order.
+  PERFORM 1
+    FROM public.receivables r2
+   WHERE r2.adeel_id = p_adeel_id
+     AND r2.status <> 'ملغي'
+     AND r2.balance > 0
+   ORDER BY r2.period ASC, r2.id ASC
+     FOR UPDATE;
+
+  SELECT coalesce(sum(r2.balance), 0) INTO v_outstanding
+    FROM public.receivables r2
+   WHERE r2.adeel_id = p_adeel_id
+     AND r2.status <> 'ملغي'
+     AND r2.balance > 0;
+
+  -- ── RULE 7 NO LONGER CAPS THE AMOUNT, and this is a deliberate change ─────
+  -- It used to refuse two things: paying an عديل who owed nothing, and paying
+  -- more than he owed. Both are now allowed, and what they produce is CREDIT.
+  --
+  -- The association asked for a wallet: a member may hand over a year at once,
+  -- or round his payment up, and the surplus should sit against his name until
+  -- the months it belongs to are raised. Refusing the money meant a treasurer
+  -- holding cash he could not enter, and the only workarounds were worse than
+  -- the feature — a fictitious receivable, or a note in a drawer.
+  --
+  -- There is no new column and no second source of truth. A payment's surplus
+  -- is simply the part of it the FIFO loop below could not allocate:
+  --
+  --     credit  =  Σ payments.amount  −  Σ payment_allocations.amount
+  --
+  -- so the wallet is a VIEW over rows that already exist, and it cannot drift
+  -- from the money. generate_period() draws it down by writing the allocations
+  -- that were missing, which is also what makes a prepaid month appear in the
+  -- statement beside the charge it settled.
+  --
+  -- What survives from rule 7: the amount must be greater than zero, and every
+  -- currency unit must end up either allocated or explicitly counted as credit
+  -- — checked below, because "unallocated" must be a decision, never a leak.
+
+  -- Kept ONLY for a transfer. A cash collection has no sending account, so
+  -- letting the three columns carry anything for it would put data on the row
+  -- that cannot be true — and the treasury screen would start showing bank
+  -- details beside نقداً. Blanks are normalised to NULL so "not given" and
+  -- "given as an empty box" are the same thing on the row.
+  IF p_method = 'تحويل مصرفي' THEN
+    v_bank      := nullif(btrim(coalesce(p_bank_name, '')), '');
+    v_acct_name := nullif(btrim(coalesce(p_bank_account_name, '')), '');
+    v_acct_no   := nullif(btrim(coalesce(p_bank_account_no, '')), '');
+  END IF;
+
+  INSERT INTO public.payments (adeel_id, amount, method, reference, receiver,
+                               notes, created_by,
+                               bank_name, bank_account_no, bank_account_name)
+  VALUES (p_adeel_id, p_amount, p_method, p_reference, p_receiver, p_notes,
+          auth.uid(), v_bank, v_acct_no, v_acct_name)
+  RETURNING id, receipt_no INTO v_payment_id, v_receipt;
+
+  v_remaining := p_amount;
+
+  FOR r IN SELECT r2.id, r2.period, r2.balance
+             FROM public.receivables r2
+            WHERE r2.adeel_id = p_adeel_id
+              AND r2.status <> 'ملغي'
+              AND r2.balance > 0
+            ORDER BY r2.period ASC, r2.id ASC
+  LOOP
+    EXIT WHEN v_remaining <= 0;
+    v_take := least(v_remaining, r.balance);
+    v_seq  := v_seq + 1;
+
+    INSERT INTO public.payment_allocations
+      (payment_id, receivable_id, period, amount, sequence_no)
+    VALUES (v_payment_id, r.id, r.period, v_take, v_seq);
+
+    -- ck_recv_paid (paid <= total) is the storage-engine backstop: if the maths
+    -- above were ever wrong, this UPDATE fails and the whole call rolls back.
+    UPDATE public.receivables SET paid = paid + v_take WHERE id = r.id;
+
+    v_remaining := v_remaining - v_take;
+    v_allocs := v_allocs || jsonb_build_object(
+      'receivableId', r.id, 'period', r.period,
+      'amount', v_take::text, 'sequenceNo', v_seq);
+  END LOOP;
+
+  -- What the FIFO loop could not place is the wallet. It used to be an
+  -- INVARIANT failure — with the amount capped at the outstanding balance,
+  -- anything left over meant the arithmetic had gone wrong — and it is now the
+  -- feature. The sign check stays: a NEGATIVE remainder would mean the loop
+  -- allocated more than was paid, which is still a bug and still unpayable.
+  IF v_remaining < 0 THEN
+    RAISE EXCEPTION 'INVARIANT: over-allocated by %', -v_remaining
+      USING ERRCODE = 'RUL07';
+  END IF;
+
+  -- Rule 8. uq_cash_payment makes a duplicate structurally impossible.
+  INSERT INTO public.cash_movements
+    (payment_id, adeel_id, amount, method, occurred_at)
+  SELECT id, adeel_id, amount, method, paid_at
+    FROM public.payments WHERE id = v_payment_id;
+
+  -- The surplus is named in the trail. "تحصيل 500" against a man who owed 200
+  -- is not the same event as "تحصيل 500" against a man who owed 500, and the
+  -- entry has to say which — rule 12 exists so a figure can be reconstructed
+  -- from the trail, and a wallet that appears without explanation cannot be.
+  PERFORM public.write_audit('payment.register',
+    CASE WHEN v_remaining > 0
+         THEN format('تحصيل %s من العديل %s، منها %s رصيد مقدم',
+                     p_amount::text, p_adeel_id, v_remaining::text)
+         ELSE format('تحصيل %s من العديل %s', p_amount::text, p_adeel_id)
+    END,
+    v_receipt);
+
+  RETURN jsonb_build_object(
+    'paymentId', v_payment_id,
+    'receiptNo', v_receipt,
+    'adeelId',   p_adeel_id,
+    'amount',    p_amount::text,
+    'method',    p_method,
+    -- What went to the wallet rather than to a month. The app states it back
+    -- on the confirmation, so a treasurer who typed 5000 for 500 sees it in
+    -- the same breath as the receipt number.
+    'credit',    v_remaining::text,
+    'allocations', v_allocs);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.generate_period(p_period char(7))
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  s           record;
+  a           record;
+  v_end       date;
+  v_recv_id   bigint;
+  v_created   int := 0;
+  v_skipped   int := 0;
+  -- How much prepaid credit this close consumed. Reported so a treasurer can
+  -- see that a month billed 800 and settled 300 of it from wallets on the
+  -- spot, rather than wondering why the total debt moved less than he expected.
+  v_applied   numeric(12,2) := 0;
+BEGIN
+  PERFORM public.require_role('financeManager');
+
+  IF p_period !~ '^[0-9]{4}-(0[1-9]|1[0-2])$' THEN
+    RAISE EXCEPTION 'BAD_PERIOD: %', p_period USING ERRCODE = 'RUL04';
+  END IF;
+
+  SELECT * INTO s FROM public.association_settings WHERE id = 1;
+  v_end := (to_date(p_period || '-01', 'YYYY-MM-DD')
+            + interval '1 month - 1 day')::date;
+
+  -- ── Rule 15c: only a month inside the association's own range ─────────────
+  -- Before system_start the books did not exist; the current month and anything
+  -- after it has not ended, and closing a month that is still running would bill
+  -- for time nobody has lived through. Both ends were previously unguarded — the
+  -- picker simply did not offer them, which protects the button and not the RPC,
+  -- and the RPC is what a hostile client calls.
+  IF p_period < to_char(s.system_start, 'YYYY-MM') THEN
+    RAISE EXCEPTION 'PERIOD_BEFORE_SYSTEM_START: %', p_period
+      USING ERRCODE = 'RUL15';
+  END IF;
+  IF p_period >= to_char(current_date, 'YYYY-MM') THEN
+    RAISE EXCEPTION 'PERIOD_NOT_ENDED: %', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- ── Rule 15a: a month is closed ONCE ──────────────────────────────────────
+  -- Rule 4 already made a SECOND receivable for the same (عديل, period)
+  -- impossible, so re-running was harmless — it simply created nothing and
+  -- reported "0 created". Harmless is not the same as meaningful: a treasurer
+  -- reading "0 created" cannot tell "already done" from "nothing to do", and the
+  -- audit trail grew an entry for a close that closed nothing. Refusing says
+  -- which it was.
+  IF EXISTS (SELECT 1 FROM public.closed_periods WHERE period = p_period) THEN
+    RAISE EXCEPTION 'PERIOD_ALREADY_CLOSED: %', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- ── Rule 15b: months close IN ORDER, oldest first ─────────────────────────
+  -- Closing August while July was never closed leaves a hole that nothing later
+  -- reveals: the register looks complete, every receipt reconciles, and the
+  -- association is simply never paid for July. The gap is invisible precisely
+  -- because a missing charge produces no row to notice.
+  --
+  -- Checked against closed_periods rather than against receivables, and that
+  -- distinction is the whole reason the table exists: a month in which nobody
+  -- was نشط produces zero receivables, so an "are there receivables?" test would
+  -- read it as never closed and block every month after it forever.
+  --
+  -- Nothing before system_start counts. The association's books begin there.
+  IF EXISTS (
+    SELECT 1
+      FROM generate_series(
+             date_trunc('month', s.system_start),
+             date_trunc('month', to_date(p_period || '-01', 'YYYY-MM-DD'))
+               - interval '1 month',
+             interval '1 month') d
+     WHERE NOT EXISTS (SELECT 1 FROM public.closed_periods c
+                        WHERE c.period = to_char(d, 'YYYY-MM'))
+  ) THEN
+    RAISE EXCEPTION 'EARLIER_PERIOD_OPEN: % cannot be closed while an earlier '
+                    'month is still open', p_period USING ERRCODE = 'RUL15';
+  END IF;
+
+  -- Rule 3: nothing to charge means no rows at all, not zero rows. A fee of zero
+  -- is a valid configuration (the association pausing collection), and it must
+  -- produce an empty period rather than a register full of 0.00 charges that
+  -- ck_recv_total would refuse anyway.
+  --
+  -- It still COUNTS AS CLOSED. The month was dealt with; leaving it open would
+  -- block every month after it under 15b, which is exactly the trap that made
+  -- closed_periods a table rather than an inference.
+  IF s.member_fee <= 0 THEN
+    SELECT count(*) INTO v_skipped FROM public.adeels WHERE status = 'نشط';
+    INSERT INTO public.closed_periods (period, closed_by, created)
+    VALUES (p_period, auth.uid(), 0);
+    PERFORM public.write_audit('receivables.generate',
+      format('إنشاء استحقاقات %s: لا رسم مقرر', p_period), p_period);
+    RETURN jsonb_build_object('period', p_period, 'created', 0,
+                              'skipped', v_skipped);
+  END IF;
+
+  FOR a IN SELECT id, full_name, status
+             FROM public.adeels ORDER BY id LOOP
+    -- Status overrides everything: a موقوف or متوفى عديل is not billable.
+    IF a.status <> 'نشط' THEN
+      v_skipped := v_skipped + 1;
+      CONTINUE;
+    END IF;
+
+    -- Rule 4 as idempotency: re-running the same period skips instead of
+    -- raising a duplicate. The partial index is what makes this safe under
+    -- concurrency, so two admins pressing the button together cannot double-bill.
+    INSERT INTO public.receivables (
+      adeel_id, period, period_end, adeel_name, total,
+      created_by)
+    VALUES (
+      a.id, p_period, v_end, a.full_name, s.member_fee,
+      auth.uid())
+    ON CONFLICT (adeel_id, period) WHERE status <> 'ملغي' DO NOTHING
+    RETURNING id INTO v_recv_id;
+
+    IF v_recv_id IS NULL THEN
+      v_skipped := v_skipped + 1;
+    ELSE
+      v_created := v_created + 1;
+      -- ── The wallet pays the month it was paid in advance for ──────────────
+      -- Immediately, and inside the same transaction as the charge. A member
+      -- who handed over a year must never see the new month appear as a debt
+      -- he already settled — not even between two statements — and doing it
+      -- here means the charge and its settlement are one event or neither.
+      --
+      -- Called per عديل rather than once at the end so that the credit walks
+      -- his OWN receivables in period order. A single sweep would still be
+      -- correct arithmetically and would scan the whole register for the
+      -- overwhelming majority who have no credit at all.
+      v_applied := v_applied + public.settle_from_credit(a.id);
+    END IF;
+    v_recv_id := NULL;
+  END LOOP;
+
+  -- The month is now closed, whatever it produced. Written INSIDE the same
+  -- transaction as the receivables it raised, so a failure anywhere above leaves
+  -- neither the charges nor the marker — the alternative is a month recorded as
+  -- closed with nothing billed in it.
+  INSERT INTO public.closed_periods (period, closed_by, created)
+  VALUES (p_period, auth.uid(), v_created);
+
+  PERFORM public.write_audit('receivables.generate',
+    CASE WHEN v_applied > 0
+         THEN format('إنشاء استحقاقات %s: %s سجل، وسُدِّد %s من أرصدة مقدمة',
+                     p_period, v_created, v_applied::text)
+         ELSE format('إنشاء استحقاقات %s: %s سجل', p_period, v_created)
+    END, p_period);
+
+  RETURN jsonb_build_object('period', p_period, 'created', v_created,
+                            'skipped', v_skipped,
+                            'creditApplied', v_applied::text);
+END $$;
+
+-- v_adeels gains the wallet and the one signed figure the portal leads with.
+-- CREATE OR REPLACE VIEW can only APPEND columns — inserting them mid-list
+-- makes Postgres try to rename an existing column and refuse with 42P16 — so
+-- both sit at the very end, and anything added later goes below them.
+CREATE OR REPLACE VIEW public.v_adeels WITH (security_invoker = on) AS
+SELECT
+  a.id                                    AS "id",
+  a.adeel_code                            AS "adeelCode",
+  a.full_name                             AS "fullName",
+  coalesce(a.phone, '')                   AS "phone",
+  coalesce(a.notes, '')                   AS "notes",
+  to_char(a.registered_at, 'YYYY-MM-DD')  AS "registeredAt",
+  to_char(a.dob, 'YYYY-MM-DD')            AS "dob",
+  CASE WHEN a.dob IS NULL THEN NULL
+       ELSE extract(year FROM age(current_date, a.dob))::int END AS "age",
+  a.status::text                          AS "membershipStatus",
+  coalesce(agg.debt,   0)::numeric(12,2)::text AS "debt",
+  coalesce(agg.paid,   0)::numeric(12,2)::text AS "paid",
+  coalesce(agg.issued, 0)::numeric(12,2)::text AS "issued",
+  (CASE WHEN a.status = 'نشط' THEN s.member_fee ELSE 0 END)::numeric(12,2)::text
+                                          AS "monthlyExpected",
+  -- ── The wallet: money received that no month has claimed yet ──────────────
+  -- DERIVED, never stored. Σ what he handed over, minus Σ what the allocations
+  -- assigned to a receivable. A column would be a second place the truth could
+  -- live, and the first time it disagreed with the allocations there would be
+  -- no way to tell which was right.
+  --
+  -- Cancelled payments are excluded on the way in; their allocations were
+  -- already reversed by cancel_payment, so counting the payment would resurrect
+  -- money the association gave back.
+  --
+  -- GREATEST(...,0) is a floor, not a fix: allocations can never exceed their
+  -- payment (register_payment refuses a negative remainder, settle_from_credit
+  -- takes the least of the two), so a negative here would be a bug — and a
+  -- NEGATIVE wallet displayed as a debt would hide it. The floor keeps the
+  -- screen honest while `debt` goes on showing what is actually owed.
+  greatest(coalesce(wallet.credit, 0), 0)::numeric(12,2)::text AS "credit",
+  -- What he is, in one signed figure: positive owes, negative in hand. The
+  -- portal paints it red or green off the sign, so the two states are one
+  -- reading rather than two panels the member has to reconcile himself.
+  (coalesce(agg.debt, 0) - greatest(coalesce(wallet.credit, 0), 0))
+    ::numeric(12,2)::text                 AS "netBalance"
+FROM public.adeels a
+CROSS JOIN public.association_settings s
+LEFT JOIN LATERAL (
+  SELECT sum(r.balance) AS debt, sum(r.paid) AS paid, sum(r.total) AS issued
+    FROM public.receivables r
+   WHERE r.adeel_id = a.id AND r.status <> 'ملغي'
+) agg ON true
+LEFT JOIN LATERAL (
+  SELECT sum(p.amount) - coalesce(sum(al.allocated), 0) AS credit
+    FROM public.payments p
+    LEFT JOIN LATERAL (
+      SELECT sum(a2.amount) AS allocated
+        FROM public.payment_allocations a2
+       WHERE a2.payment_id = p.id
+    ) al ON true
+   WHERE p.adeel_id = a.id AND p.status <> 'ملغي'
+) wallet ON true;
+
+-- api_adeel_detail passes them through rather than recomputing, so the member's
+-- screen and the register cannot disagree about what he stands at.
+CREATE OR REPLACE FUNCTION public.api_adeel_detail(p_adeel_id bigint)
+RETURNS jsonb LANGUAGE sql STABLE AS $$
+  SELECT jsonb_build_object(
+    'adeel', public.adeel_json(p_adeel_id),
+    'kpis', jsonb_build_object(
+      'monthlyExpected', v."monthlyExpected",
+      'issued', v."issued",
+      'debt', v."debt",
+      'paid', v."paid",
+      -- The wallet, and the one signed figure the portal leads with. Both come
+      -- off v_adeels rather than being recomputed here, so the member's screen
+      -- and the register cannot disagree about what he stands at.
+      'credit', v."credit",
+      'netBalance', v."netBalance",
+      'openPeriods', (SELECT count(*) FROM public.receivables r
+                       WHERE r.adeel_id = p_adeel_id
+                         AND r.status <> 'ملغي' AND r.balance > 0)),
+    'receivables', coalesce(
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY r."period" DESC)
+         FROM public.v_receivables r WHERE r."adeelId" = p_adeel_id),
+      '[]'::jsonb),
+    'payments', coalesce(
+      (SELECT jsonb_agg(to_jsonb(p) ORDER BY p."paidAt" DESC)
+         FROM public.v_payments p WHERE p."adeelId" = p_adeel_id),
+      '[]'::jsonb))
+  FROM public.v_adeels v WHERE v."id" = p_adeel_id
+$$;
+
+-- == 9. The lockdown allow-list, restated for the new signature ============
 -- An EXACT set. It has to name redeem_adeel_code(text,text) and the new
 -- request_device_id(), or assert_function_grants() fails in both directions and
 -- the whole patch rolls back.
@@ -441,7 +936,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions()
   FROM PUBLIC, anon, authenticated, service_role;
 
--- == 9. Re-run the lockdown sweep ==========================================
+-- == 10. Re-run the lockdown sweep =========================================
 -- Byte-for-byte the loop from 20260811091200_function_lockdown.sql, which runs
 -- LAST on a full apply. A patch gets no such sweep for free, and every function
 -- it creates FRESH — request_device_id here, redeem_adeel_code after the DROP —

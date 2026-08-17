@@ -106,15 +106,34 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   /// authority; this is an affordance, not a rule.
   String? _validate(L l, AdeelListItem? adeel) {
     if (adeel == null) return null;
-    final double debt = double.tryParse(adeel.debt) ?? 0;
-    if (debt <= 0) return l.noDebtForFamily;
 
+    // ── Owing nothing is no longer a reason to refuse the money ─────────────
+    // Both of the guards that used to live here are gone, and deliberately: a
+    // member may hand over a year at once, or round his payment up, and the
+    // surplus becomes credit against his name. `noDebtForFamily` and
+    // `amountTooHigh` described a system that could not hold money it had not
+    // yet earned; register_payment now can.
+    //
+    // What is left is what is still impossible: nothing, and negative.
     final String raw = _amount.text.trim();
     if (raw.isEmpty) return null;
     final double? value = double.tryParse(raw);
     if (value == null || value <= 0) return l.errorGeneric;
-    if (value > debt) return l.amountTooHigh(formatMoney(adeel.debt));
     return null;
+  }
+
+  /// The surplus, stated the moment it appears rather than on the receipt.
+  ///
+  /// Overpaying is allowed, which means a treasurer who means 500 and types
+  /// 5000 is no longer stopped by anything. This is what stops him instead —
+  /// not a refusal, a sentence saying where the extra is going, while the
+  /// keyboard is still open and the correction costs one keystroke.
+  String? _creditNotice(L l, AdeelListItem? adeel) {
+    if (adeel == null) return null;
+    final double debt = double.tryParse(adeel.debt) ?? 0;
+    final double? value = double.tryParse(_amount.text.trim());
+    if (value == null || value <= debt) return null;
+    return l.creditNotice(formatMoney((value - debt).toStringAsFixed(2)));
   }
 
   Future<void> _submit(L l, AdeelListItem adeel) async {
@@ -173,6 +192,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       builder: (List<AdeelListItem> options) {
         final AdeelListItem? adeel = _selected(options);
         final String? problem = _validate(l, adeel);
+        final String? credit = _creditNotice(l, adeel);
         final double debt = double.tryParse(adeel?.debt ?? '0') ?? 0;
         final double? amount = double.tryParse(_amount.text.trim());
         final bool canSubmit =
@@ -282,6 +302,40 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                           ? null
                           : () => setState(() => _amount.text = adeel!.debt),
                       child: Text(l.payFullAmount),
+                    ),
+                  ),
+                ],
+                if (credit != null) ...<Widget>[
+                  const SizedBox(height: AppSpacing.sm),
+                  // A NOTICE, not an error: the payment is valid and will go
+                  // through. Amber rather than red for exactly that reason —
+                  // red would read as "fix this", and there may be nothing to
+                  // fix.
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.savings_outlined,
+                          size: 18,
+                          color: AppColors.warning,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            credit,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

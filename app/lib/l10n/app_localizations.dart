@@ -1348,7 +1348,7 @@ abstract class L {
   /// No description provided for @statementSearchHint.
   ///
   /// In ar, this message translates to:
-  /// **'ابحث في الكشف: تاريخ، مرجع، مبلغ، نوع الحركة...'**
+  /// **'بحث'**
   String get statementSearchHint;
 
   /// No description provided for @clearSearch.
@@ -1782,6 +1782,42 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'رصيدك الآن'**
   String get myBalanceNow;
+
+  /// The portal's own word for what the association has charged him, with myPaidTotal and myRemainingTotal beside it. The staff screens keep issuedTotal — the accounting term, and the name of a whole admin screen. A member is not reading an accounts ledger; he is reading what he was asked to pay, what he paid, and what is left.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاشتراكات'**
+  String get myIssuedTotal;
+
+  /// No description provided for @myPaidTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'المسدد'**
+  String get myPaidTotal;
+
+  /// No description provided for @myRemainingTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرصيد'**
+  String get myRemainingTotal;
+
+  /// Heads the hero when netBalance is NEGATIVE — the association is holding prepaid money for him. The LABEL changes with the sign, not only the colour, so red-green is never the only thing carrying the meaning.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيدك لدى الجمعية'**
+  String get myWalletTitle;
+
+  /// No description provided for @myWalletBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'مبلغ مدفوع مقدماً، يُخصم تلقائياً من اشتراك كل شهر جديد'**
+  String get myWalletBody;
+
+  /// Shown in the payment sheet the moment the typed amount passes what the member owes. Overpaying is allowed now; this is what stops a treasurer who typed 5000 for 500 finding out from the receipt.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكثر من المستحق بـ {amount} — تُضاف إلى رصيده وتُخصم من الأشهر القادمة'**
+  String creditNotice(String amount);
 
   /// Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app.
   ///

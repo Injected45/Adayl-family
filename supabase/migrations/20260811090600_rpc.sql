@@ -125,15 +125,29 @@ BEGIN
      AND r2.status <> 'ملغي'
      AND r2.balance > 0;
 
-  IF v_outstanding <= 0 THEN
-    RAISE EXCEPTION 'Rule 7: العديل has no outstanding balance'
-      USING ERRCODE = 'RUL07';
-  END IF;
-
-  IF p_amount > v_outstanding THEN
-    RAISE EXCEPTION 'Rule 7: amount % exceeds outstanding balance %',
-      p_amount, v_outstanding USING ERRCODE = 'RUL07';
-  END IF;
+  -- ── RULE 7 NO LONGER CAPS THE AMOUNT, and this is a deliberate change ─────
+  -- It used to refuse two things: paying an عديل who owed nothing, and paying
+  -- more than he owed. Both are now allowed, and what they produce is CREDIT.
+  --
+  -- The association asked for a wallet: a member may hand over a year at once,
+  -- or round his payment up, and the surplus should sit against his name until
+  -- the months it belongs to are raised. Refusing the money meant a treasurer
+  -- holding cash he could not enter, and the only workarounds were worse than
+  -- the feature — a fictitious receivable, or a note in a drawer.
+  --
+  -- There is no new column and no second source of truth. A payment's surplus
+  -- is simply the part of it the FIFO loop below could not allocate:
+  --
+  --     credit  =  Σ payments.amount  −  Σ payment_allocations.amount
+  --
+  -- so the wallet is a VIEW over rows that already exist, and it cannot drift
+  -- from the money. generate_period() draws it down by writing the allocations
+  -- that were missing, which is also what makes a prepaid month appear in the
+  -- statement beside the charge it settled.
+  --
+  -- What survives from rule 7: the amount must be greater than zero, and every
+  -- currency unit must end up either allocated or explicitly counted as credit
+  -- — checked below, because "unallocated" must be a decision, never a leak.
 
   -- Kept ONLY for a transfer. A cash collection has no sending account, so
   -- letting the three columns carry anything for it would put data on the row
@@ -180,8 +194,13 @@ BEGIN
       'amount', v_take::text, 'sequenceNo', v_seq);
   END LOOP;
 
-  IF v_remaining <> 0 THEN
-    RAISE EXCEPTION 'INVARIANT: % left unallocated after FIFO', v_remaining
+  -- What the FIFO loop could not place is the wallet. It used to be an
+  -- INVARIANT failure — with the amount capped at the outstanding balance,
+  -- anything left over meant the arithmetic had gone wrong — and it is now the
+  -- feature. The sign check stays: a NEGATIVE remainder would mean the loop
+  -- allocated more than was paid, which is still a bug and still unpayable.
+  IF v_remaining < 0 THEN
+    RAISE EXCEPTION 'INVARIANT: over-allocated by %', -v_remaining
       USING ERRCODE = 'RUL07';
   END IF;
 
@@ -191,8 +210,16 @@ BEGIN
   SELECT id, adeel_id, amount, method, paid_at
     FROM public.payments WHERE id = v_payment_id;
 
+  -- The surplus is named in the trail. "تحصيل 500" against a man who owed 200
+  -- is not the same event as "تحصيل 500" against a man who owed 500, and the
+  -- entry has to say which — rule 12 exists so a figure can be reconstructed
+  -- from the trail, and a wallet that appears without explanation cannot be.
   PERFORM public.write_audit('payment.register',
-    format('تحصيل %s من العديل %s', p_amount::text, p_adeel_id),
+    CASE WHEN v_remaining > 0
+         THEN format('تحصيل %s من العديل %s، منها %s رصيد مقدم',
+                     p_amount::text, p_adeel_id, v_remaining::text)
+         ELSE format('تحصيل %s من العديل %s', p_amount::text, p_adeel_id)
+    END,
     v_receipt);
 
   RETURN jsonb_build_object(
@@ -201,7 +228,96 @@ BEGIN
     'adeelId',   p_adeel_id,
     'amount',    p_amount::text,
     'method',    p_method,
+    -- What went to the wallet rather than to a month. The app states it back
+    -- on the confirmation, so a treasurer who typed 5000 for 500 sees it in
+    -- the same breath as the receipt number.
+    'credit',    v_remaining::text,
     'allocations', v_allocs);
+END $$;
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The wallet, spent.
+--
+-- A payment that could not be fully allocated left a surplus — see the rule 7
+-- note in register_payment. This is where that surplus meets the month it was
+-- paid in advance for: called by generate_period() the instant a receivable is
+-- raised, it writes the allocations that were missing.
+--
+-- ── Why allocations, and not a balance column ────────────────────────────────
+-- The wallet is derived — Σ payments − Σ allocations — so spending it IS
+-- writing an allocation. Nothing has to be kept in step with anything, there is
+-- no column that can disagree with the money, and the prepaid month appears in
+-- the عديل's statement beside the receipt that settled it, months after the
+-- fact, because that link is what the allocation row is.
+--
+-- ── The two orders, and why each is what it is ──────────────────────────────
+-- Receivables oldest first: the same FIFO rule collection already follows, so a
+-- wallet and a cash payment settle months in the same order.
+-- Payments oldest first: the earliest money is spent first, so a cancellation
+-- later on takes back the credit that was still sitting unspent rather than
+-- unpicking a month that has already been settled from a different receipt.
+--
+-- SECURITY DEFINER and deliberately NOT on the client allow-list. Its caller
+-- has already checked the role; exposing it would let anyone with the anon key
+-- reshuffle which receipt paid which month, which changes no total and
+-- falsifies every statement.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.settle_from_credit(p_adeel_id bigint)
+RETURNS numeric
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
+  v_applied numeric(12,2) := 0;
+  v_take    numeric(12,2);
+  v_left    numeric(12,2);
+  rcv       record;
+  pay       record;
+BEGIN
+  FOR rcv IN
+    SELECT r.id, r.period, r.balance
+      FROM public.receivables r
+     WHERE r.adeel_id = p_adeel_id
+       AND r.status <> 'ملغي'
+       AND r.balance > 0
+     ORDER BY r.period ASC, r.id ASC
+       FOR UPDATE
+  LOOP
+    v_left := rcv.balance;
+
+    FOR pay IN
+      SELECT p.id,
+             p.amount - coalesce(
+               (SELECT sum(a.amount) FROM public.payment_allocations a
+                 WHERE a.payment_id = p.id), 0) AS spare
+        FROM public.payments p
+       WHERE p.adeel_id = p_adeel_id
+         AND p.status <> 'ملغي'
+       ORDER BY p.paid_at ASC, p.id ASC
+         FOR UPDATE
+    LOOP
+      EXIT WHEN v_left <= 0;
+      CONTINUE WHEN pay.spare <= 0;
+
+      v_take := least(v_left, pay.spare);
+
+      -- sequence_no continues this payment's own numbering rather than
+      -- restarting: uq_alloc_pay_recv already stops the same payment paying the
+      -- same receivable twice, and a receipt whose allocations read 1,2,1 would
+      -- be unreadable on a statement.
+      INSERT INTO public.payment_allocations
+        (payment_id, receivable_id, period, amount, sequence_no)
+      VALUES (
+        pay.id, rcv.id, rcv.period, v_take,
+        coalesce((SELECT max(a.sequence_no) FROM public.payment_allocations a
+                   WHERE a.payment_id = pay.id), 0) + 1);
+
+      UPDATE public.receivables SET paid = paid + v_take WHERE id = rcv.id;
+
+      v_left    := v_left - v_take;
+      v_applied := v_applied + v_take;
+    END LOOP;
+  END LOOP;
+
+  RETURN v_applied;
 END $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -281,6 +397,10 @@ DECLARE
   v_recv_id   bigint;
   v_created   int := 0;
   v_skipped   int := 0;
+  -- How much prepaid credit this close consumed. Reported so a treasurer can
+  -- see that a month billed 800 and settled 300 of it from wallets on the
+  -- spot, rather than wondering why the total debt moved less than he expected.
+  v_applied   numeric(12,2) := 0;
 BEGIN
   PERFORM public.require_role('financeManager');
 
@@ -385,6 +505,17 @@ BEGIN
       v_skipped := v_skipped + 1;
     ELSE
       v_created := v_created + 1;
+      -- ── The wallet pays the month it was paid in advance for ──────────────
+      -- Immediately, and inside the same transaction as the charge. A member
+      -- who handed over a year must never see the new month appear as a debt
+      -- he already settled — not even between two statements — and doing it
+      -- here means the charge and its settlement are one event or neither.
+      --
+      -- Called per عديل rather than once at the end so that the credit walks
+      -- his OWN receivables in period order. A single sweep would still be
+      -- correct arithmetically and would scan the whole register for the
+      -- overwhelming majority who have no credit at all.
+      v_applied := v_applied + public.settle_from_credit(a.id);
     END IF;
     v_recv_id := NULL;
   END LOOP;
@@ -397,10 +528,15 @@ BEGIN
   VALUES (p_period, auth.uid(), v_created);
 
   PERFORM public.write_audit('receivables.generate',
-    format('إنشاء استحقاقات %s: %s سجل', p_period, v_created), p_period);
+    CASE WHEN v_applied > 0
+         THEN format('إنشاء استحقاقات %s: %s سجل، وسُدِّد %s من أرصدة مقدمة',
+                     p_period, v_created, v_applied::text)
+         ELSE format('إنشاء استحقاقات %s: %s سجل', p_period, v_created)
+    END, p_period);
 
   RETURN jsonb_build_object('period', p_period, 'created', v_created,
-                            'skipped', v_skipped);
+                            'skipped', v_skipped,
+                            'creditApplied', v_applied::text);
 END $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════

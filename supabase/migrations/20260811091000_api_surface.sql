@@ -106,14 +106,45 @@ SELECT
   coalesce(agg.paid,   0)::numeric(12,2)::text AS "paid",
   coalesce(agg.issued, 0)::numeric(12,2)::text AS "issued",
   (CASE WHEN a.status = 'نشط' THEN s.member_fee ELSE 0 END)::numeric(12,2)::text
-                                          AS "monthlyExpected"
+                                          AS "monthlyExpected",
+  -- ── The wallet: money received that no month has claimed yet ──────────────
+  -- DERIVED, never stored. Σ what he handed over, minus Σ what the allocations
+  -- assigned to a receivable. A column would be a second place the truth could
+  -- live, and the first time it disagreed with the allocations there would be
+  -- no way to tell which was right.
+  --
+  -- Cancelled payments are excluded on the way in; their allocations were
+  -- already reversed by cancel_payment, so counting the payment would resurrect
+  -- money the association gave back.
+  --
+  -- GREATEST(...,0) is a floor, not a fix: allocations can never exceed their
+  -- payment (register_payment refuses a negative remainder, settle_from_credit
+  -- takes the least of the two), so a negative here would be a bug — and a
+  -- NEGATIVE wallet displayed as a debt would hide it. The floor keeps the
+  -- screen honest while `debt` goes on showing what is actually owed.
+  greatest(coalesce(wallet.credit, 0), 0)::numeric(12,2)::text AS "credit",
+  -- What he is, in one signed figure: positive owes, negative in hand. The
+  -- portal paints it red or green off the sign, so the two states are one
+  -- reading rather than two panels the member has to reconcile himself.
+  (coalesce(agg.debt, 0) - greatest(coalesce(wallet.credit, 0), 0))
+    ::numeric(12,2)::text                 AS "netBalance"
 FROM public.adeels a
 CROSS JOIN public.association_settings s
 LEFT JOIN LATERAL (
   SELECT sum(r.balance) AS debt, sum(r.paid) AS paid, sum(r.total) AS issued
     FROM public.receivables r
    WHERE r.adeel_id = a.id AND r.status <> 'ملغي'
-) agg ON true;
+) agg ON true
+LEFT JOIN LATERAL (
+  SELECT sum(p.amount) - coalesce(sum(al.allocated), 0) AS credit
+    FROM public.payments p
+    LEFT JOIN LATERAL (
+      SELECT sum(a2.amount) AS allocated
+        FROM public.payment_allocations a2
+       WHERE a2.payment_id = p.id
+    ) al ON true
+   WHERE p.adeel_id = a.id AND p.status <> 'ملغي'
+) wallet ON true;
 
 -- ── Receivables (ReceivableItem) ─────────────────────────────────────────────
 -- `billedSonNames` is gone with the household. A receivable bills one man, and

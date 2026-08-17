@@ -16,8 +16,8 @@ export SP
 # How many checks the suite must record. A mismatch fails, so a check whose SQL
 # errors before recording anything cannot hide.
 #
-#   30_rules 106 + 40_rls 86 + 45_portal 53 + 50_money 42 + 60_concurrency 5
-#   + 70_purge 37 = 329
+#   30_rules 105 + 40_rls 86 + 45_portal 53 + 50_money 42 + 60_concurrency 5
+#   + 65_wallet 20 + 70_purge 37 = 348
 #
 # Count them the way the runtime does — call sites, which is a group name in
 # quotes right after the paren:
@@ -39,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=329
+EXPECTED_CHECKS=348
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"
@@ -77,6 +77,12 @@ run -f "$HERE/50_money_and_atomicity.sql" 2>&1 | grep -vE '^(CREATE|SET|RESET|DR
 
 echo "=== concurrency (two sessions) ==="
 bash "$HERE/60_concurrency.sh"
+
+# AFTER everything that counts the register, and before the purge. The wallet
+# group needs an عديل of its own — an overpayment settles every open month for
+# whoever receives it — and a fifth عديل is exactly what 40_rls asserts against.
+echo "=== the wallet (prepayment and credit) ==="
+run -f "$HERE/65_wallet.sql"          2>&1 | grep -vE '^(INSERT|UPDATE|DELETE|SELECT|SET|ALTER) ' || true
 
 # LAST, and it has to be: the purge erases everything the four files above built,
 # so any group scheduled after it would assert against an empty database.
