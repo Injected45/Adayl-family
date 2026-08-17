@@ -92,6 +92,9 @@ void main() {
       'payments.json',
       'cash_movements.json',
       'cash_summary.json',
+      'disbursements.json',
+      'expense_by_category.json',
+      'association_finance.json',
     ]) {
       test('$file contains no floating-point value at all', () {
         final Object? decoded = jsonDecode(
@@ -366,6 +369,88 @@ void main() {
       expect(summary.total, '30.00');
       expect(summary.cash, '30.00');
       expect(summary.transfer, '0.00');
+      // ── And what LEAVING the treasury does to it ─────────────────────────
+      // `total` is everything ever COLLECTED and must not move when money goes
+      // out; `balance` is what is actually held. They were the same number only
+      // while money could not leave, and conflating them is what would make the
+      // treasury screen overstate the fund by every voucher ever written.
+      expect(summary.disbursed, '16.00');
+      expect(summary.balance, '14.00');
+    });
+
+    test('vouchers parse — free payee, register payee, and a voided one', () {
+      final List<DisbursementView> vouchers = _list(
+        'disbursements.json',
+      ).map(DisbursementView.fromJson).toList();
+      expect(vouchers, hasLength(3));
+
+      // A payee who is NOT on the register: rent, a supplier, a hospital. The
+      // whole reason payee_adeel_id is nullable.
+      final DisbursementView free = vouchers.firstWhere(
+        (DisbursementView v) => v.voucherNo == 'EXP-000001',
+      );
+      expect(free.payeeAdeelId, isNull);
+      expect(free.payeeName, 'مكتبة الوفاء');
+      expect(free.amount, '12.00');
+
+      // A payee who IS. The name comes off HIS row, never off the client — the
+      // form sent 'سيُستبدل من السجل' and the register overrode it.
+      final DisbursementView member = vouchers.firstWhere(
+        (DisbursementView v) => v.voucherNo == 'EXP-000002',
+      );
+      expect(member.payeeAdeelId, 1);
+      expect(member.payeeName, 'العديل الأول');
+      expect(member.payeeCode, 'A-0001');
+      expect(member.bankName, 'المصرف التجاري الوطني');
+
+      // Rule 9 outgoing: reversed, never removed. The screen strikes it through.
+      expect(
+        vouchers.where((DisbursementView v) => v.status == 'ملغي').length,
+        1,
+      );
+    });
+
+    test('every heading is reported, including the ones never spent on', () {
+      final List<ExpenseByCategory> rows = _list(
+        'expense_by_category.json',
+      ).map(ExpenseByCategory.fromJson).toList();
+      // All nine, not just the three with a voucher against them. A report that
+      // silently omits a zero reads as one that forgot it.
+      expect(rows, hasLength(9));
+      expect(
+        rows.where((ExpenseByCategory r) => r.isEmpty).length,
+        greaterThan(0),
+        reason: 'the empty headings must survive the trip, not be filtered out',
+      );
+      // The cancelled 3.00 voucher is NOT counted against عزاء ووفاة.
+      expect(
+        rows.firstWhere((ExpenseByCategory r) => r.category == 'عزاء ووفاة').total,
+        '0.00',
+      );
+      expect(
+        rows
+            .firstWhere((ExpenseByCategory r) => r.category == 'مصاريف إدارية')
+            .total,
+        '12.00',
+      );
+    });
+
+    test('a member is told the totals and never a voucher', () {
+      final AssociationFinance f = AssociationFinance.fromJson(
+        _obj('association_finance.json'),
+      );
+      // His transparency is only honest with the outgoing side in it: showing
+      // him what came in, under a heading that says رصيد الجمعية, would
+      // overstate the fund by everything it has ever paid out.
+      expect(f.collected, '30.00');
+      expect(f.disbursed, '16.00');
+      expect(f.balance, '14.00');
+      // Aggregates ONLY. A voucher says a NAMED man received إعانة اجتماعية,
+      // which belongs to him and not to the membership.
+      expect(
+        _obj('association_finance.json').keys,
+        isNot(contains('vouchers')),
+      );
     });
   });
 

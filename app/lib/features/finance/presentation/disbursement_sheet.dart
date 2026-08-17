@@ -12,6 +12,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../directory/domain/models.dart' show AdeelListItem;
 import '../../directory/presentation/providers.dart' as directory;
 import '../domain/models.dart';
+import 'bank_fields.dart';
 import 'providers.dart';
 
 /// The voucher: money leaving the treasury.
@@ -351,23 +352,42 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     // Where the money was SENT. Recorded on the voucher rather
                     // than joined to settings, for the same reason a receipt
                     // snapshots the receiving account: this is history.
-                    TextField(
-                      controller: _bankName,
-                      decoration: InputDecoration(labelText: l.bankNameField),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextField(
-                      controller: _bankAccountName,
-                      decoration: InputDecoration(
-                        labelText: l.bankAccountNameField,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextField(
-                      controller: _bankAccountNo,
-                      decoration: InputDecoration(
-                        labelText: l.bankAccountNoField,
-                      ),
+                    //
+                    // The SAME remembering the collection side has, and the same
+                    // widget — extracted rather than copied, because two
+                    // implementations of one cascade drift and the second one to
+                    // drift is the one nobody is looking at.
+                    //
+                    // ── Scoped to the PAYEE, which has two shapes ────────────
+                    // An عديل is matched by his id; a free payee — a landlord, a
+                    // hospital, a supplier — has no id, so he is matched by the
+                    // name as typed. That is weaker, and deliberately so: it is
+                    // a typing aid, and the alternative is offering one
+                    // supplier's account number while paying another.
+                    //
+                    // With no payee chosen yet there is nothing to scope by, and
+                    // the list is empty rather than "everyone's accounts".
+                    BankFields(
+                      history: <BankUsage>[
+                        for (final DisbursementView d
+                            in ref.watch(disbursementsProvider).valueOrNull ??
+                                const <DisbursementView>[])
+                          if (d.bankName.trim().isNotEmpty &&
+                              (_payeeAdeelId != null
+                                  ? d.payeeAdeelId == _payeeAdeelId
+                                  : _payee.text.trim().isNotEmpty &&
+                                        d.payeeName.trim().toLowerCase() ==
+                                            _payee.text.trim().toLowerCase()))
+                            BankUsage(
+                              bank: d.bankName,
+                              holder: d.bankAccountName,
+                              account: d.bankAccountNo,
+                            ),
+                      ],
+                      bank: _bankName,
+                      holder: _bankAccountName,
+                      account: _bankAccountNo,
+                      enabled: !_submitting,
                     ),
                     const SizedBox(height: AppSpacing.md),
                   ],

@@ -13,6 +13,7 @@ import '../../auth/domain/app_user.dart';
 import '../../directory/domain/models.dart';
 import '../../directory/presentation/providers.dart';
 import '../domain/models.dart';
+import 'bank_fields.dart';
 import 'providers.dart';
 
 /// Opens the payment form. Returns true when a payment was recorded.
@@ -375,8 +376,23 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     decoration: InputDecoration(labelText: l.reference),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _BankFields(
-                    adeelId: adeel?.id,
+                  // Only this عديل's own transfers, and only the ones that
+                  // actually carry an account. A cancelled payment still
+                  // describes an account he really used, so it stays in the
+                  // history: the suggestion is about typing, not money.
+                  BankFields(
+                    history: <BankUsage>[
+                      for (final PaymentView p
+                          in ref.watch(paymentsProvider).valueOrNull ??
+                              const <PaymentView>[])
+                        if (p.adeelId == adeel?.id &&
+                            p.bankName.trim().isNotEmpty)
+                          BankUsage(
+                            bank: p.bankName,
+                            holder: p.bankAccountName,
+                            account: p.bankAccountNo,
+                          ),
+                    ],
                     bank: _bankName,
                     holder: _bankHolder,
                     account: _bankAccountNo,
@@ -428,196 +444,6 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           ),
         );
       },
-    );
-  }
-}
-/// The payer's bank, the name on the account, and its number — typed, but
-/// offered from what this same عديل has used before.
-///
-/// ── Why these are not settings ──────────────────────────────────────────────
-/// An عديل may transfer from more than one account, and from more than one
-/// bank. Which he used is a fact about THIS collection, so fixing it anywhere
-/// would be wrong. But retyping three fields for every subscription is slow and
-/// is exactly where a digit goes missing, and a mistyped account number is the
-/// one thing here that makes a receipt impossible to match against the bank's
-/// own statement.
-///
-/// ── The cascade ─────────────────────────────────────────────────────────────
-/// Each field narrows the one below it, against this عديل's own history:
-///
-///   bank        → every bank he has ever transferred from
-///   holder      → only the names used AT THAT BANK
-///   account no. → only the numbers used by THAT NAME at THAT BANK
-///
-/// and when a field has exactly ONE candidate left, it fills itself. So the
-/// second time المهدي pays through المصرف التجاري and the treasurer picks علي,
-/// the account number appears on its own — because nothing else it could be has
-/// ever been recorded.
-///
-/// Free text throughout. A new bank or a new account is typed once and is then
-/// on the list for ever; the suggestions never refuse anything.
-///
-/// The history comes from `v_payments`, which the app already loads and which
-/// RLS already scopes — no new endpoint, and nothing here is trusted: the
-/// server stores exactly the three strings it is sent, and only for a transfer.
-class _BankFields extends ConsumerWidget {
-  const _BankFields({
-    required this.adeelId,
-    required this.bank,
-    required this.holder,
-    required this.account,
-    required this.enabled,
-  });
-
-  final int? adeelId;
-  final TextEditingController bank;
-  final TextEditingController holder;
-  final TextEditingController account;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final L l = L.of(context);
-
-    // Only this عديل's own transfers, and only the ones that actually carry an
-    // account. A cancelled payment still describes an account he really used,
-    // so it stays in the history: the suggestion is about typing, not money.
-    final List<PaymentView> history = <PaymentView>[
-      for (final PaymentView p
-          in ref.watch(paymentsProvider).valueOrNull ?? const <PaymentView>[])
-        if (p.adeelId == adeelId && p.bankName.trim().isNotEmpty) p,
-    ];
-
-    String norm(String s) => s.trim().toLowerCase();
-
-    List<String> distinct(
-      String Function(PaymentView) pick,
-      bool Function(PaymentView) where,
-    ) {
-      final Map<String, String> seen = <String, String>{};
-      for (final PaymentView p in history) {
-        if (!where(p)) continue;
-        final String v = pick(p).trim();
-        if (v.isNotEmpty) seen.putIfAbsent(norm(v), () => v);
-      }
-      return seen.values.toList()..sort();
-    }
-
-    final List<String> banks = distinct((PaymentView p) => p.bankName, (_) => true);
-    final List<String> holders = distinct(
-      (PaymentView p) => p.bankAccountName,
-      (PaymentView p) => norm(p.bankName) == norm(bank.text),
-    );
-    final List<String> accounts = distinct(
-      (PaymentView p) => p.bankAccountNo,
-      (PaymentView p) =>
-          norm(p.bankName) == norm(bank.text) &&
-          norm(p.bankAccountName) == norm(holder.text),
-    );
-
-    // "Exactly one candidate left" is the whole point — but only fill a field
-    // the treasurer has not already typed into, or this would overwrite him
-    // mid-keystroke.
-    void autofill(TextEditingController c, List<String> options) {
-      if (options.length == 1 && c.text.trim().isEmpty) c.text = options.single;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        _SuggestingField(
-          label: l.bankNameField,
-          controller: bank,
-          options: banks,
-          enabled: enabled,
-          // Changing the bank invalidates both fields below it: the name and
-          // number that belonged to the old bank are almost certainly wrong for
-          // the new one, and leaving them looks like they were confirmed.
-          onChanged: () {
-            holder.clear();
-            account.clear();
-          },
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _SuggestingField(
-          label: l.bankAccountNameField,
-          controller: holder,
-          options: holders,
-          enabled: enabled && bank.text.trim().isNotEmpty,
-          onChanged: account.clear,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Builder(
-          builder: (BuildContext context) {
-            autofill(account, accounts);
-            return _SuggestingField(
-              label: l.bankAccountNoField,
-              controller: account,
-              options: accounts,
-              enabled: enabled && holder.text.trim().isNotEmpty,
-              onChanged: () {},
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-/// A text field that also offers what has been used before.
-///
-/// Typing is always allowed — the list narrows it, never restricts it. The
-/// suffix button opens the whole list, because a treasurer who has not started
-/// typing has nothing to filter by and would otherwise not know the history is
-/// there at all.
-class _SuggestingField extends StatefulWidget {
-  const _SuggestingField({
-    required this.label,
-    required this.controller,
-    required this.options,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final List<String> options;
-  final bool enabled;
-  final VoidCallback onChanged;
-
-  @override
-  State<_SuggestingField> createState() => _SuggestingFieldState();
-}
-
-class _SuggestingFieldState extends State<_SuggestingField> {
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-
-    return TextField(
-      controller: widget.controller,
-      enabled: widget.enabled,
-      onChanged: (_) => setState(widget.onChanged),
-      decoration: InputDecoration(
-        labelText: widget.label,
-        suffixIcon: widget.options.isEmpty
-            ? null
-            : PopupMenuButton<String>(
-                icon: const Icon(Icons.history, size: 20),
-                tooltip: l.previouslyUsed,
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  for (final String option in widget.options)
-                    PopupMenuItem<String>(
-                      value: option,
-                      child: Text(option, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onSelected: (String value) => setState(() {
-                  widget.controller.text = value;
-                  widget.onChanged();
-                }),
-              ),
-      ),
     );
   }
 }

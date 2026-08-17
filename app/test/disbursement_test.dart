@@ -75,15 +75,23 @@ DisbursementView _voucher({
   String category = 'إعانة اجتماعية',
   String payeeName = 'مكتبة الوفاء',
   String method = 'نقداً',
+  int? payeeAdeelId,
+  String bankName = '',
+  String bankAccountName = '',
+  String bankAccountNo = '',
 }) => DisbursementView(
   id: id,
   voucherNo: 'EXP-${id.toString().padLeft(6, '0')}',
   amount: amount,
   category: category,
   payeeName: payeeName,
+  payeeAdeelId: payeeAdeelId,
   method: method,
   status: status,
   spentAt: '2026-08-15T09:00:00Z',
+  bankName: bankName,
+  bankAccountName: bankAccountName,
+  bankAccountNo: bankAccountNo,
 );
 
 void main() {
@@ -91,15 +99,16 @@ void main() {
 
   // ── The sheet ─────────────────────────────────────────────────────────────
 
-  Widget sheetHost({String balance = '640.00'}) => ProviderScope(
+  Widget sheetHost({
+    String balance = '640.00',
+    List<DisbursementView> history = const <DisbursementView>[],
+  }) => ProviderScope(
     overrides: <Override>[
       authControllerProvider.overrideWith(() => _StubAuth(AppRole.admin)),
       cashSummaryProvider.overrideWith(
         (Ref ref) async => _cash(balance: balance),
       ),
-      disbursementsProvider.overrideWith(
-        (Ref ref) async => <DisbursementView>[],
-      ),
+      disbursementsProvider.overrideWith((Ref ref) async => history),
       expenseByCategoryProvider.overrideWith(
         (Ref ref) async => <ExpenseByCategory>[],
       ),
@@ -263,6 +272,78 @@ void main() {
 
     expect(find.widgetWithText(TextField, l.bankNameField), findsOneWidget);
     expect(find.widgetWithText(TextField, l.bankAccountNoField), findsOneWidget);
+  });
+
+  testWidgets('the bank a payee was paid through before is offered back', (
+    WidgetTester tester,
+  ) async {
+    // The same remembering the collection side has. The association pays the
+    // same landlord and the same supplier month after month, and retyping an
+    // account number is where a digit goes missing — a mistyped number is the
+    // one thing here that makes a voucher impossible to match against the
+    // bank's own statement.
+    //
+    // Scoped to THIS payee. The history below holds an account for a different
+    // supplier too, and offering it here would be worse than offering nothing.
+    await openSheet(
+      tester,
+      sheetHost(
+        history: <DisbursementView>[
+          _voucher(
+            id: 1,
+            payeeName: 'مالك المقر',
+            method: 'تحويل مصرفي',
+            bankName: 'المصرف التجاري الوطني',
+            bankAccountName: 'علي المهدي',
+            bankAccountNo: '0021547',
+          ),
+          _voucher(
+            id: 2,
+            payeeName: 'مورد آخر',
+            method: 'تحويل مصرفي',
+            bankName: 'مصرف الوحدة',
+            bankAccountName: 'سالم',
+            bankAccountNo: '9999999',
+          ),
+        ],
+      ),
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, l.payee),
+      'مالك المقر',
+    );
+    await tester.tap(find.text(l.methodTransfer));
+    await tester.pumpAndSettle();
+
+    // Only the bank offers history yet: the two fields below it are narrowed by
+    // what is chosen above, and nothing is.
+    expect(find.byIcon(Icons.history), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.history));
+    await tester.pumpAndSettle();
+
+    expect(find.text('المصرف التجاري الوطني'), findsOneWidget);
+    // ★ The other supplier's bank is NOT on offer. Suggesting it here would be
+    //   worse than suggesting nothing: it invites paying one man into another
+    //   man's account.
+    expect(find.text('مصرف الوحدة'), findsNothing);
+
+    await tester.tap(find.text('المصرف التجاري الوطني'));
+    await tester.pumpAndSettle();
+
+    // Now the name at THAT bank is offered, and picking it leaves exactly one
+    // possible account number...
+    await tester.tap(find.byIcon(Icons.history).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('علي المهدي'));
+    await tester.pumpAndSettle();
+
+    // ...so it fills itself. This is the digit that would otherwise be retyped
+    // every month, and the one a voucher cannot be reconciled without.
+    final TextField account = tester.widget<TextField>(
+      find.widgetWithText(TextField, l.bankAccountNoField),
+    );
+    expect(account.controller?.text, '0021547');
   });
 
   testWidgets('every heading the database defines is offered', (

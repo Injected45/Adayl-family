@@ -210,11 +210,21 @@ check('40.00 outstanding across two periods', owed_before == '40.00', owed_befor
 status, c0 = call('/rest/v1/v_cash_summary?select=total', jwt=JWT)
 cash_before = c0[0]['total']
 
-# Rule 7: overpaying must be refused.
+# Rule 7 no longer caps the amount — the association asked for a wallet, and an
+# overpayment is now CREDIT rather than a refusal. This used to send 9999.00 and
+# expect RUL07; left as it was it would not merely go red, it would SUCCEED and
+# park 9959.00 in the member's wallet, and every FIFO assertion below would then
+# be measuring a ledger this check had quietly rewritten.
+#
+# What survives from rule 7 is the floor, and it is asserted here precisely
+# because it refuses — so it cannot disturb the state the rest of the run reads.
 status, body = rpc('register_payment', {
-    'p_adeel_id': ADEEL, 'p_amount': '9999.00', 'p_method': 'نقداً'}, JWT)
-check('rule 7: overpaying is REFUSED with RUL07',
+    'p_adeel_id': ADEEL, 'p_amount': '0', 'p_method': 'نقداً'}, JWT)
+check('rule 7: a payment of zero is still REFUSED with RUL07',
       body.get('code') == 'RUL07', body)
+status, body = rpc('register_payment', {
+    'p_adeel_id': ADEEL, 'p_amount': '-5.00', 'p_method': 'نقداً'}, JWT)
+check('rule 7: and so is a negative one', body.get('code') == 'RUL07', body)
 
 # A 30.00 payment must FIFO: 20 fills the older period, 10 spills into the newer.
 status, pay = rpc('register_payment', {
@@ -276,12 +286,94 @@ status, body = rpc('cancel_payment',
                    {'p_payment_id': pid, 'p_reason': 'again'}, JWT)
 check('double cancellation is refused', body.get('code') == 'RUL09', body)
 
+print('\n── money LEAVING the treasury ' + '─' * 47)
+# The whole outgoing path over HTTPS. The local suite proves this SQL; only this
+# run proves PostgREST resolves the function, that RUL17 survives the hop as a
+# code rather than a 500, and that every voucher amount arrives as a STRING.
+#
+# The treasury is empty at this point — the payment above was cancelled — so it
+# has to be funded before anything can be spent.
+status, fund = rpc('register_payment', {
+    'p_adeel_id': ADEEL, 'p_amount': '30.00', 'p_method': 'نقداً',
+    'p_reference': 'FUND-1'}, JWT)
+check('a receipt is collected to fund a voucher', status == 200, fund)
+
+status, cash = call('/rest/v1/v_cash_summary?select=total,disbursed,balance',
+                    jwt=JWT)
+check('the treasury holds 30.00 and has spent nothing yet',
+      cash[0]['balance'] == '30.00' and cash[0]['disbursed'] == '0.00', cash)
+
+# ★ The rule that makes it safe, over the wire.
+status, body = rpc('register_disbursement', {
+    'p_amount': '31.00', 'p_category': 'مصاريف إدارية',
+    'p_payee_name': 'مورد', 'p_method': 'نقداً'}, JWT)
+check('spending MORE than the fund holds is REFUSED with RUL17',
+      body.get('code') == 'RUL17', body)
+# The CODE, not the HTTP status. PostgREST has no mapping for a custom SQLSTATE,
+# so the status it returns for every RULnn is the same one — which is why
+# SupabaseFailures._statusForRule re-maps them on the client. Asserting a status
+# here would be asserting PostgREST's default, not this project's rule.
+check('...and the refusal carries an Arabic message for the screen',
+      'رصيد الصندوق' in str(body.get('message', '')), body)
+
+status, v = rpc('register_disbursement', {
+    'p_amount': '12.00', 'p_category': 'إيجار وخدمات',
+    'p_payee_name': 'مالك المقر', 'p_method': 'نقداً',
+    'p_reference': 'INV-9', 'p_handed_by': 'أمين الصندوق'}, JWT)
+check('a voucher within the balance is accepted', status == 200, v)
+check('voucherNo was generated', str(v.get('voucherNo', '')).startswith('EXP-'),
+      v.get('voucherNo'))
+check('the amount came back as a STRING', isinstance(v.get('amount'), str), v)
+check('and it states the fund AFTER the voucher',
+      v.get('balanceAfter') == '18.00', v)
+
+status, cash = call('/rest/v1/v_cash_summary?select=total,disbursed,balance',
+                    jwt=JWT)
+# `total` is everything ever COLLECTED and must not move; `balance` is what is
+# actually held. Conflating them is what would overstate the fund on the screen
+# by every voucher ever written.
+check('what was COLLECTED did not move', cash[0]['total'] == '30.00', cash)
+check('but the held balance fell to 18.00',
+      cash[0]['balance'] == '18.00' and cash[0]['disbursed'] == '12.00', cash)
+
+status, cats = call('/rest/v1/v_expense_by_category?select=*', jwt=JWT)
+check('all nine headings are reported, spent on or not', len(cats) == 9, cats)
+
+# ★ THE HOLE THAT WAS CLOSED. register_disbursement refuses to pay out money the
+#   association does not hold; without this guard the money could still be taken
+#   away AFTER it was spent, and the fund went straight through zero in silence.
+status, body = rpc('cancel_payment', {
+    'p_payment_id': fund['paymentId'],
+    'p_reason': 'محاولة سحب المال المصروف'}, JWT)
+check('cancelling the receipt whose money is SPENT is refused',
+      body.get('code') == 'RUL09', body)
+status, cash = call('/rest/v1/v_cash_summary?select=balance', jwt=JWT)
+check('...and the fund never went below zero',
+      float(cash[0]['balance']) >= 0, cash)
+
+# Reverse the voucher and the SAME cancellation goes through — a rule, not a wall.
+status, body = rpc('cancel_disbursement', {
+    'p_id': v['id'], 'p_reason': 'إلغاء لاختبار الترتيب'}, JWT)
+check('reversing the voucher releases the money', status == 200, body)
+status, body = rpc('cancel_payment', {
+    'p_payment_id': fund['paymentId'], 'p_reason': 'إلغاء بعد رد السند'}, JWT)
+check('...and NOW the receipt cancels cleanly', status == 200, body)
+
+# Rule 9 outgoing: reversed, never removed.
+status, vouchers = call('/rest/v1/v_disbursements?select=voucherNo,status',
+                        jwt=JWT)
+check('rule 9: the voucher is still LISTED, marked cancelled',
+      any(d['status'] == 'ملغي' for d in vouchers), vouchers)
+
 print('\n── the audit trail ' + '─' * 58)
 status, audit = call('/rest/v1/v_audit?select=eventType,actorName,detail'
                      '&order=occurredAt.desc', jwt=JWT)
 types = [a['eventType'] for a in audit]
 check('rule 12: the payment and its cancellation were both logged',
       'payment.register' in types and 'payment.cancel' in types, types)
+# Money leaving the treasury is the direction an audit trail exists FOR.
+check('rule 12: so were the voucher and its reversal',
+      'disbursement.register' in types and 'disbursement.cancel' in types, types)
 # The NEWEST entries carry the corrected name. Older ones keep the mangled one on
 # purpose — audit_log is append-only, and it snapshots the name as it was.
 check('the newest entry snapshotted the actor name in Arabic',
@@ -332,6 +424,8 @@ for label, path in (
     ('v_cash_movements', '/rest/v1/v_cash_movements?select=*'),
     ('v_cash_summary', '/rest/v1/v_cash_summary?select=*'),
     ('v_settings', '/rest/v1/v_settings?select=*'),
+    ('v_disbursements', '/rest/v1/v_disbursements?select=*'),
+    ('v_expense_by_category', '/rest/v1/v_expense_by_category?select=*'),
 ):
     status, body = call(path, jwt=JWT)
     found = doubles(body)
@@ -345,6 +439,8 @@ for label, fn, params in (
     ('api_financial_report', 'api_financial_report',
      {'p_from': '2026-01-01', 'p_to': '2030-12-31'}),
     ('api_settings', 'api_settings', {}),
+    # The member-facing totals, which now carry the outgoing side too.
+    ('api_association_finance', 'api_association_finance', {}),
 ):
     status, body = rpc(fn, params, JWT)
     found = doubles(body)

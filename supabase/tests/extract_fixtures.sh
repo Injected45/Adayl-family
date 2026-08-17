@@ -29,6 +29,8 @@ run -f "$HERE/20_seed.sql"    > /dev/null
 
 FM='00000000-0000-0000-0000-0000000000a2'
 TR='00000000-0000-0000-0000-0000000000a3'
+# Money OUT is admin-only, so the vouchers below have to be written as one.
+AD='00000000-0000-0000-0000-0000000000a1'
 run > /dev/null <<SQL
 SELECT set_config('request.jwt.claims', '{"sub":"$FM","role":"authenticated"}', false);
 SELECT public.generate_period('2026-02');
@@ -41,6 +43,24 @@ SELECT public.register_payment(2, 5, 'تحويل مصرفي', 'TRX-9');
 SELECT set_config('request.jwt.claims', '{"sub":"$FM","role":"authenticated"}', false);
 -- One cancelled payment, so the fixtures include a voided row.
 SELECT public.cancel_payment(2, 'تصحيح إدخال');
+
+-- ── Money OUT ────────────────────────────────────────────────────────────────
+-- 30.00 was collected and 5.00 of it cancelled, so the treasury holds 30.00 and
+-- these three vouchers fit inside it. Deliberately varied, because a fixture is
+-- only worth the shapes it contains:
+--   • a cash voucher to a FREE payee, carrying reference/handedBy/note
+--   • a TRANSFER to an عديل FROM THE REGISTER, so payeeAdeelId and the three
+--     bank columns are non-null in at least one row
+--   • one CANCELLED, so the voided shape is captured exactly as with payments
+SELECT set_config('request.jwt.claims', '{"sub":"$AD","role":"authenticated"}', false);
+SELECT public.register_disbursement(
+  12, 'مصاريف إدارية', 'مكتبة الوفاء', 'نقداً',
+  NULL, 'INV-3', NULL, NULL, NULL, 'أمين الصندوق', 'قرطاسية');
+SELECT public.register_disbursement(
+  4, 'إعانة اجتماعية', 'سيُستبدل من السجل', 'تحويل مصرفي',
+  1, 'TRX-77', 'المصرف التجاري الوطني', 'علي المهدي', '0021547');
+SELECT public.register_disbursement(3, 'عزاء ووفاة', 'أسرة المرحوم', 'نقداً');
+SELECT public.cancel_disbursement(3, 'تصحيح إدخال');
 SQL
 
 # Every capture runs as an APPROVED VIEWER through the authenticated role, i.e.
@@ -85,6 +105,16 @@ capture cash_movements.json "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * F
 capture cash_summary.json  "SELECT to_json(t) FROM (SELECT * FROM public.v_cash_summary) t;"
 capture officials.json     "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_officials) t;"
 capture settings_view.json "SELECT to_json(t) FROM (SELECT * FROM public.v_settings) t;"
+
+# Money out. The two read surfaces the الصرف tab is built on, captured as the
+# same viewer — read_disbursements is has_role('viewer'), so this is the shape a
+# staff client actually receives. An عديل receives nothing here at all, which is
+# asserted in 67_disbursement.sql rather than captured.
+capture disbursements.json "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_disbursements ORDER BY \"id\") t;"
+capture expense_by_category.json "SELECT coalesce(json_agg(t), '[]') FROM (SELECT * FROM public.v_expense_by_category) t;"
+# The member-facing totals. SECURITY DEFINER and aggregates only — the one place
+# an عديل learns what the association spent without seeing a single voucher.
+capture association_finance.json "SELECT public.api_association_finance();"
 
 # financeManager and admin see more than a viewer, so their endpoints are captured
 # under the role that will actually call them.
