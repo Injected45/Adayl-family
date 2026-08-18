@@ -1350,22 +1350,18 @@ CREATE POLICY read_allocations ON public.payment_allocations
 CREATE POLICY read_cash ON public.cash_movements
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 
--- ── Disbursements: STAFF ONLY, and deliberately not extended to an عديل ──────
+-- ── Disbursements: staff see every voucher ──────────────────────────────────
 -- The association asked for "شفافية مطلقة" toward its members, and it has it:
 -- api_association_finance() gives every member the treasury's TOTALS, including
 -- what has been spent.
 --
--- The vouchers themselves are a different thing. A row here says that a named
--- person received إعانة اجتماعية — which in a family association is the most
--- private fact the system holds, and it belongs to the recipient rather than to
--- the membership. Transparency about the collective purse is not the same as
--- publishing who needed help, and conflating them would be a decision nobody
--- asked for taken on the association's behalf.
---
--- There is deliberately no عديل-scoped policy either, not even "his own": a
--- member seeing a voucher made out to him is a reasonable feature, and it is a
--- decision for the association to take on purpose rather than one that arrives
--- as a side effect of this file.
+-- The vouchers themselves are narrower. A row here says that a NAMED person
+-- received إعانة — which in a family association is the most private fact the
+-- system holds, and it belongs to the recipient rather than to the membership.
+-- Transparency about the collective purse is not the same as publishing who
+-- needed help. So this policy stops at the staff boundary, and what a member
+-- may see about HIMSELF is a separate, narrower policy further down
+-- (read_own_disbursements) — never this one widened.
 CREATE POLICY read_disbursements ON public.disbursements
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 
@@ -1426,6 +1422,27 @@ CREATE POLICY read_own_allocations ON public.payment_allocations
 
 CREATE POLICY read_own_cash ON public.cash_movements
   FOR SELECT TO authenticated USING (adeel_id = public.my_adeel_id());
+
+-- ── What the association gave HIM, and nothing it gave anybody else ─────────
+-- The association decided a member should be able to see his own aid history:
+-- how much he has received over the years and on which occasions. That is a
+-- record of his own dealings with the association, and withholding it from the
+-- one person it is about was never the point of keeping vouchers private.
+--
+-- Scoped on payee_adeel_id, so a COLLECTIVE voucher (payee_adeel_id IS NULL)
+-- matches nobody — `NULL = my_adeel_id()` is NULL, never true. That is the
+-- correct outcome and it is worth naming: فطور رمضان was spent on him as much
+-- as on anyone, and it is still not a payment TO him; it appears in the totals
+-- he already reads through api_association_finance() and nowhere else.
+--
+-- ⚠ THIS IS NOT A CREDIT AGAINST HIS SUBSCRIPTION, and the separation is
+--   structural rather than a matter of which screen shows what: a voucher
+--   touches no receivable, no payment and no allocation, so api_adeel_statement
+--   — which merges exactly those two tables — cannot show it however this
+--   policy is written. The association is خيرية; what it gives a man is not
+--   deducted from what he owes it.
+CREATE POLICY read_own_disbursements ON public.disbursements
+  FOR SELECT TO authenticated USING (payee_adeel_id = public.my_adeel_id());
 
 -- The association's name, currency and monthly fee. He is being billed by these
 -- figures, so withholding them would make his own statement unreadable. The
@@ -3810,6 +3827,88 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
                  ORDER BY o.at DESC, o.reference DESC LIMIT 1), '0.00'))
 $$;
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- GET /adeels/:id/aid — what the association has GIVEN this man.
+--
+-- The counterpart of api_adeel_statement, and deliberately a SEPARATE call
+-- rather than another key inside it. The statement answers "what does he owe
+-- and what has he paid"; this answers "what has he received". The association
+-- is خيرية: aid is not a credit against a subscription, and a man who was given
+-- something for a bereavement still owes that month's fee. Merging the two into
+-- one screen would put the two figures in one column and invite exactly the
+-- subtraction that must never happen.
+--
+-- ⚠ THE SEPARATION IS STRUCTURAL, NOT PRESENTATIONAL. A voucher writes no
+--   receivable, no payment and no allocation, and api_adeel_statement merges
+--   precisely those two tables — so aid cannot reach the statement however this
+--   function or any screen is written. This one reads `disbursements` and
+--   nothing else, and it never subtracts.
+--
+-- SECURITY INVOKER, so RLS decides: staff read any man's, and an عديل reads his
+-- own through read_own_disbursements. An عديل passing somebody else's id gets a
+-- zero total, empty lists and a NULL name — the same answer the register gives
+-- him for a row that is not his, rather than a refusal that would confirm the
+-- id exists.
+--
+-- ── Why the breakdowns are non-zero only, unlike v_expense_by_category ───────
+-- That view lists every heading including the untouched ones, because
+-- association-wide "nothing was spent on فرح this year" is itself an answer.
+-- For ONE man it is not: he is not missing an answer because he was never given
+-- anything for a wedding, and five zero rows would bury the two that matter.
+-- The question here is which occasions actually occurred, so only those appear.
+--
+-- CANCELLED vouchers are excluded from every total but LISTED, struck through,
+-- exactly as a cancelled receipt is. Rule 9 requires them visible, never hidden.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.api_adeel_aid(p_adeel_id bigint)
+RETURNS jsonb LANGUAGE sql STABLE AS $$
+  WITH live AS (
+    SELECT d.* FROM public.disbursements d
+     WHERE d.payee_adeel_id = p_adeel_id AND d.status <> 'ملغي'
+  )
+  SELECT jsonb_build_object(
+    'adeelId',   p_adeel_id,
+    'adeelCode', (SELECT a.adeel_code FROM public.adeels a WHERE a.id = p_adeel_id),
+    'adeelName', (SELECT a.full_name  FROM public.adeels a WHERE a.id = p_adeel_id),
+    -- Lifetime, which is what "خلال زمن المشترك" asks for. No date window and no
+    -- argument to narrow it: a per-year list is below, and a window here would
+    -- make the headline figure depend on a filter nobody set.
+    'total', (SELECT coalesce(sum(l.amount), 0)::numeric(12,2)::text FROM live l),
+    'count', (SELECT count(*) FROM live l),
+    'firstAt', (SELECT to_char(min(l.spent_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+                  FROM live l),
+    'lastAt',  (SELECT to_char(max(l.spent_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+                  FROM live l),
+    -- The occasions, largest first. `count` beside each total because "300 over
+    -- one عزاء" and "300 over six" are different facts about the same number.
+    'byCategory', coalesce(
+      (SELECT jsonb_agg(c ORDER BY (c ->> 'total')::numeric DESC)
+         FROM (SELECT jsonb_build_object(
+                        'category', l.category::text,
+                        'total', sum(l.amount)::numeric(12,2)::text,
+                        'count', count(*)) AS c
+                 FROM live l GROUP BY l.category) cats),
+      '[]'::jsonb),
+    -- Over time, newest year first.
+    'byYear', coalesce(
+      (SELECT jsonb_agg(y ORDER BY (y ->> 'year') DESC)
+         FROM (SELECT jsonb_build_object(
+                        'year', to_char(l.spent_at AT TIME ZONE 'UTC', 'YYYY'),
+                        'total', sum(l.amount)::numeric(12,2)::text,
+                        'count', count(*)) AS y
+                 FROM live l
+                GROUP BY to_char(l.spent_at AT TIME ZONE 'UTC', 'YYYY')) years),
+      '[]'::jsonb),
+    -- The vouchers themselves, cancelled ones included so the screen can strike
+    -- them through. Read off v_disbursements rather than the table, so the keys
+    -- are the ones the Dart model already parses for the الصرف tab and there is
+    -- one definition of a voucher's wire shape.
+    'vouchers', coalesce(
+      (SELECT jsonb_agg(to_jsonb(v) ORDER BY v."spentAt" DESC)
+         FROM public.v_disbursements v WHERE v."payeeAdeelId" = p_adeel_id),
+      '[]'::jsonb))
+$$;
+
 -- ── GET /dashboard (DashboardData) ───────────────────────────────────────────
 -- The old stat row counted families, sons, and how many sons were eligible,
 -- approaching eligibility, or under age. None of those quantities exist. What
@@ -4210,6 +4309,7 @@ GRANT EXECUTE ON FUNCTION
   public.adeel_json(bigint),
   public.api_adeel_detail(bigint),
   public.api_adeel_statement(bigint),
+  public.api_adeel_aid(bigint),
   public.api_dashboard(),
   public.api_alerts(),
   public.api_financial_report(date, date),
@@ -4324,6 +4424,10 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'adeel_json(bigint)',
     'api_adeel_detail(bigint)',
     'api_adeel_statement(bigint)',
+    -- What the association GAVE him, beside what he owes it. SECURITY INVOKER,
+    -- so staff read any man's and an عديل reads only his own — through
+    -- read_own_disbursements, which is scoped on payee_adeel_id.
+    'api_adeel_aid(bigint)',
     'api_dashboard()',
     'api_alerts()',
     'api_financial_report(date,date)',

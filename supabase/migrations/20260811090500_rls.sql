@@ -76,22 +76,18 @@ CREATE POLICY read_allocations ON public.payment_allocations
 CREATE POLICY read_cash ON public.cash_movements
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 
--- ── Disbursements: STAFF ONLY, and deliberately not extended to an عديل ──────
+-- ── Disbursements: staff see every voucher ──────────────────────────────────
 -- The association asked for "شفافية مطلقة" toward its members, and it has it:
 -- api_association_finance() gives every member the treasury's TOTALS, including
 -- what has been spent.
 --
--- The vouchers themselves are a different thing. A row here says that a named
--- person received إعانة اجتماعية — which in a family association is the most
--- private fact the system holds, and it belongs to the recipient rather than to
--- the membership. Transparency about the collective purse is not the same as
--- publishing who needed help, and conflating them would be a decision nobody
--- asked for taken on the association's behalf.
---
--- There is deliberately no عديل-scoped policy either, not even "his own": a
--- member seeing a voucher made out to him is a reasonable feature, and it is a
--- decision for the association to take on purpose rather than one that arrives
--- as a side effect of this file.
+-- The vouchers themselves are narrower. A row here says that a NAMED person
+-- received إعانة — which in a family association is the most private fact the
+-- system holds, and it belongs to the recipient rather than to the membership.
+-- Transparency about the collective purse is not the same as publishing who
+-- needed help. So this policy stops at the staff boundary, and what a member
+-- may see about HIMSELF is a separate, narrower policy further down
+-- (read_own_disbursements) — never this one widened.
 CREATE POLICY read_disbursements ON public.disbursements
   FOR SELECT TO authenticated USING (public.has_role('viewer'));
 
@@ -152,6 +148,27 @@ CREATE POLICY read_own_allocations ON public.payment_allocations
 
 CREATE POLICY read_own_cash ON public.cash_movements
   FOR SELECT TO authenticated USING (adeel_id = public.my_adeel_id());
+
+-- ── What the association gave HIM, and nothing it gave anybody else ─────────
+-- The association decided a member should be able to see his own aid history:
+-- how much he has received over the years and on which occasions. That is a
+-- record of his own dealings with the association, and withholding it from the
+-- one person it is about was never the point of keeping vouchers private.
+--
+-- Scoped on payee_adeel_id, so a COLLECTIVE voucher (payee_adeel_id IS NULL)
+-- matches nobody — `NULL = my_adeel_id()` is NULL, never true. That is the
+-- correct outcome and it is worth naming: فطور رمضان was spent on him as much
+-- as on anyone, and it is still not a payment TO him; it appears in the totals
+-- he already reads through api_association_finance() and nowhere else.
+--
+-- ⚠ THIS IS NOT A CREDIT AGAINST HIS SUBSCRIPTION, and the separation is
+--   structural rather than a matter of which screen shows what: a voucher
+--   touches no receivable, no payment and no allocation, so api_adeel_statement
+--   — which merges exactly those two tables — cannot show it however this
+--   policy is written. The association is خيرية; what it gives a man is not
+--   deducted from what he owes it.
+CREATE POLICY read_own_disbursements ON public.disbursements
+  FOR SELECT TO authenticated USING (payee_adeel_id = public.my_adeel_id());
 
 -- The association's name, currency and monthly fee. He is being billed by these
 -- figures, so withholding them would make his own statement unreadable. The

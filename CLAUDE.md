@@ -170,14 +170,41 @@ This dictates the data-access shape — do not deviate from it:
   every existing SUM and an RLS policy that must start distinguishing
   directions — on the one table the working collection path depends on.
 
-  An عديل reads **no voucher row at all**, not even the one made out to him:
-  `read_disbursements` is staff-only, because a row saying a NAMED person
-  received aid is the most private fact the system holds. He does see the
-  association's TOTALS — `api_association_finance()`, aggregates only, no name
-  and no row — and that function is `SECURITY DEFINER` on purpose: pointing the
-  portal at `v_cash_summary` (SECURITY INVOKER) would have shown him HIS OWN
-  figures under headings that say "the association's", which is not a leak but
-  something worse — a wrong answer with nothing on screen to doubt.
+  An عديل reads **his own vouchers and nobody else's**. Two policies, ORed by
+  Postgres and each readable alone: `read_disbursements` (staff, every row) and
+  `read_own_disbursements` (`payee_adeel_id = my_adeel_id()`). A COLLECTIVE
+  voucher carries no payee, so `NULL = my_adeel_id()` is NULL and it belongs to
+  nobody — فطور رمضان appears under no individual, only in the totals. He also
+  sees the association's aggregates through `api_association_finance()`, which
+  is `SECURITY DEFINER` on purpose: pointing the portal at `v_cash_summary`
+  (SECURITY INVOKER) would have shown him HIS OWN figures under headings that
+  say "the association's", which is not a leak but something worse — a wrong
+  answer with nothing on screen to doubt.
+
+  **`api_adeel_aid(bigint)` — what the association GAVE one man**, and the rule
+  it exists to protect: **الجمعية خيرية, so aid is NOT deducted from what he
+  owes.** A man given something for a bereavement still owes that month's fee.
+  That is structural rather than a display choice — a voucher writes no
+  receivable, no payment and no allocation, and `api_adeel_statement` merges
+  exactly those two tables, so aid cannot reach a statement however any screen
+  is written. What was missing was the ANSWER to "so where IS it recorded", and
+  this is it: a lifetime total, a breakdown by occasion and by year, and the
+  vouchers beneath them. SECURITY INVOKER, so staff read any man's and an عديل
+  reads only his own; asking about someone else returns an empty answer rather
+  than a refusal, so no id is confirmed to exist.
+
+  Its breakdowns list only the occasions he actually received something under —
+  unlike `v_expense_by_category`, which lists every heading including the empty
+  ones. The difference is the question: "the association spent nothing on فرح
+  this year" is an answer; "he was never given anything for a wedding" is not
+  one he is missing.
+
+  In Dart it is a SEPARATE SCREEN (`features/finance/presentation/adeel_aid_screen.dart`,
+  route `/adeels/:id/aid`) rather than a panel on the detail page, and a
+  separate section in the portal sheet rather than part of the balance hero —
+  because the place this rule would actually be broken is a layout that puts
+  «ما استلمه» beside «ما عليه» and invites the eye to subtract. Both surfaces
+  print the rule in words above the figures.
 
 - **Money is text end to end.** Postgres serialises `numeric` as a bare JSON number
   and `dart:convert` decodes that to `double`. Every view casts amounts to text, and
@@ -357,7 +384,7 @@ missing table cannot kill the script on one of the states it exists to name.
 
 ## Testing model — two layers, both required
 
-- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 409
+- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 421
   checks. Each rule runs with a passing case *and a failing case* (the failing
   case is what proves the rule bites). It also races two psql sessions on one
   balance to prove FIFO allocation can't double-spend, races two more on the

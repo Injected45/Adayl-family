@@ -11,6 +11,8 @@ import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../finance/domain/models.dart';
+import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
@@ -437,6 +439,55 @@ class _PortalMoreSheet extends ConsumerWidget {
                         ],
                       ),
               ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // ── ما استلمته من الجمعية ──────────────────────────────────────
+              // What the association has GIVEN him: how much, and on which
+              // occasions. Read through api_adeel_aid(), which is SECURITY
+              // INVOKER — so `read_own_disbursements`, scoped to
+              // `payee_adeel_id = my_adeel_id()`, is what decides he sees his
+              // own and nothing else. Passing another man's id here would
+              // return an empty answer rather than a refusal.
+              //
+              // ⚠ IT IS NOT PART OF HIS BALANCE, and this is the screen where
+              // that could go wrong. الجمعية خيرية: aid is not deducted from
+              // his subscription, so this total must never be netted against
+              // the hero figure above or against his ledger. It sits in the
+              // sheet, behind a heading of its own, with the rule spelled out
+              // beneath it — deliberately nowhere near «ما عليك».
+              //
+              // A collective voucher — فطور رمضان — is attributed to nobody and
+              // so appears for no one here. Its value is already inside the
+              // association's total spend, which he reads further down.
+              _SheetSection(
+                icon: Icons.volunteer_activism_outlined,
+                title: l.myAidTitle,
+              ),
+              ref
+                  .watch(adeelAidProvider(adeelId))
+                  .when(
+                    loading: () => const LinearProgressIndicator(minHeight: 2),
+                    error: (Object e, StackTrace _) =>
+                        _SheetNote(describeApiFailure(l, e)),
+                    data: (AdeelAid aid) => aid.isEmpty
+                        ? _SheetNote(l.noMyAid)
+                        : Column(
+                            children: <Widget>[
+                              _SheetRow(
+                                label: l.aidTotal,
+                                value: formatMoney(aid.total),
+                                trailing: l.aidVoucherCount(aid.count),
+                              ),
+                              for (final ExpenseByCategory c in aid.byCategory)
+                                _SheetRow(
+                                  label: c.category,
+                                  value: formatMoney(c.total),
+                                  trailing: l.aidVoucherCount(c.count),
+                                ),
+                              _SheetNote(l.aidNotDeductedNote),
+                            ],
+                          ),
+                  ),
               const SizedBox(height: AppSpacing.lg),
 
               // ── Who to ring ────────────────────────────────────────────────

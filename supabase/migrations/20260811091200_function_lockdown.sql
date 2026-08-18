@@ -93,6 +93,10 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'adeel_json(bigint)',
     'api_adeel_detail(bigint)',
     'api_adeel_statement(bigint)',
+    -- What the association GAVE him, beside what he owes it. SECURITY INVOKER,
+    -- so staff read any man's and an عديل reads only his own — through
+    -- read_own_disbursements, which is scoped on payee_adeel_id.
+    'api_adeel_aid(bigint)',
     'api_dashboard()',
     'api_alerts()',
     'api_financial_report(date,date)',

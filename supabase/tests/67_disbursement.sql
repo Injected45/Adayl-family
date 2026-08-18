@@ -127,6 +127,53 @@ SELECT probe.eq('spend', '...so the report totals what the treasury paid out',
               = (SELECT "disbursed" FROM public.v_cash_summary))::text
           FROM public.v_expense_by_category $sql$, 'true');
 
+-- ═════ AID IS NOT A CREDIT AGAINST HIS SUBSCRIPTION ══════════════════════════
+-- The association is خيرية. What it gives a man is not deducted from what he
+-- owes it: he was just paid 5.00 for a birth, and he still owes every dinar of
+-- every month he has not paid. Getting this wrong in either direction is the
+-- expensive mistake — the association's charity cancelling its own dues, or a
+-- man who received help being told he is in credit.
+--
+-- Asserted as an EQUALITY against the two tables the statement is allowed to
+-- read, not as "the number did not move". The weaker form passes just as well
+-- when the statement is broken in some other way, and it would not notice a
+-- voucher that netted off two other figures on its way through.
+SELECT probe.eq('spend', 'his statement is built from dues and receipts ALONE',
+  $sql$ SELECT ((public.api_adeel_statement(1) ->> 'closingBalance')::numeric
+              = (SELECT coalesce(sum(r.total), 0) FROM public.receivables r
+                  WHERE r.adeel_id = 1 AND r.status <> 'ملغي')
+              - (SELECT coalesce(sum(p.amount), 0) FROM public.payments p
+                  WHERE p.adeel_id = 1 AND p.status <> 'ملغي'))::text $sql$,
+  'true');
+SELECT probe.eq('spend', '...and no voucher appears anywhere in it',
+  $sql$ SELECT count(*)::text
+          FROM jsonb_array_elements(
+                 public.api_adeel_statement(1) -> 'movements') m
+         WHERE m ->> 'reference' LIKE 'EXP-%' $sql$, '0');
+
+-- ═════ SO IT IS ANSWERED SOMEWHERE ELSE ══════════════════════════════════════
+-- «كم صُرف لفلان، وفي أي مناسبات» — the question the statement must never
+-- answer, asked of the one function that exists to answer it.
+SELECT probe.eq('spend', 'what he RECEIVED is answered by its own call',
+  $sql$ SELECT public.api_adeel_aid(1) ->> 'total' $sql$, '5.00');
+SELECT probe.eq('spend', '...and it names the occasion, not just the amount',
+  $sql$ SELECT c ->> 'category'
+          FROM jsonb_array_elements(public.api_adeel_aid(1) -> 'byCategory') c
+         LIMIT 1 $sql$, 'مولود');
+SELECT probe.eq('spend', '...with the voucher itself listed beneath it',
+  $sql$ SELECT jsonb_array_length(public.api_adeel_aid(1) -> 'vouchers')::text
+  $sql$, '1');
+-- EXP-000001 was جماعي — spent on everybody, attributed to nobody. It must not
+-- surface under any individual, or every collective iftar would be re-reported
+-- as aid to each man in the register.
+SELECT probe.eq('spend', 'a COLLECTIVE voucher is nobody''s aid',
+  $sql$ SELECT (public.api_adeel_aid(1) -> 'vouchers' -> 0 ->> 'voucherNo')
+  $sql$, 'EXP-000002');
+-- A man who has been given nothing reads zero, not NULL and not an error: the
+-- screen has one shape whether or not he has ever received anything.
+SELECT probe.eq('spend', 'a member who received nothing reads a clean zero',
+  $sql$ SELECT public.api_adeel_aid(2) ->> 'total' $sql$, '0.00');
+
 -- ═════ The CONSTRAINT underneath, proved on its own ══════════════════════════
 -- The four refusals above are the RPC's, and they exist to give an admin a
 -- sentence he can act on. This is ck_disb_shape itself: the guarantee has to
@@ -297,14 +344,47 @@ SELECT probe.eq('spend', 'the portal user is live — scoped to his own عديل
   $sql$ SELECT (public.my_adeel_id() = 1)::text $sql$, 'true');
 SELECT probe.eq('spend', '...and holds no staff role, which is what excludes him',
   $sql$ SELECT (public.my_role() IS NULL)::text $sql$, 'true');
-SELECT probe.eq('spend', 'an عديل sees NO voucher rows at all',
-  $sql$ SELECT count(*)::text FROM public.disbursements $sql$, '0');
--- He IS adeel 1, and EXP-000002 was paid to adeel 1 above. A voucher says that a
--- named man received إعانة اجتماعية; that it is his own name does not make the
--- row his to read, and the association never asked for it to be.
-SELECT probe.eq('spend', '...not even the one made out to him',
+-- ── HIS OWN AID, AND NOBODY ELSE'S ──────────────────────────────────────────
+-- The association decided a member may see what it has given HIM: how much,
+-- and on which occasions. read_own_disbursements is scoped on payee_adeel_id,
+-- so the widening stops exactly there.
+--
+-- The positive check comes FIRST and on purpose. Every negative check below
+-- passes just as well against a policy that denies everything, and a portal
+-- showing an empty page is indistinguishable from one correctly hiding other
+-- people's rows. Prove he sees SOMETHING before proving what he does not.
+SELECT probe.note('spend', 'an عديل sees the vouchers made out to him',
+  (SELECT count(*) FROM public.disbursements) > 0);
+SELECT probe.eq('spend', '...and NOTHING that is not his',
   $sql$ SELECT count(*)::text FROM public.disbursements
-         WHERE payee_adeel_id = 1 $sql$, '0');
+         WHERE payee_adeel_id IS DISTINCT FROM 1 $sql$, '0');
+-- EXP-000001 was جماعي — spent on everybody, attributed to nobody, and still on
+-- the table. `payee_adeel_id = my_adeel_id()` is NULL for it, never true, which
+-- is what keeps a collective voucher out of every individual's page.
+SELECT probe.eq('spend', '...not the collective voucher, which belongs to all',
+  $sql$ SELECT count(*)::text FROM public.disbursements
+         WHERE voucher_no = 'EXP-000001' $sql$, '0');
+
+-- The same rule read through the function the screen actually calls. It is
+-- SECURITY INVOKER, so nothing here is a second implementation of the policy —
+-- which is the point: passing another man's id must return an empty answer, not
+-- a refusal that would confirm he exists.
+SELECT probe.note('spend', 'his aid page answers for him',
+  (public.api_adeel_aid(1) ->> 'count')::int > 0);
+SELECT probe.eq('spend', '...and tells him nothing about another member',
+  $sql$ SELECT (public.api_adeel_aid(2) ->> 'total') $sql$, '0.00');
+SELECT probe.eq('spend', '...not even that member''s name',
+  $sql$ SELECT (public.api_adeel_aid(2) ->> 'adeelName' IS NULL)::text $sql$,
+  'true');
+
+-- ⚠ AND HIS STATEMENT IS STILL UNTOUCHED BY ANY OF IT. Now checked as HIM
+-- rather than as an admin: the policy that lets him read his own vouchers must
+-- not have leaked one into the ledger that says what he owes.
+SELECT probe.eq('spend', 'seeing his aid did NOT put it in his statement',
+  $sql$ SELECT count(*)::text
+          FROM jsonb_array_elements(
+                 public.api_adeel_statement(1) -> 'movements') m
+         WHERE m ->> 'reference' LIKE 'EXP-%' $sql$, '0');
 
 RESET ROLE;
 -- Put the fixture back, exactly as 45_adeel_portal does: deleting the auth.users

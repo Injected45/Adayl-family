@@ -1027,6 +1027,90 @@ abstract class L {
   /// **'تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق'**
   String get disbursementCancelled;
 
+  /// Staff heading, third person: the association looking at one man's aid history.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما صُرف له من الجمعية'**
+  String get aidTitle;
+
+  /// The same page in the member's own voice, inside his portal.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما استلمته من الجمعية'**
+  String get myAidTitle;
+
+  /// No description provided for @openAid.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل الإعانات'**
+  String get openAid;
+
+  /// No description provided for @aidTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي ما صُرف له'**
+  String get aidTotal;
+
+  /// No description provided for @aidCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'عدد السندات'**
+  String get aidCount;
+
+  /// No description provided for @aidPeriod.
+  ///
+  /// In ar, this message translates to:
+  /// **'من {from} إلى {to}'**
+  String aidPeriod(String from, String to);
+
+  /// No description provided for @aidByCategory.
+  ///
+  /// In ar, this message translates to:
+  /// **'حسب المناسبة'**
+  String get aidByCategory;
+
+  /// No description provided for @aidByYear.
+  ///
+  /// In ar, this message translates to:
+  /// **'حسب السنة'**
+  String get aidByYear;
+
+  /// No description provided for @aidVouchers.
+  ///
+  /// In ar, this message translates to:
+  /// **'السندات'**
+  String get aidVouchers;
+
+  /// No description provided for @aidVoucherCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} سند'**
+  String aidVoucherCount(int count);
+
+  /// No description provided for @noAid.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُصرف له شيء من الجمعية بعد'**
+  String get noAid;
+
+  /// No description provided for @noMyAid.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُصرف لك شيء من الجمعية بعد'**
+  String get noMyAid;
+
+  /// No description provided for @aidNotDeductedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجمعية خيرية: ما صُرف للمشترك لا يُخصم من اشتراكه، ولا يظهر في كشف حسابه. الكشف للاشتراكات الشهرية وما سُدِّد منها وحدها.'**
+  String get aidNotDeductedNote;
+
+  /// No description provided for @aidCollectiveNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'الصرف الجماعي — كفطور رمضان — لا يُنسب إلى مشترك بعينه، فلا يظهر هنا. قيمته ضمن إجمالي مصروفات الجمعية.'**
+  String get aidCollectiveNote;
+
   /// No description provided for @cashIntro.
   ///
   /// In ar, this message translates to:

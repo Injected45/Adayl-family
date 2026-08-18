@@ -507,6 +507,54 @@ class LAr extends L {
       'تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق';
 
   @override
+  String get aidTitle => 'ما صُرف له من الجمعية';
+
+  @override
+  String get myAidTitle => 'ما استلمته من الجمعية';
+
+  @override
+  String get openAid => 'سجل الإعانات';
+
+  @override
+  String get aidTotal => 'إجمالي ما صُرف له';
+
+  @override
+  String get aidCount => 'عدد السندات';
+
+  @override
+  String aidPeriod(String from, String to) {
+    return 'من $from إلى $to';
+  }
+
+  @override
+  String get aidByCategory => 'حسب المناسبة';
+
+  @override
+  String get aidByYear => 'حسب السنة';
+
+  @override
+  String get aidVouchers => 'السندات';
+
+  @override
+  String aidVoucherCount(int count) {
+    return '$count سند';
+  }
+
+  @override
+  String get noAid => 'لم يُصرف له شيء من الجمعية بعد';
+
+  @override
+  String get noMyAid => 'لم يُصرف لك شيء من الجمعية بعد';
+
+  @override
+  String get aidNotDeductedNote =>
+      'الجمعية خيرية: ما صُرف للمشترك لا يُخصم من اشتراكه، ولا يظهر في كشف حسابه. الكشف للاشتراكات الشهرية وما سُدِّد منها وحدها.';
+
+  @override
+  String get aidCollectiveNote =>
+      'الصرف الجماعي — كفطور رمضان — لا يُنسب إلى مشترك بعينه، فلا يظهر هنا. قيمته ضمن إجمالي مصروفات الجمعية.';
+
+  @override
   String get cashIntro => 'كل عملية تحصيل معتمدة تنعكس هنا تلقائياً.';
 
   @override

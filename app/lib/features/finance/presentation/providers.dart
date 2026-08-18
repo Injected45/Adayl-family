@@ -44,3 +44,16 @@ final FutureProvider<List<ExpenseByCategory>> expenseByCategoryProvider =
     FutureProvider<List<ExpenseByCategory>>(
       (Ref ref) => ref.watch(financeRepositoryProvider).expenseByCategory(),
     );
+
+/// What the association has given ONE man. A family, keyed by his id, so the
+/// staff page and the member's own page are the same provider reading the same
+/// RPC — and RLS, not the argument, is what decides who gets an answer.
+///
+/// Invalidated alongside [disbursementsProvider] wherever a voucher is recorded
+/// or reversed: a member's page must not go on showing aid that was cancelled a
+/// screen away.
+final FutureProviderFamily<AdeelAid, int> adeelAidProvider =
+    FutureProvider.family<AdeelAid, int>(
+      (Ref ref, int adeelId) =>
+          ref.watch(financeRepositoryProvider).adeelAid(adeelId),
+    );

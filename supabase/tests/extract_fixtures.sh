@@ -98,6 +98,10 @@ capture dashboard.json         "SELECT public.api_dashboard();"
 capture alerts.json            "SELECT public.api_alerts();"
 capture adeel_detail.json      "SELECT public.api_adeel_detail(1);"
 capture adeel_statement.json   "SELECT public.api_adeel_statement(1);"
+# What the association GAVE him. Captured beside the statement on purpose: the
+# two are read together and must never be confused, and the fixture is where a
+# renamed key is caught before the app runs.
+capture adeel_aid.json         "SELECT public.api_adeel_aid(1);"
 capture receivables.json       "SELECT public.api_receivables(NULL);"
 capture financial_report.json  "SELECT public.api_financial_report('2026-01-01','2030-12-31');"
 capture closable_periods.json  "SELECT public.api_closable_periods();"

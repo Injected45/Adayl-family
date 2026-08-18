@@ -511,6 +511,54 @@ class LEn extends L {
       'Disbursement cancelled and its amount returned to the treasury';
 
   @override
+  String get aidTitle => 'Aid he received from the association';
+
+  @override
+  String get myAidTitle => 'What I received from the association';
+
+  @override
+  String get openAid => 'Aid history';
+
+  @override
+  String get aidTotal => 'Total paid to him';
+
+  @override
+  String get aidCount => 'Vouchers';
+
+  @override
+  String aidPeriod(String from, String to) {
+    return 'From $from to $to';
+  }
+
+  @override
+  String get aidByCategory => 'By occasion';
+
+  @override
+  String get aidByYear => 'By year';
+
+  @override
+  String get aidVouchers => 'Vouchers';
+
+  @override
+  String aidVoucherCount(int count) {
+    return '$count voucher(s)';
+  }
+
+  @override
+  String get noAid => 'Nothing has been paid to him yet';
+
+  @override
+  String get noMyAid => 'Nothing has been paid to you yet';
+
+  @override
+  String get aidNotDeductedNote =>
+      'The association is charitable: aid paid to a member is NOT deducted from his subscription and never appears in his statement. The statement covers monthly subscriptions and what has been paid against them, and nothing else.';
+
+  @override
+  String get aidCollectiveNote =>
+      'Collective spending — an iftar, for instance — is attributed to no individual, so it does not appear here. Its value is part of the association\'s total outgoings.';
+
+  @override
   String get cashIntro =>
       'Every approved collection appears here automatically.';
 

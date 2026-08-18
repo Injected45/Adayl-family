@@ -385,3 +385,105 @@ class ExpenseByCategory {
         count: _int(json['count']),
       );
 }
+
+/// One year of what the association gave one man.
+class AidByYear {
+  const AidByYear({
+    required this.year,
+    required this.total,
+    required this.count,
+  });
+
+  /// `2026`. A string because it is a label, never arithmetic.
+  final String year;
+  final String total;
+  final int count;
+
+  factory AidByYear.fromJson(Map<String, dynamic> json) => AidByYear(
+    year: _string(json['year']),
+    total: _string(json['total']),
+    count: _int(json['count']),
+  );
+}
+
+/// What the association has GIVEN one عديل — the counterpart of his statement,
+/// and deliberately not part of it.
+///
+/// ⚠ AID IS NOT A CREDIT AGAINST HIS SUBSCRIPTION. الجمعية خيرية: a man given
+/// something for a bereavement still owes that month's fee, and nothing on this
+/// object may ever be subtracted from anything on [Statement]. The separation is
+/// structural rather than a matter of which screen shows what — a voucher writes
+/// no receivable, no payment and no allocation, and the statement merges exactly
+/// those two tables — but it is written here too, because the place this rule
+/// would be broken is a screen that puts the two figures in one column.
+///
+/// [byCategory] carries ONLY the occasions he actually received something under,
+/// unlike the association-wide `v_expense_by_category`, which lists every
+/// heading including the untouched ones. The difference is the question: "we
+/// spent nothing on فرح this year" is an answer about the association, and "he
+/// was never given anything for a wedding" is not an answer he is missing.
+///
+/// [vouchers] includes CANCELLED ones so the screen can strike them through,
+/// exactly as a cancelled receipt is shown. They are excluded from [total].
+class AdeelAid {
+  const AdeelAid({
+    required this.adeelId,
+    required this.adeelCode,
+    required this.adeelName,
+    required this.total,
+    required this.count,
+    required this.firstAt,
+    required this.lastAt,
+    required this.byCategory,
+    required this.byYear,
+    required this.vouchers,
+  });
+
+  final int adeelId;
+
+  /// Empty when the caller may not read this man's row — which is what an عديل
+  /// gets if he asks about somebody else. The screen shows nothing rather than
+  /// a refusal, so the id he guessed is not confirmed to exist.
+  final String adeelCode;
+  final String adeelName;
+
+  /// Lifetime, cancelled vouchers excluded. `'0.00'` when he has received
+  /// nothing — a real zero, never an empty string, so the screen has one shape.
+  final String total;
+  final int count;
+
+  /// `YYYY-MM-DD`, empty when he has received nothing.
+  final String firstAt;
+  final String lastAt;
+
+  final List<ExpenseByCategory> byCategory;
+  final List<AidByYear> byYear;
+  final List<DisbursementView> vouchers;
+
+  bool get isEmpty => count == 0;
+
+  factory AdeelAid.fromJson(Map<String, dynamic> json) => AdeelAid(
+    adeelId: _int(json['adeelId']),
+    adeelCode: _string(json['adeelCode']),
+    adeelName: _string(json['adeelName']),
+    total: _string(json['total']),
+    count: _int(json['count']),
+    firstAt: _string(json['firstAt']),
+    lastAt: _string(json['lastAt']),
+    byCategory: <ExpenseByCategory>[
+      for (final dynamic e in (json['byCategory'] as List<dynamic>? ??
+          const <dynamic>[]))
+        ExpenseByCategory.fromJson(e as Map<String, dynamic>),
+    ],
+    byYear: <AidByYear>[
+      for (final dynamic e in (json['byYear'] as List<dynamic>? ??
+          const <dynamic>[]))
+        AidByYear.fromJson(e as Map<String, dynamic>),
+    ],
+    vouchers: <DisbursementView>[
+      for (final dynamic e in (json['vouchers'] as List<dynamic>? ??
+          const <dynamic>[]))
+        DisbursementView.fromJson(e as Map<String, dynamic>),
+    ],
+  );
+}
