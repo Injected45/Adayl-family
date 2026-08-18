@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/config/theme.dart';
+import 'core/l10n/latin_digit_localizations.dart';
 import 'core/router/app_router.dart';
 import 'l10n/app_localizations.dart';
 
@@ -29,7 +30,10 @@ class FamilyApp extends ConsumerWidget {
       // stored in Arabic. Flutter derives Directionality.rtl from the locale,
       // so nothing needs to wrap the tree in a Directionality widget.
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      // Arabic words, Latin digits — see latin_digit_localizations.dart. The
+      // wrapper must come first, so it is prepended here rather than edited
+      // into L.localizationsDelegates, which gen-l10n regenerates.
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
 
       routerConfig: router,

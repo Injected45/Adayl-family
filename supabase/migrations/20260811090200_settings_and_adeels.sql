@@ -126,7 +126,19 @@ ON CONFLICT (id) DO NOTHING;
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.adeels (
   id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  adeel_code      text          GENERATED ALWAYS AS ('A-' || lpad(id::text, 4, '0')) STORED,
+  -- A-01, A-02 … A-99, A-100. Two digits as a MINIMUM, never as a width.
+  --
+  -- ⚠ NOT lpad(id::text, 2, '0'), which is what "pad to two" reads like and is
+  --   a data-loss bug: lpad TRUNCATES when the string is longer than the width,
+  --   so id 100 renders 'A-10' — the same code as id 10. `adeel_code` is UNIQUE,
+  --   so the association's hundredth عديل would simply fail to be added, with a
+  --   constraint violation naming a column nobody typed.
+  --
+  --   The CASE pads only what is short, and leaves everything else alone.
+  --
+  -- It was 'A-0004'. The association asked for the shorter form: they read
+  -- these aloud and write them on paper, and two leading zeros carry nothing.
+  adeel_code      text          GENERATED ALWAYS AS ('A-' || CASE WHEN id < 10 THEN '0' ELSE '' END || id::text) STORED,
   full_name       text          NOT NULL,
   phone           text,
   dob             date,

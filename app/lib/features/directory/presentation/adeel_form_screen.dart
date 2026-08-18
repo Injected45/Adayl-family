@@ -56,7 +56,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
 
   late final TextEditingController _fullName;
   late final TextEditingController _phone;
-  late final TextEditingController _dob;
   late String _status;
 
   bool _saving = false;
@@ -68,7 +67,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
     final AdeelView? existing = widget.existing;
     _fullName = TextEditingController(text: existing?.fullName ?? '');
     _phone = TextEditingController(text: existing?.phone ?? '');
-    _dob = TextEditingController(text: existing?.dob ?? '');
     _status = existing?.membershipStatus ?? MemberDefaults.status;
   }
 
@@ -76,7 +74,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
   void dispose() {
     _fullName.dispose();
     _phone.dispose();
-    _dob.dispose();
     super.dispose();
   }
 
@@ -95,7 +92,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
             fields: <String, String>{
               'fullName': _fullName.text.trim(),
               'phone': _phone.text.trim(),
-              'dob': _dob.text.trim(),
               'status': _status,
             },
           );
@@ -242,7 +238,6 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                       (value == null || value.trim().isEmpty) ? required : null,
                 ),
                 _Input(label: l.phone, controller: _phone, phone: true),
-                _DobInput(label: l.dateOfBirth, controller: _dob),
                 Padding(
                   padding: const EdgeInsetsDirectional.only(
                     bottom: AppSpacing.md,
@@ -365,52 +360,6 @@ class _Input extends StatelessWidget {
               ]
             : const <TextInputFormatter>[],
         decoration: InputDecoration(labelText: label, isDense: true),
-      ),
-    );
-  }
-}
-
-class _DobInput extends StatefulWidget {
-  const _DobInput({required this.label, required this.controller});
-
-  final String label;
-  final TextEditingController controller;
-
-  @override
-  State<_DobInput> createState() => _DobInputState();
-}
-
-class _DobInputState extends State<_DobInput> {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
-      child: TextFormField(
-        controller: widget.controller,
-        readOnly: true,
-        decoration: InputDecoration(
-          labelText: widget.label,
-          isDense: true,
-          suffixIcon: const Icon(Icons.calendar_today, size: 16),
-        ),
-        onTap: () async {
-          final DateTime now = DateTime.now();
-          final DateTime? picked = await showDatePicker(
-            context: context,
-            initialDate:
-                DateTime.tryParse(widget.controller.text) ??
-                DateTime(now.year - 20),
-            firstDate: DateTime(1900),
-            // A future birth date is refused by a database trigger; bounding the
-            // picker means it cannot be entered at all.
-            lastDate: now,
-          );
-          if (picked != null) {
-            setState(() {
-              widget.controller.text = picked.toIso8601String().substring(0, 10);
-            });
-          }
-        },
       ),
     );
   }

@@ -74,14 +74,14 @@ SELECT probe.succeeds('spend', 'spending within the balance is accepted', $sql$
     10, 'جماعي', 'نقداً', NULL, 'فطور رمضان',
     'INV-9', NULL, NULL, NULL, 'أمين الصندوق', 'إفطار الجمعية')
 $sql$);
-SELECT probe.eq('spend', 'the voucher is numbered EXP-000001',
+SELECT probe.eq('spend', 'the voucher is numbered EXP-01',
   $sql$ SELECT voucher_no FROM public.disbursements ORDER BY id LIMIT 1 $sql$,
-  'EXP-000001');
+  'EXP-01');
 -- The association's own decision: nobody RECEIVES فطور رمضان the way a member
 -- receives aid, so the column is empty rather than carrying an invented name.
 SELECT probe.eq('spend', 'and it records no payee at all',
   $sql$ SELECT (payee_name IS NULL AND payee_adeel_id IS NULL)::text
-          FROM public.disbursements WHERE voucher_no = 'EXP-000001' $sql$,
+          FROM public.disbursements WHERE voucher_no = 'EXP-01' $sql$,
   'true');
 SELECT probe.eq('spend', 'and the treasury balance drops by exactly that',
   $sql$ SELECT ("total"::numeric - "balance"::numeric)::text
@@ -163,12 +163,12 @@ SELECT probe.eq('spend', '...and it names the occasion, not just the amount',
 SELECT probe.eq('spend', '...with the voucher itself listed beneath it',
   $sql$ SELECT jsonb_array_length(public.api_adeel_aid(1) -> 'vouchers')::text
   $sql$, '1');
--- EXP-000001 was جماعي — spent on everybody, attributed to nobody. It must not
+-- EXP-01 was جماعي — spent on everybody, attributed to nobody. It must not
 -- surface under any individual, or every collective iftar would be re-reported
 -- as aid to each man in the register.
 SELECT probe.eq('spend', 'a COLLECTIVE voucher is nobody''s aid',
   $sql$ SELECT (public.api_adeel_aid(1) -> 'vouchers' -> 0 ->> 'voucherNo')
-  $sql$, 'EXP-000002');
+  $sql$, 'EXP-02');
 -- A man who has been given nothing reads zero, not NULL and not an error: the
 -- screen has one shape whether or not he has ever received anything.
 SELECT probe.eq('spend', 'a member who received nothing reads a clean zero',
@@ -217,7 +217,7 @@ SELECT probe.eq('spend', '...and leaves the running total exactly where it was',
 -- function — a future RPC, a patch, an import.
 --
 -- Placed after the successful vouchers deliberately. A failed INSERT still
--- consumes an identity value, so running these earlier renumbered EXP-000001
+-- consumes an identity value, so running these earlier renumbered EXP-01
 -- out of existence and broke two checks that had nothing to do with shapes.
 SELECT probe.raises('spend', 'the TABLE itself refuses a MIXED row', $sql$
   INSERT INTO public.disbursements (amount, kind, category, payee_adeel_id,
@@ -394,12 +394,12 @@ SELECT probe.note('spend', 'an عديل sees the vouchers made out to him',
 SELECT probe.eq('spend', '...and NOTHING that is not his',
   $sql$ SELECT count(*)::text FROM public.disbursements
          WHERE payee_adeel_id IS DISTINCT FROM 1 $sql$, '0');
--- EXP-000001 was جماعي — spent on everybody, attributed to nobody, and still on
+-- EXP-01 was جماعي — spent on everybody, attributed to nobody, and still on
 -- the table. `payee_adeel_id = my_adeel_id()` is NULL for it, never true, which
 -- is what keeps a collective voucher out of every individual's page.
 SELECT probe.eq('spend', '...not the collective voucher, which belongs to all',
   $sql$ SELECT count(*)::text FROM public.disbursements
-         WHERE voucher_no = 'EXP-000001' $sql$, '0');
+         WHERE voucher_no = 'EXP-01' $sql$, '0');
 
 -- The same rule read through the function the screen actually calls. It is
 -- SECURITY INVOKER, so nothing here is a second implementation of the policy —

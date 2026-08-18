@@ -1,5 +1,6 @@
 import 'package:family_app/core/config/glass.dart';
 import 'package:family_app/core/config/theme.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/core/router/destinations.dart';
 import 'package:family_app/core/widgets/app_scaffold.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
@@ -50,7 +51,7 @@ class _StubAuth extends AuthController {
 
 AdeelListItem _adeel(int n) => AdeelListItem(
   id: n,
-  adeelCode: 'A-${n.toString().padLeft(4, '0')}',
+  adeelCode: 'A-${n.toString().padLeft(2, '0')}',
   fullName: 'العديل رقم $n',
   phone: '091000$n',
   age: 40,
@@ -77,7 +78,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: child,
     ),

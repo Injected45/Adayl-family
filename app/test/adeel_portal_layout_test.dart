@@ -1,5 +1,6 @@
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/directory/domain/models.dart';
@@ -31,7 +32,7 @@ class _StubAuth extends AuthController {
       role: AppRole.viewer,
       status: AccountStatus.approved,
       adeelId: 1,
-      adeelCode: 'A-0001',
+      adeelCode: 'A-01',
     ),
   );
 }
@@ -42,7 +43,7 @@ AdeelDetail _detail({
 }) => AdeelDetail.fromJson(<String, dynamic>{
   'adeel': <String, dynamic>{
     'id': 1,
-    'adeelCode': 'A-0001',
+    'adeelCode': 'A-01',
     'fullName': 'المهدي العدولي',
     'phone': '0910000000',
     'notes': '',
@@ -71,7 +72,7 @@ Map<String, dynamic> _due(String period, String status, String balance) =>
       'id': period.hashCode & 0xffff,
       'adeelId': 1,
       'adeelName': 'المهدي العدولي',
-      'adeelCode': 'A-0001',
+      'adeelCode': 'A-01',
       'period': period,
       'periodLabel': 'شهر $period',
       'periodEnd': '$period-28',
@@ -100,7 +101,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: const AdeelPortalScreen(),
     ),
@@ -185,7 +186,7 @@ void main() {
     // as its title while the hero grew one, which put the same three facts on
     // one short screen twice over.
     expect(find.text('المهدي العدولي'), findsOneWidget);
-    expect(find.text('A-0001'), findsOneWidget);
+    expect(find.text('A-01'), findsOneWidget);
   });
 
   testWidgets('the dues and the ledger never occupy the screen together', (
@@ -215,11 +216,16 @@ void main() {
     expect(find.text('شهر 2026-02'), findsNothing);
   });
 
-  testWidgets('identity is collapsed until asked for', (
+  testWidgets('his details open from his NAME, not from a panel at the foot', (
     WidgetTester tester,
   ) async {
-    // His phone number is confirmation, not information — he settled who he is
-    // when he redeemed the code. It stays reachable, just not first.
+    // There was a card at the bottom of the page carrying his phone, his
+    // registration date and the monthly fee — every one of which already sat in
+    // the المزيد sheet under a heading of that exact name. Two places, one set
+    // of facts, and the copy at the foot was the one nobody scrolled to.
+    //
+    // The name is the right door: a man looking for what the association holds
+    // ABOUT HIM reaches for his own name, not for a card below his ledger.
     await pump(
       tester,
       _detail(
@@ -230,13 +236,18 @@ void main() {
       ),
     );
 
-    expect(find.text(l.myDetailsTitle), findsOneWidget);
+    // Nothing at the foot, and his phone nowhere on the page.
+    expect(find.text(l.myDetailsTitle), findsNothing);
     expect(find.text('0910000000'), findsNothing);
 
-    await tester.tap(find.text(l.myDetailsTitle));
+    await tester.tap(find.text('المهدي العدولي'));
     await tester.pumpAndSettle();
 
+    // The sheet, opening on his own details.
+    expect(find.text(l.myDetailsTitle), findsOneWidget);
     expect(find.text('0910000000'), findsOneWidget);
+    // And the registration date, which was the panel's other reason to exist.
+    expect(find.text('1 يناير 2026'), findsOneWidget);
   });
 
   testWidgets('the ledger fits a Galaxy Note 10 with no sideways scroll', (
@@ -547,7 +558,7 @@ void main() {
           ),
           StatementMovement(
             date: '2026-01-20',
-            reference: 'PAY-000001',
+            reference: 'PAY-01',
             type: 'دفعة',
             debit: null,
             credit: '40.00',
@@ -574,6 +585,6 @@ void main() {
 
     // And the payment line says what it WAS, not the number the bank gave it.
     expect(find.text('تحويل مصرفي'), findsOneWidget);
-    expect(find.text('PAY-000001'), findsNothing);
+    expect(find.text('PAY-01'), findsNothing);
   });
 }

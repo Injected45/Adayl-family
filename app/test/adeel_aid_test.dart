@@ -1,5 +1,8 @@
+import 'package:family_app/core/config/glass.dart';
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
+import 'package:family_app/core/widgets/app_background.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/finance/domain/models.dart';
@@ -25,10 +28,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// layout that puts «ما صُرف له» beside «ما عليه» invites the reader to subtract
 /// even when the database never does.
 ///
-/// So what is pinned here is the presentation: the page states the rule, the
-/// running total comes off the server rather than being accumulated in Dart, a
-/// reversed line stays visible without moving the balance, and the search box
-/// filters rows without touching a figure.
+/// So what is pinned here is the presentation: the running total comes off the
+/// server rather than being accumulated in Dart, a reversed line stays visible
+/// without moving the balance, the search box filters rows without touching a
+/// figure, and the page opens on figures rather than on an explanation.
 
 class _StubAuth extends AuthController {
   _StubAuth(this.role);
@@ -60,13 +63,13 @@ AidLedgerEntry _entry({
   runningTotal: runningTotal,
   voucher: DisbursementView(
     id: id,
-    voucherNo: 'EXP-${id.toString().padLeft(6, '0')}',
+    voucherNo: 'EXP-${id.toString().padLeft(2, '0')}',
     amount: amount,
     kind: 'لمشترك',
     category: category,
     payeeName: 'محمد العدولي',
     payeeAdeelId: 1,
-    payeeCode: 'A-0001',
+    payeeCode: 'A-01',
     method: 'نقداً',
     status: status,
     spentAt: spentAt,
@@ -105,7 +108,7 @@ AdeelAid _aid({
   List<AidLedgerEntry>? ledger,
 }) => AdeelAid(
   adeelId: 1,
-  adeelCode: 'A-0001',
+  adeelCode: 'A-01',
   adeelName: 'محمد العدولي',
   total: total,
   count: count,
@@ -135,7 +138,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: AdeelAidScreen(adeelId: 1, mine: mine),
     ),
@@ -162,7 +165,7 @@ void main() {
     // one row parses into both halves of AidLedgerEntry.
     final AdeelAid aid = AdeelAid.fromJson(<String, dynamic>{
       'adeelId': 1,
-      'adeelCode': 'A-0001',
+      'adeelCode': 'A-01',
       'adeelName': 'محمد العدولي',
       'total': '600.00',
       'count': 2,
@@ -177,13 +180,13 @@ void main() {
       'vouchers': <dynamic>[
         <String, dynamic>{
           'id': 7,
-          'voucherNo': 'EXP-000007',
+          'voucherNo': 'EXP-07',
           'amount': '100.00',
           'kind': 'لمشترك',
           'category': 'مولود',
           'payeeAdeelId': 1,
           'payeeName': 'محمد العدولي',
-          'payeeCode': 'A-0001',
+          'payeeCode': 'A-01',
           'method': 'نقداً',
           'reference': '',
           'bankName': '',
@@ -202,7 +205,7 @@ void main() {
     expect(aid.count, 2);
     expect(aid.byCategory.single.category, 'فرح');
     expect(aid.byYear.single.year, '2026');
-    expect(aid.ledger.single.voucher.voucherNo, 'EXP-000007');
+    expect(aid.ledger.single.voucher.voucherNo, 'EXP-07');
     expect(aid.ledger.single.runningTotal, '100.00');
     // Money is the exact decimal STRING the server sent, never a double. It is
     // asserted rather than assumed because a `num` here would round the
@@ -214,7 +217,7 @@ void main() {
   test('a member who has received nothing is a clean zero, not a blank', () {
     final AdeelAid none = AdeelAid.fromJson(<String, dynamic>{
       'adeelId': 4,
-      'adeelCode': 'A-0004',
+      'adeelCode': 'A-04',
       'adeelName': 'علي العدولي',
       'total': '0.00',
       'count': 0,
@@ -243,24 +246,29 @@ void main() {
     );
     expect(e.haystack, contains('مولود'));
     expect(e.haystack, contains('ولادة'));
-    expect(e.haystack, contains('exp-000001'));
+    expect(e.haystack, contains('exp-01'));
   });
 
   // ── The screen ────────────────────────────────────────────────────────────
 
-  testWidgets('the page says aid is NOT deducted from his subscription', (
+  testWidgets('the page opens on figures, not on an explanation', (
     WidgetTester tester,
   ) async {
-    // The whole reason this is a separate screen. Every other money surface in
-    // the app shows a figure that nets against another figure, and a reader
-    // arriving with that habit will subtract this total from his debt unless
-    // told plainly that the association does not.
-    await open(tester, _aid());
+    // This page carried a paragraph at the top explaining that aid is not
+    // deducted from a subscription. The association removed it: that rule was
+    // explained to the developer, not to the member, and a man opening his own
+    // record wants the figures.
+    //
+    // Pinned so it does not come back as "a helpful note". The rule itself is
+    // untouched and is not this screen's to keep — a voucher writes no
+    // receivable and no payment, and supabase/tests/67_disbursement.sql proves
+    // the statement cannot show one, as staff and as the member himself.
+    await open(tester, _aid(), mine: true);
 
-    expect(find.text(l.aidNotDeductedNote), findsOneWidget);
-    // And the other half of the rule: a collective voucher belongs to nobody,
-    // so its absence here is deliberate rather than an omission.
-    expect(find.text(l.aidCollectiveNote), findsOneWidget);
+    expect(find.textContaining('خيرية'), findsNothing);
+    expect(find.textContaining('لا يُخصم'), findsNothing);
+    // What IS at the top: his total.
+    expect(find.text(l.aidGrandTotal), findsWidgets);
   });
 
   testWidgets('100 then 500 reads 100 then 600', (WidgetTester tester) async {
@@ -274,6 +282,24 @@ void main() {
     // 600 appears twice: on the last ledger line and in the closing total.
     expect(find.text(formatMoney('600.00')), findsWidgets);
     expect(find.text(l.aidGrandTotal), findsWidgets);
+  });
+
+  testWidgets('dates read in Latin digits, as they do everywhere else', (
+    WidgetTester tester,
+  ) async {
+    // formatDate was DateFormat.yMd('ar'), which renders ٢٠٢٦/٠٢/١٠ — and that
+    // made the app disagree with ITSELF: every date arriving as a plain string
+    // from SQL (registeredAt, the year inside «يناير 2026») is already Latin,
+    // because Postgres wrote it with to_char. Two dates on one page could be in
+    // two scripts.
+    //
+    // `yyyy-MM-dd` is the shape those SQL strings already have, so every date in
+    // the app now reads the same wherever it came from. Money keeps its
+    // Arabic-Indic digits — that was never the inconsistent part.
+    await open(tester, _aid());
+
+    expect(find.text('10 فبراير 2026'), findsOneWidget);
+    expect(find.text('20 يونيو 2026'), findsOneWidget);
   });
 
   testWidgets('the running total is the SERVER\'s, never re-added here', (
@@ -357,19 +383,50 @@ void main() {
   testWidgets('the search box filters rows and says how many are shown', (
     WidgetTester tester,
   ) async {
-    await open(tester, _aid());
-    expect(find.text('مولود'), findsWidgets);
-    expect(find.text('فرح'), findsWidgets);
+    // Two births, told apart only by WHOSE — which is exactly the case the note
+    // exists for, and the reason the box searches it even though it is folded
+    // away on screen. One heading, so no breakdown panel to confuse the counts.
+    final AdeelAid twoBirths = _aid(
+      total: '600.00',
+      count: 2,
+      byCategory: const <ExpenseByCategory>[
+        ExpenseByCategory(category: 'مولود', total: '600.00', count: 2),
+      ],
+      ledger: <AidLedgerEntry>[
+        _entry(
+          id: 1,
+          amount: '100.00',
+          runningTotal: '100.00',
+          note: 'حور',
+        ),
+        _entry(
+          id: 2,
+          amount: '500.00',
+          runningTotal: '600.00',
+          note: 'سند',
+          spentAt: '2026-06-20T09:00:00Z',
+        ),
+      ],
+    );
 
-    await tester.enterText(find.byType(TextField), 'زواج');
+    await open(tester, twoBirths);
+    expect(find.text(formatMoney('100.00')), findsWidgets);
+    expect(find.text(formatMoney('500.00')), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'حور');
     await tester.pumpAndSettle();
 
-    // The note matched, so the wedding line survives and the birth is hidden.
-    expect(find.text('EXP-000002 • زواج'), findsOneWidget);
-    expect(find.textContaining('ولادة'), findsNothing);
-    // And the reader is told the table is narrowed — without it the running
-    // total, which still belongs to the WHOLE history, looks like it skipped.
+    // The FOLDED note matched: the line survives although its text is not on
+    // screen, which is the whole point of searching the record rather than the
+    // pixels.
+    expect(find.text(formatMoney('100.00')), findsWidgets);
+    expect(find.text(formatMoney('500.00')), findsNothing);
+    // And the reader is told the table is narrowed — without it the الإجمالي
+    // column, which still belongs to the WHOLE history, looks like it skipped.
     expect(find.text(l.aidShowing(1, 2)), findsOneWidget);
+    // The headline total does NOT move: a search hides rows, it does not change
+    // what the association gave him.
+    expect(find.text(formatMoney('600.00')), findsWidgets);
   });
 
   testWidgets('a search that matches nothing says so', (
@@ -380,8 +437,129 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(l.aidNoMatch), findsOneWidget);
-    // The rule still shows above it: an empty result is not an empty page.
-    expect(find.text(l.aidNotDeductedNote), findsOneWidget);
+    // ...and the total above it is untouched: a search narrows the table, it
+    // does not change what the association gave him.
+    expect(find.text(formatMoney('600.00')), findsWidgets);
+  });
+
+  testWidgets('a line keeps its note folded away until it is tapped', (
+    WidgetTester tester,
+  ) async {
+    // The table must stay a table. A note is prose of unknown length — «حور» is
+    // short, a paragraph about a hospital in Tunis is not — and one long note
+    // under every row pushes the rest of a member's years off the screen.
+    //
+    // So the line is one line, and the detail opens beneath it on a tap:
+    // «نوع الصرف: مولود، الملاحظات: حور». The heading says what kind of
+    // occasion; the note says WHOSE, and he is the only person who can verify
+    // that the record is right.
+    final AdeelAid one = _aid(
+      ledger: <AidLedgerEntry>[
+        _entry(
+          id: 1,
+          amount: '100.00',
+          runningTotal: '100.00',
+          category: 'مولود',
+          note: 'حور',
+        ),
+      ],
+      count: 1,
+      total: '100.00',
+      // One voucher, one heading — so no breakdown panel, and «مولود» in this
+      // test can only be the ledger's own cell.
+      byCategory: const <ExpenseByCategory>[
+        ExpenseByCategory(category: 'مولود', total: '100.00', count: 1),
+      ],
+    );
+
+    await open(tester, one, mine: true);
+
+    // Closed: the heading is on the line, the note is nowhere.
+    expect(find.text('مولود'), findsOneWidget);
+    expect(find.text('حور'), findsNothing);
+
+    await tester.tap(find.text('مولود'));
+    await tester.pumpAndSettle();
+
+    // Open: the note, under its own label, with room to wrap.
+    expect(find.text('حور'), findsOneWidget);
+    expect(find.text(l.aidNoteLabel), findsOneWidget);
+    // ...and the rest of what the voucher was.
+    expect(find.text('EXP-01'), findsOneWidget);
+    expect(find.text(l.expenseCategory), findsOneWidget);
+
+    // Tapping again folds it back.
+    await tester.tap(find.text('مولود').first);
+    await tester.pumpAndSettle();
+    expect(find.text('حور'), findsNothing);
+  });
+
+  testWidgets('the breakdown shows to the member too, not just to staff', (
+    WidgetTester tester,
+  ) async {
+    // «كم صُرف لي في العزاء عبر السنين» is a question a long ledger does not
+    // answer by being read row by row, and it is as much the member's question
+    // as the association's. The panel was briefly staff-only; the association
+    // asked for it on his screen as well.
+    await open(tester, _aid(), mine: true);
+    expect(find.text(l.aidByCategory), findsOneWidget);
+  });
+
+  testWidgets('...and it says it is a GROUPING, not a second disbursement', (
+    WidgetTester tester,
+  ) async {
+    // The reason the panel was doubted in the first place: «مولود 100» appears
+    // in it and «مولود 100» again in the ledger below, which reads as the same
+    // voucher recorded twice. The sentence under it is what settles that, and
+    // it is the reason the panel could come back rather than stay hidden.
+    await open(tester, _aid(), mine: true);
+    expect(find.text(l.aidBreakdownNote), findsOneWidget);
+
+    // Both readers get the same page. `mine` changes the voice and nothing else.
+    await open(tester, _aid());
+    expect(find.text(l.aidByCategory), findsOneWidget);
+    expect(find.text(l.aidBreakdownNote), findsOneWidget);
+  });
+
+  testWidgets('the total and the vouchers share ONE container', (
+    WidgetTester tester,
+  ) async {
+    // They were two — a headline card above a ledger panel — and read as two
+    // separate things when they are one answer to one question. The search sits
+    // above that container and outside it, because it is a control acting on
+    // what follows rather than another row of the record.
+    await open(tester, _aid(), mine: true);
+
+    final Finder panel = find.ancestor(
+      of: find.text(l.aidPanelTitle),
+      matching: find.byType(GlassPanel),
+    );
+    expect(panel, findsOneWidget);
+    expect(
+      find.descendant(of: panel, matching: find.text(l.aidGrandTotal)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: panel, matching: find.text(l.aidColDate)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: panel, matching: find.byType(TextField)),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the member\'s screen paints the app background', (
+    WidgetTester tester,
+  ) async {
+    // Not decoration. `scaffoldBackgroundColor` is transparent app-wide and
+    // every surface here is translucent WHITE, so a bare Scaffold gives them
+    // black to composite over: the search box rendered as a dark slab with
+    // unreadable text in it, and the panels lost their glass. Staff never saw it
+    // because AppScaffold wraps itself in this; the member's branch builds its
+    // own Scaffold and has to do it too.
+    await open(tester, _aid(), mine: true);
+    expect(find.byType(AppBackground), findsOneWidget);
   });
 
   testWidgets('the member reads it in his own voice', (
@@ -424,8 +602,8 @@ void main() {
     );
 
     expect(find.text(l.noAid), findsOneWidget);
-    // The rule still shows: "nothing yet" is exactly when a reader wonders
-    // whether aid would have come off his dues.
-    expect(find.text(l.aidNotDeductedNote), findsOneWidget);
+    // A sentence and nothing else — no empty table, no zero-row ledger, and no
+    // search box over nothing.
+    expect(find.byType(TextField), findsNothing);
   });
 }

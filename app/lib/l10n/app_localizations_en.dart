@@ -356,10 +356,6 @@ class LEn extends L {
   String get notAssigned => 'Not set';
 
   @override
-  String get paymentsIntro =>
-      'Each payment is applied to the oldest receivables first, and posted to the treasury in the same instant.';
-
-  @override
   String get noPayments => 'No payments recorded yet';
 
   @override
@@ -486,10 +482,6 @@ class LEn extends L {
   String get expenseByCategory => 'Spend by heading';
 
   @override
-  String get disbursementsIntro =>
-      'Every disbursement is deducted from the association\'s balance immediately, and none may exceed what the treasury holds.';
-
-  @override
   String overTreasuryBalance(String amount) {
     return 'The treasury holds only $amount';
   }
@@ -529,7 +521,7 @@ class LEn extends L {
   String get aidColAmount => 'Amount';
 
   @override
-  String get aidColRunning => 'Running total';
+  String get aidColRunning => 'Total';
 
   @override
   String get aidGrandTotal => 'Total paid';
@@ -543,8 +535,19 @@ class LEn extends L {
   }
 
   @override
-  String get aidRunningNote =>
-      'The running total accumulates oldest to newest across the whole history. A reversed voucher stays listed and moves nothing.';
+  String get disbursementNoteHint =>
+      'Name of the newborn, or whose occasion it was';
+
+  @override
+  String get disbursementNoteHelp =>
+      'This note appears on the member\'s statement beside the heading, so it is known what the money was for.';
+
+  @override
+  String get aidNoteLabel => 'Notes';
+
+  @override
+  String get aidBreakdownNote =>
+      'A grouping of the vouchers listed below, not further disbursements.';
 
   @override
   String get openAid => 'Aid history';
@@ -570,6 +573,9 @@ class LEn extends L {
   String get aidVouchers => 'Vouchers';
 
   @override
+  String get aidPanelTitle => 'Paid to the member';
+
+  @override
   String aidVoucherCount(int count) {
     return '$count voucher(s)';
   }
@@ -579,18 +585,6 @@ class LEn extends L {
 
   @override
   String get noMyAid => 'Nothing has been paid to you yet';
-
-  @override
-  String get aidNotDeductedNote =>
-      'The association is charitable: aid paid to a member is NOT deducted from his subscription and never appears in his statement. The statement covers monthly subscriptions and what has been paid against them, and nothing else.';
-
-  @override
-  String get aidCollectiveNote =>
-      'Collective spending — an iftar, for instance — is attributed to no individual, so it does not appear here. Its value is part of the association\'s total outgoings.';
-
-  @override
-  String get cashIntro =>
-      'Every approved collection appears here automatically.';
 
   @override
   String get totalCollected => 'Total collected';
@@ -603,6 +597,9 @@ class LEn extends L {
 
   @override
   String get dueFromMembers => 'Due from members';
+
+  @override
+  String get totalOutstanding => 'Total outstanding';
 
   @override
   String get associationBalance => 'Association balance';
@@ -727,10 +724,6 @@ class LEn extends L {
 
   @override
   String get periodBlockedNote => 'Close the earlier month first';
-
-  @override
-  String get alertsIntro =>
-      'Age, balance and payment matters needing follow-up.';
 
   @override
   String get noAlerts => 'No alerts at the moment';

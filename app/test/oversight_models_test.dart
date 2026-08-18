@@ -20,7 +20,7 @@ void main() {
         'topDebtors': <dynamic>[
           <String, dynamic>{
             'adeelId': 1,
-            'adeelCode': 'A-0001',
+            'adeelCode': 'A-01',
             'adeelName': 'محمد',
             'debt': '45.00',
           },
@@ -31,7 +31,7 @@ void main() {
 
       expect(data.stats.adeels, 6);
       expect(data.stats.debt, '75.00');
-      expect(data.topDebtors.single.adeelCode, 'A-0001');
+      expect(data.topDebtors.single.adeelCode, 'A-01');
       expect(data.closingPeriod, '2026-07');
     });
 

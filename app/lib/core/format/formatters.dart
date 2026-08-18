@@ -1,11 +1,28 @@
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-/// Matches the prototype's `Intl.NumberFormat("ar-LY", {minimumFractionDigits:2,
-/// maximumFractionDigits:2})` (index.html:104), so amounts render with the same
-/// Arabic-Indic digits and separators the association already reads.
+/// ── EVERY FIGURE IN THIS APP IS IN LATIN DIGITS ─────────────────────────────
+///
+/// `en`, and it is worth being exact about why, because the obvious reason is
+/// wrong. This was `ar_LY`, matching the prototype's
+/// `Intl.NumberFormat("ar-LY", …)` (index.html:104) — and it ALSO printed
+/// 1,234.56. intl carries no `ar_LY` data at all, so it fell back to `ar`, whose
+/// number symbols already hold `ZERO_DIGIT: '0'`. **Money in this app was never
+/// Arabic-Indic**, and changing this line changed no pixel.
+///
+/// What genuinely WAS Arabic-Indic is dates, for an unrelated reason — see the
+/// DateFormats below. `en` is kept here because it is explicit: it names the
+/// separators these screens use ('.' and ',') rather than arriving at them
+/// through a locale that does not exist and a fallback nobody would think to
+/// look for.
+///
+/// ⚠ INPUT is a different problem and is NOT solved here. The app forces the
+///   `ar` locale, so the keyboard still offers ٠١٢٣٤٥٦٧٨٩ and a treasurer
+///   typing a fee still produces them. [ArabicDigitsFormatter] below folds
+///   those to ASCII as they are typed, and it is still required on every
+///   numeric field.
 final NumberFormat _moneyFormat = NumberFormat.decimalPatternDigits(
-  locale: 'ar_LY',
+  locale: 'en',
   decimalDigits: 2,
 );
 
@@ -20,8 +37,26 @@ String formatMoney(String? decimal) {
 String formatMoneyWithCurrency(String? decimal, String currency) =>
     '${formatMoney(decimal)} $currency';
 
-final DateFormat _dayFormat = DateFormat.yMd('ar');
-final DateFormat _dateTimeFormat = DateFormat.yMd('ar').add_Hm();
+/// ── ARABIC MONTHS, LATIN DIGITS: «10 فبراير 2026» ───────────────────────────
+///
+/// How Libya writes a date, and what the association asked for in as many
+/// words. The two halves come from one locale and Flutter offers no switch
+/// between them — the fix is in `core/l10n/latin_digit_localizations.dart`, and
+/// it is upstream of this file: `GlobalMaterialLocalizations` installs Flutter's
+/// own date symbols for `ar`, which carry `ZERODIGIT: '٠'`, and from that ONE
+/// field intl derives every digit it prints for the locale. That is what turned
+/// these formatters Arabic-Indic inside the app while a bare test showed them
+/// Latin.
+///
+/// So the locale here is `ar` on purpose and stays that way: the month names
+/// have to come from somewhere, and hard-coding twelve of them in a formatter
+/// would put user-facing Arabic outside its two homes for no gain.
+///
+/// This was briefly `yyyy-MM-dd`, on the theory that the digits were the problem
+/// and a numeric pattern sidestepped them. It did — by removing the month name
+/// as well, which is the half the association actually wanted in Arabic.
+final DateFormat _dayFormat = DateFormat('d MMMM y', 'ar');
+final DateFormat _dateTimeFormat = DateFormat('d MMMM y', 'ar').add_Hm();
 
 String formatDate(String? iso) {
   if (iso == null || iso.isEmpty) return '';

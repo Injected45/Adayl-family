@@ -206,11 +206,19 @@ class AdeelDetailScreen extends ConsumerWidget {
                   runSpacing: AppSpacing.lg,
                   children: <Widget>[
                     LabelledValue(label: l.phone, value: adeel.phone),
-                    LabelledValue(label: l.dateOfBirth, value: adeel.dob),
-                    LabelledValue(
-                      label: l.age,
-                      value: adeel.age == null ? '' : l.ageYears(adeel.age!),
-                    ),
+                    // ── NO DATE OF BIRTH, AND NO AGE ────────────────────────
+                    // The association stopped collecting either. Age decided
+                    // nothing about billing even before this — membership
+                    // status is the only thing that gates a charge — so the
+                    // fields were carrying a fact the register had no use for.
+                    //
+                    // The COLUMN is still in the database and still holds every
+                    // date already entered. Nothing writes it any more (the
+                    // form omits the key, and save_adeel leaves an absent key
+                    // alone rather than nulling it), and nothing reads it. That
+                    // is deliberate: dropping the column would erase what the
+                    // association typed, and it can be dropped later on purpose
+                    // if they decide the dates are not wanted at all.
                     LabelledValue(
                       label: l.registeredAt,
                       value: adeel.registeredAt,

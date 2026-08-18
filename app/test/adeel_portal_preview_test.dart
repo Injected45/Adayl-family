@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:family_app/core/config/theme.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/directory/domain/models.dart';
@@ -47,7 +48,7 @@ class _StubAuth extends AuthController {
       role: AppRole.viewer,
       status: AccountStatus.approved,
       adeelId: 1,
-      adeelCode: 'A-0001',
+      adeelCode: 'A-01',
     ),
   );
 }
@@ -109,7 +110,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: const AdeelPortalScreen(),
     ),

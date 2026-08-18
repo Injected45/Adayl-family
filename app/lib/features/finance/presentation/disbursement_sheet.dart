@@ -431,10 +431,25 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     decoration: InputDecoration(labelText: l.handedBy),
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  // ── The note is what makes a line READABLE years later ─────
+                  // The heading says «مولود»; the note says whose birth. On the
+                  // member's own statement that is the difference between "100
+                  // for a birth" and "100 when حور was born" — and he is the one
+                  // person who can tell whether the record is right.
+                  //
+                  // A hint rather than a required field: an admin recording an
+                  // urgent payment at speed must not be blocked by a box, and
+                  // the heading alone is still a true record. The hint is there
+                  // so he knows what belongs in it when he does have a moment.
                   TextField(
                     controller: _note,
                     maxLines: 2,
-                    decoration: InputDecoration(labelText: l.notesField),
+                    decoration: InputDecoration(
+                      labelText: l.notesField,
+                      hintText: l.disbursementNoteHint,
+                      helperText: l.disbursementNoteHelp,
+                      helperMaxLines: 2,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
 

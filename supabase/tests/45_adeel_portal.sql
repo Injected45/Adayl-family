@@ -233,7 +233,7 @@ SELECT probe.eq('portal', 'he sees only his own profile row',
 -- own row answers, another عديل returns nothing at all.
 SELECT probe.eq('portal', 'api_adeel_detail answers for himself',
   $sql$ SELECT public.api_adeel_detail(1) -> 'adeel' ->> 'adeelCode' $sql$,
-  'A-0001');
+  'A-01');
 SELECT probe.eq('portal', 'api_adeel_detail is null for another عديل',
   $sql$ SELECT coalesce((public.api_adeel_detail(2))::text, 'null') $sql$, 'null');
 SELECT probe.eq('portal', 'his statement has his own movements',

@@ -1,5 +1,6 @@
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/directory/domain/models.dart';
@@ -40,7 +41,7 @@ class _Auth extends AuthController {
       role: AppRole.viewer,
       status: AccountStatus.approved,
       adeelId: 1,
-      adeelCode: 'A-0001',
+      adeelCode: 'A-01',
       deviceLocked: locked,
     ),
   );
@@ -49,7 +50,7 @@ class _Auth extends AuthController {
 AdeelDetail _detail() => AdeelDetail.fromJson(<String, dynamic>{
   'adeel': <String, dynamic>{
     'id': 1,
-    'adeelCode': 'A-0001',
+    'adeelCode': 'A-01',
     'fullName': 'المهدي العدولي',
     'phone': '0910000000',
     'notes': '',
@@ -94,7 +95,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: const AdeelPortalScreen(),
     ),
@@ -133,7 +134,7 @@ void main() {
     await tester.pumpWidget(app(locked: true));
     await tester.pumpAndSettle();
 
-    expect(find.text('A-0001'), findsOneWidget);
+    expect(find.text('A-01'), findsOneWidget);
   });
 
   testWidgets('the right handset sees the portal exactly as before', (
@@ -181,7 +182,7 @@ void _walletTests() {
   }) => AdeelDetail.fromJson(<String, dynamic>{
     'adeel': <String, dynamic>{
       'id': 1,
-      'adeelCode': 'A-0001',
+      'adeelCode': 'A-01',
       'fullName': 'المهدي العدولي',
       'phone': '0910000000',
       'notes': '',
@@ -222,7 +223,7 @@ void _walletTests() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: const AdeelPortalScreen(),
     ),
@@ -368,7 +369,7 @@ void _moreSheetTests() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: const AdeelPortalScreen(),
     ),

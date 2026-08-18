@@ -185,7 +185,7 @@ void main() {
       expect(adeels, hasLength(4));
 
       final AdeelListItem first = adeels.firstWhere(
-        (AdeelListItem a) => a.adeelCode == 'A-0001',
+        (AdeelListItem a) => a.adeelCode == 'A-01',
       );
       expect(first.fullName, 'العديل الأول');
       // One flat rate, and it is what he would be charged today.
@@ -197,18 +197,18 @@ void main() {
         'adeels.json',
       ).map(AdeelListItem.fromJson).toList();
 
-      // THE assertion that pins the whole model change. A-0002 is seven years
+      // THE assertion that pins the whole model change. A-02 is seven years
       // old in the fixture and has been billed exactly like the 51-year-old, so
       // no age gate survives anywhere between the settings table and this model.
       final AdeelListItem child = adeels.firstWhere(
-        (AdeelListItem a) => a.adeelCode == 'A-0002',
+        (AdeelListItem a) => a.adeelCode == 'A-02',
       );
       expect(child.age, lessThan(16));
       expect(child.monthlyExpected, '20.00');
       expect(child.issued, isNot('0.00'));
 
       // And the two who are not نشط were charged nothing, whatever their age.
-      for (final String code in <String>['A-0003', 'A-0004']) {
+      for (final String code in <String>['A-03', 'A-04']) {
         final AdeelListItem inactive = adeels.firstWhere(
           (AdeelListItem a) => a.adeelCode == code,
         );
@@ -221,7 +221,7 @@ void main() {
     test('adeel detail parses its nested adeel/kpis/receivables', () {
       final AdeelDetail d = AdeelDetail.fromJson(_obj('adeel_detail.json'));
       expect(d.adeel.id, 1);
-      expect(d.adeel.adeelCode, 'A-0001');
+      expect(d.adeel.adeelCode, 'A-01');
       expect(d.adeel.fullName, 'العديل الأول');
       // 40 issued across two periods, 30 collected, so 10 outstanding.
       expect(d.issued, '40.00');
@@ -275,7 +275,7 @@ void main() {
     test('the aid page parses, and is a SEPARATE answer from the statement', () {
       final AdeelAid aid = AdeelAid.fromJson(_obj('adeel_aid.json'));
 
-      expect(aid.adeelCode, 'A-0001');
+      expect(aid.adeelCode, 'A-01');
       expect(aid.count, greaterThan(0));
       expect(aid.byCategory, isNotEmpty);
       expect(aid.ledger, isNotEmpty);
@@ -439,7 +439,7 @@ void main() {
       // nobody RECEIVES فطور رمضان the way a member receives aid, so there is
       // no payee at all rather than an invented name.
       final DisbursementView collective = vouchers.firstWhere(
-        (DisbursementView v) => v.voucherNo == 'EXP-000001',
+        (DisbursementView v) => v.voucherNo == 'EXP-01',
       );
       expect(collective.isForMember, isFalse);
       expect(collective.category, 'فطور رمضان');
@@ -455,13 +455,13 @@ void main() {
       // لمشترك — a named man, and NO heading: he is the heading. The name comes
       // off HIS row, never off the client.
       final DisbursementView member = vouchers.firstWhere(
-        (DisbursementView v) => v.voucherNo == 'EXP-000002',
+        (DisbursementView v) => v.voucherNo == 'EXP-02',
       );
       expect(member.isForMember, isTrue);
       expect(member.category, 'مولود');
       expect(member.payeeAdeelId, 1);
       expect(member.payeeName, 'العديل الأول');
-      expect(member.payeeCode, 'A-0001');
+      expect(member.payeeCode, 'A-01');
       expect(member.bankName, 'المصرف التجاري الوطني');
       expect(member.subject, 'العديل الأول');
 

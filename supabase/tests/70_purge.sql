@@ -27,7 +27,7 @@
 --     chosen over DISABLE TRIGGER + DELETE precisely so no path can leave them
 --     off, and this is the assertion that pins that choice;
 --   * the identities restarted, so the association's first real receipt is
---     PAY-000001 rather than a continuation of the trial run's numbering. That
+--     PAY-01 rather than a continuation of the trial run's numbering. That
 --     is the whole reason a purge was wanted instead of cancelling every payment.
 
 SET client_min_messages = warning;
@@ -123,9 +123,9 @@ SELECT probe.become('00000000-0000-0000-0000-0000000000a3');  -- treasurer
 SELECT probe.succeeds('purge', 'collection works again after a purge',
   $sql$ SELECT public.register_payment(1, 20.00, 'نقداً') $sql$);
 RESET ROLE;
-SELECT probe.eq('purge', 'RESTART IDENTITY: the first receipt is PAY-000001',
+SELECT probe.eq('purge', 'RESTART IDENTITY: the first receipt is PAY-01',
   $sql$ SELECT receipt_no FROM public.payments ORDER BY id LIMIT 1 $sql$,
-  'PAY-000001');
+  'PAY-01');
 
 -- ═════ The guards are still armed ════════════════════════════════════════════
 -- TRUNCATE fires no BEFORE DELETE trigger, so it never had to disarm these. If
@@ -229,12 +229,12 @@ SELECT probe.eq('purge_all', 'and no portal profile is left pointing at nothing'
          WHERE adeel_id IS NOT NULL $sql$, '0');
 
 -- RESTART IDENTITY reaches adeels too, so the association's first real عديل is
--- A-0001 rather than a continuation of the trial run's codes.
+-- A-01 rather than a continuation of the trial run's codes.
 SELECT probe.succeeds('purge_all', 'an عديل can be created again after the purge',
   $sql$ INSERT INTO public.adeels (full_name, registered_at)
         VALUES ('العديل الأول بعد المسح', current_date) $sql$);
-SELECT probe.eq('purge_all', 'RESTART IDENTITY: the first عديل is A-0001',
-  $sql$ SELECT adeel_code FROM public.adeels ORDER BY id LIMIT 1 $sql$, 'A-0001');
+SELECT probe.eq('purge_all', 'RESTART IDENTITY: the first عديل is A-01',
+  $sql$ SELECT adeel_code FROM public.adeels ORDER BY id LIMIT 1 $sql$, 'A-01');
 
 SELECT probe.eq('purge_all', 'anon cannot reach the wider purge either',
   $sql$ SELECT has_function_privilege('anon',

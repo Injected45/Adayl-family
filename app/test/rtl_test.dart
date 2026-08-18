@@ -1,3 +1,4 @@
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/core/widgets/state_views.dart';
 import 'package:family_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
   locale: const Locale('ar'),
-  localizationsDelegates: L.localizationsDelegates,
+  localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
   supportedLocales: L.supportedLocales,
   home: child,
 );
@@ -59,7 +60,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
-        localizationsDelegates: L.localizationsDelegates,
+        localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
         supportedLocales: L.supportedLocales,
         home: ErrorStateView(message: 'boom', onRetry: () {}),
       ),

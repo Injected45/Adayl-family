@@ -301,8 +301,6 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
             data: (Statement data) => _Ledger(statement: data, detail: detail),
           ),
 
-        const SizedBox(height: AppSpacing.xl),
-        _IdentityPanel(detail: detail),
       ],
     );
   }
@@ -809,61 +807,93 @@ class _BalanceHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          // ── Whose statement this is ──────────────────────────────────────
-          Row(
-            children: <Widget>[
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.brandSoft,
-                  borderRadius: BorderRadius.circular(AppRadius.chip),
-                ),
-                child: Text(
-                  adeel.fullName.characters.take(1).toString(),
-                  style: const TextStyle(
-                    fontFamily: AppFonts.display,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.brandDeep,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      adeel.fullName,
-                      // Two lines then ellipsis: a long Libyan name on a 360dp
-                      // phone must not push the status badge off the card, and
-                      // must not be silently truncated at one line either.
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+          // ── Whose statement this is, and the way into his own details ────
+          // TAPPING THE NAME opens «تفاصيل اشتراكي». There used to be a panel
+          // at the foot of the page carrying his phone, his registration date
+          // and the monthly fee — and every one of those already sat in the
+          // المزيد sheet, under a heading of that exact name. Two places, one
+          // set of facts, and the copy at the foot was the one nobody scrolled
+          // to.
+          //
+          // So the panel is gone and the name is the door. It is the right
+          // door: a man looking for what the association holds ABOUT HIM
+          // reaches for his own name, not for a card below his ledger.
+          InkWell(
+            onTap: () => _showPortalMore(context, adeel.id),
+            borderRadius: BorderRadius.circular(AppRadius.control),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.brandSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.chip),
+                    ),
+                    child: Text(
+                      adeel.fullName.characters.take(1).toString(),
                       style: const TextStyle(
-                        fontSize: 17,
-                        height: 1.25,
+                        fontFamily: AppFonts.display,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        color: AppColors.brandDeep,
                       ),
                     ),
-                    Text(
-                      adeel.adeelCode,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.muted,
-                      ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          adeel.fullName,
+                          // Two lines then ellipsis: a long Libyan name on a
+                          // 360dp phone must not push the status badge off the
+                          // card, and must not be silently truncated at one
+                          // line either.
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            height: 1.25,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(
+                              adeel.adeelCode,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            // The affordance. A name that opens something and
+                            // does not say so is a feature nobody finds, and
+                            // this one is now the ONLY way to his details.
+                            const Icon(
+                              Icons.info_outline,
+                              size: 13,
+                              color: AppColors.muted,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  // The status the database stores, verbatim — what he reads
+                  // here and what the treasurer reads cannot diverge.
+                  StatusBadge(label: adeel.membershipStatus, tone: statusTone),
+                ],
               ),
-              const SizedBox(width: AppSpacing.sm),
-              // The status the database stores, verbatim — what he reads here
-              // and what the treasurer reads cannot diverge.
-              StatusBadge(label: adeel.membershipStatus, tone: statusTone),
-            ],
+            ),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
@@ -1033,89 +1063,6 @@ class _StripOperator extends StatelessWidget {
           color: AppColors.muted,
         ),
       ),
-    );
-  }
-}
-
-/// Who he is — collapsed, because it is confirmation rather than information.
-///
-/// He established this the moment he redeemed his access code. Keeping it open
-/// at the top of every visit spends the most valuable part of the screen on a
-/// question he has already answered, which is most of what made the old layout
-/// feel arbitrary. It stays reachable because a member checking that the
-/// association holds his phone number correctly has nowhere else to look.
-class _IdentityPanel extends StatelessWidget {
-  const _IdentityPanel({required this.detail});
-
-  final AdeelDetail detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-    final AdeelView adeel = detail.adeel;
-
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: Theme(
-        // The default divider makes an ExpansionTile inside a card read as two
-        // stacked cards.
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          childrenPadding: const EdgeInsetsDirectional.fromSTEB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          // A LABEL, not his name. The name, the code and the status moved into
-          // the balance card at the top of the page, where a statement's
-          // addressee belongs. Repeating them here would make the same three
-          // facts appear twice on one short screen, and leaving the panel
-          // titled with his name — as it was — is what buried it at the foot in
-          // the first place.
-          leading: const Icon(Icons.badge_outlined, color: AppColors.muted),
-          title: Text(
-            l.myDetailsTitle,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          children: <Widget>[
-            _Field(label: l.phone, value: adeel.phone),
-            _Field(label: l.registeredAt, value: formatDate(adeel.registeredAt)),
-            _Field(
-              label: l.monthlyFeeLabel,
-              value: formatMoney(detail.monthlyExpected),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: AppColors.muted),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        ),
-      ],
     );
   }
 }

@@ -13,6 +13,8 @@ import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../finance/domain/models.dart';
+import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
@@ -51,6 +53,23 @@ class AdeelsScreen extends ConsumerWidget {
           : null,
       body: (BuildContext context) => Column(
         children: <Widget>[
+          // ── What the register adds up to ────────────────────────────────
+          // The list answers "who owes what" one man at a time; this answers
+          // "how much is out there", which is the question the register is
+          // opened with and which no row on it carries.
+          //
+          // The figure is the SERVER's — v_cash_summary.outstanding, the same
+          // one the treasury screen shows — never a sum of the rows. Adding the
+          // visible debts in Dart would put the association's receivables on
+          // binary floating point, and would silently mean something different
+          // the moment the list were paged.
+          //
+          // ⚠ HIDDEN WHILE A SEARCH IS ACTIVE, and that is the point of the
+          //   condition: it is the total for the WHOLE register, so showing it
+          //   above three filtered rows would put a figure on screen that does
+          //   not add up to what is under it — the one disagreement a register
+          //   must not display.
+          if (query.isEmpty) const _OutstandingBar(),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: SearchField(
@@ -159,11 +178,11 @@ class _AdeelCard extends StatelessWidget {
                     label: adeel.membershipStatus,
                     tone: active ? AppColors.success : AppColors.muted,
                   ),
-                  if (adeel.age != null)
-                    StatusBadge(
-                      label: l.ageYears(adeel.age!),
-                      tone: AppColors.info,
-                    ),
+                  // No age badge. The association stopped collecting a date of
+                  // birth, and age decided nothing about billing even while it
+                  // was collected — membership status above carries the whole
+                  // answer, which is why it took the badge that used to read
+                  // "eligible / approaching age".
                   if (adeel.hasDebt)
                     StatusBadge(
                       label: l.debtBadge(formatMoney(adeel.debt)),
@@ -173,6 +192,70 @@ class _AdeelCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// إجمالي المستحق, across the top of the register.
+///
+/// Reads `v_cash_summary` — the same figure the treasury screen puts on its
+/// balance bar, so the two pages cannot disagree about what the association is
+/// owed. Silent while it loads or fails: the register is usable without it, and
+/// an error strip above a working list would be the loudest thing on the page.
+class _OutstandingBar extends ConsumerWidget {
+  const _OutstandingBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final CashSummaryView? summary = ref
+        .watch(cashSummaryProvider)
+        .valueOrNull;
+    if (summary == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        0,
+      ),
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 3,
+              height: 16,
+              decoration: BoxDecoration(
+                // The tone money owed carries everywhere else in the app, and
+                // it encodes the meaning for a reader who cannot separate the
+                // colours — hue is never the only signal.
+                color: AppColors.danger,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                l.totalOutstanding,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ),
+            Text(
+              formatMoney(summary.outstanding),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppColors.danger,
+              ),
+            ),
+          ],
         ),
       ),
     );

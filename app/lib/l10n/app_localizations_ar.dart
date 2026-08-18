@@ -353,10 +353,6 @@ class LAr extends L {
   String get notAssigned => 'غير محدد';
 
   @override
-  String get paymentsIntro =>
-      'يتم توزيع كل دفعة تلقائياً على أقدم الاستحقاقات أولاً، ويتم تسجيل أثرها في الصندوق في نفس اللحظة.';
-
-  @override
   String get noPayments => 'لم تُسجَّل أي دفعة بعد';
 
   @override
@@ -455,7 +451,7 @@ class LAr extends L {
   String get categoryRequired => 'اختر بند الصرف';
 
   @override
-  String get payee => 'المشترك المستفيد';
+  String get payee => 'المستفيد';
 
   @override
   String get payeeRequired => 'اختر المشترك المستفيد';
@@ -480,10 +476,6 @@ class LAr extends L {
 
   @override
   String get expenseByCategory => 'المصروف حسب البند';
-
-  @override
-  String get disbursementsIntro =>
-      'كل عملية صرف تُخصم من رصيد الجمعية فوراً، ولا يمكن صرف أكثر مما في الصندوق.';
 
   @override
   String overTreasuryBalance(String amount) {
@@ -525,7 +517,7 @@ class LAr extends L {
   String get aidColAmount => 'القيمة';
 
   @override
-  String get aidColRunning => 'الرصيد التراكمي';
+  String get aidColRunning => 'الإجمالي';
 
   @override
   String get aidGrandTotal => 'إجمالي ما صُرف';
@@ -539,8 +531,18 @@ class LAr extends L {
   }
 
   @override
-  String get aidRunningNote =>
-      'عمود الرصيد التراكمي يجمع من الأقدم إلى الأحدث على كامل السجل. السند الملغى يبقى ظاهراً ولا يحرّك الرصيد.';
+  String get disbursementNoteHint => 'اسم المولود، أو صاحب المناسبة';
+
+  @override
+  String get disbursementNoteHelp =>
+      'تظهر هذه الملاحظة في كشف المشترك بجانب البند، فيُعرف لماذا صُرف له.';
+
+  @override
+  String get aidNoteLabel => 'الملاحظات';
+
+  @override
+  String get aidBreakdownNote =>
+      'هذا تجميع للسندات المدرجة أدناه، وليست عمليات صرف إضافية.';
 
   @override
   String get openAid => 'سجل الإعانات';
@@ -566,6 +568,9 @@ class LAr extends L {
   String get aidVouchers => 'السندات';
 
   @override
+  String get aidPanelTitle => 'ما تم صرفه للمشترك';
+
+  @override
   String aidVoucherCount(int count) {
     return '$count سند';
   }
@@ -575,17 +580,6 @@ class LAr extends L {
 
   @override
   String get noMyAid => 'لم يُصرف لك شيء من الجمعية بعد';
-
-  @override
-  String get aidNotDeductedNote =>
-      'الجمعية خيرية: ما صُرف للمشترك لا يُخصم من اشتراكه، ولا يظهر في كشف حسابه. الكشف للاشتراكات الشهرية وما سُدِّد منها وحدها.';
-
-  @override
-  String get aidCollectiveNote =>
-      'الصرف الجماعي — كفطور رمضان — لا يُنسب إلى مشترك بعينه، فلا يظهر هنا. قيمته ضمن إجمالي مصروفات الجمعية.';
-
-  @override
-  String get cashIntro => 'كل عملية تحصيل معتمدة تنعكس هنا تلقائياً.';
 
   @override
   String get totalCollected => 'إجمالي المحصل';
@@ -598,6 +592,9 @@ class LAr extends L {
 
   @override
   String get dueFromMembers => 'المستحقات';
+
+  @override
+  String get totalOutstanding => 'إجمالي المستحق';
 
   @override
   String get associationBalance => 'رصيد الجمعية';
@@ -723,10 +720,6 @@ class LAr extends L {
 
   @override
   String get periodBlockedNote => 'أقفل ما قبله أولاً';
-
-  @override
-  String get alertsIntro =>
-      'تنبيهات العمر والمديونيات والحالات المالية التي تحتاج متابعة.';
 
   @override
   String get noAlerts => 'لا توجد تنبيهات حالية';

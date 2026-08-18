@@ -57,15 +57,25 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       // manager, at the association's request. Both are re-checked inside the
       // RPC — hiding a button is the third layer, never the only one.
       floatingActionButton: switch (_tab) {
+        // ── THE COLOUR IS THE DIRECTION ─────────────────────────────────────
+        // Green takes money in, red pays it out, on the tab AND on its button.
+        // The two acts are three taps apart on one screen and are opposite in
+        // consequence: an admin who means to record a collection and records a
+        // disbursement has emptied the fund instead of filling it. Colour is
+        // read before the words are, so it carries the distinction first.
         _Ops.collections when role.atLeast(AppRole.treasurer) =>
           FloatingActionButton.extended(
             onPressed: () => showPaymentSheet(context),
-            icon: const Icon(Icons.add),
+            backgroundColor: AppColors.success,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.south_west),
             label: Text(l.registerPayment),
           ),
         _Ops.disbursements when role.atLeast(AppRole.admin) =>
           FloatingActionButton.extended(
             onPressed: () => showDisbursementSheet(context),
+            backgroundColor: AppColors.danger,
+            foregroundColor: Colors.white,
             icon: const Icon(Icons.north_east),
             label: Text(l.registerDisbursement),
           ),
@@ -84,13 +94,27 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
               segments: <ButtonSegment<_Ops>>[
                 ButtonSegment<_Ops>(
                   value: _Ops.collections,
-                  label: Text(l.opsCollections),
-                  icon: const Icon(Icons.south_west, size: 18),
+                  label: Text(
+                    l.opsCollections,
+                    style: const TextStyle(color: AppColors.success),
+                  ),
+                  icon: const Icon(
+                    Icons.south_west,
+                    size: 18,
+                    color: AppColors.success,
+                  ),
                 ),
                 ButtonSegment<_Ops>(
                   value: _Ops.disbursements,
-                  label: Text(l.opsDisbursements),
-                  icon: const Icon(Icons.north_east, size: 18),
+                  label: Text(
+                    l.opsDisbursements,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                  icon: const Icon(
+                    Icons.north_east,
+                    size: 18,
+                    color: AppColors.danger,
+                  ),
                 ),
               ],
               selected: <_Ops>{_tab},
@@ -130,23 +154,6 @@ class _CollectionsTab extends ConsumerWidget {
       builder: (List<PaymentView> items) => ListView(
         padding: screenPadding(context),
         children: <Widget>[
-          // The FIFO rule must be visible, not implicit — index.html:597.
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.infoSoft,
-              borderRadius: BorderRadius.circular(AppRadius.control),
-            ),
-            child: Text(
-              l.paymentsIntro,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF1E3A8A),
-                height: 1.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           if (items.isEmpty)
             EmptyStateView(icon: Icons.payments_outlined, title: l.noPayments)
           else
@@ -324,19 +331,6 @@ class _DisbursementsTab extends ConsumerWidget {
       builder: (List<DisbursementView> items) => ListView(
         padding: screenPadding(context),
         children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.warningSoft,
-              borderRadius: BorderRadius.circular(AppRadius.control),
-            ),
-            child: Text(
-              l.disbursementsIntro,
-              style: const TextStyle(fontSize: 12, height: 1.5),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
           // ── What each heading has cost ───────────────────────────────────
           // Headings with nothing against them are DROPPED here, unlike in the
           // view behind it: a report page states the zero, a summary strip on a
@@ -404,13 +398,29 @@ class _DisbursementsTab extends ConsumerWidget {
   }
 }
 
-class _VoucherCard extends ConsumerWidget {
+
+/// A voucher: WHO and HOW MUCH on the face of it, the rest on a tap.
+///
+/// It used to open flat — voucher number, heading, method, payee, date, handed
+/// by, reference, bank, note, and a reversal button — eight lines per row on a
+/// phone, so four vouchers filled the screen and the list stopped being a list.
+///
+/// What a reader scans for is «أيمن صالح — 150.00»: to whom, and how much. The
+/// rest is what he wants about ONE of them, and it opens under the row he taps.
+class _VoucherCard extends ConsumerStatefulWidget {
   const _VoucherCard({required this.voucher, required this.role});
 
   final DisbursementView voucher;
   final AppRole role;
 
-  Future<void> _cancel(BuildContext context, WidgetRef ref, L l) async {
+  @override
+  ConsumerState<_VoucherCard> createState() => _VoucherCardState();
+}
+
+class _VoucherCardState extends ConsumerState<_VoucherCard> {
+  bool _open = false;
+
+  Future<void> _cancel(BuildContext context, L l) async {
     // Resolved BEFORE the await, like the payment card's own cancel: the
     // context may be gone by the time the dialog closes, and a messenger
     // fetched afterwards is the classic use-after-dispose in this codebase.
@@ -431,7 +441,7 @@ class _VoucherCard extends ConsumerWidget {
     try {
       await ref
           .read(financeRepositoryProvider)
-          .cancelDisbursement(voucher.id, reason.trim());
+          .cancelDisbursement(widget.voucher.id, reason.trim());
       ref
         ..invalidate(disbursementsProvider)
         ..invalidate(expenseByCategoryProvider)
@@ -445,102 +455,117 @@ class _VoucherCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final L l = L.of(context);
-    final bool cancelled = voucher.cancelled;
+    final DisbursementView v = widget.voucher;
+    final bool cancelled = v.cancelled;
+
+    // WHO the money went to. A collective voucher is attributed to nobody by
+    // the association's own decision, so its heading stands in that place —
+    // «فطور رمضان» is as complete an answer to "who was this for" as a name is.
+    final String who = v.payeeName.isNotEmpty ? v.payeeName : v.category;
 
     return Card(
-      margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  voucher.method == PaymentMethodWire.cash
-                      ? Icons.payments_outlined
-                      : Icons.account_balance_outlined,
-                  size: 18,
-                  color: cancelled ? AppColors.muted : AppColors.danger,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    voucher.voucherNo,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      // Rule 9: a voided voucher stays legible and visibly
-                      // struck through. Its amount is already out of every
-                      // total, because they all filter on status.
-                      decoration: cancelled ? TextDecoration.lineThrough : null,
-                      color: cancelled ? AppColors.muted : null,
+      margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+      child: InkWell(
+        onTap: () => setState(() => _open = !_open),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      who,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        // Rule 9: a voided voucher stays legible and visibly
+                        // struck through. Its amount is already out of every
+                        // total, because they all filter on status.
+                        decoration: cancelled
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: cancelled ? AppColors.muted : null,
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  formatMoney(voucher.amount),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: cancelled ? AppColors.muted : AppColors.danger,
-                    decoration: cancelled ? TextDecoration.lineThrough : null,
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    formatMoney(v.amount),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: cancelled ? AppColors.muted : AppColors.danger,
+                      decoration: cancelled ? TextDecoration.lineThrough : null,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: <Widget>[
-                StatusBadge.neutral(label: voucher.category),
-                StatusBadge(
-                  label: voucher.method,
-                  tone: AppColors.info,
-                ),
-                if (cancelled)
-                  StatusBadge(label: l.voided, tone: AppColors.muted),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _VoucherLine(label: l.payee, value: voucher.payeeName),
-            if (voucher.payeeCode.isNotEmpty)
-              _VoucherLine(label: l.receiptNo, value: voucher.payeeCode),
-            _VoucherLine(
-              label: l.disbursementDate,
-              value: formatDateTime(voucher.spentAt),
-            ),
-            if (voucher.handedBy.isNotEmpty)
-              _VoucherLine(label: l.handedBy, value: voucher.handedBy),
-            if (voucher.reference.isNotEmpty)
-              _VoucherLine(label: l.reference, value: voucher.reference),
-            if (voucher.bankName.isNotEmpty)
-              _VoucherLine(label: l.bankNameField, value: voucher.bankName),
-            if (voucher.bankAccountNo.isNotEmpty)
-              _VoucherLine(
-                label: l.bankAccountNoField,
-                value: voucher.bankAccountNo,
+                ],
               ),
-            if (voucher.note.isNotEmpty)
-              _VoucherLine(label: l.notesField, value: voucher.note),
 
-            if (!cancelled && role.atLeast(AppRole.admin)) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  onPressed: () => _cancel(context, ref, l),
-                  icon: const Icon(Icons.undo, size: 18),
-                  label: Text(l.cancelDisbursement),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                  ),
+              if (_open) ...<Widget>[
+                const Divider(height: AppSpacing.lg),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: <Widget>[
+                    StatusBadge.neutral(label: v.category),
+                    StatusBadge(label: v.method, tone: AppColors.info),
+                    if (cancelled)
+                      StatusBadge(label: l.voided, tone: AppColors.muted),
+                  ],
                 ),
-              ),
+                const SizedBox(height: AppSpacing.md),
+                _VoucherLine(label: l.voucherNo, value: v.voucherNo),
+                if (v.payeeName.isNotEmpty)
+                  _VoucherLine(label: l.payee, value: v.payeeName),
+                if (v.payeeCode.isNotEmpty)
+                  _VoucherLine(label: l.receiptNo, value: v.payeeCode),
+                _VoucherLine(
+                  label: l.disbursementDate,
+                  value: formatDateTime(v.spentAt),
+                ),
+                if (v.handedBy.isNotEmpty)
+                  _VoucherLine(label: l.handedBy, value: v.handedBy),
+                if (v.reference.isNotEmpty)
+                  _VoucherLine(label: l.reference, value: v.reference),
+                if (v.bankName.isNotEmpty)
+                  _VoucherLine(label: l.bankNameField, value: v.bankName),
+                if (v.bankAccountNo.isNotEmpty)
+                  _VoucherLine(
+                    label: l.bankAccountNoField,
+                    value: v.bankAccountNo,
+                  ),
+                if (v.note.isNotEmpty)
+                  _VoucherLine(label: l.notesField, value: v.note),
+
+                if (!cancelled && widget.role.atLeast(AppRole.admin)) ...<Widget>[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      onPressed: () => _cancel(context, l),
+                      icon: const Icon(Icons.undo, size: 18),
+                      label: Text(l.cancelDisbursement),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

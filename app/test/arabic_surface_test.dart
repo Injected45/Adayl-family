@@ -1,5 +1,6 @@
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/directory/domain/models.dart';
@@ -67,7 +68,7 @@ void main() {
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(),
             locale: const Locale('ar'),
-            localizationsDelegates: L.localizationsDelegates,
+            localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
             supportedLocales: L.supportedLocales,
             home: const OfficialsScreen(),
           ),

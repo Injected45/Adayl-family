@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:family_app/core/config/glass.dart';
 import 'package:family_app/core/config/theme.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/core/router/destinations.dart';
 import 'package:family_app/core/widgets/app_scaffold.dart';
 import 'package:family_app/core/widgets/async_view.dart';
@@ -86,7 +87,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: home,
     ),

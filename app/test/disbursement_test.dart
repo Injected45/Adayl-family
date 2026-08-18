@@ -1,6 +1,7 @@
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/domain/wire_values.dart';
 import 'package:family_app/core/format/formatters.dart';
+import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/directory/domain/models.dart'
@@ -85,7 +86,7 @@ DisbursementView _voucher({
   String bankAccountNo = '',
 }) => DisbursementView(
   id: id,
-  voucherNo: 'EXP-${id.toString().padLeft(6, '0')}',
+  voucherNo: 'EXP-${id.toString().padLeft(2, '0')}',
   amount: amount,
   kind: kind,
   category: category,
@@ -121,7 +122,7 @@ void main() {
         (Ref ref) async => <AdeelListItem>[
           const AdeelListItem(
             id: 3,
-            adeelCode: 'A-0003',
+            adeelCode: 'A-03',
             fullName: 'المهدي عبدالله محمد',
             phone: '',
             age: 51,
@@ -137,7 +138,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: Builder(
         builder: (BuildContext context) => Scaffold(
@@ -258,9 +259,9 @@ void main() {
 
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('المهدي عبدالله محمد • A-0003').last);
+    await tester.tap(find.text('المهدي عبدالله محمد • A-03').last);
     await tester.pumpAndSettle();
-    expect(find.text('المهدي عبدالله محمد • A-0003'), findsOneWidget);
+    expect(find.text('المهدي عبدالله محمد • A-03'), findsOneWidget);
 
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
@@ -271,7 +272,7 @@ void main() {
     await tester.tap(find.text(l.kindCollective));
     await tester.pumpAndSettle();
 
-    expect(find.text('المهدي عبدالله محمد • A-0003'), findsNothing);
+    expect(find.text('المهدي عبدالله محمد • A-03'), findsNothing);
     expect(find.byType(DropdownButtonFormField<int>), findsNothing);
     // ...and the وجه with it, because مولود is not one a collective voucher may
     // carry. Left selected it would be sent and refused.
@@ -352,7 +353,7 @@ void main() {
 
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('المهدي عبدالله محمد • A-0003').last);
+    await tester.tap(find.text('المهدي عبدالله محمد • A-03').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text(l.methodTransfer));
     await tester.pumpAndSettle();
@@ -457,7 +458,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       locale: const Locale('ar'),
-      localizationsDelegates: L.localizationsDelegates,
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
       supportedLocales: L.supportedLocales,
       home: const PaymentsScreen(),
     ),
@@ -535,14 +536,44 @@ void main() {
       ],
     );
 
-    expect(find.text('EXP-000002'), findsOneWidget);
-    expect(find.text(l.voided), findsOneWidget);
-
-    final Text struck = tester.widget<Text>(find.text('EXP-000002'));
+    // The row is collapsed to WHO and HOW MUCH, so the reversal has to be
+    // legible from the face of the list — the number and the badge are folded
+    // away with everything else.
+    final Text struck = tester.widget<Text>(find.text(formatMoney('900.00')));
     expect(struck.style?.decoration, TextDecoration.lineThrough);
+    expect(find.text('EXP-02'), findsNothing);
 
+    await tester.tap(find.text(formatMoney('900.00')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXP-02'), findsOneWidget);
+    expect(find.text(l.voided), findsOneWidget);
     // ...and it offers no reversal, because it is already reversed.
-    expect(find.text(l.cancelDisbursement), findsOneWidget); // only EXP-000001
+    expect(find.text(l.cancelDisbursement), findsNothing);
+  });
+
+  testWidgets('a live voucher opens on its detail, and offers the reversal', (
+    WidgetTester tester,
+  ) async {
+    // The other half of the fold: the row carries WHO and HOW MUCH, and the
+    // receipt — number, heading, method, date, who handed it over — is what a
+    // tap is for. Eight lines per row is what made the list stop being one.
+    await openTab(
+      tester,
+      AppRole.admin,
+      vouchers: <DisbursementView>[_voucher(id: 1, amount: '60.00')],
+    );
+
+    expect(find.text(l.cancelDisbursement), findsNothing);
+
+    // By the chevron, not the amount: 60.00 also appears in the by-heading
+    // panel above, and a finder that matches two widgets is a test that would
+    // start failing for a reason unrelated to what it checks.
+    await tester.tap(find.byIcon(Icons.expand_more));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXP-01'), findsOneWidget);
+    expect(find.text(l.cancelDisbursement), findsOneWidget);
   });
 
   testWidgets('a heading nothing was spent on is not listed on the phone', (
@@ -568,7 +599,12 @@ void main() {
     await openTab(tester, AppRole.admin);
 
     expect(find.text(l.noDisbursements), findsOneWidget);
-    expect(find.text(l.disbursementsIntro), findsOneWidget);
+    // No standing paragraph above it any more. The association had the two
+    // intros removed from this screen — «كل عملية تحصيل تُوزَّع على أقدم
+    // الاستحقاقات» and «كل صرف يُخصم من الرصيد فوراً» — on the grounds that the
+    // screen already shows both happening. What the rules actually rest on is
+    // the database, which refuses regardless of what any paragraph says.
+    expect(find.textContaining('تُخصم'), findsNothing);
   });
 
   // ── Wire parsing ──────────────────────────────────────────────────────────
@@ -580,12 +616,12 @@ void main() {
     // what the view writes.
     final DisbursementView v = DisbursementView.fromJson(<String, dynamic>{
       'id': 4,
-      'voucherNo': 'EXP-000004',
+      'voucherNo': 'EXP-04',
       'amount': '125.50',
       'category': 'علاج ومرض',
       'payeeAdeelId': 3,
       'payeeName': 'المهدي عبدالله محمد',
-      'payeeCode': 'A-0003',
+      'payeeCode': 'A-03',
       'method': 'تحويل مصرفي',
       'reference': 'TRF-77',
       'bankName': 'مصرف الجمهورية',

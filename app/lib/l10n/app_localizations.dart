@@ -745,12 +745,6 @@ abstract class L {
   /// **'غير محدد'**
   String get notAssigned;
 
-  /// No description provided for @paymentsIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'يتم توزيع كل دفعة تلقائياً على أقدم الاستحقاقات أولاً، ويتم تسجيل أثرها في الصندوق في نفس اللحظة.'**
-  String get paymentsIntro;
-
   /// No description provided for @noPayments.
   ///
   /// In ar, this message translates to:
@@ -940,7 +934,7 @@ abstract class L {
   /// No description provided for @payee.
   ///
   /// In ar, this message translates to:
-  /// **'المشترك المستفيد'**
+  /// **'المستفيد'**
   String get payee;
 
   /// No description provided for @payeeRequired.
@@ -990,12 +984,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'المصروف حسب البند'**
   String get expenseByCategory;
-
-  /// No description provided for @disbursementsIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'كل عملية صرف تُخصم من رصيد الجمعية فوراً، ولا يمكن صرف أكثر مما في الصندوق.'**
-  String get disbursementsIntro;
 
   /// Shown under the amount when a disbursement would overdraw the treasury. Mirrors rule 7's cap on the collection side, in the other direction: the association cannot pay out money it does not hold.
   ///
@@ -1066,7 +1054,7 @@ abstract class L {
   /// No description provided for @aidColRunning.
   ///
   /// In ar, this message translates to:
-  /// **'الرصيد التراكمي'**
+  /// **'الإجمالي'**
   String get aidColRunning;
 
   /// No description provided for @aidGrandTotal.
@@ -1087,11 +1075,29 @@ abstract class L {
   /// **'{shown} من {total}'**
   String aidShowing(int shown, int total);
 
-  /// No description provided for @aidRunningNote.
+  /// No description provided for @disbursementNoteHint.
   ///
   /// In ar, this message translates to:
-  /// **'عمود الرصيد التراكمي يجمع من الأقدم إلى الأحدث على كامل السجل. السند الملغى يبقى ظاهراً ولا يحرّك الرصيد.'**
-  String get aidRunningNote;
+  /// **'اسم المولود، أو صاحب المناسبة'**
+  String get disbursementNoteHint;
+
+  /// No description provided for @disbursementNoteHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'تظهر هذه الملاحظة في كشف المشترك بجانب البند، فيُعرف لماذا صُرف له.'**
+  String get disbursementNoteHelp;
+
+  /// No description provided for @aidNoteLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الملاحظات'**
+  String get aidNoteLabel;
+
+  /// No description provided for @aidBreakdownNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا تجميع للسندات المدرجة أدناه، وليست عمليات صرف إضافية.'**
+  String get aidBreakdownNote;
 
   /// No description provided for @openAid.
   ///
@@ -1135,6 +1141,12 @@ abstract class L {
   /// **'السندات'**
   String get aidVouchers;
 
+  /// No description provided for @aidPanelTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما تم صرفه للمشترك'**
+  String get aidPanelTitle;
+
   /// No description provided for @aidVoucherCount.
   ///
   /// In ar, this message translates to:
@@ -1152,24 +1164,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'لم يُصرف لك شيء من الجمعية بعد'**
   String get noMyAid;
-
-  /// No description provided for @aidNotDeductedNote.
-  ///
-  /// In ar, this message translates to:
-  /// **'الجمعية خيرية: ما صُرف للمشترك لا يُخصم من اشتراكه، ولا يظهر في كشف حسابه. الكشف للاشتراكات الشهرية وما سُدِّد منها وحدها.'**
-  String get aidNotDeductedNote;
-
-  /// No description provided for @aidCollectiveNote.
-  ///
-  /// In ar, this message translates to:
-  /// **'الصرف الجماعي — كفطور رمضان — لا يُنسب إلى مشترك بعينه، فلا يظهر هنا. قيمته ضمن إجمالي مصروفات الجمعية.'**
-  String get aidCollectiveNote;
-
-  /// No description provided for @cashIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'كل عملية تحصيل معتمدة تنعكس هنا تلقائياً.'**
-  String get cashIntro;
 
   /// No description provided for @totalCollected.
   ///
@@ -1194,6 +1188,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'المستحقات'**
   String get dueFromMembers;
+
+  /// No description provided for @totalOutstanding.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي المستحق'**
+  String get totalOutstanding;
 
   /// The treasury total, renamed. It is the LAST tile because it is the conclusion of the three above it — cash in, transfers in, still owed — rather than a fourth independent fact. `collectedThisYear` was removed with it: in an association's first year that tile showed the same number as this one.
   ///
@@ -1392,12 +1392,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'أقفل ما قبله أولاً'**
   String get periodBlockedNote;
-
-  /// No description provided for @alertsIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'تنبيهات العمر والمديونيات والحالات المالية التي تحتاج متابعة.'**
-  String get alertsIntro;
 
   /// No description provided for @noAlerts.
   ///

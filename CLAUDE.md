@@ -140,7 +140,7 @@ This dictates the data-access shape — do not deviate from it:
   unit is either allocated or counted as credit.
 
   **Money OUT — نظام الصرف.** `disbursements` is where money leaves the
-  treasury: `voucher_no` generated as `EXP-000001`, admin-only (a rung above
+  treasury: `voucher_no` generated as `EXP-01`, admin-only (a rung above
   even financeManager), recorded directly with no approval queue, and reversed
   rather than deleted. A voucher takes one of TWO shapes and `ck_disb_shape`
   enforces both halves at once: `لمشترك` names a man on the register and may not
