@@ -83,9 +83,18 @@ SELECT probe.eq('spend', 'and it records no payee at all',
   $sql$ SELECT (payee_name IS NULL AND payee_adeel_id IS NULL)::text
           FROM public.disbursements WHERE voucher_no = 'EXP-01' $sql$,
   'true');
+-- ⚠ THE IDENTITY, not a literal. It used to read `total − balance = 10.00`,
+-- which was the whole of the outgoing side while nothing else could reduce the
+-- balance. عهد المشتركين now can, and pinning a number here would have to be
+-- refitted every time the fixture's prepayments change — which is exactly how a
+-- money assertion stops asserting anything.
+--
+-- This is the equation register_disbursement enforces, so a screen that
+-- disagrees with the refusal it will get is impossible.
 SELECT probe.eq('spend', 'and the treasury balance drops by exactly that',
-  $sql$ SELECT ("total"::numeric - "balance"::numeric)::text
-          FROM public.v_cash_summary $sql$, '10.00');
+  $sql$ SELECT ("total"::numeric - "disbursed"::numeric
+                - "heldForMembers"::numeric - "balance"::numeric)::text
+          FROM public.v_cash_summary $sql$, '0.00');
 -- `total` is everything ever COLLECTED and must NOT move. The two were the same
 -- number only while money could not leave, and conflating them is what would
 -- make the treasury screen overstate the fund by every voucher ever written.
@@ -255,9 +264,11 @@ SELECT probe.succeeds('spend', 'a voucher is cancelled with a reason', $sql$
   SELECT public.cancel_disbursement(
     (SELECT min(id) FROM public.disbursements), 'خطأ إدخال')
 $sql$);
+-- The reversal put the money back: `disbursed` alone, because that is the only
+-- term a cancelled voucher touches. Reading it off the balance the way this
+-- once did now also measures عهد, which no voucher changes.
 SELECT probe.eq('spend', '...the money returns to the treasury',
-  $sql$ SELECT ("total"::numeric - "balance"::numeric)::text
-          FROM public.v_cash_summary $sql$, '5.00');
+  $sql$ SELECT "disbursed" FROM public.v_cash_summary $sql$, '5.00');
 SELECT probe.eq('spend', '...the voucher STAYS, struck through',
   $sql$ SELECT status::text FROM public.disbursements
          WHERE id = (SELECT min(id) FROM public.disbursements) $sql$, 'ملغي');
@@ -336,10 +347,16 @@ SELECT probe.eq('spend', '...with the fund back where it started',
 SELECT probe.eq('spend', 'the member-facing figures include what went out',
   $sql$ SELECT (public.api_association_finance() ? 'disbursed')::text $sql$,
   'true');
+-- ⚠ AND MINUS عهد. The member reads `balance` under the heading رصيد الجمعية.
+-- Without this term his own prepayment — and every other member's — would be
+-- shown to him as money the association holds and may spend, which is the whole
+-- of what this change exists to stop. Same equation as v_cash_summary, asserted
+-- through the DEFINER function because that is the one the portal actually calls.
 SELECT probe.eq('spend', '...and its balance is collections minus spending',
   $sql$ SELECT ((public.api_association_finance() ->> 'balance')::numeric
               = (public.api_association_finance() ->> 'collected')::numeric
-              - (public.api_association_finance() ->> 'disbursed')::numeric)::text
+              - (public.api_association_finance() ->> 'disbursed')::numeric
+              - (public.api_association_finance() ->> 'heldForMembers')::numeric)::text
   $sql$, 'true');
 -- ═════ And what he is NOT told ═══════════════════════════════════════════════
 -- This check needs two things the rest of the file does not, and it silently had

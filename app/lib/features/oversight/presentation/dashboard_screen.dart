@@ -9,7 +9,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
-import '../../../core/widgets/stat_card.dart';
+import '../../../core/widgets/figure_breakdown.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
@@ -20,7 +20,7 @@ import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
-/// The four stat cards, top debtors and approaching birthdays of index.html:448.
+/// ONE headline figure, top debtors, and the month-closing button.
 /// Every figure is computed by the server and verified against the prototype's
 /// own `stats` object by the Phase 6 parity harness.
 class DashboardScreen extends ConsumerWidget {
@@ -47,12 +47,6 @@ class DashboardScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: screenPadding(context),
             children: <Widget>[
-              Text(
-                l.dashboardIntro,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
               if (role.atLeast(AppRole.financeManager)) ...<Widget>[
                 FilledButton.icon(
                   onPressed: () =>
@@ -63,36 +57,40 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.lg),
               ],
 
-              StatCardGrid(
-                children: <Widget>[
-                  _Stat(
+              // ── ONE FIGURE, AND THE REST A TAP AWAY ──────────────────────
+              // Four tiles stood here, equal in weight. Three of them answered
+              // questions nobody opens this page to ask first: what the
+              // association has COLLECTED is the headline, and how many members
+              // stand behind it and how much is still owed are the workings.
+              //
+              // The «غير المحاسَبين / متوفى» tile is gone outright, not moved:
+              // a count of who is NOT billed is a register question, and the
+              // register itself answers it in the row that carries each man's
+              // status.
+              //
+              // Same widget as the treasury's رصيد الجمعية bar, so the two
+              // headline figures of the app are read the same way.
+              FigureBar(
+                label: l.statTotalCollected,
+                value: formatMoney(data.stats.collected),
+                tone: AppColors.success,
+                // The split survives on the face of the bar: it is the one part
+                // of the workings that changes how the figure is read.
+                sub: l.subCashTransfer(
+                  formatMoney(data.stats.cash),
+                  formatMoney(data.stats.transfer),
+                ),
+                rows: <FigureRow>[
+                  FigureRow(
                     label: l.statAdeels,
                     value: '${data.stats.adeels}',
-                    sub: l.subActive(data.stats.active),
+                    trailing: l.subActive(data.stats.active),
                   ),
-                  // Was "eligible sons / approaching the age". Membership status
-                  // is the whole answer now, so the second card counts who is
-                  // NOT being billed rather than who is about to be.
-                  _Stat(
-                    label: l.statInactive,
-                    value: '${data.stats.suspended + data.stats.deceased}',
-                    sub: l.subDeceased(data.stats.deceased),
-                    tone: AppColors.info,
-                  ),
-                  _Stat(
+                  FigureRow(
                     label: l.statTotalDebt,
                     value: formatMoney(data.stats.debt),
-                    sub: l.subIndebtedAdeels(data.stats.indebtedAdeels),
+                    trailing: l.subIndebtedAdeels(data.stats.indebtedAdeels),
                     tone: AppColors.danger,
-                  ),
-                  _Stat(
-                    label: l.statTotalCollected,
-                    value: formatMoney(data.stats.collected),
-                    sub: l.subCashTransfer(
-                      formatMoney(data.stats.cash),
-                      formatMoney(data.stats.transfer),
-                    ),
-                    tone: AppColors.success,
                   ),
                 ],
               ),
@@ -317,78 +315,6 @@ class _PeriodPickerDialog extends ConsumerWidget {
           child: Text(l.cancel),
         ),
       ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value, this.sub, this.tone});
-
-  final String label;
-  final String value;
-  final String? sub;
-  final Color? tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color accent = tone ?? AppColors.brand;
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              // Flat Design's way of carrying meaning: a solid saturated bar,
-              // no gradient, no shadow. It also encodes the tone for anyone who
-              // cannot distinguish the value's colour, so hue is not the only
-              // signal.
-              Container(
-                width: 3,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              value,
-              maxLines: 1,
-              style: TextStyle(
-                fontFamily: AppFonts.display,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: tone ?? AppColors.ink,
-              ),
-            ),
-          ),
-          if (sub != null) ...<Widget>[
-            const SizedBox(height: 2),
-            Text(
-              sub!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

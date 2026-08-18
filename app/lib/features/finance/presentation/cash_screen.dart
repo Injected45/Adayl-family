@@ -8,6 +8,7 @@ import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
+import '../../../core/widgets/figure_breakdown.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
@@ -82,7 +83,21 @@ class CashScreen extends ConsumerWidget {
               value: movements,
               onRetry: () => ref.invalidate(cashMovementsProvider),
               builder: (List<CashMovementView> items) {
-                if (items.isEmpty) {
+                // The vouchers are read here as well, because a member's card
+                // has to carry both directions and they arrive from a second
+                // provider. `valueOrNull` rather than a nested AsyncView: the
+                // collections are the subject of this list and must render the
+                // moment they land, with each man's outgoing side filling in
+                // when it does. A spinner over the whole register while one
+                // secondary query settles would be a worse trade.
+                final List<DisbursementView> vouchers =
+                    ref.watch(disbursementsProvider).valueOrNull ??
+                    const <DisbursementView>[];
+                final List<_AdeelMovements> groups = _groupByAdeel(
+                  items,
+                  vouchers,
+                );
+                if (groups.isEmpty) {
                   return EmptyStateView(
                     icon: Icons.account_balance_wallet_outlined,
                     title: l.noCashMovements,
@@ -90,33 +105,36 @@ class CashScreen extends ConsumerWidget {
                 }
                 return Column(
                   children: <Widget>[
-                    for (final _AdeelMovements group in _groupByAdeel(items))
+                    for (final _AdeelMovements group in groups)
                       _AdeelGroup(group: group),
                   ],
                 );
               },
             ),
 
-            // ── MONEY OUT, on the same screen and in the same shape ──────
+            // ── MONEY OUT THAT BELONGS TO NOBODY ────────────────────────
             // The treasury is one fund and this is the page that describes it,
             // so leaving the outgoing side on another screen made this one
-            // answer half its own question — the balance tile above already
-            // subtracts what went out, and until now nothing here showed WHAT.
+            // answer half its own question — the balance bar above already
+            // subtracts what went out, and until this nothing here showed WHAT.
             //
-            // NOT grouped by عديل, and that is not an omission: a collective
-            // voucher is attributed to nobody (فطور رمضان belongs to everyone),
-            // so the key the collections group on does not exist for half these
-            // rows. They run newest-first, which is the order they were entered
-            // and the order a treasurer reconciles in.
+            // ⚠ ONLY THE COLLECTIVE ONES. A voucher made out to a member now
+            //   sits inside HIS card, beside what he paid, which is the one
+            //   place a reader can weigh the two against each other. Listing it
+            //   here as well would put the same voucher on the screen twice and
+            //   invite it to be counted twice by eye.
             //
-            // ⚠ RED, THROUGHOUT, and it is the whole point of showing them
-            //   here: on a page where every other figure is money arriving, an
-            //   outgoing amount in the same green would be read as a second
-            //   collection. Colour carries the direction before the number is
-            //   read at all.
+            //   فطور رمضان belongs to everyone, so it has no card to sit in —
+            //   `payee_adeel_id` is NULL by ck_disb_shape, not by omission —
+            //   and that is exactly what this section is for.
+            //
+            // ⚠ RED, THROUGHOUT: on a page where every other figure is money
+            //   arriving, an outgoing amount in the same green reads as a
+            //   second collection. Colour carries the direction before the
+            //   number is read at all.
             const SizedBox(height: AppSpacing.lg),
             Text(
-              l.opsDisbursements,
+              l.kindCollective,
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -128,7 +146,10 @@ class CashScreen extends ConsumerWidget {
               value: ref.watch(disbursementsProvider),
               onRetry: () => ref.invalidate(disbursementsProvider),
               builder: (List<DisbursementView> vouchers) {
-                if (vouchers.isEmpty) {
+                final List<DisbursementView> collective = vouchers
+                    .where((DisbursementView v) => v.payeeAdeelId == null)
+                    .toList();
+                if (collective.isEmpty) {
                   return EmptyStateView(
                     icon: Icons.north_east,
                     title: l.noDisbursements,
@@ -140,7 +161,7 @@ class CashScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: <Widget>[
-                      for (final DisbursementView v in vouchers)
+                      for (final DisbursementView v in collective)
                         _VoucherTile(voucher: v),
                     ],
                   ),
@@ -168,6 +189,22 @@ class _AdeelMovements {
   final String adeelName;
   final String adeelCode;
   final List<CashMovementView> movements = <CashMovementView>[];
+
+  /// What the association GAVE this man, under his own name.
+  ///
+  /// ⚠ AND IT IS NOT NETTED AGAINST [total], ever. الجمعية خيرية: aid is not a
+  ///   credit against a subscription, and a voucher writes no receivable, no
+  ///   payment and no allocation — so there is nothing to net even if a screen
+  ///   wanted to. The group's figure stays "what he PAID", and the vouchers sit
+  ///   below the receipts in red with an outgoing arrow, which is the whole
+  ///   reason they can share a card at all: two directions the eye separates
+  ///   before it reads a digit.
+  ///
+  ///   The full account of what he was given is [AdeelAidScreen], reached from
+  ///   his page. This is the treasury's view of the same rows — one voucher,
+  ///   two places it can be looked up, and no third copy: a voucher listed here
+  ///   is left OUT of the collective list at the foot of the screen.
+  final List<DisbursementView> vouchers = <DisbursementView>[];
 
   /// Cancelled receipts are EXCLUDED from the total and still listed inside.
   ///
@@ -199,7 +236,10 @@ class _AdeelMovements {
 /// Insertion order is preserved, so the man with the most recent receipt stays
 /// at the top: the list arrives newest-first from the server and grouping does
 /// not re-sort it.
-List<_AdeelMovements> _groupByAdeel(List<CashMovementView> items) {
+List<_AdeelMovements> _groupByAdeel(
+  List<CashMovementView> items,
+  List<DisbursementView> vouchers,
+) {
   final Map<int, _AdeelMovements> byAdeel = <int, _AdeelMovements>{};
   for (final CashMovementView m in items) {
     byAdeel
@@ -209,6 +249,21 @@ List<_AdeelMovements> _groupByAdeel(List<CashMovementView> items) {
         )
         .movements
         .add(m);
+  }
+  // Then what went OUT to each of them. A member who was given something but
+  // never paid still gets a card — his side of the fund is a real thing to look
+  // up, and leaving him out would make "he received nothing" and "he is not on
+  // this screen" look identical.
+  for (final DisbursementView v in vouchers) {
+    final int? payee = v.payeeAdeelId;
+    if (payee == null) continue; // collective — belongs to nobody
+    byAdeel
+        .putIfAbsent(
+          payee,
+          () => _AdeelMovements(payee, v.payeeName, v.payeeCode),
+        )
+        .vouchers
+        .add(v);
   }
   return byAdeel.values.toList();
 }
@@ -246,10 +301,29 @@ class _AdeelGroup extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
           ),
-          // The code, and how many receipts are folded in. The count is what
-          // tells a reader there is anything to open at all.
-          subtitle: Text(
-            '${group.adeelCode} • ${l.receiptCount(group.liveCount)}',
+          // The code, how many receipts are folded in, and — in red — how many
+          // vouchers. The counts are what tell a reader there is anything to
+          // open at all, and the red one is what says the card has an OUTGOING
+          // side before it is opened.
+          //
+          // ⚠ A COUNT, never an amount. Two money figures on one row invite the
+          //   reader to subtract, and الجمعية خيرية: what a man was given is
+          //   not a credit against what he paid, and nothing in this app nets
+          //   the two. The trailing figure stays what he PAID, alone.
+          subtitle: Text.rich(
+            TextSpan(
+              children: <InlineSpan>[
+                TextSpan(
+                  text:
+                      '${group.adeelCode} • ${l.receiptCount(group.liveCount)}',
+                ),
+                if (group.vouchers.isNotEmpty)
+                  TextSpan(
+                    text: ' • ${l.voucherCount(group.vouchers.length)}',
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+              ],
+            ),
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           // His total sits on the closed row, so the screen answers "how much
@@ -269,9 +343,19 @@ class _AdeelGroup extends StatelessWidget {
               const Icon(Icons.expand_more, size: 20, color: AppColors.muted),
             ],
           ),
+          // ── HIS RECEIPTS, THEN HIS VOUCHERS ──────────────────────────────
+          // In that order, never interleaved by date: the two are different
+          // KINDS of fact — what he gave the association and what it gave him —
+          // and a single chronological column of green and red numbers is the
+          // one arrangement that invites the eye to net them. الجمعية خيرية:
+          // aid is not a credit against a subscription, and the arithmetic of
+          // this app never subtracts one from the other.
           children: <Widget>[
             for (final CashMovementView movement in group.movements)
               _MovementTile(movement: movement),
+            if (group.vouchers.isNotEmpty)
+              for (final DisbursementView v in group.vouchers)
+                _VoucherTile(voucher: v),
           ],
         ),
       ),
@@ -279,7 +363,20 @@ class _AdeelGroup extends StatelessWidget {
   }
 }
 
-
+/// One receipt inside a member's card: money IN, in green, with an arrow that
+/// points inward.
+///
+/// ── THE ICON IS THE DIRECTION, NOT THE METHOD ───────────────────────────────
+/// It used to be نقداً-vs-تحويل, which is a real fact about a receipt and the
+/// wrong one to spend the leading position on: a card now holds BOTH the money
+/// this man paid and the money the association gave him, and telling those two
+/// apart at a glance is what the position is for. The method moves into the
+/// subtitle, where it is still one line away.
+///
+/// Icons.south_west is the same arrow the التحصيل tab and its button carry, and
+/// _VoucherTile uses the same north_east as الصرف. One vocabulary across the
+/// app: inward-and-green is money arriving, outward-and-red is money leaving,
+/// wherever it is drawn.
 class _MovementTile extends StatelessWidget {
   const _MovementTile({required this.movement});
 
@@ -288,14 +385,17 @@ class _MovementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool voided = movement.status == ReceivableStatusWire.cancelled;
+    // ⚠ A CANCELLED RECEIPT IS RED, not grey. It was money that came in and
+    //   went back out again, so it belongs with the outgoing side of the card
+    //   at a glance — and grey read as "inactive", which understates a
+    //   reversal that a treasurer has to account for. The strike-through is
+    //   what separates it from a live disbursement: red-and-struck is money
+    //   undone, red-and-plain is money spent.
+    final Color tone = voided ? AppColors.danger : AppColors.success;
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        movement.method == PaymentMethodWire.cash
-            ? Icons.payments_outlined
-            : Icons.account_balance_outlined,
-        color: voided ? AppColors.muted : AppColors.brand,
-      ),
+      leading: Icon(voided ? Icons.undo : Icons.south_west, color: tone),
       // The RECEIPT leads, not the name — the name is the heading this tile
       // now sits under, and repeating it on every line is exactly the crowding
       // the grouping removed.
@@ -309,14 +409,14 @@ class _MovementTile extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        formatDateTime(movement.occurredAt),
+        '${movement.method} • ${formatDateTime(movement.occurredAt)}',
         style: const TextStyle(fontSize: 11, color: AppColors.muted),
       ),
       trailing: Text(
         formatMoney(movement.amount),
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: voided ? AppColors.muted : AppColors.success,
+          color: tone,
           decoration: voided ? TextDecoration.lineThrough : null,
         ),
       ),
@@ -324,13 +424,12 @@ class _MovementTile extends StatelessWidget {
   }
 }
 
-/// A voucher on the treasury page: money LEAVING, in red.
+/// A voucher: money LEAVING, in red, with an arrow that points outward.
 ///
-/// The same shape as [_MovementTile] on purpose — icon, reference, date,
-/// amount — so a reader scans one list, not two layouts. What differs is the
-/// colour and the subtitle: a receipt is identified by whose it is, and a
-/// voucher by what it was FOR, which is the heading the association chose from
-/// its own fixed six.
+/// The same shape as [_MovementTile] on purpose — icon, reference, subtitle,
+/// amount — so a member's card reads as ONE list whose rows differ by colour
+/// and arrow rather than as two layouts stacked. That is the whole mechanism:
+/// «صُرف له» and «سدّد» are told apart before a digit is read.
 class _VoucherTile extends StatelessWidget {
   const _VoucherTile({required this.voucher});
 
@@ -339,38 +438,36 @@ class _VoucherTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool voided = voucher.cancelled;
-    // The colour is the direction. Muted when reversed, because a cancelled
-    // voucher moved nothing and reading it as red spending would overstate what
-    // left the fund.
-    final Color tone = voided ? AppColors.muted : AppColors.danger;
+    // ⚠ RED WHETHER OR NOT IT WAS REVERSED, and the strike-through is what
+    //   distinguishes them. Grey said "inactive", which is not what a reversed
+    //   voucher is — it is an entry a treasurer still has to account for, and
+    //   rule 9 keeps it on screen for exactly that reason. Its amount is
+    //   already out of every total on this page, because they all filter on
+    //   status, so the colour costs nothing in correctness.
+    const Color tone = AppColors.danger;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        voucher.method == PaymentMethodWire.cash
-            ? Icons.payments_outlined
-            : Icons.account_balance_outlined,
-        color: tone,
-      ),
+      leading: Icon(voided ? Icons.undo : Icons.north_east, color: tone),
       title: Text(
         voucher.voucherNo,
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
           // Rule 9: a reversed voucher stays legible and visibly struck
-          // through. Its amount is already out of every total on this page,
-          // because they all filter on status.
+          // through.
           decoration: voided ? TextDecoration.lineThrough : null,
           color: voided ? AppColors.muted : null,
         ),
       ),
       subtitle: Text(
-        // The heading, then whose it was when it belongs to somebody. A
-        // collective voucher carries no payee at all, so the ' — ' is dropped
-        // with it rather than left dangling.
+        // The heading, then whose it was when it belongs to somebody. Inside a
+        // member's card the name is the heading above, so it is dropped: this
+        // tile is used in both places and the payee is only ever repetition in
+        // one of them.
         <String>[
           voucher.category,
-          if (voucher.payeeName.isNotEmpty) voucher.payeeName,
+          voucher.method,
           formatDateTime(voucher.spentAt),
         ].join(' • '),
         style: const TextStyle(fontSize: 11, color: AppColors.muted),
@@ -395,8 +492,7 @@ class _VoucherTile extends StatelessWidget {
 /// owed are the arithmetic behind that figure — read afterwards, if at all, and
 /// never at a glance.
 ///
-/// So the answer takes the width and the workings move one tap down. Every label
-/// the association named survives, under the same words.
+/// The shape is shared with the dashboard: see [FigureBar].
 class _BalanceBar extends StatelessWidget {
   const _BalanceBar({required this.summary});
 
@@ -406,190 +502,67 @@ class _BalanceBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final L l = L.of(context);
 
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        onTap: () => _showTreasuryBreakdown(context, summary),
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      l.associationBalance,
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      formatMoney(summary.balance),
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    // ── COLLECTED is not the same as HELD ─────────────────
-                    // This figure used to be `total` — everything ever
-                    // collected — which was true only while money could not
-                    // leave. The two now differ by exactly what has been
-                    // disbursed, and the subtitle carries that difference on
-                    // the same line rather than leaving it to be inferred from
-                    // two tiles.
-                    Text(
-                      '${l.totalDisbursed} ${formatMoney(summary.disbursed)}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // The affordance. A card that opens something and does not say so
-              // is a feature nobody finds — and this is now the only way to the
-              // three figures that used to be on the page.
-              const Icon(
-                Icons.expand_more,
-                size: 20,
-                color: AppColors.muted,
-              ),
-            ],
-          ),
+    return FigureBar(
+      label: l.associationBalance,
+      value: formatMoney(summary.balance),
+      // ── The subtitle carries the LIABILITY, not the outflow ───────────────
+      // It used to name what had been disbursed. عهد is the more urgent of the
+      // two: money that is physically in the box and is not the association's,
+      // so a treasurer who counts the cash and reads this figure needs the
+      // difference on the same line — otherwise the app looks simply wrong to
+      // the one person who can check it against the notes in his hand.
+      //
+      // Shown only when there IS any. «عهد المشتركين 0.00» under every balance
+      // would be a permanent line explaining a situation that is not happening.
+      sub: (double.tryParse(summary.heldForMembers) ?? 0) > 0
+          ? '${l.heldForMembers} ${formatMoney(summary.heldForMembers)}'
+          : '${l.totalDisbursed} ${formatMoney(summary.disbursed)}',
+      // The order is the reading order of the answer: what came in, how it came
+      // in, what went out, what has NOT come in — then the conclusion, which is
+      // the figure on the bar itself.
+      rows: <FigureRow>[
+        FigureRow(
+          label: l.totalCollected,
+          value: formatMoney(summary.total),
+          tone: AppColors.success,
         ),
-      ),
-    );
-  }
-}
-
-/// How the balance was arrived at: money in, by method, and money not yet in.
-///
-/// A sheet rather than a second page: it is read for a moment and dismissed, and
-/// the list it was opened from should still be behind it.
-void _showTreasuryBreakdown(BuildContext context, CashSummaryView s) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    barrierColor: AppColors.ink.withValues(alpha: 0.22),
-    builder: (BuildContext sheetContext) {
-      final L l = L.of(sheetContext);
-      return GlassSheet(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.inkMuted.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                // The order is the reading order of the answer: what came in,
-                // how it came in, what went out, and what has NOT come in —
-                // then the conclusion, which is the figure on the bar itself.
-                _BreakdownRow(
-                  label: l.totalCollected,
-                  value: s.total,
-                  tone: AppColors.success,
-                ),
-                _BreakdownRow(
-                  label: l.collectedCash,
-                  value: s.cash,
-                  tone: AppColors.success,
-                ),
-                _BreakdownRow(
-                  label: l.collectedTransfer,
-                  value: s.transfer,
-                  tone: AppColors.info,
-                ),
-                _BreakdownRow(
-                  label: l.totalDisbursed,
-                  value: s.disbursed,
-                  tone: AppColors.danger,
-                ),
-                _BreakdownRow(
-                  label: l.dueFromMembers,
-                  value: s.outstanding,
-                  tone: AppColors.danger,
-                ),
-                const Divider(height: AppSpacing.xl),
-                _BreakdownRow(
-                  label: l.associationBalance,
-                  value: s.balance,
-                  strong: true,
-                ),
-              ],
-            ),
-          ),
+        FigureRow(
+          label: l.collectedCash,
+          value: formatMoney(summary.cash),
+          tone: AppColors.success,
         ),
-      );
-    },
-  );
-}
-
-class _BreakdownRow extends StatelessWidget {
-  const _BreakdownRow({
-    required this.label,
-    required this.value,
-    this.tone,
-    this.strong = false,
-  });
-
-  final String label;
-  final String value;
-  final Color? tone;
-  final bool strong;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 3,
-            height: 14,
-            decoration: BoxDecoration(
-              // The same solid bar the tiles carried: it encodes the tone for a
-              // reader who cannot separate the colours, so hue is never the
-              // only signal.
-              color: tone ?? AppColors.brand,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
-              ),
-            ),
-          ),
-          Text(
-            formatMoney(value),
-            style: TextStyle(
-              fontSize: strong ? 16 : 14,
-              fontWeight: strong ? FontWeight.w900 : FontWeight.w800,
-              color: tone,
-            ),
-          ),
-        ],
-      ),
+        FigureRow(
+          label: l.collectedTransfer,
+          value: formatMoney(summary.transfer),
+          tone: AppColors.info,
+        ),
+        // ── The liability, between what came in and what went out ────────────
+        // Placed here because that is where it belongs in the sentence the rows
+        // read as: 60 arrived, 40 of it is not ours, 20 went out, this is what
+        // is left. Toned like a disbursement rather than a collection — it is
+        // money that will leave, and colouring it green beside «إجمالي المحصل»
+        // would invite it to be added to the association's side.
+        FigureRow(
+          label: l.heldForMembers,
+          value: formatMoney(summary.heldForMembers),
+          tone: AppColors.warning,
+        ),
+        FigureRow(
+          label: l.totalDisbursed,
+          value: formatMoney(summary.disbursed),
+          tone: AppColors.danger,
+        ),
+        FigureRow(
+          label: l.dueFromMembers,
+          value: formatMoney(summary.outstanding),
+          tone: AppColors.danger,
+        ),
+        FigureRow(
+          label: l.associationBalance,
+          value: formatMoney(summary.balance),
+          strong: true,
+        ),
+      ],
     );
   }
 }

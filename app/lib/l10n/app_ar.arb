@@ -222,7 +222,6 @@
   "disbursementNoteHint": "اسم المولود، أو صاحب المناسبة",
   "disbursementNoteHelp": "تظهر هذه الملاحظة في كشف المشترك بجانب البند، فيُعرف لماذا صُرف له.",
   "aidNoteLabel": "الملاحظات",
-  "aidBreakdownNote": "هذا تجميع للسندات المدرجة أدناه، وليست عمليات صرف إضافية.",
   "openAid": "سجل الإعانات",
   "aidTotal": "إجمالي ما صُرف له",
   "aidCount": "عدد السندات",
@@ -246,9 +245,18 @@
   "@dueFromMembers": {
     "description": "Treasury tile: every subscriber's unpaid balance, summed. Distinct from outstandingTotal (المديونية القائمة), which the admin receivables and reports screens use — the treasury asks a shorter question and the tile is narrow."
   },
+  "heldForMembers": "عهد المشتركين",
+  "@heldForMembers": {
+    "description": "Cash the association holds but has not earned: prepayments not yet settled against a billed month. It is subtracted from associationBalance, and register_disbursement refuses to spend past the same figure."
+  },
   "associationBalance": "رصيد الجمعية",
   "@associationBalance": {
     "description": "The treasury total, renamed. It is the LAST tile because it is the conclusion of the three above it — cash in, transfers in, still owed — rather than a fourth independent fact. `collectedThisYear` was removed with it: in an association's first year that tile showed the same number as this one."
+  },
+  "voucherCount": "{count, plural, =1{سند صرف واحد} =2{سندا صرف} few{{count} سندات صرف} other{{count} سند صرف}}",
+  "@voucherCount": {
+    "description": "How many vouchers made out to this subscriber are folded into his treasury card. Shown in red beside the receipt count, so a closed card says there is an outgoing side inside it. A COUNT and never an amount: two money figures side by side on one row invite the reader to subtract, and aid is never netted against what a member paid.",
+    "placeholders": { "count": { "type": "int" } }
   },
   "receiptCount": "{count, plural, =0{لا إيصالات} =1{إيصال واحد} =2{إيصالان} few{{count} إيصالات} other{{count} إيصالاً}}",
   "@receiptCount": {
@@ -274,16 +282,12 @@
   "@autoCloseResult": { "placeholders": { "count": { "type": "int" } } },
   "nothingToGenerate": "لا توجد استحقاقات جديدة لهذا الشهر",
 
-  "dashboardIntro": "ملخص الوضع الإداري والمالي للجمعية.",
   "statAdeels": "عدد المشتركين",
-  "statInactive": "غير المحاسَبين",
 
   "statTotalDebt": "إجمالي المديونية",
   "statTotalCollected": "إجمالي المحصل",
   "subActive": "{count} نشط",
   "@subActive": { "placeholders": { "count": { "type": "int" } } },
-  "subDeceased": "{count} متوفى",
-  "@subDeceased": { "placeholders": { "count": { "type": "int" } } },
   "subIndebtedAdeels": "{count} مشترك مدين",
   "@subIndebtedAdeels": { "placeholders": { "count": { "type": "int" } } },
   "subCashTransfer": "نقدي {cash} • تحويل {transfer}",

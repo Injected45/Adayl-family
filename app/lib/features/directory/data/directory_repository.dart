@@ -71,14 +71,24 @@ class DirectoryRepository {
         final PostgrestFilterBuilder<dynamic> base = _db
             .from('v_adeels')
             .select();
+        // ── الأقدم في الأعلى: A-01 ثم A-02 … ─────────────────────────────────
+        // `ascending: true` مكتوبة صراحةً، وليست زائدة: الافتراضي في عميل Dart
+        // هو `ascending = false`، على خلاف PostgREST نفسه وعلى خلاف ما يوحي به
+        // اسم الدالة. فـ `.order('id')` وحدها كانت تعني تنازليًا — أي أحدث
+        // مشترك في الرأس — وهذا ما كان يظهر في الشاشة.
+        //
+        // والخطأ من النوع الذي لا يُكتشَف بالقراءة: السطر يبدو صحيحًا تمامًا،
+        // ولا يُرى إلا على شاشة فيها أكثر من صفّين. فالقاعدة في
+        // tool/supabase_lint.dart تُلزم كتابة `ascending:` في كل نداء، حتى لا
+        // يعود أحد يعتمد على افتراضٍ يقول عكس ما يبدو.
         final dynamic rows = safe.isEmpty
-            ? await base.order('id')
+            ? await base.order('id', ascending: true)
             : await base
                   .or(
                     'fullName.ilike.%$safe%,'
                     'adeelCode.ilike.%$safe%',
                   )
-                  .order('id');
+                  .order('id', ascending: true);
         return _rows(rows).map(AdeelListItem.fromJson).toList();
       });
 

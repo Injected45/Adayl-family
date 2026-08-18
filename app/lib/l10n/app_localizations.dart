@@ -1093,12 +1093,6 @@ abstract class L {
   /// **'الملاحظات'**
   String get aidNoteLabel;
 
-  /// No description provided for @aidBreakdownNote.
-  ///
-  /// In ar, this message translates to:
-  /// **'هذا تجميع للسندات المدرجة أدناه، وليست عمليات صرف إضافية.'**
-  String get aidBreakdownNote;
-
   /// No description provided for @openAid.
   ///
   /// In ar, this message translates to:
@@ -1195,11 +1189,23 @@ abstract class L {
   /// **'إجمالي المستحق'**
   String get totalOutstanding;
 
+  /// Cash the association holds but has not earned: prepayments not yet settled against a billed month. It is subtracted from associationBalance, and register_disbursement refuses to spend past the same figure.
+  ///
+  /// In ar, this message translates to:
+  /// **'عهد المشتركين'**
+  String get heldForMembers;
+
   /// The treasury total, renamed. It is the LAST tile because it is the conclusion of the three above it — cash in, transfers in, still owed — rather than a fourth independent fact. `collectedThisYear` was removed with it: in an association's first year that tile showed the same number as this one.
   ///
   /// In ar, this message translates to:
   /// **'رصيد الجمعية'**
   String get associationBalance;
+
+  /// How many vouchers made out to this subscriber are folded into his treasury card. Shown in red beside the receipt count, so a closed card says there is an outgoing side inside it. A COUNT and never an amount: two money figures side by side on one row invite the reader to subtract, and aid is never netted against what a member paid.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =1{سند صرف واحد} =2{سندا صرف} few{{count} سندات صرف} other{{count} سند صرف}}'**
+  String voucherCount(int count);
 
   /// How many live receipts are folded into one subscriber's row on the treasury screen. It is what tells a reader the row opens at all.
   ///
@@ -1291,23 +1297,11 @@ abstract class L {
   /// **'لا توجد استحقاقات جديدة لهذا الشهر'**
   String get nothingToGenerate;
 
-  /// No description provided for @dashboardIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'ملخص الوضع الإداري والمالي للجمعية.'**
-  String get dashboardIntro;
-
   /// No description provided for @statAdeels.
   ///
   /// In ar, this message translates to:
   /// **'عدد المشتركين'**
   String get statAdeels;
-
-  /// No description provided for @statInactive.
-  ///
-  /// In ar, this message translates to:
-  /// **'غير المحاسَبين'**
-  String get statInactive;
 
   /// No description provided for @statTotalDebt.
   ///
@@ -1326,12 +1320,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'{count} نشط'**
   String subActive(int count);
-
-  /// No description provided for @subDeceased.
-  ///
-  /// In ar, this message translates to:
-  /// **'{count} متوفى'**
-  String subDeceased(int count);
 
   /// No description provided for @subIndebtedAdeels.
   ///

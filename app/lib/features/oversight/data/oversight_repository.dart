@@ -85,7 +85,7 @@ class OversightRepository {
   });
 
   Future<List<UserAccount>> users() => SupabaseFailures.guard(() async {
-    final dynamic rows = await _db.from('v_users').select().order('email');
+    final dynamic rows = await _db.from('v_users').select().order('email', ascending: true);
     return _rows(rows).map(UserAccount.fromJson).toList();
   });
 

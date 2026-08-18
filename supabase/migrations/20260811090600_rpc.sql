@@ -236,6 +236,57 @@ BEGIN
 END $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- عهد المشتركين — money the association HOLDS but has not EARNED.
+--
+-- A man may pay a year ahead. The cash is in the box, and rule 8 puts it in
+-- cash_movements the moment it arrives, so the treasury's `total` counts it —
+-- correctly, because it really did arrive. What it is NOT is the association's
+-- money: until a month is billed and settle_from_credit allocates against it,
+-- that sum is a liability owed back to him.
+--
+-- Left in the spendable balance it produced this, which is not a rounding
+-- concern but the association spending a member's deposit: he pays 60 in
+-- advance, one month closes so 20 is earned, and رصيد الجمعية still reads 60 —
+-- so a voucher for 60 is accepted and his remaining 40 is gone. Nothing on any
+-- screen said so, because nothing anywhere distinguished the two kinds of money.
+--
+-- ── One function rather than four copies of the SUM ──────────────────────────
+-- The quantity is read in four places that must agree exactly: the treasury
+-- view, the member portal's aggregates, and the two guards that decide whether
+-- money may leave (register_disbursement) or be un-collected (cancel_payment).
+-- Four hand-written copies of a money expression is four chances to fix three.
+--
+-- SECURITY INVOKER on purpose. Inside v_cash_summary — itself invoker — it sums
+-- exactly what the caller may read, which is the same rule `total` beside it
+-- already follows. Inside the SECURITY DEFINER guards it runs with their
+-- privileges and sees everything, which is what a treasury check must do.
+--
+-- greatest(…, 0) is per PAYMENT and is a floor, not a correction: allocations
+-- can never exceed their own payment (register_payment refuses a negative
+-- remainder, settle_from_credit takes the least of the two). Should that ever
+-- break, a negative would UNDERSTATE what is held and hand the difference to
+-- the spendable balance — so the floor errs toward refusing a disbursement
+-- rather than toward allowing one. v_adeels."credit" floors the same quantity
+-- per MEMBER; with the invariant intact the two are identical.
+--
+-- p_exclude_payment exists for cancel_payment, which has to ask what will be
+-- held AFTER the receipt it is about to void disappears.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.members_held(p_exclude_payment bigint DEFAULT NULL)
+RETURNS numeric
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT coalesce(sum(greatest(p.amount - coalesce(al.allocated, 0), 0)), 0)
+    FROM public.payments p
+    LEFT JOIN LATERAL (
+      SELECT sum(a.amount) AS allocated
+        FROM public.payment_allocations a
+       WHERE a.payment_id = p.id
+    ) al ON true
+   WHERE p.status <> 'ملغي'
+     AND (p_exclude_payment IS NULL OR p.id <> p_exclude_payment);
+$$;
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- The wallet, spent.
 --
 -- A payment that could not be fully allocated left a surplus — see the rule 7
@@ -334,6 +385,7 @@ DECLARE
   r           record;
   v_collected numeric;
   v_spent     numeric;
+  v_held      numeric;
 BEGIN
   PERFORM public.require_role('financeManager');
 
@@ -378,10 +430,17 @@ BEGIN
   SELECT coalesce(sum(amount), 0) INTO v_spent
     FROM public.disbursements WHERE status <> 'ملغي';
 
-  IF v_collected < v_spent THEN
+  -- The same subtraction register_disbursement makes, and it has to be here too:
+  -- what is left after this cancellation is only spendable money if the عهد
+  -- still standing is taken out of it. Excluding THIS payment is the same trick
+  -- as the line above — it is about to be 'ملغي', so its own unallocated part
+  -- stops being held at the same instant its cash movement stops counting.
+  SELECT public.members_held(p_payment_id) INTO v_held;
+
+  IF v_collected - v_held < v_spent THEN
     RAISE EXCEPTION
       'إلغاء الإيصال % يترك الصندوق سالباً — ألغِ سندات صرف بقيمة % أولاً',
-      v_pay.receipt_no, (v_spent - v_collected)::text
+      v_pay.receipt_no, (v_spent - (v_collected - v_held))::text
       USING ERRCODE = 'RUL09';
   END IF;
 
@@ -1503,6 +1562,7 @@ DECLARE
   v_collected numeric;
   v_spent     numeric;
   v_available numeric;
+  v_held      numeric;
   v_payee     text;
   v_bank      text;
   v_acct_no   text;
@@ -1525,13 +1585,29 @@ BEGIN
     FROM public.cash_movements WHERE status <> 'ملغي';
   SELECT coalesce(sum(amount), 0) INTO v_spent
     FROM public.disbursements  WHERE status <> 'ملغي';
-  v_available := v_collected - v_spent;
+  -- ── AND WHAT IS HELD FOR MEMBERS IS NOT THE ASSOCIATION'S TO SPEND ─────────
+  -- The third term is the whole of عهد: a prepayment is in cash_movements, so
+  -- v_collected counts it, and until the month it covers is billed it is money
+  -- owed back. Spending it is spending a member's deposit — see members_held().
+  SELECT public.members_held() INTO v_held;
+  v_available := v_collected - v_spent - v_held;
 
+  -- ── The message has to name the عهد, or the refusal is unreadable ──────────
+  -- The box physically holds v_collected − v_spent. An admin who counted it and
+  -- is then refused a smaller figure will conclude the app is wrong, and he is
+  -- the one person who can see the cash to check. So when any of it is عهد, the
+  -- refusal says so and gives both numbers.
   IF p_amount > v_available THEN
+    IF v_held > 0 THEN
+      RAISE EXCEPTION
+        'الصرف % يتجاوز القابل للصرف % — في الصندوق % منها % عهد للمشتركين',
+        p_amount::text, v_available::text,
+        (v_collected - v_spent)::text, v_held::text
+        USING ERRCODE = 'RUL17';
+    END IF;
     RAISE EXCEPTION 'الصرف % يتجاوز رصيد الصندوق %',
       p_amount::text, v_available::text USING ERRCODE = 'RUL17';
   END IF;
-
   -- ── The two shapes, refused here as well as CHECKed on the row ─────────────
   -- ck_disb_shape is the guarantee; this is the message. A constraint violation
   -- arrives as 23514 with a constraint name, which is true and unreadable — the

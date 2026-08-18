@@ -64,7 +64,13 @@ WINNERS=$(( OK_A + OK_B ))
 # The loser must be refused by the treasury rule specifically. A deadlock or a
 # crash would also leave one winner, and would satisfy a bare "winners = 1" while
 # meaning the admin's phone showed something unexplained.
-REFUSED=$(cat "$A" "$B" | grep -c 'RUL17\|يتجاوز رصيد الصندوق' || true)
+#
+# «يتجاوز» rather than the whole sentence: the refusal now has TWO wordings —
+# «يتجاوز رصيد الصندوق» when nothing is held for members, and «يتجاوز القابل
+# للصرف … منها … عهد للمشتركين» when something is. Matching the full old
+# sentence made this check pass only in the first case, which is not the case
+# this suite runs in.
+REFUSED=$(cat "$A" "$B" | grep -c 'RUL17\|يتجاوز' || true)
 CRASHED=$(cat "$A" "$B" | grep -icE 'deadlock|could not serialize|server closed' || true)
 
 BAL_AFTER=$(Q <<SQL

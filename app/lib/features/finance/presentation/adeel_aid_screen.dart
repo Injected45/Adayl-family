@@ -218,21 +218,24 @@ class _AidBody extends StatelessWidget {
                       label: c.category,
                       trailing: l.aidVoucherCount(c.count),
                       amount: c.total,
+                      vouchers: _liveUnder(
+                        aid,
+                        (DisbursementView v) => v.category == c.category,
+                      ),
                     ),
-                  // Says what the panel IS. Without it a reader who has just
-                  // seen «مولود 100» here and «مولود 100» again in the ledger
-                  // below has every reason to think the voucher was recorded
-                  // twice — which is the one thing a man reading his own aid
-                  // must never be left wondering.
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    l.aidBreakdownNote,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      height: 1.5,
-                      color: AppColors.muted,
-                    ),
-                  ),
+                  // ── The sentence that stood here is gone ─────────────────
+                  // «هذا تجميع للسندات المدرجة أدناه، وليست عمليات صرف إضافية»
+                  // existed because a reader who saw «مولود 450» here and the
+                  // same vouchers again in the ledger below had every reason to
+                  // suspect they were recorded twice. It answered that in
+                  // words, which was the only way while the line was inert.
+                  //
+                  // Opening the line answers it by SHOWING: the three vouchers
+                  // appear under the heading, each with its own number, date
+                  // and note, and they are visibly the same three that are in
+                  // the ledger. A demonstration the reader performs himself
+                  // needs no sentence beside it, and the association asked for
+                  // fewer of those.
                 ],
               ),
             ),
@@ -252,6 +255,16 @@ class _AidBody extends StatelessWidget {
                       label: y.year,
                       trailing: l.aidVoucherCount(y.count),
                       amount: y.total,
+                      // The first four characters of `spentAt`, not a parsed
+                      // DateTime: api_adeel_aid derives the year with
+                      // `AT TIME ZONE 'UTC'` and v_disbursements renders the
+                      // date the same way, so the strings agree by
+                      // construction. Parsing to local time would disagree with
+                      // the heading for a voucher written near midnight.
+                      vouchers: _liveUnder(
+                        aid,
+                        (DisbursementView v) => v.spentAt.startsWith(y.year),
+                      ),
                     ),
                 ],
               ),
@@ -342,36 +355,193 @@ class _AidTotalBlock extends StatelessWidget {
 }
 
 /// One label / count / amount line, used by both breakdowns.
-class _AidRow extends StatelessWidget {
+
+/// The vouchers behind one breakdown line, oldest first.
+///
+/// ⚠ CANCELLED ONES ARE LEFT OUT, to match the figure they sit under.
+///   api_adeel_aid computes `byCategory` and `byYear` over a CTE that excludes
+///   'ملغي', so a heading that says «٣ سندات ‎450.00» is already counting three.
+///   Expanding to the full ledger would list four rows adding to something
+///   else, directly beneath a total that disagrees — and the reader has nothing
+///   to tell him which is right. Reversed vouchers stay in the ledger below,
+///   where rule 9 requires them and where the الإجمالي column shows they moved
+///   nothing.
+///
+/// Oldest first, matching the ledger. The ledger reads as a running account and
+/// these are the same rows under a different heading; flipping the order in one
+/// place would make the same voucher look like two different entries.
+List<DisbursementView> _liveUnder(
+  AdeelAid aid,
+  bool Function(DisbursementView) where,
+) => aid.ledger
+    .map((AidLedgerEntry e) => e.voucher)
+    .where((DisbursementView v) => !v.cancelled && where(v))
+    .toList();
+/// One line of a breakdown — and the vouchers behind it, on a tap.
+///
+/// «مولود  ٣ سندات  450.00» answers how much went on births and stops there.
+/// The question it raises is the next one: WHICH births, and when, and for
+/// whom — and the note on each voucher is where the association wrote the
+/// child's name. That used to mean scrolling to the ledger below and picking
+/// the three rows out of a year of them by eye.
+///
+/// So the line opens. Nothing new is fetched and no panel is added: the same
+/// vouchers already on this screen are shown under the heading they belong to,
+/// which is the arrangement that answers the question without another container
+/// on the page.
+///
+/// ⚠ LIVE VOUCHERS ONLY, and this is not a display preference. `byCategory` and
+///   `byYear` are computed by api_adeel_aid over a CTE that excludes 'ملغي', so
+///   its count and its total already leave reversed vouchers out. Expanding to
+///   the full ledger would list four rows under a heading that says three and
+///   show amounts that do not add up to the figure above them — a disagreement
+///   the reader would have no way to resolve. The reversed ones stay visible in
+///   the ledger below, where rule 9 requires them and where the الإجمالي column
+///   shows they moved nothing.
+class _AidRow extends StatefulWidget {
   const _AidRow({
     required this.label,
     required this.trailing,
     required this.amount,
+    required this.vouchers,
   });
 
   final String label;
   final String trailing;
   final String amount;
 
+  /// Already narrowed to this heading, and already live-only.
+  final List<DisbursementView> vouchers;
+
+  @override
+  State<_AidRow> createState() => _AidRowState();
+}
+
+class _AidRowState extends State<_AidRow> {
+  bool _open = false;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
-          Text(
-            trailing,
-            style: const TextStyle(fontSize: 11, color: AppColors.muted),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Text(
-            formatMoney(amount),
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: AppColors.danger,
+    // A line with nothing behind it does not pretend to open. That only happens
+    // if a heading's vouchers were all reversed, which the filter above cannot
+    // produce for a heading that is listed at all — but a chevron that does
+    // nothing is worse than no chevron, so the case is handled rather than
+    // assumed away.
+    final bool openable = widget.vouchers.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        InkWell(
+          onTap: openable ? () => setState(() => _open = !_open) : null,
+          borderRadius: BorderRadius.circular(AppRadius.control),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+            child: Row(
+              children: <Widget>[
+                if (openable) ...<Widget>[
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                Text(
+                  widget.trailing,
+                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Text(
+                  formatMoney(widget.amount),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.danger,
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
+        if (_open)
+          for (final DisbursementView v in widget.vouchers)
+            _AidVoucherBrief(voucher: v),
+      ],
+    );
+  }
+}
+
+/// One voucher inside an opened heading: when, how much, and what was written
+/// on it.
+///
+/// Deliberately NOT the full [_LedgerDetail]. Under «مولود» the category is the
+/// heading itself and printing it on every row is noise; what is left is the
+/// date, the amount and the NOTE — and the note is the whole reason the line
+/// opens, because that is where «حور» or «سند» was recorded.
+class _AidVoucherBrief extends StatelessWidget {
+  const _AidVoucherBrief({required this.voucher});
+
+  final DisbursementView voucher;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsetsDirectional.only(
+        bottom: AppSpacing.xs,
+        start: AppSpacing.lg,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: GlassColors.well,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+        border: Border.all(color: GlassColors.wellEdge),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                voucher.voucherNo,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.muted,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  formatDate(voucher.spentAt),
+                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+              ),
+              Text(
+                formatMoney(voucher.amount),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.danger,
+                ),
+              ),
+            ],
+          ),
+          // Prose of unknown length, and the answer the reader opened the line
+          // for. It wraps freely because nothing sits beside it.
+          if (voucher.note.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              voucher.note,
+              style: const TextStyle(fontSize: 13, height: 1.5),
+            ),
+          ],
         ],
       ),
     );

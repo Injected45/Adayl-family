@@ -194,8 +194,35 @@ class _PaymentCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(
-                    payment.receiptNo,
+                  // ── الرقم ثم الاسم ───────────────────────────────────────
+                  // PAY-07 identifies the receipt; the name identifies the
+                  // man, and this list runs across the whole association, so
+                  // without him a card says what was collected and never from
+                  // whom. The number leads because it is what a treasurer
+                  // reads out and writes on paper; the name follows in a
+                  // lighter weight so the column still scans by number.
+                  //
+                  // One Text with two spans rather than two widgets: they wrap
+                  // as one phrase, so a long name pushes onto the next line
+                  // instead of squeezing the receipt number into an ellipsis.
+                  child: Text.rich(
+                    TextSpan(
+                      children: <InlineSpan>[
+                        TextSpan(text: payment.receiptNo),
+                        if (payment.adeelName.isNotEmpty)
+                          TextSpan(
+                            text: '  ${payment.adeelName}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: cancelled
+                                  ? AppColors.muted
+                                  : AppColors.inkMuted,
+                            ),
+                          ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       // Voided rows stay legible but visibly struck through;
@@ -232,12 +259,17 @@ class _PaymentCard extends ConsumerWidget {
             ),
             if (payment.allocations.isNotEmpty) ...<Widget>[
               const SizedBox(height: AppSpacing.md),
+              // «يناير 100.00، فبراير 100.00، مارس 100.00» — the month, not the
+              // period code. One receipt often settles several months at once,
+              // and «2026-01: 100.00» three times over is the same year printed
+              // three times on a phone. See formatPeriodMonth: the year comes
+              // back the moment the month is not in the current one.
               LabelledValue(
                 label: l.allocation,
                 value: payment.allocations
                     .map(
                       (PaymentAllocationView a) =>
-                          '${a.period}: ${formatMoney(a.amount)}',
+                          '${formatPeriodMonth(a.period)} ${formatMoney(a.amount)}',
                     )
                     .join(ArabicPunctuation.listSeparator),
               ),

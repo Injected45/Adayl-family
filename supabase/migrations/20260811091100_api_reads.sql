@@ -549,11 +549,17 @@ BEGIN
          -- not — see the note on read_disbursements.
          'disbursed', (SELECT coalesce(sum(x.amount), 0)::numeric(12,2)::text
                          FROM public.disbursements x WHERE x.status <> 'ملغي'),
+         -- ⚠ MINUS what is held for members, exactly as v_cash_summary does.
+         -- The member reads this under the heading رصيد الجمعية; if it counted
+         -- عهد, his own deposit would be shown to him as association money —
+         -- and to every other member as well. See members_held().
+         'heldForMembers', public.members_held()::numeric(12,2)::text,
          'balance', (
            (SELECT coalesce(sum(c2.amount), 0) FROM public.cash_movements c2
              WHERE c2.status <> 'ملغي')
            - (SELECT coalesce(sum(x.amount), 0) FROM public.disbursements x
-               WHERE x.status <> 'ملغي'))::numeric(12,2)::text,
+               WHERE x.status <> 'ملغي')
+           - public.members_held())::numeric(12,2)::text,
          'issued', (SELECT coalesce(sum(r.total), 0)::numeric(12,2)::text
                       FROM public.receivables r WHERE r.status <> 'ملغي'),
          'outstanding', (SELECT coalesce(sum(r.balance), 0)::numeric(12,2)::text

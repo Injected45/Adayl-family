@@ -57,6 +57,37 @@ String formatMoneyWithCurrency(String? decimal, String currency) =>
 /// as well, which is the half the association actually wanted in Arabic.
 final DateFormat _dayFormat = DateFormat('d MMMM y', 'ar');
 final DateFormat _dateTimeFormat = DateFormat('d MMMM y', 'ar').add_Hm();
+final DateFormat _monthOnlyFormat = DateFormat('MMMM', 'ar');
+
+/// A billing period — `2026-01` — as a month name: «يناير».
+///
+/// One receipt often settles several months at once (FIFO takes the oldest
+/// first), and the allocation line then reads
+/// «2026-01: 100.00، 2026-02: 100.00، 2026-03: 100.00» — three years repeated
+/// on a phone, for a receipt written this year. The month alone says the same
+/// thing in a third of the room.
+///
+/// ⚠ THE YEAR COMES BACK WHEN IT IS NOT THIS ONE. The association drops it
+///   because the app is worked in the current year and everything on the screen
+///   belongs to it — true today, and false the first January that settles a
+///   December. A bare «ديسمبر» on a receipt written in 2027 is ambiguous
+///   between two months twelve apart, on the one document a member keeps.
+///   So the rule is "drop what is obvious", not "drop the year": same short
+///   line all year, and «ديسمبر 2026» when the period is not the current year.
+///
+/// The month names come from intl's `ar` data rather than a table of twelve
+/// strings here: user-facing Arabic has two homes in this project and a
+/// formatter is neither of them — and the calendar already prints these exact
+/// names beside every date on the screen.
+String formatPeriodMonth(String? period) {
+  if (period == null || period.length < 7) return period ?? '';
+  final int? year = int.tryParse(period.substring(0, 4));
+  final int? month = int.tryParse(period.substring(5, 7));
+  if (year == null || month == null || month < 1 || month > 12) return period;
+
+  final String name = _monthOnlyFormat.format(DateTime(year, month));
+  return year == DateTime.now().year ? name : '$name $year';
+}
 
 String formatDate(String? iso) {
   if (iso == null || iso.isEmpty) return '';

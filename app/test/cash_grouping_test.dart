@@ -273,12 +273,15 @@ void main() {
     WidgetTester tester,
   ) async {
     // The treasury is one fund and this is the page that describes it. The
-    // balance tile already subtracts what went out; until now nothing here
+    // balance bar already subtracts what went out; until this nothing here
     // showed WHAT, so the screen answered half its own question.
     //
     // The colour is the load-bearing part. On a page where every other figure
     // is money ARRIVING, an outgoing amount in the same green reads as a second
     // collection — direction has to be legible before the number is.
+    //
+    // A COLLECTIVE voucher, which is what this section holds now: فطور رمضان
+    // belongs to everyone, so it has no member card to sit inside.
     await pump(
       tester,
       app(
@@ -301,22 +304,29 @@ void main() {
     );
 
     expect(find.text(l.opsCollections), findsOneWidget);
-    expect(find.text(l.opsDisbursements), findsOneWidget);
+    expect(find.text(l.kindCollective), findsOneWidget);
     expect(find.text('EXP-01'), findsOneWidget);
     // The heading it was spent under, so a reader knows what the money was for
     // without opening anything.
     expect(find.textContaining('فطور رمضان'), findsOneWidget);
+    // Outward arrow, matching the الصرف tab and its button.
+    expect(find.byIcon(Icons.north_east), findsWidgets);
 
     final Text out = tester.widget<Text>(find.text(formatMoney('60.00')));
     expect(out.style?.color, AppColors.danger);
   });
 
-  testWidgets('a REVERSED voucher is struck through and no longer red', (
+  testWidgets('a REVERSED voucher stays RED, and is struck through', (
     WidgetTester tester,
   ) async {
-    // Rule 9 keeps it on the page. But red says "this left the fund", and a
-    // cancelled voucher moved nothing — painting it red would overstate what
-    // went out by exactly its amount.
+    // Rule 9 keeps it on the page. It used to go grey, which read as
+    // "inactive" — and a reversed voucher is not inactive, it is an entry a
+    // treasurer still has to account for.
+    //
+    // So the colour stays red and the STRIKE-THROUGH carries the difference:
+    // red-and-plain is money spent, red-and-struck is money undone. Nothing is
+    // overstated by it — every total on this page filters on status, so the
+    // 900 below is already out of all of them.
     await pump(
       tester,
       app(
@@ -340,6 +350,9 @@ void main() {
 
     final Text struck = tester.widget<Text>(find.text(formatMoney('900.00')));
     expect(struck.style?.decoration, TextDecoration.lineThrough);
-    expect(struck.style?.color, isNot(AppColors.danger));
+    expect(struck.style?.color, AppColors.danger);
+    // And the arrow becomes an undo, so the row is legible as a reversal even
+    // where the strike-through is hard to see.
+    expect(find.byIcon(Icons.undo), findsOneWidget);
   });
 }

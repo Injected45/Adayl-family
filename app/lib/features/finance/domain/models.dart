@@ -39,6 +39,8 @@ class PaymentView {
     required this.id,
     required this.receiptNo,
     required this.adeelId,
+    this.adeelName = '',
+    this.adeelCode = '',
     required this.amount,
     required this.method,
     required this.reference,
@@ -55,6 +57,20 @@ class PaymentView {
   final int id;
   final String receiptNo;
   final int adeelId;
+
+  /// WHO paid, on the receipt itself.
+  ///
+  /// v_payments has sent these two all along; the model simply did not read
+  /// them. The operations list is one card per receipt, and a receipt number
+  /// with the months it settled answers "what was paid" without ever answering
+  /// "by whom" — which on a screen that lists every collection in the
+  /// association is the first question anyone has of it.
+  ///
+  /// Defaulted rather than required: the captured wire fixtures in
+  /// test/fixtures/ predate this being parsed, and a hard cast would fail
+  /// contract parsing on rows that are otherwise unchanged.
+  final String adeelName;
+  final String adeelCode;
   final String amount;
   final String method;
   final String? reference;
@@ -76,6 +92,8 @@ class PaymentView {
     id: _int(json['id']),
     receiptNo: _string(json['receiptNo']),
     adeelId: _int(json['adeelId']),
+    adeelName: _string(json['adeelName']),
+    adeelCode: _string(json['adeelCode']),
     amount: _string(json['amount']),
     method: _string(json['method']),
     reference: json['reference'] as String?,
@@ -109,6 +127,7 @@ class CashSummaryView {
     required this.year,
     this.outstanding = '0.00',
     this.disbursed = '0.00',
+    this.heldForMembers = '0.00',
     String? balance,
   }) : balance = balance ?? total;
 
@@ -136,6 +155,19 @@ class CashSummaryView {
   final String disbursed;
   final String balance;
 
+  /// عهد المشتركين — cash in the box that the association does NOT own.
+  ///
+  /// A member may pay a year ahead. The money is real and [total] counts it,
+  /// but until the month it covers is billed it is owed back to him, and
+  /// [balance] therefore excludes it: the figure under «رصيد الجمعية» is what
+  /// may actually be SPENT. register_disbursement refuses anything above the
+  /// same number, so the screen cannot promise what the server will refuse.
+  ///
+  /// Defaults to zero for a database that predates the column — which reads as
+  /// "nothing is held", the state every project was in before prepayment
+  /// existed, rather than as a figure that failed to load.
+  final String heldForMembers;
+
   factory CashSummaryView.fromJson(Map<String, dynamic> json) =>
       CashSummaryView(
         total: _string(json['total']),
@@ -146,6 +178,7 @@ class CashSummaryView {
         year: _string(json['year']),
         outstanding: _stringOr(json['outstanding'], '0.00'),
         disbursed: _stringOr(json['disbursed'], '0.00'),
+        heldForMembers: _stringOr(json['heldForMembers'], '0.00'),
         // Falls back to `total`, which is what the balance WAS before money
         // could leave. A database that predates disbursement therefore reads
         // exactly as it used to, rather than showing every association a zero.

@@ -1,4 +1,4 @@
-// Enforces the two Supabase rules the Dart analyzer cannot express.
+// Enforces the three Supabase rules the Dart analyzer cannot express.
 //
 // Run: dart run tool/supabase_lint.dart
 //
@@ -29,6 +29,24 @@
 // allocations, N receivable updates and a cash movement. A policy can only judge
 // the row in front of it; it cannot know this INSERT is the third of five that
 // must all land or none. A function body is one transaction.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// RULE 3 — every .order() names `ascending:`.
+//
+// postgrest-dart declares `order(String column, {bool ascending = false, …})`.
+// FALSE. So `.order('id')` sorts DESCENDING — the opposite of PostgREST's own
+// HTTP default, and the opposite of what the word "order" reads as in English.
+//
+// That is what put the newest عديل at the top of the register and A-01 at the
+// bottom: `.order('id')`, a line that is wrong and looks right. Nothing else in
+// the build can see it. The analyzer is content, the types check, the query
+// succeeds, and the only symptom is a list in the wrong order — which needs
+// more than two rows on screen and someone who knows which end to expect.
+//
+// So the default is banned rather than corrected: naming `ascending:` at every
+// call site makes the direction a decision someone took, and the ones that
+// genuinely want newest-first (receipts, cash movements, vouchers, the audit
+// trail) say so in the same words as the ones that want oldest-first.
 import 'dart:io';
 
 /// Base tables. Reading any of these from Dart is the money bug.
@@ -71,6 +89,16 @@ final RegExp fromCall = RegExp(r'''\.from\(\s*['"]([A-Za-z0-9_]+)['"]''');
 /// A PostgREST mutation.
 final RegExp writeCall = RegExp(r'\.(insert|upsert|update|delete)\s*\(');
 
+/// A PostgREST sort. The whole rule is about its DEFAULT, so the call is matched
+/// regardless of what it is given.
+final RegExp orderCall = RegExp(r'\.order\s*\(');
+
+/// The code on a line, with any trailing `//` comment removed.
+String _codeOf(String raw) {
+  final int comment = raw.indexOf('//');
+  return comment == -1 ? raw : raw.substring(0, comment);
+}
+
 void main() {
   final Directory lib = Directory('lib');
   if (!lib.existsSync()) {
@@ -96,6 +124,48 @@ void main() {
       final String code = comment == -1 ? raw : raw.substring(0, comment);
       if (code.trim().isEmpty) continue;
 
+      // ── RULE 3 — the sort direction must be stated ────────────────────────
+      // The argument list can be split across lines by the formatter, so the
+      // window follows the PARENTHESES rather than a fixed line count: it grows
+      // only while this call's own brackets are still open. A fixed window
+      // would read into the next statement and find an `ascending:` belonging
+      // to a different query — which is the one failure this check must not
+      // have, because it would report the rule as satisfied.
+      for (final RegExpMatch match in orderCall.allMatches(code)) {
+        int depth = 0;
+        final StringBuffer args = StringBuffer();
+        bool closed = false;
+        for (int j = i; j < lines.length && !closed; j++) {
+          final String scan = j == i
+              ? code.substring(match.end - 1)
+              : _codeOf(lines[j]);
+          for (int k = 0; k < scan.length; k++) {
+            final String ch = scan[k];
+            if (ch == '(') depth++;
+            if (ch == ')') {
+              depth--;
+              if (depth == 0) {
+                closed = true;
+                break;
+              }
+            }
+            if (depth >= 1) args.write(ch);
+          }
+          args.write(' ');
+        }
+        if (args.toString().contains('ascending:')) continue;
+        findings.add(
+          Finding(
+            entity.path,
+            i + 1,
+            'calls .order() without naming `ascending:`. postgrest-dart defaults '
+            'it to FALSE, so this sorts DESCENDING — the opposite of PostgREST '
+            'itself and of what the line reads as. Say `ascending: true` or '
+            '`ascending: false`, whichever this list actually wants.',
+            code.trim(),
+          ),
+        );
+      }
       for (final RegExpMatch match in fromCall.allMatches(code)) {
         final String target = match.group(1)!;
         if (!baseTables.contains(target)) continue;

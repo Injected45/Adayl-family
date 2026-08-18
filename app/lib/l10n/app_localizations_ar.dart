@@ -541,10 +541,6 @@ class LAr extends L {
   String get aidNoteLabel => 'الملاحظات';
 
   @override
-  String get aidBreakdownNote =>
-      'هذا تجميع للسندات المدرجة أدناه، وليست عمليات صرف إضافية.';
-
-  @override
   String get openAid => 'سجل الإعانات';
 
   @override
@@ -597,7 +593,23 @@ class LAr extends L {
   String get totalOutstanding => 'إجمالي المستحق';
 
   @override
+  String get heldForMembers => 'عهد المشتركين';
+
+  @override
   String get associationBalance => 'رصيد الجمعية';
+
+  @override
+  String voucherCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count سند صرف',
+      few: '$count سندات صرف',
+      two: 'سندا صرف',
+      one: 'سند صرف واحد',
+    );
+    return '$_temp0';
+  }
 
   @override
   String receiptCount(int count) {
@@ -663,13 +675,7 @@ class LAr extends L {
   String get nothingToGenerate => 'لا توجد استحقاقات جديدة لهذا الشهر';
 
   @override
-  String get dashboardIntro => 'ملخص الوضع الإداري والمالي للجمعية.';
-
-  @override
   String get statAdeels => 'عدد المشتركين';
-
-  @override
-  String get statInactive => 'غير المحاسَبين';
 
   @override
   String get statTotalDebt => 'إجمالي المديونية';
@@ -680,11 +686,6 @@ class LAr extends L {
   @override
   String subActive(int count) {
     return '$count نشط';
-  }
-
-  @override
-  String subDeceased(int count) {
-    return '$count متوفى';
   }
 
   @override

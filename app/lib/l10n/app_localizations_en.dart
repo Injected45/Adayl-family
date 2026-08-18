@@ -546,10 +546,6 @@ class LEn extends L {
   String get aidNoteLabel => 'Notes';
 
   @override
-  String get aidBreakdownNote =>
-      'A grouping of the vouchers listed below, not further disbursements.';
-
-  @override
   String get openAid => 'Aid history';
 
   @override
@@ -602,7 +598,21 @@ class LEn extends L {
   String get totalOutstanding => 'Total outstanding';
 
   @override
+  String get heldForMembers => 'Held for members';
+
+  @override
   String get associationBalance => 'Association balance';
+
+  @override
+  String voucherCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vouchers',
+      one: 'One voucher',
+    );
+    return '$_temp0';
+  }
 
   @override
   String receiptCount(int count) {
@@ -666,14 +676,7 @@ class LEn extends L {
   String get nothingToGenerate => 'No new receivables for this month';
 
   @override
-  String get dashboardIntro =>
-      'The association\'s administrative and financial position.';
-
-  @override
   String get statAdeels => 'Subscribers';
-
-  @override
-  String get statInactive => 'Not billed';
 
   @override
   String get statTotalDebt => 'Total outstanding';
@@ -684,11 +687,6 @@ class LEn extends L {
   @override
   String subActive(int count) {
     return '$count active';
-  }
-
-  @override
-  String subDeceased(int count) {
-    return '$count deceased';
   }
 
   @override

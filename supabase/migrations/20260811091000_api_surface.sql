@@ -257,22 +257,38 @@ SELECT
   coalesce((SELECT sum(r.balance) FROM public.receivables r
              WHERE r.status <> 'ملغي'), 0)::numeric(12,2)::text
     AS "outstanding",
-  -- ── Money OUT, and what the association actually still holds ──────────────
+  -- ── Money OUT ─────────────────────────────────────────────────────────────
+  -- Two tables rather than one signed ledger: see the note on the disbursements
+  -- table. Nothing about the collection path had to change to make this work.
+  coalesce((SELECT sum(x.amount) FROM public.disbursements x
+             WHERE x.status <> 'ملغي'), 0)::numeric(12,2)::text
+    AS "disbursed",
+  -- ── رصيد الجمعية — and the third term that was missing ────────────────────
   -- `total` above is everything ever COLLECTED and keeps that meaning. It was
   -- also what the screen called "رصيد الجمعية", which was true only while money
   -- could not leave — the moment disbursement exists, collected-to-date and
   -- held-today are different numbers and calling the first one "the balance"
   -- makes the screen lie by exactly what has been spent.
   --
-  -- Two tables rather than one signed ledger: see the note on the disbursements
-  -- table. Nothing about the collection path had to change to make this work.
-  coalesce((SELECT sum(x.amount) FROM public.disbursements x
-             WHERE x.status <> 'ملغي'), 0)::numeric(12,2)::text
-    AS "disbursed",
+  -- ⚠ AND MINUS عهد المشتركين. A prepayment is real cash and rule 8 puts it
+  --   here, so `total` counts it and should. What it is not is the
+  --   association's: until the month it covers is billed, it is owed back. The
+  --   figure under this heading is what may actually be SPENT, which is the
+  --   only question anyone asks it — and register_disbursement enforces exactly
+  --   this arithmetic, so the screen and the refusal cannot disagree.
+  --
+  --   The physical contents of the box is `total − disbursed`, and the two
+  --   figures beside this one give it: subtract "المصروف" from "إجمالي المحصل".
   (coalesce(sum(amount), 0)
    - coalesce((SELECT sum(x.amount) FROM public.disbursements x
-                WHERE x.status <> 'ملغي'), 0))::numeric(12,2)::text
-    AS "balance"
+                WHERE x.status <> 'ملغي'), 0)
+   - public.members_held())::numeric(12,2)::text
+    AS "balance",
+  -- What is held for members and not owned by the association. Appended rather
+  -- than inserted because CREATE OR REPLACE VIEW allows nothing else; anything
+  -- added later goes below it.
+  public.members_held()::numeric(12,2)::text
+    AS "heldForMembers"
 FROM public.cash_movements
 WHERE status <> 'ملغي';
 

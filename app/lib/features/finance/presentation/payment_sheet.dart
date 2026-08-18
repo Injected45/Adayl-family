@@ -196,13 +196,18 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
         final String? credit = _creditNotice(l, adeel);
         final double debt = double.tryParse(adeel?.debt ?? '0') ?? 0;
         final double? amount = double.tryParse(_amount.text.trim());
+        // ── ما يمنع الإرسال هو ما يستحيل، لا ما هو غير معتاد ─────────────────
+        // كان هنا شرطان زائدان — `debt > 0` و`amount <= debt` — وهما بقيّة من
+        // نظامٍ لا يقدر أن يحتفظ بمالٍ لم يستحقّه بعد. وقد زالا من
+        // register_payment ومن _validate أعلاه، وبقيا هنا؛ فكانت النتيجة أن
+        // إيداعًا لمشترك لا التزام عليه ممنوعٌ بزرٍّ معطَّل لا يقول لماذا.
+        //
+        // وأسوأ منه أن `amount <= debt` كان يجعل _creditNotice تحتها شفرةً
+        // ميتة: الرسالة لا تظهر إلا حين يتجاوز المبلغ الدَّين، وهي الحالة
+        // نفسها التي كان الزر فيها معطَّلًا. فكان التطبيق يشرح فائض الرصيد
+        // ويرفض تسجيله في آنٍ واحد.
         final bool canSubmit =
-            !_submitting &&
-            adeel != null &&
-            debt > 0 &&
-            amount != null &&
-            amount > 0 &&
-            amount <= debt;
+            !_submitting && adeel != null && amount != null && amount > 0;
 
         return Padding(
           padding: EdgeInsets.only(
@@ -279,11 +284,19 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
 
                 TextField(
                   controller: _amount,
-                  enabled: !_submitting && debt > 0,
+                  // الحقل مفتوح دائمًا: مشتركٌ لا التزام عليه هو بالضبط من
+                  // نودع له عهدة، وتعطيل الحقل كان يمنع ذلك بلا كلمة واحدة
+                  // تشرح السبب.
+                  enabled: !_submitting,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   inputFormatters: <TextInputFormatter>[
+                    // أولًا دائمًا، وإلا فإن FilteringTextInputFormatter تحتها
+                    // لا ترفض الأرقام العربية بل تبتلعها: كل ضغطة تُسقَط
+                    // والصندوق يبقى فارغًا بلا رسالة. هذا الحقل كان الوحيد في
+                    // التطبيق بلا هذه السطر.
+                    ArabicDigitsFormatter(),
                     FilteringTextInputFormatter.allow(
                       RegExp(r'^\d*\.?\d{0,2}'),
                     ),
@@ -579,7 +592,7 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Text(allocation.period),
+                  Text(formatPeriodMonth(allocation.period)),
                   Text(
                     formatMoney(allocation.amount),
                     style: const TextStyle(fontWeight: FontWeight.w800),

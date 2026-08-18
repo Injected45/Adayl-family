@@ -65,6 +65,35 @@ void main() {
           isFalse);
     });
 
+    test('a billing period reads as a month name alone, in the current year', () {
+      // One receipt often settles several months at once, and «2026-01: 100.00»
+      // three times over prints the same year three times on a phone. The month
+      // says it in a third of the room.
+      //
+      // Computed from today's year rather than hard-coded: an assertion that
+      // said '2026' would pass all year and fail on the first of January, which
+      // is the worst possible morning to find out.
+      final int thisYear = DateTime.now().year;
+      expect(formatPeriodMonth('$thisYear-01'), 'يناير');
+      expect(formatPeriodMonth('$thisYear-03'), 'مارس');
+    });
+
+    test('...and keeps the year when the month is NOT in it', () {
+      // The association drops the year because everything on the screen belongs
+      // to the year being worked — true today, false the first January that
+      // settles a December. A bare «ديسمبر» on a receipt written in the next
+      // year is ambiguous between two months twelve apart, on the one document
+      // a member keeps.
+      final int lastYear = DateTime.now().year - 1;
+      expect(formatPeriodMonth('$lastYear-12'), 'ديسمبر $lastYear');
+    });
+
+    test('an unreadable period is passed through, not guessed at', () {
+      expect(formatPeriodMonth(null), '');
+      expect(formatPeriodMonth('2026-13'), '2026-13');
+      expect(formatPeriodMonth('nonsense'), 'nonsense');
+    });
+
     test('an empty or unparseable date is passed through, never invented', () {
       expect(formatDate(null), '');
       expect(formatDate(''), '');

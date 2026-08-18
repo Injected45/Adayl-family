@@ -39,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=427
+EXPECTED_CHECKS=449
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"
@@ -99,6 +99,14 @@ bash "$HERE/68_spend_concurrency.sh"
 # so any group scheduled after it would assert against an empty database.
 echo "=== purge (destructive — erases the fixture) ==="
 run -f "$HERE/70_purge.sql"          2>&1 | grep -vE '^(INSERT|DELETE|SELECT|SET|RESET|CREATE) ' || true
+
+# AFTER the purge, and deliberately: this group has to CLOSE A MONTH, and by
+# 67_disbursement every month between system_start and last month is already
+# closed, so rule 15 leaves it nothing to work with. The purge wipes the ledger
+# and leaves settings and staff standing, which is the blank slate it needs — it
+# builds its own register, receipt and month and depends on no fixture.
+echo "=== عهد المشتركين (post-purge, builds its own ledger) ==="
+run -f "$HERE/75_held.sql"           2>&1 | grep -vE '^(INSERT|UPDATE|DELETE|SELECT|SET|RESET) ' || true
 
 echo
 echo "=== report ==="

@@ -98,6 +98,42 @@ List<AidLedgerEntry> _hundredThenFiveHundred() => <AidLedgerEntry>[
   ),
 ];
 
+
+/// Three births, which is the shape the association described: one heading, one
+/// figure, and the names only a note can carry.
+List<AidLedgerEntry> _threeBirths() => <AidLedgerEntry>[
+  _entry(
+    id: 1,
+    amount: '100.00',
+    runningTotal: '100.00',
+    category: 'مولود',
+    spentAt: '2026-02-10T09:00:00Z',
+    note: 'حور',
+  ),
+  _entry(
+    id: 2,
+    amount: '150.00',
+    runningTotal: '250.00',
+    category: 'مولود',
+    spentAt: '2026-04-01T09:00:00Z',
+    note: 'سند',
+  ),
+  _entry(
+    id: 3,
+    amount: '200.00',
+    runningTotal: '450.00',
+    category: 'مولود',
+    spentAt: '2026-07-05T09:00:00Z',
+    note: 'ريم',
+  ),
+];
+
+/// Two headings, so the panel renders at all — it is hidden when there is only
+/// one, because a single-row breakdown restates the headline.
+List<ExpenseByCategory> _birthsOnly() => const <ExpenseByCategory>[
+  ExpenseByCategory(category: 'مولود', total: '450.00', count: 3),
+  ExpenseByCategory(category: 'فرح', total: '500.00', count: 1),
+];
 AdeelAid _aid({
   String total = '600.00',
   int count = 2,
@@ -505,20 +541,103 @@ void main() {
     expect(find.text(l.aidByCategory), findsOneWidget);
   });
 
-  testWidgets('...and it says it is a GROUPING, not a second disbursement', (
+  testWidgets('...and a heading OPENS onto the vouchers it is made of', (
     WidgetTester tester,
   ) async {
-    // The reason the panel was doubted in the first place: «مولود 100» appears
-    // in it and «مولود 100» again in the ledger below, which reads as the same
-    // voucher recorded twice. The sentence under it is what settles that, and
-    // it is the reason the panel could come back rather than stay hidden.
+    // The reason the panel was doubted in the first place: «مولود 450» appears
+    // in it and the same vouchers again in the ledger below, which reads as the
+    // same money recorded twice. A sentence used to settle that; the line now
+    // settles it by SHOWING — the reader opens مولود and sees the very three
+    // vouchers, by number, that are in the ledger.
+    //
+    // And it is the answer to the question the heading raises: WHICH births.
+    // The note is where the association wrote the child's name.
+    await open(tester, _aid(ledger: _threeBirths(), byCategory: _birthsOnly()));
+
+    // Closed: the heading only.
+    expect(find.text('EXP-01'), findsNothing);
+
+    await tester.tap(find.text('مولود').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXP-01'), findsOneWidget);
+    expect(find.text('EXP-02'), findsOneWidget);
+    expect(find.text('EXP-03'), findsOneWidget);
+    // Each with what was written on it — the whole reason to open the line.
+    expect(find.text('حور'), findsOneWidget);
+    expect(find.text('سند'), findsOneWidget);
+    expect(find.text('ريم'), findsOneWidget);
+  });
+
+  testWidgets('...and it closes again on a second tap', (
+    WidgetTester tester,
+  ) async {
+    await open(tester, _aid(ledger: _threeBirths(), byCategory: _birthsOnly()));
+
+    await tester.tap(find.text('مولود').first);
+    await tester.pumpAndSettle();
+    expect(find.text('حور'), findsOneWidget);
+
+    await tester.tap(find.text('مولود').first);
+    await tester.pumpAndSettle();
+    expect(find.text('حور'), findsNothing);
+  });
+
+  testWidgets('a REVERSED voucher is left out of what a heading opens onto', (
+    WidgetTester tester,
+  ) async {
+    // ⚠ NOT a display preference. api_adeel_aid computes byCategory over a CTE
+    //   that excludes 'ملغي', so a heading reading «سندان 250.00» is already
+    //   counting two. Expanding to the full ledger would list three rows adding
+    //   to something else, directly beneath a total that disagrees — and
+    //   nothing on screen would tell the reader which is right.
+    //
+    //   The reversed one is still in the LEDGER below, where rule 9 requires it
+    //   and where the الإجمالي column shows it moved nothing.
+    await open(
+      tester,
+      _aid(
+        ledger: <AidLedgerEntry>[
+          ..._threeBirths().take(2),
+          _entry(
+            id: 9,
+            amount: '999.00',
+            runningTotal: '250.00',
+            category: 'مولود',
+            status: 'ملغي',
+            spentAt: '2026-05-01T09:00:00Z',
+            note: 'أُلغي',
+          ),
+        ],
+        byCategory: const <ExpenseByCategory>[
+          ExpenseByCategory(category: 'مولود', total: '250.00', count: 2),
+          ExpenseByCategory(category: 'فرح', total: '500.00', count: 1),
+        ],
+      ),
+    );
+
+    await tester.tap(find.text('مولود').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXP-01'), findsOneWidget);
+    expect(find.text('EXP-02'), findsOneWidget);
+    // The reversed one is NOT under the heading...
+    expect(find.text('أُلغي'), findsNothing);
+    // ...and its 999 is nowhere near the 250 the heading claims.
+    expect(find.text(formatMoney('999.00')), findsOneWidget); // ledger only
+  });
+
+  testWidgets('the sentence that explained the grouping is gone', (
+    WidgetTester tester,
+  ) async {
+    // A demonstration the reader performs himself needs no sentence beside it.
     await open(tester, _aid(), mine: true);
-    expect(find.text(l.aidBreakdownNote), findsOneWidget);
+    expect(find.textContaining('تجميع للسندات'), findsNothing);
+    expect(find.textContaining('عمليات صرف إضافية'), findsNothing);
 
     // Both readers get the same page. `mine` changes the voice and nothing else.
     await open(tester, _aid());
     expect(find.text(l.aidByCategory), findsOneWidget);
-    expect(find.text(l.aidBreakdownNote), findsOneWidget);
   });
 
   testWidgets('the total and the vouchers share ONE container', (

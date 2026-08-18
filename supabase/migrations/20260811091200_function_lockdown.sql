@@ -54,6 +54,11 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- INVOKER and calls it, so the caller must hold EXECUTE or every launch
     -- fails with "permission denied for function request_device_id".
     'request_device_id()',
+    -- عهد المشتركين. v_cash_summary is SECURITY INVOKER and calls it, so staff
+    -- reading the treasury screen must hold EXECUTE or the whole view errors.
+    -- It returns ONE aggregate and no row, no name and no receipt — and the
+    -- figure it returns is already on that screen beside it.
+    'members_held(bigint)',
 
     -- Writes. Each require_role()-gated, each one transaction.
     'register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)',
