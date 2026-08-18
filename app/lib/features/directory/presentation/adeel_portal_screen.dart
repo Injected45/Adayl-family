@@ -11,6 +11,9 @@ import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../finance/domain/models.dart';
+import '../../finance/presentation/adeel_aid_screen.dart';
+import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
@@ -242,6 +245,20 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
         _BalanceHero(detail: detail, openCount: open.length),
         const SizedBox(height: AppSpacing.md),
         _TotalsStrip(detail: detail),
+        const SizedBox(height: AppSpacing.md),
+
+        // ── ما صُرف لك ────────────────────────────────────────────────────────
+        // A button on the FACE of the portal, not a row inside the more-sheet.
+        // What the association has given a man over the years is one of the two
+        // things he comes to this app to look up, and burying it two taps deep
+        // beside the bank account would have said it was incidental.
+        //
+        // It opens a screen rather than expanding in place, and that is the
+        // whole reason it is a button: this page answers «ما عليك», and putting
+        // «ما صُرف لك» underneath it in the same scroll invites the eye to
+        // subtract one from the other. الجمعية خيرية — aid is never deducted
+        // from a subscription, and the two figures must not share a column.
+        _MyAidButton(adeelId: widget.adeelId),
         const SizedBox(height: AppSpacing.xl),
 
         SegmentedButton<_PortalTab>(
@@ -324,6 +341,71 @@ void _showPortalMore(BuildContext context, int adeelId) {
     barrierColor: AppColors.ink.withValues(alpha: 0.22),
     builder: (BuildContext sheetContext) => _PortalMoreSheet(adeelId: adeelId),
   );
+}
+
+/// «ما صُرف لك» — the way into his aid ledger, carrying the figure.
+///
+/// The total is on the button on purpose. A button labelled only «ما صُرف لك»
+/// makes a man tap it to find out whether the answer is "nothing", and for most
+/// members it will be; carrying the figure answers the common case without a
+/// navigation, and turns the tap into "show me the detail" rather than "tell me
+/// if there is any".
+///
+/// It shows even at zero. Hiding it would leave him wondering whether the
+/// association keeps such a record at all — and «0.00» is an answer.
+///
+/// Navigator.push, not go_router: a portal account is pinned to /my-dues by the
+/// route guard, and an imperative push does not change the location, so the
+/// guard has nothing to redirect. That is presentation either way — RLS scopes
+/// the rows to him whatever screen he reaches.
+class _MyAidButton extends ConsumerWidget {
+  const _MyAidButton({required this.adeelId});
+
+  final int adeelId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<AdeelAid> aid = ref.watch(adeelAidProvider(adeelId));
+
+    return OutlinedButton(
+      onPressed: () => Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => AdeelAidScreen(adeelId: adeelId, mine: true),
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.volunteer_activism_outlined, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              l.myAidTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          // Silent while it loads or fails: the button's job is to open the
+          // screen, and a spinner or an error string on a label would make an
+          // aside look like the point.
+          Text(
+            formatMoney(aid.valueOrNull?.total ?? '0.00'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColors.danger,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          const Icon(Icons.chevron_left, size: 18),
+        ],
+      ),
+    );
+  }
 }
 
 class _PortalMoreSheet extends ConsumerWidget {

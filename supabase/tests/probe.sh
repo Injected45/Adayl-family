@@ -17,7 +17,7 @@ export SP
 # errors before recording anything cannot hide.
 #
 #   30_rules 105 + 40_rls 86 + 45_portal 53 + 50_money 47 + 60_concurrency 6
-#   + 65_wallet 20 + 67_disbursement 50 + 68_spend_race 5 + 70_purge 37 = 409
+#   + 65_wallet 20 + 67_disbursement 68 + 68_spend_race 5 + 70_purge 37 = 427
 #
 # Count them the way the runtime does — call sites, which is a group name in
 # quotes right after the paren:
@@ -39,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=409
+EXPECTED_CHECKS=427
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"

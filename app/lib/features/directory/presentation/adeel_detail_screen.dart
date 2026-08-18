@@ -183,6 +183,22 @@ class AdeelDetailScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.lg),
               ],
 
+              // ── What the association GAVE him ───────────────────────────
+              // A link, not a panel. Everything on this page is «ما عليه» —
+              // dues raised, dues owed — and aid is the opposite direction. Put
+              // as a figure among them it would read as something that nets off
+              // against the debt beside it, which for a جمعية خيرية is exactly
+              // wrong: what a man is given is never deducted from what he owes.
+              // A separate screen, with the rule written at the top of it, is
+              // the layout that cannot be misread.
+              OutlinedButton.icon(
+                onPressed: () =>
+                    context.go('${AppRoutes.adeels}/$adeelId/aid'),
+                icon: const Icon(Icons.volunteer_activism_outlined, size: 18),
+                label: Text(l.openAid),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
               _SectionCard(
                 title: l.personalData,
                 child: Wrap(

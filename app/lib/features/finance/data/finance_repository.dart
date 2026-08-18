@@ -174,6 +174,25 @@ class FinanceRepository {
         return _rows(rows).map(ExpenseByCategory.fromJson).toList();
       });
 
+  /// What the association has GIVEN one man, over his whole time in it.
+  ///
+  /// One call rather than a filtered read of `v_disbursements` plus client-side
+  /// sums: every total on every screen is computed server-side, because adding
+  /// money in Dart means parsing the decimal strings into doubles — which is the
+  /// one thing this app is built to avoid.
+  ///
+  /// The RPC is SECURITY INVOKER, so RLS decides who it answers for: staff read
+  /// any man's, and an عديل reads only his own. Asking about somebody else
+  /// returns an empty answer rather than a refusal, so no id is confirmed to
+  /// exist — see `read_own_disbursements`.
+  Future<AdeelAid> adeelAid(int adeelId) => SupabaseFailures.guard(() async {
+    final dynamic payload = await _db.rpc<dynamic>(
+      'api_adeel_aid',
+      params: <String, dynamic>{'p_adeel_id': adeelId},
+    );
+    return AdeelAid.fromJson(_obj(payload));
+  });
+
   /// Records a voucher and takes the money out of the treasury.
   ///
   /// `amount` is a STRING for the same reason every other amount is: sending it

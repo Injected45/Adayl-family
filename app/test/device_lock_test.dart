@@ -472,8 +472,16 @@ void _moreSheetTests() {
 
     // And nothing here is an action. The only button in the sheet is the way
     // out of the app.
+    //
+    // Scoped to the SHEET, not the whole tree. The portal page behind it now
+    // carries «ما صُرف لك», which is a button and belongs there — an unscoped
+    // count made this assertion about the app rather than about the sheet, and
+    // it would go on breaking every time anything anywhere gained a control.
     final Iterable<Widget> buttons = tester.widgetList(
-      find.byType(OutlinedButton),
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(OutlinedButton),
+      ),
     );
     expect(buttons.length, 1);
   });

@@ -16,6 +16,7 @@ import '../../features/directory/presentation/adeels_screen.dart';
 import '../../features/directory/presentation/officials_screen.dart';
 import '../../features/directory/presentation/receivables_screen.dart';
 import '../../features/directory/presentation/statements_screen.dart';
+import '../../features/finance/presentation/adeel_aid_screen.dart';
 import '../../features/finance/presentation/cash_screen.dart';
 import '../../features/finance/presentation/payments_screen.dart';
 import '../../features/home/presentation/placeholder_screen.dart';
@@ -102,6 +103,21 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                 builder: (_, GoRouterState state) => AdeelFormScreen(
                   adeelId: int.tryParse(state.pathParameters['id'] ?? ''),
                 ),
+              ),
+              // What the association GAVE him. A route of its own rather than a
+              // section of the detail page, because the detail page is where
+              // «ما عليه» is read and the two figures must not sit in one
+              // column inviting a subtraction the association never makes.
+              GoRoute(
+                path: 'aid',
+                builder: (_, GoRouterState state) {
+                  final int? id = int.tryParse(
+                    state.pathParameters['id'] ?? '',
+                  );
+                  return id == null
+                      ? const AdeelsScreen()
+                      : AdeelAidScreen(adeelId: id);
+                },
               ),
             ],
           ),

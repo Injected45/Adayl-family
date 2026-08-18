@@ -118,6 +118,122 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
                  ORDER BY o.at DESC, o.reference DESC LIMIT 1), '0.00'))
 $$;
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- GET /adeels/:id/aid — what the association has GIVEN this man.
+--
+-- The counterpart of api_adeel_statement, and deliberately a SEPARATE call
+-- rather than another key inside it. The statement answers "what does he owe
+-- and what has he paid"; this answers "what has he received". The association
+-- is خيرية: aid is not a credit against a subscription, and a man who was given
+-- something for a bereavement still owes that month's fee. Merging the two into
+-- one screen would put the two figures in one column and invite exactly the
+-- subtraction that must never happen.
+--
+-- ⚠ THE SEPARATION IS STRUCTURAL, NOT PRESENTATIONAL. A voucher writes no
+--   receivable, no payment and no allocation, and api_adeel_statement merges
+--   precisely those two tables — so aid cannot reach the statement however this
+--   function or any screen is written. This one reads `disbursements` and
+--   nothing else, and it never subtracts.
+--
+-- SECURITY INVOKER, so RLS decides: staff read any man's, and an عديل reads his
+-- own through read_own_disbursements. An عديل passing somebody else's id gets a
+-- zero total, empty lists and a NULL name — the same answer the register gives
+-- him for a row that is not his, rather than a refusal that would confirm the
+-- id exists.
+--
+-- ── Why the breakdowns are non-zero only, unlike v_expense_by_category ───────
+-- That view lists every heading including the untouched ones, because
+-- association-wide "nothing was spent on فرح this year" is itself an answer.
+-- For ONE man it is not: he is not missing an answer because he was never given
+-- anything for a wedding, and five zero rows would bury the two that matter.
+-- The question here is which occasions actually occurred, so only those appear.
+--
+-- CANCELLED vouchers are excluded from every total but LISTED, struck through,
+-- exactly as a cancelled receipt is. Rule 9 requires them visible, never hidden.
+-- ═════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.api_adeel_aid(p_adeel_id bigint)
+RETURNS jsonb LANGUAGE sql STABLE AS $$
+  WITH live AS (
+    SELECT d.* FROM public.disbursements d
+     WHERE d.payee_adeel_id = p_adeel_id AND d.status <> 'ملغي'
+  )
+  SELECT jsonb_build_object(
+    'adeelId',   p_adeel_id,
+    'adeelCode', (SELECT a.adeel_code FROM public.adeels a WHERE a.id = p_adeel_id),
+    'adeelName', (SELECT a.full_name  FROM public.adeels a WHERE a.id = p_adeel_id),
+    -- Lifetime, which is what "خلال زمن المشترك" asks for. No date window and no
+    -- argument to narrow it: a per-year list is below, and a window here would
+    -- make the headline figure depend on a filter nobody set.
+    'total', (SELECT coalesce(sum(l.amount), 0)::numeric(12,2)::text FROM live l),
+    'count', (SELECT count(*) FROM live l),
+    'firstAt', (SELECT to_char(min(l.spent_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+                  FROM live l),
+    'lastAt',  (SELECT to_char(max(l.spent_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+                  FROM live l),
+    -- The occasions, largest first. `count` beside each total because "300 over
+    -- one عزاء" and "300 over six" are different facts about the same number.
+    'byCategory', coalesce(
+      (SELECT jsonb_agg(c ORDER BY (c ->> 'total')::numeric DESC)
+         FROM (SELECT jsonb_build_object(
+                        'category', l.category::text,
+                        'total', sum(l.amount)::numeric(12,2)::text,
+                        'count', count(*)) AS c
+                 FROM live l GROUP BY l.category) cats),
+      '[]'::jsonb),
+    -- Over time, newest year first.
+    'byYear', coalesce(
+      (SELECT jsonb_agg(y ORDER BY (y ->> 'year') DESC)
+         FROM (SELECT jsonb_build_object(
+                        'year', to_char(l.spent_at AT TIME ZONE 'UTC', 'YYYY'),
+                        'total', sum(l.amount)::numeric(12,2)::text,
+                        'count', count(*)) AS y
+                 FROM live l
+                GROUP BY to_char(l.spent_at AT TIME ZONE 'UTC', 'YYYY')) years),
+      '[]'::jsonb),
+    -- The vouchers themselves, cancelled ones included so the screen can strike
+    -- them through. Read off v_disbursements rather than the table, so the keys
+    -- are the ones the Dart model already parses for the الصرف tab and there is
+    -- one definition of a voucher's wire shape.
+    -- ── THE LEDGER, with a RUNNING TOTAL, oldest first ────────────────────
+    -- «صُرف له 100 مولود، ثم بعد أشهر 500 فرح» must read 100 then 600. The
+    -- accumulation is a WINDOW FUNCTION here for the same reason the statement's
+    -- running balance is one: money is carried as text to the client precisely
+    -- so nothing adds it in Dart, and a column the client accumulated itself
+    -- would be the one figure on the screen computed in binary floating point.
+    --
+    -- ASCENDING, and that is what makes the column mean anything: a running
+    -- total read newest-first accumulates backwards and the last row would show
+    -- the first voucher's amount as though it were the total.
+    --
+    -- ⚠ FILTER, not a WHERE, and the difference is the whole treatment of a
+    --   reversed voucher. A cancelled row must still be LISTED — rule 9: history
+    --   is not an embarrassment — but it must not move the balance. Excluding it
+    --   with WHERE would drop the row; FILTER keeps the row and leaves its
+    --   running total identical to the line above it, which is exactly what a
+    --   ledger should show for an entry that was reversed.
+    --
+    --   coalesce because a FILTERed window sum over a frame containing no live
+    --   row is NULL, not zero — which is what a ledger opening with a cancelled
+    --   voucher would produce.
+    'vouchers', coalesce(
+      (SELECT jsonb_agg(
+                to_jsonb(v) || jsonb_build_object(
+                  'runningTotal', coalesce(r.run, 0)::numeric(12,2)::text)
+                ORDER BY r.ord)
+         FROM (
+           SELECT d.id,
+                  row_number() OVER (ORDER BY d.spent_at, d.id) AS ord,
+                  sum(d.amount) FILTER (WHERE d.status <> 'ملغي')
+                    OVER (ORDER BY d.spent_at, d.id
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                    AS run
+             FROM public.disbursements d
+            WHERE d.payee_adeel_id = p_adeel_id
+         ) r
+         JOIN public.v_disbursements v ON v."id" = r.id),
+      '[]'::jsonb))
+$$;
+
 -- ── GET /dashboard (DashboardData) ───────────────────────────────────────────
 -- The old stat row counted families, sons, and how many sons were eligible,
 -- approaching eligibility, or under age. None of those quantities exist. What
@@ -518,6 +634,7 @@ GRANT EXECUTE ON FUNCTION
   public.adeel_json(bigint),
   public.api_adeel_detail(bigint),
   public.api_adeel_statement(bigint),
+  public.api_adeel_aid(bigint),
   public.api_dashboard(),
   public.api_alerts(),
   public.api_financial_report(date, date),
