@@ -3903,9 +3903,43 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
     -- them through. Read off v_disbursements rather than the table, so the keys
     -- are the ones the Dart model already parses for the الصرف tab and there is
     -- one definition of a voucher's wire shape.
+    -- ── THE LEDGER, with a RUNNING TOTAL, oldest first ────────────────────
+    -- «صُرف له 100 مولود، ثم بعد أشهر 500 فرح» must read 100 then 600. The
+    -- accumulation is a WINDOW FUNCTION here for the same reason the statement's
+    -- running balance is one: money is carried as text to the client precisely
+    -- so nothing adds it in Dart, and a column the client accumulated itself
+    -- would be the one figure on the screen computed in binary floating point.
+    --
+    -- ASCENDING, and that is what makes the column mean anything: a running
+    -- total read newest-first accumulates backwards and the last row would show
+    -- the first voucher's amount as though it were the total.
+    --
+    -- ⚠ FILTER, not a WHERE, and the difference is the whole treatment of a
+    --   reversed voucher. A cancelled row must still be LISTED — rule 9: history
+    --   is not an embarrassment — but it must not move the balance. Excluding it
+    --   with WHERE would drop the row; FILTER keeps the row and leaves its
+    --   running total identical to the line above it, which is exactly what a
+    --   ledger should show for an entry that was reversed.
+    --
+    --   coalesce because a FILTERed window sum over a frame containing no live
+    --   row is NULL, not zero — which is what a ledger opening with a cancelled
+    --   voucher would produce.
     'vouchers', coalesce(
-      (SELECT jsonb_agg(to_jsonb(v) ORDER BY v."spentAt" DESC)
-         FROM public.v_disbursements v WHERE v."payeeAdeelId" = p_adeel_id),
+      (SELECT jsonb_agg(
+                to_jsonb(v) || jsonb_build_object(
+                  'runningTotal', coalesce(r.run, 0)::numeric(12,2)::text)
+                ORDER BY r.ord)
+         FROM (
+           SELECT d.id,
+                  row_number() OVER (ORDER BY d.spent_at, d.id) AS ord,
+                  sum(d.amount) FILTER (WHERE d.status <> 'ملغي')
+                    OVER (ORDER BY d.spent_at, d.id
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                    AS run
+             FROM public.disbursements d
+            WHERE d.payee_adeel_id = p_adeel_id
+         ) r
+         JOIN public.v_disbursements v ON v."id" = r.id),
       '[]'::jsonb))
 $$;
 

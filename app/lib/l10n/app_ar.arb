@@ -205,10 +205,23 @@
   "@aidTitle": {
     "description": "Staff heading, third person: the association looking at one man's aid history."
   },
-  "myAidTitle": "ما استلمته من الجمعية",
+  "myAidTitle": "ما صُرف لك",
   "@myAidTitle": {
-    "description": "The same page in the member's own voice, inside his portal."
+    "description": "The same page in the member's own voice, inside his portal. The association's own wording."
   },
+  "aidSearchHint": "ابحث بالبند أو الملاحظة أو رقم السند",
+  "aidColDate": "التاريخ",
+  "aidColCategory": "البند",
+  "aidColAmount": "القيمة",
+  "aidColRunning": "الرصيد التراكمي",
+  "aidGrandTotal": "إجمالي ما صُرف",
+  "aidNoMatch": "لا يوجد سند يطابق بحثك",
+  "aidShowing": "{shown} من {total}",
+  "@aidShowing": {
+    "description": "Shown above the ledger while a search filters it, so a reader knows the running-total column still belongs to the FULL history and not to what is on screen.",
+    "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "aidRunningNote": "عمود الرصيد التراكمي يجمع من الأقدم إلى الأحدث على كامل السجل. السند الملغى يبقى ظاهراً ولا يحرّك الرصيد.",
   "openAid": "سجل الإعانات",
   "aidTotal": "إجمالي ما صُرف له",
   "aidCount": "عدد السندات",

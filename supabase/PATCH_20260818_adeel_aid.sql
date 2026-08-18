@@ -131,9 +131,39 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
                  FROM live l
                 GROUP BY to_char(l.spent_at AT TIME ZONE 'UTC', 'YYYY')) years),
       '[]'::jsonb),
+    -- ── THE LEDGER, with a RUNNING TOTAL, oldest first ────────────────────
+    -- «صُرف له 100 مولود، ثم بعد أشهر 500 فرح» must read 100 then 600. The
+    -- accumulation is a WINDOW FUNCTION here for the same reason the statement's
+    -- running balance is one: money crosses the wire as text precisely so
+    -- nothing adds it in Dart, and a column the client accumulated itself would
+    -- be the one figure on the screen computed in binary floating point.
+    --
+    -- ASCENDING, and that is what makes the column mean anything: read
+    -- newest-first the total accumulates backwards and the last line shows the
+    -- FIRST voucher's amount as though it were the sum of everything.
+    --
+    -- ⚠ FILTER, not a WHERE. A reversed voucher must still be LISTED — rule 9:
+    --   history is not an embarrassment — and must not move the balance.
+    --   Excluding it with WHERE would drop the line; FILTER keeps it and leaves
+    --   its running total identical to the line above, which is exactly what a
+    --   ledger shows for an entry that was reversed. coalesce because a FILTERed
+    --   window sum over a frame with no live row is NULL, not zero.
     'vouchers', coalesce(
-      (SELECT jsonb_agg(to_jsonb(v) ORDER BY v."spentAt" DESC)
-         FROM public.v_disbursements v WHERE v."payeeAdeelId" = p_adeel_id),
+      (SELECT jsonb_agg(
+                to_jsonb(v) || jsonb_build_object(
+                  'runningTotal', coalesce(r.run, 0)::numeric(12,2)::text)
+                ORDER BY r.ord)
+         FROM (
+           SELECT d.id,
+                  row_number() OVER (ORDER BY d.spent_at, d.id) AS ord,
+                  sum(d.amount) FILTER (WHERE d.status <> 'ملغي')
+                    OVER (ORDER BY d.spent_at, d.id
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                    AS run
+             FROM public.disbursements d
+            WHERE d.payee_adeel_id = p_adeel_id
+         ) r
+         JOIN public.v_disbursements v ON v."id" = r.id),
       '[]'::jsonb))
 $$;
 

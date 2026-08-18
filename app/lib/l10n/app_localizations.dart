@@ -1033,11 +1033,65 @@ abstract class L {
   /// **'ما صُرف له من الجمعية'**
   String get aidTitle;
 
-  /// The same page in the member's own voice, inside his portal.
+  /// The same page in the member's own voice, inside his portal. The association's own wording.
   ///
   /// In ar, this message translates to:
-  /// **'ما استلمته من الجمعية'**
+  /// **'ما صُرف لك'**
   String get myAidTitle;
+
+  /// No description provided for @aidSearchHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث بالبند أو الملاحظة أو رقم السند'**
+  String get aidSearchHint;
+
+  /// No description provided for @aidColDate.
+  ///
+  /// In ar, this message translates to:
+  /// **'التاريخ'**
+  String get aidColDate;
+
+  /// No description provided for @aidColCategory.
+  ///
+  /// In ar, this message translates to:
+  /// **'البند'**
+  String get aidColCategory;
+
+  /// No description provided for @aidColAmount.
+  ///
+  /// In ar, this message translates to:
+  /// **'القيمة'**
+  String get aidColAmount;
+
+  /// No description provided for @aidColRunning.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرصيد التراكمي'**
+  String get aidColRunning;
+
+  /// No description provided for @aidGrandTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي ما صُرف'**
+  String get aidGrandTotal;
+
+  /// No description provided for @aidNoMatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد سند يطابق بحثك'**
+  String get aidNoMatch;
+
+  /// Shown above the ledger while a search filters it, so a reader knows the running-total column still belongs to the FULL history and not to what is on screen.
+  ///
+  /// In ar, this message translates to:
+  /// **'{shown} من {total}'**
+  String aidShowing(int shown, int total);
+
+  /// No description provided for @aidRunningNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'عمود الرصيد التراكمي يجمع من الأقدم إلى الأحدث على كامل السجل. السند الملغى يبقى ظاهراً ولا يحرّك الرصيد.'**
+  String get aidRunningNote;
 
   /// No description provided for @openAid.
   ///

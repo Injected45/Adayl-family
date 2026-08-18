@@ -278,14 +278,24 @@ void main() {
       expect(aid.adeelCode, 'A-0001');
       expect(aid.count, greaterThan(0));
       expect(aid.byCategory, isNotEmpty);
-      expect(aid.vouchers, isNotEmpty);
+      expect(aid.ledger, isNotEmpty);
       // Every voucher on this page is made out to THIS man. A collective one —
       // فطور رمضان, which the fixture also contains — is attributed to nobody
       // and must not surface under an individual, or every association-wide
       // iftar would be re-reported as aid to each member in the register.
-      for (final DisbursementView v in aid.vouchers) {
-        expect(v.payeeAdeelId, aid.adeelId);
+      for (final AidLedgerEntry e in aid.ledger) {
+        expect(e.voucher.payeeAdeelId, aid.adeelId);
+        // Exact to the minor unit, like every other money string on the wire. A
+        // window function that dropped the ::numeric(12,2) cast would satisfy
+        // the "is a String" check above with "4.0000000001" and still be wrong.
+        expect(e.runningTotal, matches(RegExp(r'^\d+\.\d{2}$')));
       }
+
+      // The ledger CLOSES on the headline figure. Two different SQL
+      // expressions produce them — a plain sum for `total`, a windowed one for
+      // the last line — and if they ever disagreed the page would show a column
+      // that runs to one number under a heading that says another.
+      expect(aid.ledger.last.runningTotal, aid.total);
 
       // ⚠ الجمعية خيرية: what he was GIVEN is not deducted from what he owes.
       // The two fixtures were captured from the same database in the same run,

@@ -514,7 +514,37 @@ class LEn extends L {
   String get aidTitle => 'Aid he received from the association';
 
   @override
-  String get myAidTitle => 'What I received from the association';
+  String get myAidTitle => 'What was paid to you';
+
+  @override
+  String get aidSearchHint => 'Search by heading, note or voucher number';
+
+  @override
+  String get aidColDate => 'Date';
+
+  @override
+  String get aidColCategory => 'Heading';
+
+  @override
+  String get aidColAmount => 'Amount';
+
+  @override
+  String get aidColRunning => 'Running total';
+
+  @override
+  String get aidGrandTotal => 'Total paid';
+
+  @override
+  String get aidNoMatch => 'No voucher matches your search';
+
+  @override
+  String aidShowing(int shown, int total) {
+    return '$shown of $total';
+  }
+
+  @override
+  String get aidRunningNote =>
+      'The running total accumulates oldest to newest across the whole history. A reversed voucher stays listed and moves nothing.';
 
   @override
   String get openAid => 'Aid history';

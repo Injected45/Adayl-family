@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
-import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
@@ -13,7 +12,27 @@ import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
-/// What the association has GIVEN one عديل, over his whole time in it.
+/// Column shares for the ledger, summing to 100: التاريخ | البند | القيمة |
+/// الرصيد التراكمي.
+///
+/// Shares, not pixels, for the reason the portal's statement table gives: four
+/// fixed columns need more width than a 360dp phone has, and proportions fit
+/// every screen and every system font size by construction.
+///
+/// The two money columns are the widest pair because they hold the longest
+/// strings — a four-figure amount with separators — and the heading column is
+/// given the least, since every value in it is one of six short words.
+const int _dateFlex = 26;
+const int _categoryFlex = 22;
+const int _moneyFlex = 26;
+
+/// The ledger runs a point smaller than the rest of the page, deliberately: a
+/// four-column table of figures is a different constraint from prose, and a
+/// column where some rows shrank to fit is harder to read down than one that is
+/// uniformly small.
+const double _ledgerSize = 12;
+
+/// What the association has GIVEN one عديل, as a ledger with a running total.
 ///
 /// ⚠ THIS IS NOT HIS STATEMENT, AND THE TWO MUST NEVER BE ADDED TOGETHER.
 /// الجمعية خيرية: aid paid to a man is not deducted from what he owes. A member
@@ -22,110 +41,202 @@ import 'providers.dart';
 ///
 /// The database makes that structural — a voucher writes no receivable, no
 /// payment and no allocation, and `api_adeel_statement` merges exactly those two
-/// tables, so aid cannot reach the statement however this screen is written. It
-/// is a SEPARATE SCREEN rather than a section of the detail page for the same
-/// reason it is a separate call: the place this rule would actually be broken is
-/// a layout that puts «ما عليه» and «ما استلمه» in one column and invites the
-/// eye to subtract. The note at the top says so in words as well.
+/// tables — so aid cannot reach the statement however this screen is written. It
+/// is a SEPARATE screen for a different reason: the place the rule would
+/// actually be broken is a layout that puts «ما استلمه» beside «ما عليه» and
+/// invites the eye to subtract. The note at the top says so in words as well.
 ///
-/// One screen, two readers. Staff open it from an عديل's page and read anybody's;
-/// a member reads only his own, because `api_adeel_aid` is SECURITY INVOKER and
-/// `read_own_disbursements` is scoped to `payee_adeel_id = my_adeel_id()`. There
-/// is no role check here at all — hiding a button is presentation, and the row
-/// the server returns is the same either way.
-class AdeelAidScreen extends ConsumerWidget {
-  const AdeelAidScreen({required this.adeelId, super.key});
+/// ── The running total ───────────────────────────────────────────────────────
+/// «صُرف له 100 مولود، ثم بعد أشهر 500 فرح» reads 100 then 600. That column is
+/// computed by a window function in `api_adeel_aid`, NOT accumulated here: money
+/// crosses the wire as text precisely so nothing on the client adds it, and this
+/// is the one screen whose whole purpose is a sum.
+///
+/// One screen, two readers. Staff open it from an عديل's page and read
+/// anybody's; a member reads only his own, because `api_adeel_aid` is SECURITY
+/// INVOKER and `read_own_disbursements` is scoped to
+/// `payee_adeel_id = my_adeel_id()`. There is no role check here at all —
+/// hiding a widget is presentation, and the rows the server returns are the same
+/// either way. [mine] changes only the VOICE: «ما صُرف لك» to the man himself,
+/// «ما صُرف له» to the association looking at his record.
+class AdeelAidScreen extends ConsumerStatefulWidget {
+  const AdeelAidScreen({required this.adeelId, this.mine = false, super.key});
 
   final int adeelId;
 
+  /// True when the reader IS this عديل. Wording only.
+  final bool mine;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdeelAidScreen> createState() => _AdeelAidScreenState();
+}
+
+class _AdeelAidScreenState extends ConsumerState<AdeelAidScreen> {
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final L l = L.of(context);
-    final AsyncValue<AdeelAid> aid = ref.watch(adeelAidProvider(adeelId));
+    final AsyncValue<AdeelAid> aid = ref.watch(
+      adeelAidProvider(widget.adeelId),
+    );
+    final String title = widget.mine ? l.myAidTitle : l.aidTitle;
 
-    return AppScaffold(
-      title: l.aidTitle,
-      currentRoute: AppRoutes.adeels,
-      body: (BuildContext context) => AsyncView<AdeelAid>(
-        value: aid,
-        onRetry: () => ref.invalidate(adeelAidProvider(adeelId)),
-        builder: (AdeelAid data) => ListView(
-          padding: screenPadding(context),
-          children: <Widget>[
-            if (data.adeelName.isNotEmpty) ...<Widget>[
-              Text(
-                data.adeelName,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                data.adeelCode,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-
-            // The rule, stated before the figures rather than after them. A
-            // reader who has just seen "استلم 450" is the one who needs to be
-            // told it changes nothing about what he owes.
-            const _AidNote(),
-            const SizedBox(height: AppSpacing.lg),
-
-            if (data.isEmpty)
-              EmptyStateView(icon: Icons.volunteer_activism_outlined,
-                  title: l.noAid)
-            else ...<Widget>[
-              _AidHeadline(aid: data),
-              const SizedBox(height: AppSpacing.lg),
-
-              GlassPanel(
-                title: l.aidByCategory,
-                icon: Icons.donut_small_outlined,
-                child: Column(
-                  children: <Widget>[
-                    for (final ExpenseByCategory c in data.byCategory)
-                      _AidRow(
-                        label: c.category,
-                        trailing: l.aidVoucherCount(c.count),
-                        amount: c.total,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // Only when there is more than one year to compare. On a member
-              // helped once, a single-row "by year" panel restates the headline
-              // and says nothing.
-              if (data.byYear.length > 1) ...<Widget>[
-                GlassPanel(
-                  title: l.aidByYear,
-                  icon: Icons.calendar_month_outlined,
-                  child: Column(
-                    children: <Widget>[
-                      for (final AidByYear y in data.byYear)
-                        _AidRow(
-                          label: y.year,
-                          trailing: l.aidVoucherCount(y.count),
-                          amount: y.total,
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-              ],
-
-              Text(
-                l.aidVouchers,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final DisbursementView v in data.vouchers)
-                _AidVoucherCard(voucher: v),
-            ],
-          ],
-        ),
+    final Widget body = AsyncView<AdeelAid>(
+      value: aid,
+      onRetry: () => ref.invalidate(adeelAidProvider(widget.adeelId)),
+      builder: (AdeelAid data) => _AidBody(
+        aid: data,
+        mine: widget.mine,
+        query: _query,
+        search: _search,
+        onQuery: (String q) => setState(() => _query = q),
       ),
+    );
+
+    // A member has no navigation bar anywhere in the portal — every destination
+    // on it is a screen the router refuses him — so he gets a plain Scaffold
+    // with a back button, exactly as the portal itself does. Staff get the
+    // normal chrome.
+    if (widget.mine) {
+      return Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: body,
+      );
+    }
+    return AppScaffold(
+      title: title,
+      currentRoute: AppRoutes.adeels,
+      body: (BuildContext context) => body,
+    );
+  }
+}
+
+class _AidBody extends StatelessWidget {
+  const _AidBody({
+    required this.aid,
+    required this.mine,
+    required this.query,
+    required this.search,
+    required this.onQuery,
+  });
+
+  final AdeelAid aid;
+  final bool mine;
+  final String query;
+  final TextEditingController search;
+  final ValueChanged<String> onQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    // Filtering, never summing. Every figure on this page comes from the server;
+    // what the box does is hide rows, which is why the running-total column goes
+    // on belonging to the FULL history and the line above the table says so.
+    final String needle = query.trim().toLowerCase();
+    final List<AidLedgerEntry> rows = needle.isEmpty
+        ? aid.ledger
+        : aid.ledger
+              .where((AidLedgerEntry e) => e.haystack.contains(needle))
+              .toList();
+
+    return ListView(
+      padding: screenPadding(context),
+      children: <Widget>[
+        if (!mine && aid.adeelName.isNotEmpty) ...<Widget>[
+          Text(
+            aid.adeelName,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(aid.adeelCode, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+
+        // The rule, stated before the figures rather than after them. A reader
+        // who has just seen «استلم 600» is the one who needs to be told it
+        // changes nothing about what he owes.
+        const _AidNote(),
+        const SizedBox(height: AppSpacing.lg),
+
+        if (aid.isEmpty)
+          EmptyStateView(
+            icon: Icons.volunteer_activism_outlined,
+            title: mine ? l.noMyAid : l.noAid,
+          )
+        else ...<Widget>[
+          _AidHeadline(aid: aid),
+          const SizedBox(height: AppSpacing.lg),
+
+          if (aid.byCategory.length > 1) ...<Widget>[
+            GlassPanel(
+              title: l.aidByCategory,
+              icon: Icons.donut_small_outlined,
+              child: Column(
+                children: <Widget>[
+                  for (final ExpenseByCategory c in aid.byCategory)
+                    _AidRow(
+                      label: c.category,
+                      trailing: l.aidVoucherCount(c.count),
+                      amount: c.total,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          // Only when there is more than one year to compare. On a member helped
+          // once, a single-row "by year" restates the headline and says nothing.
+          if (aid.byYear.length > 1) ...<Widget>[
+            GlassPanel(
+              title: l.aidByYear,
+              icon: Icons.calendar_month_outlined,
+              child: Column(
+                children: <Widget>[
+                  for (final AidByYear y in aid.byYear)
+                    _AidRow(
+                      label: y.year,
+                      trailing: l.aidVoucherCount(y.count),
+                      amount: y.total,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          TextField(
+            controller: search,
+            onChanged: onQuery,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: l.aidSearchHint,
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: needle.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        search.clear();
+                        onQuery('');
+                      },
+                    ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          _AidLedger(rows: rows, aid: aid, filtered: needle.isNotEmpty),
+        ],
+      ],
     );
   }
 }
@@ -143,17 +254,17 @@ class _AidHeadline extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(l.aidTotal, style: Theme.of(context).textTheme.bodySmall),
+          Text(l.aidGrandTotal, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: AppSpacing.xs),
           Text(
             formatMoney(aid.total),
             style: const TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.w900,
-              // The association's colour for money LEAVING the treasury, which
-              // is what this is from the association's side. It is deliberately
-              // not the red that means "owed" anywhere else on the member's
-              // screens — nothing here is a debt.
+              // The colour money LEAVING the treasury carries everywhere else in
+              // the app, which is what this is from the association's side. It
+              // is deliberately not the red that means "owed" on the member's
+              // own screens — nothing here is a debt.
               color: AppColors.danger,
             ),
           ),
@@ -213,114 +324,226 @@ class _AidRow extends StatelessWidget {
   }
 }
 
-/// A voucher as the recipient's page shows it: what, when, how much, why.
+/// The ledger: one line per voucher, oldest first, with the total so far.
 ///
-/// Read-only, and narrower than the الصرف tab's card on purpose. Reversing a
-/// voucher is a treasury act performed where the treasury is managed; offering
-/// it here would put an admin action on a screen a member also reads, and the
-/// bank details of a transfer belong to the association's reconciliation rather
-/// than to this man's history.
-class _AidVoucherCard extends StatelessWidget {
-  const _AidVoucherCard({required this.voucher});
+/// Read down the الرصيد التراكمي column and it answers the question the
+/// association actually asked — «صُرف له 100 ثم 500، فيصبح 600» — without the
+/// reader adding anything himself.
+class _AidLedger extends StatelessWidget {
+  const _AidLedger({
+    required this.rows,
+    required this.aid,
+    required this.filtered,
+  });
 
-  final DisbursementView voucher;
+  final List<AidLedgerEntry> rows;
+  final AdeelAid aid;
+  final bool filtered;
 
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
-    final bool cancelled = voucher.cancelled;
 
-    return Card(
-      margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  voucher.method == PaymentMethodWire.cash
-                      ? Icons.payments_outlined
-                      : Icons.account_balance_outlined,
-                  size: 18,
-                  color: cancelled ? AppColors.muted : AppColors.danger,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    voucher.voucherNo,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      // Rule 9: a reversed voucher stays legible and visibly
-                      // struck through. Its amount is already out of every
-                      // total above, which all filter on status.
-                      decoration: cancelled ? TextDecoration.lineThrough : null,
-                      color: cancelled ? AppColors.muted : null,
-                    ),
-                  ),
-                ),
-                Text(
-                  formatMoney(voucher.amount),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: cancelled ? AppColors.muted : AppColors.danger,
-                    decoration: cancelled ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-              ],
+    if (rows.isEmpty) {
+      return GlassPanel(
+        title: l.aidVouchers,
+        icon: Icons.receipt_long_outlined,
+        child: EmptyStateView(icon: Icons.search_off, title: l.aidNoMatch),
+      );
+    }
+
+    return GlassPanel(
+      title: l.aidVouchers,
+      icon: Icons.receipt_long_outlined,
+      // While a search is narrowing the table, say how much of it is on screen.
+      // Without it the running-total column looks broken: it jumps, because it
+      // is still the total across the WHOLE history and always should be — a
+      // ledger line's balance does not change because a reader filtered the page.
+      trailing: filtered
+          ? Text(
+              l.aidShowing(rows.length, aid.ledger.length),
+              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+            )
+          : null,
+      child: Column(
+        children: <Widget>[
+          const _LedgerHead(),
+          for (final AidLedgerEntry e in rows) _LedgerLine(entry: e),
+          const Divider(height: AppSpacing.lg),
+          _LedgerTotal(total: aid.total),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            l.aidRunningNote,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.5,
+              color: AppColors.muted,
             ),
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: <Widget>[
-                StatusBadge.neutral(label: voucher.category),
-                StatusBadge(label: voucher.method, tone: AppColors.info),
-                if (cancelled)
-                  StatusBadge(label: l.voided, tone: AppColors.muted),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _AidLine(
-              label: l.disbursementDate,
-              value: formatDateTime(voucher.spentAt),
-            ),
-            if (voucher.handedBy.isNotEmpty)
-              _AidLine(label: l.handedBy, value: voucher.handedBy),
-            if (voucher.note.isNotEmpty)
-              _AidLine(label: l.notesField, value: voucher.note),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _AidLine extends StatelessWidget {
-  const _AidLine({required this.label, required this.value});
-
-  final String label;
-  final String value;
+class _LedgerHead extends StatelessWidget {
+  const _LedgerHead();
 
   @override
   Widget build(BuildContext context) {
+    final L l = L.of(context);
+    const TextStyle style = TextStyle(
+      fontSize: _ledgerSize,
+      fontWeight: FontWeight.w800,
+      color: AppColors.muted,
+    );
     return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(
-            width: 110,
+          Expanded(flex: _dateFlex, child: Text(l.aidColDate, style: style)),
+          Expanded(
+            flex: _categoryFlex,
+            child: Text(l.aidColCategory, style: style),
+          ),
+          Expanded(
+            flex: _moneyFlex,
             child: Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              l.aidColAmount,
+              style: style,
+              textAlign: TextAlign.end,
             ),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          Expanded(
+            flex: _moneyFlex,
+            child: Text(
+              l.aidColRunning,
+              style: style,
+              textAlign: TextAlign.end,
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _LedgerLine extends StatelessWidget {
+  const _LedgerLine({required this.entry});
+
+  final AidLedgerEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final bool cancelled = entry.voucher.cancelled;
+    final TextStyle base = TextStyle(
+      fontSize: _ledgerSize,
+      color: cancelled ? AppColors.muted : null,
+      decoration: cancelled ? TextDecoration.lineThrough : null,
+    );
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                flex: _dateFlex,
+                child: Text(formatDate(entry.voucher.spentAt), style: base),
+              ),
+              Expanded(
+                flex: _categoryFlex,
+                child: Text(entry.voucher.category, style: base),
+              ),
+              Expanded(
+                flex: _moneyFlex,
+                child: Text(
+                  formatMoney(entry.voucher.amount),
+                  textAlign: TextAlign.end,
+                  style: base.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cancelled ? AppColors.muted : AppColors.danger,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: _moneyFlex,
+                child: Text(
+                  formatMoney(entry.runningTotal),
+                  textAlign: TextAlign.end,
+                  // NEVER struck through, even on a reversed line. The amount
+                  // was cancelled; the balance at that point in the ledger was
+                  // not — it is simply the same figure as the line above, which
+                  // is what a reversal looks like in a running total.
+                  style: const TextStyle(
+                    fontSize: _ledgerSize,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // The voucher number and anything written on it, under the figures
+          // rather than in a fifth column: a note is prose of unpredictable
+          // length and would have squeezed the four columns that carry the
+          // accounting.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(top: 2),
+            child: Text(
+              <String>[
+                entry.voucher.voucherNo,
+                if (entry.voucher.note.isNotEmpty) entry.voucher.note,
+                if (cancelled) l.voided,
+              ].join(' • '),
+              style: TextStyle(
+                fontSize: 10,
+                color: cancelled ? AppColors.danger : AppColors.muted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The closing figure, in the column the running total runs down.
+class _LedgerTotal extends StatelessWidget {
+  const _LedgerTotal({required this.total});
+
+  final String total;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    return Row(
+      children: <Widget>[
+        Expanded(
+          flex: _dateFlex + _categoryFlex + _moneyFlex,
+          child: Text(
+            l.aidGrandTotal,
+            style: const TextStyle(
+              fontSize: _ledgerSize,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: _moneyFlex,
+          child: Text(
+            formatMoney(total),
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: AppColors.danger,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

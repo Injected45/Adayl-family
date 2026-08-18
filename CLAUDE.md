@@ -199,12 +199,26 @@ This dictates the data-access shape — do not deviate from it:
   this year" is an answer; "he was never given anything for a wedding" is not
   one he is missing.
 
-  In Dart it is a SEPARATE SCREEN (`features/finance/presentation/adeel_aid_screen.dart`,
-  route `/adeels/:id/aid`) rather than a panel on the detail page, and a
-  separate section in the portal sheet rather than part of the balance hero —
-  because the place this rule would actually be broken is a layout that puts
-  «ما استلمه» beside «ما عليه» and invites the eye to subtract. Both surfaces
-  print the rule in words above the figures.
+  It returns the vouchers as a **LEDGER: oldest first, each line carrying the
+  total so far.** «صُرف له 100 مولود، ثم بعد أشهر 500 فرح» reads 100 then 600.
+  That column is a window function — `sum(amount) FILTER (WHERE status <> 'ملغي')
+  OVER (ORDER BY spent_at, id)` — for the same reason the statement's running
+  balance is one: money is text end to end precisely so nothing accumulates it
+  in Dart. FILTER rather than WHERE is what keeps a reversed voucher LISTED
+  (rule 9) while leaving its running total identical to the line above, which is
+  what a ledger shows for an entry that was reversed.
+
+  In Dart it is a SEPARATE SCREEN (`features/finance/presentation/adeel_aid_screen.dart`)
+  reached at `/adeels/:id/aid` by staff and by an imperative `Navigator.push`
+  from the portal — the route guard pins a portal account to `/my-dues`, and a
+  push changes no location for it to redirect. One screen, `mine` switching only
+  the voice. It is not a panel on the detail page and not part of the portal's
+  balance hero, because the place this rule would actually be broken is a layout
+  that puts «ما صُرف له» beside «ما عليه» and invites the eye to subtract; both
+  entry points print the rule in words above the figures. The search box filters
+  rows and never sums — the running-total column goes on belonging to the whole
+  history, and the panel says how many rows are showing so a jumping balance
+  reads as a filter rather than a fault.
 
 - **Money is text end to end.** Postgres serialises `numeric` as a bare JSON number
   and `dart:convert` decodes that to `double`. Every view casts amounts to text, and
@@ -384,7 +398,7 @@ missing table cannot kill the script on one of the states it exists to name.
 
 ## Testing model — two layers, both required
 
-- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 421
+- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 427
   checks. Each rule runs with a passing case *and a failing case* (the failing
   case is what proves the rule bites). It also races two psql sessions on one
   balance to prove FIFO allocation can't double-spend, races two more on the

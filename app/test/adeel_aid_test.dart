@@ -11,21 +11,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// ما صُرف للمشترك — what the association GAVE one man.
+/// ما صُرف له — the aid ledger.
 ///
-/// ⚠ THE RULE THIS SCREEN EXISTS TO KEEP, and the one these tests are really
-/// about: الجمعية خيرية. Aid paid to a member is NOT deducted from his
-/// subscription. His statement stays a record of dues charged and dues paid,
-/// and this page is a separate answer to a separate question.
+/// ⚠ THE RULE THIS SCREEN EXISTS TO KEEP: الجمعية خيرية. Aid paid to a member is
+/// NOT deducted from his subscription. His statement stays a record of dues
+/// charged and dues paid, and this page is a separate answer to a separate
+/// question.
 ///
 /// The database makes that structural — a voucher writes no receivable, no
 /// payment and no allocation, and `api_adeel_statement` merges exactly those two
-/// tables — and `supabase/tests/67_disbursement.sql` proves it there, on both
-/// sides, as staff and as the member himself. What CANNOT be proved there is the
-/// screen: a layout that puts «ما استلمه» beside «ما عليه» invites the reader to
-/// subtract even when the database never does. So what is pinned here is that
-/// the page states the rule, and that every figure on it comes from the server
-/// rather than from arithmetic done in Dart.
+/// tables — and `supabase/tests/67_disbursement.sql` proves it there, as staff
+/// and as the member himself. What CANNOT be proved there is the SCREEN: a
+/// layout that puts «ما صُرف له» beside «ما عليه» invites the reader to subtract
+/// even when the database never does.
+///
+/// So what is pinned here is the presentation: the page states the rule, the
+/// running total comes off the server rather than being accumulated in Dart, a
+/// reversed line stays visible without moving the balance, and the search box
+/// filters rows without touching a figure.
 
 class _StubAuth extends AuthController {
   _StubAuth(this.role);
@@ -45,34 +48,61 @@ class _StubAuth extends AuthController {
   );
 }
 
-DisbursementView _voucher({
-  int id = 1,
-  String amount = '30.00',
+AidLedgerEntry _entry({
+  required int id,
+  required String amount,
+  required String runningTotal,
   String category = 'مولود',
   String status = 'معتمد',
-  String spentAt = '2026-08-15T09:00:00Z',
-}) => DisbursementView(
-  id: id,
-  voucherNo: 'EXP-${id.toString().padLeft(6, '0')}',
-  amount: amount,
-  kind: 'لمشترك',
-  category: category,
-  payeeName: 'محمد العدولي',
-  payeeAdeelId: 1,
-  payeeCode: 'A-0001',
-  method: 'نقداً',
-  status: status,
-  spentAt: spentAt,
+  String spentAt = '2026-02-10T09:00:00Z',
+  String note = '',
+}) => AidLedgerEntry(
+  runningTotal: runningTotal,
+  voucher: DisbursementView(
+    id: id,
+    voucherNo: 'EXP-${id.toString().padLeft(6, '0')}',
+    amount: amount,
+    kind: 'لمشترك',
+    category: category,
+    payeeName: 'محمد العدولي',
+    payeeAdeelId: 1,
+    payeeCode: 'A-0001',
+    method: 'نقداً',
+    status: status,
+    spentAt: spentAt,
+    note: note,
+  ),
 );
 
+/// The association's own example: 100 for a birth, then 500 for a wedding
+/// months later, which must read 100 then 600.
+List<AidLedgerEntry> _hundredThenFiveHundred() => <AidLedgerEntry>[
+  _entry(
+    id: 1,
+    amount: '100.00',
+    runningTotal: '100.00',
+    category: 'مولود',
+    spentAt: '2026-02-10T09:00:00Z',
+    note: 'ولادة',
+  ),
+  _entry(
+    id: 2,
+    amount: '500.00',
+    runningTotal: '600.00',
+    category: 'فرح',
+    spentAt: '2026-06-20T09:00:00Z',
+    note: 'زواج',
+  ),
+];
+
 AdeelAid _aid({
-  String total = '45.00',
+  String total = '600.00',
   int count = 2,
-  String firstAt = '2026-03-02',
-  String lastAt = '2026-08-15',
+  String firstAt = '2026-02-10',
+  String lastAt = '2026-06-20',
   List<ExpenseByCategory>? byCategory,
   List<AidByYear>? byYear,
-  List<DisbursementView>? vouchers,
+  List<AidLedgerEntry>? ledger,
 }) => AdeelAid(
   adeelId: 1,
   adeelCode: 'A-0001',
@@ -84,26 +114,19 @@ AdeelAid _aid({
   byCategory:
       byCategory ??
       const <ExpenseByCategory>[
-        ExpenseByCategory(category: 'مولود', total: '30.00', count: 1),
-        ExpenseByCategory(category: 'عزاء', total: '15.00', count: 1),
+        ExpenseByCategory(category: 'فرح', total: '500.00', count: 1),
+        ExpenseByCategory(category: 'مولود', total: '100.00', count: 1),
       ],
   byYear:
       byYear ??
-      const <AidByYear>[
-        AidByYear(year: '2026', total: '45.00', count: 2),
-      ],
-  vouchers:
-      vouchers ??
-      <DisbursementView>[
-        _voucher(id: 1, amount: '30.00', category: 'مولود'),
-        _voucher(id: 2, amount: '15.00', category: 'عزاء'),
-      ],
+      const <AidByYear>[AidByYear(year: '2026', total: '600.00', count: 2)],
+  ledger: ledger ?? _hundredThenFiveHundred(),
 );
 
 void main() {
   final L l = LAr();
 
-  Widget host(AdeelAid aid) => ProviderScope(
+  Widget host(AdeelAid aid, {bool mine = false}) => ProviderScope(
     overrides: <Override>[
       authControllerProvider.overrideWith(() => _StubAuth(AppRole.admin)),
       adeelAidProvider(1).overrideWith((Ref ref) async => aid),
@@ -114,15 +137,19 @@ void main() {
       locale: const Locale('ar'),
       localizationsDelegates: L.localizationsDelegates,
       supportedLocales: L.supportedLocales,
-      home: const AdeelAidScreen(adeelId: 1),
+      home: AdeelAidScreen(adeelId: 1, mine: mine),
     ),
   );
 
-  Future<void> open(WidgetTester tester, AdeelAid aid) async {
-    tester.view.physicalSize = const Size(411, 2400);
+  Future<void> open(
+    WidgetTester tester,
+    AdeelAid aid, {
+    bool mine = false,
+  }) async {
+    tester.view.physicalSize = const Size(411, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(host(aid));
+    await tester.pumpWidget(host(aid, mine: mine));
     await tester.pumpAndSettle();
   }
 
@@ -130,26 +157,28 @@ void main() {
 
   test('the aid page parses the shape api_adeel_aid actually sends', () {
     // Keys copied from the function body, not invented here. Rename one in SQL
-    // and this stops parsing before the app ever runs.
+    // and this stops parsing before the app ever runs. `runningTotal` rides on
+    // the same object as the voucher — the SQL does `to_jsonb(v) || {...}` — so
+    // one row parses into both halves of AidLedgerEntry.
     final AdeelAid aid = AdeelAid.fromJson(<String, dynamic>{
       'adeelId': 1,
       'adeelCode': 'A-0001',
       'adeelName': 'محمد العدولي',
-      'total': '45.00',
+      'total': '600.00',
       'count': 2,
-      'firstAt': '2026-03-02',
-      'lastAt': '2026-08-15',
+      'firstAt': '2026-02-10',
+      'lastAt': '2026-06-20',
       'byCategory': <dynamic>[
-        <String, dynamic>{'category': 'مولود', 'total': '30.00', 'count': 1},
+        <String, dynamic>{'category': 'فرح', 'total': '500.00', 'count': 1},
       ],
       'byYear': <dynamic>[
-        <String, dynamic>{'year': '2026', 'total': '45.00', 'count': 2},
+        <String, dynamic>{'year': '2026', 'total': '600.00', 'count': 2},
       ],
       'vouchers': <dynamic>[
         <String, dynamic>{
           'id': 7,
           'voucherNo': 'EXP-000007',
-          'amount': '30.00',
+          'amount': '100.00',
           'kind': 'لمشترك',
           'category': 'مولود',
           'payeeAdeelId': 1,
@@ -161,23 +190,25 @@ void main() {
           'bankAccountNo': '',
           'bankAccountName': '',
           'handedBy': 'أمين الصندوق',
-          'note': '',
+          'note': 'ولادة',
           'status': 'معتمد',
-          'spentAt': '2026-08-15T09:00:00Z',
+          'spentAt': '2026-02-10T09:00:00Z',
+          'runningTotal': '100.00',
         },
       ],
     });
 
-    expect(aid.total, '45.00');
+    expect(aid.total, '600.00');
     expect(aid.count, 2);
-    expect(aid.byCategory.single.category, 'مولود');
+    expect(aid.byCategory.single.category, 'فرح');
     expect(aid.byYear.single.year, '2026');
-    expect(aid.vouchers.single.voucherNo, 'EXP-000007');
+    expect(aid.ledger.single.voucher.voucherNo, 'EXP-000007');
+    expect(aid.ledger.single.runningTotal, '100.00');
     // Money is the exact decimal STRING the server sent, never a double. It is
     // asserted rather than assumed because a `num` here would round the
     // association's charity on its way to a screen.
     expect(aid.total, isA<String>());
-    expect(aid.vouchers.single.amount, isA<String>());
+    expect(aid.ledger.single.runningTotal, isA<String>());
   });
 
   test('a member who has received nothing is a clean zero, not a blank', () {
@@ -199,7 +230,20 @@ void main() {
     expect(none.isEmpty, isTrue);
     expect(none.total, '0.00');
     expect(none.firstAt, '');
-    expect(none.lastAt, '');
+    expect(none.ledger, isEmpty);
+  });
+
+  test('the search haystack reaches the note, not just the heading', () {
+    final AidLedgerEntry e = _entry(
+      id: 1,
+      amount: '100.00',
+      runningTotal: '100.00',
+      category: 'مولود',
+      note: 'ولادة ابنه',
+    );
+    expect(e.haystack, contains('مولود'));
+    expect(e.haystack, contains('ولادة'));
+    expect(e.haystack, contains('exp-000001'));
   });
 
   // ── The screen ────────────────────────────────────────────────────────────
@@ -219,59 +263,136 @@ void main() {
     expect(find.text(l.aidCollectiveNote), findsOneWidget);
   });
 
-  testWidgets('the headline total is the SERVER\'s, not a sum of the rows', (
-    WidgetTester tester,
-  ) async {
-    // The figures deliberately disagree: the vouchers add to 45.00 and the
-    // server says 45.00 only because it excluded a cancelled one worth 900.
-    // Anything that re-added the list in Dart would print 945.00 here — which
-    // is exactly the class of bug the money-as-text rule exists to prevent.
-    await open(
-      tester,
-      _aid(
-        vouchers: <DisbursementView>[
-          _voucher(id: 1, amount: '30.00', category: 'مولود'),
-          _voucher(id: 2, amount: '15.00', category: 'عزاء'),
-          _voucher(id: 3, amount: '900.00', status: 'ملغي'),
-        ],
-      ),
-    );
-
-    expect(find.text(formatMoney('45.00')), findsWidgets);
-    expect(find.text(formatMoney('945.00')), findsNothing);
-  });
-
-  testWidgets('a reversed voucher stays listed, struck through', (
-    WidgetTester tester,
-  ) async {
-    // Rule 9, outgoing, on the recipient's page too: history is not an
-    // embarrassment. Its amount is already out of the total above.
-    await open(
-      tester,
-      _aid(
-        vouchers: <DisbursementView>[
-          _voucher(id: 1, amount: '30.00'),
-          _voucher(id: 2, amount: '900.00', status: 'ملغي'),
-        ],
-      ),
-    );
-
-    expect(find.text('EXP-000002'), findsOneWidget);
-    expect(find.text(l.voided), findsOneWidget);
-    final Text struck = tester.widget<Text>(find.text('EXP-000002'));
-    expect(struck.style?.decoration, TextDecoration.lineThrough);
-  });
-
-  testWidgets('the occasions are named, which is what was asked for', (
-    WidgetTester tester,
-  ) async {
-    // «ما هي المناسبات التي صُرفت له» — the register of names cannot answer it,
-    // which is why every voucher carries a وجه and why this panel exists.
+  testWidgets('100 then 500 reads 100 then 600', (WidgetTester tester) async {
+    // The association's own example, and the reason the ledger exists. Each
+    // line carries the total SO FAR, so the answer to "how much has he had from
+    // us" is read off the page rather than added up by whoever is looking.
     await open(tester, _aid());
 
-    expect(find.text(l.aidByCategory), findsOneWidget);
+    expect(find.text(l.aidColRunning), findsOneWidget);
+    expect(find.text(formatMoney('100.00')), findsWidgets);
+    // 600 appears twice: on the last ledger line and in the closing total.
+    expect(find.text(formatMoney('600.00')), findsWidgets);
+    expect(find.text(l.aidGrandTotal), findsWidgets);
+  });
+
+  testWidgets('the running total is the SERVER\'s, never re-added here', (
+    WidgetTester tester,
+  ) async {
+    // The figures deliberately disagree with naive arithmetic: the amounts sum
+    // to 1000 while the server says the running total is 600, because it
+    // excluded a reversed voucher. Anything that accumulated the column in Dart
+    // would print 1000 — which is exactly the class of bug the money-as-text
+    // rule exists to prevent.
+    await open(
+      tester,
+      _aid(
+        ledger: <AidLedgerEntry>[
+          _entry(id: 1, amount: '100.00', runningTotal: '100.00'),
+          _entry(
+            id: 2,
+            amount: '400.00',
+            runningTotal: '100.00',
+            status: 'ملغي',
+            category: 'عزاء',
+          ),
+          _entry(
+            id: 3,
+            amount: '500.00',
+            runningTotal: '600.00',
+            category: 'فرح',
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text(formatMoney('600.00')), findsWidgets);
+    expect(find.text(formatMoney('1000.00')), findsNothing);
+  });
+
+  testWidgets('a reversed line stays listed and moves nothing', (
+    WidgetTester tester,
+  ) async {
+    // Rule 9, outgoing, on the recipient's page: history is not an
+    // embarrassment. Its amount is struck through; its running total is NOT,
+    // because the balance at that point in the ledger is a real figure — it is
+    // simply unchanged from the line above.
+    await open(
+      tester,
+      _aid(
+        ledger: <AidLedgerEntry>[
+          _entry(id: 1, amount: '100.00', runningTotal: '100.00'),
+          _entry(
+            id: 2,
+            amount: '400.00',
+            runningTotal: '100.00',
+            status: 'ملغي',
+            category: 'عزاء',
+          ),
+        ],
+        total: '100.00',
+        count: 1,
+      ),
+    );
+
+    final Text struckAmount = tester.widget<Text>(
+      find.text(formatMoney('400.00')),
+    );
+    expect(struckAmount.style?.decoration, TextDecoration.lineThrough);
+
+    // ...and NOTHING reading 100.00 is struck through. The reversal struck the
+    // AMOUNT; the balance at that point in the ledger is a real figure that
+    // simply did not move, and striking it would say the opposite. Asserted
+    // over every occurrence rather than by counting them, so the check does not
+    // break the next time a panel repeats the same number.
+    final Iterable<Text> hundreds = tester.widgetList<Text>(
+      find.text(formatMoney('100.00')),
+    );
+    expect(hundreds, isNotEmpty);
+    for (final Text t in hundreds) {
+      expect(t.style?.decoration, isNot(TextDecoration.lineThrough));
+    }
+  });
+
+  testWidgets('the search box filters rows and says how many are shown', (
+    WidgetTester tester,
+  ) async {
+    await open(tester, _aid());
     expect(find.text('مولود'), findsWidgets);
-    expect(find.text('عزاء'), findsWidgets);
+    expect(find.text('فرح'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField), 'زواج');
+    await tester.pumpAndSettle();
+
+    // The note matched, so the wedding line survives and the birth is hidden.
+    expect(find.text('EXP-000002 • زواج'), findsOneWidget);
+    expect(find.textContaining('ولادة'), findsNothing);
+    // And the reader is told the table is narrowed — without it the running
+    // total, which still belongs to the WHOLE history, looks like it skipped.
+    expect(find.text(l.aidShowing(1, 2)), findsOneWidget);
+  });
+
+  testWidgets('a search that matches nothing says so', (
+    WidgetTester tester,
+  ) async {
+    await open(tester, _aid());
+    await tester.enterText(find.byType(TextField), 'لا يوجد');
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.aidNoMatch), findsOneWidget);
+    // The rule still shows above it: an empty result is not an empty page.
+    expect(find.text(l.aidNotDeductedNote), findsOneWidget);
+  });
+
+  testWidgets('the member reads it in his own voice', (
+    WidgetTester tester,
+  ) async {
+    await open(tester, _aid(), mine: true);
+    expect(find.text(l.myAidTitle), findsOneWidget);
+    expect(find.text(l.aidTitle), findsNothing);
+    // His own page does not repeat his name back at him — he knows who he is,
+    // and the header is where the staff screen puts whose record this is.
+    expect(find.text('محمد العدولي'), findsNothing);
   });
 
   testWidgets('one year of aid gets no by-year panel', (
@@ -279,35 +400,11 @@ void main() {
   ) async {
     // A single-row "by year" restates the headline and says nothing. It earns
     // its place only once there are years to compare.
-    //
-    // ONE voucher in both halves, deliberately. A ListView does not build what
-    // is off-screen, so on a long page `findsNothing` would pass for a panel
-    // that exists and is merely further down — the assertion would be true for
-    // the wrong reason, and would go on being true after the feature broke.
-    // A page short enough to fit the test viewport removes that entirely.
-    await open(tester, _aid(count: 1, vouchers: <DisbursementView>[_voucher()]));
+    await open(tester, _aid());
     expect(find.text(l.aidByYear), findsNothing);
     // The panel that IS expected on the same page, so "found nothing" cannot be
     // "rendered nothing".
     expect(find.text(l.aidByCategory), findsOneWidget);
-  });
-
-  testWidgets('...and appears once there are years to compare', (
-    WidgetTester tester,
-  ) async {
-    await open(
-      tester,
-      _aid(
-        count: 1,
-        vouchers: <DisbursementView>[_voucher()],
-        byYear: const <AidByYear>[
-          AidByYear(year: '2026', total: '30.00', count: 1),
-          AidByYear(year: '2025', total: '15.00', count: 1),
-        ],
-      ),
-    );
-    expect(find.text(l.aidByYear), findsOneWidget);
-    expect(find.text('2025'), findsOneWidget);
   });
 
   testWidgets('a member given nothing sees a sentence, not an empty page', (
@@ -322,7 +419,7 @@ void main() {
         lastAt: '',
         byCategory: const <ExpenseByCategory>[],
         byYear: const <AidByYear>[],
-        vouchers: <DisbursementView>[],
+        ledger: <AidLedgerEntry>[],
       ),
     );
 

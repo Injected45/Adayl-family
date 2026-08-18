@@ -386,6 +386,45 @@ class ExpenseByCategory {
       );
 }
 
+/// One line of a member's aid ledger: a voucher, and the total so far.
+///
+/// [runningTotal] is computed by a WINDOW FUNCTION in `api_adeel_aid`, never
+/// here. Money crosses the wire as text precisely so that nothing on the client
+/// adds it up, and a running total accumulated in Dart would be the one figure
+/// on the screen computed in binary floating point.
+///
+/// A REVERSED voucher keeps its line and carries the SAME running total as the
+/// line above it — rule 9 says history stays visible, and a cancelled voucher
+/// moved no money. So the column can repeat, and a reader seeing two identical
+/// figures in a row is looking at a reversal, not a bug.
+class AidLedgerEntry {
+  const AidLedgerEntry({required this.voucher, required this.runningTotal});
+
+  final DisbursementView voucher;
+  final String runningTotal;
+
+  factory AidLedgerEntry.fromJson(Map<String, dynamic> json) => AidLedgerEntry(
+    voucher: DisbursementView.fromJson(json),
+    runningTotal: _string(json['runningTotal']),
+  );
+
+  /// Everything a search box may match, lower-cased once.
+  ///
+  /// Built from the row rather than searched field-by-field at the call site,
+  /// so a field added to the voucher is searchable by editing one place — and
+  /// so «فرح» typed into the box finds the wedding whether it is the heading,
+  /// the note, or part of who handed the money over.
+  String get haystack => <String>[
+    voucher.voucherNo,
+    voucher.category,
+    voucher.note,
+    voucher.handedBy,
+    voucher.method,
+    voucher.amount,
+    voucher.spentAt,
+  ].join(' ').toLowerCase();
+}
+
 /// One year of what the association gave one man.
 class AidByYear {
   const AidByYear({
@@ -436,7 +475,7 @@ class AdeelAid {
     required this.lastAt,
     required this.byCategory,
     required this.byYear,
-    required this.vouchers,
+    required this.ledger,
   });
 
   final int adeelId;
@@ -458,7 +497,11 @@ class AdeelAid {
 
   final List<ExpenseByCategory> byCategory;
   final List<AidByYear> byYear;
-  final List<DisbursementView> vouchers;
+
+  /// OLDEST FIRST, because that is the only order in which a running total
+  /// means anything: read the other way it accumulates backwards and the last
+  /// line would show the first voucher's amount as though it were the sum.
+  final List<AidLedgerEntry> ledger;
 
   bool get isEmpty => count == 0;
 
@@ -480,10 +523,10 @@ class AdeelAid {
           const <dynamic>[]))
         AidByYear.fromJson(e as Map<String, dynamic>),
     ],
-    vouchers: <DisbursementView>[
+    ledger: <AidLedgerEntry>[
       for (final dynamic e in (json['vouchers'] as List<dynamic>? ??
           const <dynamic>[]))
-        DisbursementView.fromJson(e as Map<String, dynamic>),
+        AidLedgerEntry.fromJson(e as Map<String, dynamic>),
     ],
   );
 }

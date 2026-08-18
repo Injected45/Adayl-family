@@ -510,7 +510,37 @@ class LAr extends L {
   String get aidTitle => 'ما صُرف له من الجمعية';
 
   @override
-  String get myAidTitle => 'ما استلمته من الجمعية';
+  String get myAidTitle => 'ما صُرف لك';
+
+  @override
+  String get aidSearchHint => 'ابحث بالبند أو الملاحظة أو رقم السند';
+
+  @override
+  String get aidColDate => 'التاريخ';
+
+  @override
+  String get aidColCategory => 'البند';
+
+  @override
+  String get aidColAmount => 'القيمة';
+
+  @override
+  String get aidColRunning => 'الرصيد التراكمي';
+
+  @override
+  String get aidGrandTotal => 'إجمالي ما صُرف';
+
+  @override
+  String get aidNoMatch => 'لا يوجد سند يطابق بحثك';
+
+  @override
+  String aidShowing(int shown, int total) {
+    return '$shown من $total';
+  }
+
+  @override
+  String get aidRunningNote =>
+      'عمود الرصيد التراكمي يجمع من الأقدم إلى الأحدث على كامل السجل. السند الملغى يبقى ظاهراً ولا يحرّك الرصيد.';
 
   @override
   String get openAid => 'سجل الإعانات';

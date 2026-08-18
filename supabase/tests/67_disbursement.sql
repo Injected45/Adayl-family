@@ -174,6 +174,42 @@ SELECT probe.eq('spend', 'a COLLECTIVE voucher is nobody''s aid',
 SELECT probe.eq('spend', 'a member who received nothing reads a clean zero',
   $sql$ SELECT public.api_adeel_aid(2) ->> 'total' $sql$, '0.00');
 
+-- ═════ THE RUNNING TOTAL — «صُرف له 100 ثم 500، فيصبح 600» ═══════════════════
+-- The association asked for the aid page to read as a LEDGER: each voucher on
+-- its own line with the total so far beside it. That column is a window
+-- function in api_adeel_aid, not arithmetic in Dart — money crosses the wire as
+-- text precisely so nothing on the client adds it, and a running total the app
+-- accumulated itself would be the one figure on the screen computed in binary
+-- floating point.
+SELECT probe.succeeds('spend', 'a second voucher to the same man', $sql$
+  SELECT public.register_disbursement(3, 'لمشترك', 'نقداً', 1, 'عزاء')
+$sql$);
+-- OLDEST FIRST, which is what makes the column mean anything: read newest-first
+-- the total would accumulate backwards and the last line would show the FIRST
+-- voucher's amount as though it were the sum of everything.
+SELECT probe.eq('spend', 'the ledger opens on the oldest voucher',
+  $sql$ SELECT public.api_adeel_aid(1) -> 'vouchers' -> 0 ->> 'runningTotal'
+  $sql$, '5.00');
+SELECT probe.eq('spend', '...and the next line carries the total so far',
+  $sql$ SELECT public.api_adeel_aid(1) -> 'vouchers' -> 1 ->> 'runningTotal'
+  $sql$, '8.00');
+
+-- ⚠ A REVERSED VOUCHER IS LISTED AND MOVES NOTHING. Rule 9 keeps it on the page;
+-- the FILTER inside the window keeps it out of the arithmetic. Dropping it with
+-- a WHERE would have removed the line entirely, and leaving it in the sum would
+-- have credited him with money that was taken back.
+SELECT probe.succeeds('spend', 'the second voucher is reversed', $sql$
+  SELECT public.cancel_disbursement(
+    (SELECT max(id) FROM public.disbursements WHERE payee_adeel_id = 1),
+    'خطأ إدخال')
+$sql$);
+SELECT probe.eq('spend', 'a reversed line STAYS in the ledger',
+  $sql$ SELECT public.api_adeel_aid(1) -> 'vouchers' -> 1 ->> 'status' $sql$,
+  'ملغي');
+SELECT probe.eq('spend', '...and leaves the running total exactly where it was',
+  $sql$ SELECT public.api_adeel_aid(1) -> 'vouchers' -> 1 ->> 'runningTotal'
+  $sql$, '5.00');
+
 -- ═════ The CONSTRAINT underneath, proved on its own ══════════════════════════
 -- The four refusals above are the RPC's, and they exist to give an admin a
 -- sentence he can act on. This is ck_disb_shape itself: the guarantee has to
