@@ -62,13 +62,13 @@
   "errorTimeout": "انتهت مهلة الاتصال بالخادم",
   "offlineBanner": "لا يوجد اتصال بالإنترنت",
 
-  "navChat": "المجلس",
+  "navChat": "المحادثات",
   "@navChat": {
-    "description": "The association's chat room. «المجلس» rather than «الدردشة»: it is the word a Libyan family association uses for where its people sit and talk, and it carries the seriousness the room is meant to have."
+    "description": "The screen, from the outside. It was «المجلس» — the word a Libyan association uses for where its people sit — but the screen holds TWO rooms now, and a name that describes one of them cannot also name the container. «المحادثات» is the container; «محادثة جماعية» is the room inside it."
   },
-  "chatHall": "المجلس العام",
+  "chatHall": "محادثة جماعية",
   "@chatHall": {
-    "description": "The open room, as the segment that selects it. «المجلس العام» and not «المجلس»: the SCREEN is called المجلس and it holds two rooms, so naming one of them the same word puts the same string twice on one screen with two different meanings."
+    "description": "The open room, as the segment that selects it. Named for what it IS — everyone together — rather than for the hall, so it pairs plainly with «مراسلة الإدارة» beside it: one conversation with everybody, one with the board."
   },
   "chatToBoard": "مراسلة الإدارة",
   "@chatToBoard": {
@@ -82,6 +82,15 @@
   "chatInboxEmpty": "لا رسائل خاصة من المشتركين",
   "chatHint": "اكتب رسالتك…",
   "chatSend": "إرسال",
+  "chatEmoji": "رموز",
+  "@chatEmoji": {
+    "description": "The button that opens the in-app emoji panel. «رموز» rather than «إيموجي»: the association writes Arabic and the word is already in use for symbols."
+  },
+  "emojiFaces": "وجوه",
+  "emojiHands": "إيماءات ودعاء",
+  "emojiHearts": "قلوب",
+  "emojiOccasions": "مناسبات",
+  "emojiBackspace": "حذف حرف",
   "chatEmpty": "لا رسائل بعد — كن أول من يتحدث",
   "chatDeleted": "حُذفت الرسالة",
   "@chatDeleted": {
@@ -92,7 +101,7 @@
     "description": "Badge beside the name of anyone who spoke as staff. An announcement about a meeting reads differently from a member's opinion of it."
   },
   "chatDeleteTitle": "حذف الرسالة؟",
-  "chatDeleteBody": "ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المجلس.",
+  "chatDeleteBody": "ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المحادثة.",
   "navHome": "الرئيسية",
   "navReceivables": "الاستحقاقات",
   "navPayments": "العمليات",

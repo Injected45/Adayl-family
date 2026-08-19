@@ -168,10 +168,10 @@ class LEn extends L {
   String get offlineBanner => 'No internet connection';
 
   @override
-  String get navChat => 'The room';
+  String get navChat => 'Conversations';
 
   @override
-  String get chatHall => 'Open room';
+  String get chatHall => 'Group conversation';
 
   @override
   String get chatToBoard => 'Message the board';
@@ -193,6 +193,24 @@ class LEn extends L {
   String get chatSend => 'Send';
 
   @override
+  String get chatEmoji => 'Emoji';
+
+  @override
+  String get emojiFaces => 'Faces';
+
+  @override
+  String get emojiHands => 'Gestures';
+
+  @override
+  String get emojiHearts => 'Hearts';
+
+  @override
+  String get emojiOccasions => 'Occasions';
+
+  @override
+  String get emojiBackspace => 'Delete character';
+
+  @override
   String get chatEmpty => 'No messages yet — be the first to speak';
 
   @override
@@ -206,7 +224,7 @@ class LEn extends L {
 
   @override
   String get chatDeleteBody =>
-      'The words go permanently; the gap stays visible in the room.';
+      'The words go permanently; the gap stays visible in the conversation.';
 
   @override
   String get navHome => 'Home';

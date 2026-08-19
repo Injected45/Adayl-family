@@ -13,6 +13,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
+import 'emoji_panel.dart';
 import 'providers.dart';
 
 /// مجلس العدايل — the open room, and the private thread beside it.
@@ -202,19 +203,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Expanded(child: _Inbox(onOpen: _openThread))
           else ...<Widget>[
             if (_room == _Room.private && !isMember)
-              _ThreadHeader(name: _threadName, onBack: () => setState(() => _thread = null)),
+              _ThreadHeader(
+                name: _threadName,
+                onBack: () => setState(() => _thread = null),
+              ),
             Expanded(
               child: AsyncView<List<ChatMessage>>(
                 value: ref.watch(chatProvider(_key)),
-                onRetry: () =>
-                    ref.read(chatProvider(_key).notifier).refresh(),
+                onRetry: () => ref.read(chatProvider(_key).notifier).refresh(),
                 builder: (List<ChatMessage> messages) {
                   if (messages.isEmpty) {
                     return EmptyStateView(
                       icon: _room == _Room.hall
                           ? Icons.forum_outlined
                           : Icons.lock_outline,
-                      title: _room == _Room.hall ? l.chatEmpty : l.chatPrivateEmpty,
+                      title: _room == _Room.hall
+                          ? l.chatEmpty
+                          : l.chatPrivateEmpty,
                     );
                   }
                   return ListView.builder(
@@ -523,7 +528,7 @@ class _DayDivider extends StatelessWidget {
   }
 }
 
-class _Composer extends StatelessWidget {
+class _Composer extends StatefulWidget {
   const _Composer({
     required this.controller,
     required this.sending,
@@ -535,74 +540,200 @@ class _Composer extends StatelessWidget {
   final VoidCallback onSend;
 
   @override
+  State<_Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends State<_Composer> {
+  /// Whether the emoji grid is showing INSTEAD of the system keyboard.
+  ///
+  /// The two are mutually exclusive on purpose: opening the panel dismisses the
+  /// keyboard and tapping the text box closes the panel, so the message box
+  /// never has two things fighting for the bottom half of a phone.
+  bool _emoji = false;
+
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  /// ⚠ AT THE CURSOR, not at the end. A member who taps back into the middle of
+  ///   a sentence to add a heart expects it there, and appending would move his
+  ///   caret to the end of a message he was not finished with.
+  ///
+  ///   The 1000-cap is re-checked here because writing to a controller skips the
+  ///   TextField's maxLength formatter entirely — the picker would otherwise be
+  ///   the one way to build a message the database refuses.
+  void _insert(String emoji) {
+    final TextEditingValue v = widget.controller.value;
+    if (v.text.characters.length + emoji.characters.length > 1000) return;
+
+    final int start = v.selection.start >= 0
+        ? v.selection.start
+        : v.text.length;
+    final int end = v.selection.end >= 0 ? v.selection.end : v.text.length;
+
+    widget.controller.value = TextEditingValue(
+      text: v.text.replaceRange(start, end, emoji),
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+  }
+
+  /// One CHARACTER, not one code unit. An emoji is two or more UTF-16 units and
+  /// several of the ones in the panel are joined sequences — deleting by index
+  /// would leave half a glyph behind, which renders as a replacement box.
+  void _backspace() {
+    final TextEditingValue v = widget.controller.value;
+    final int end = v.selection.end >= 0 ? v.selection.end : v.text.length;
+    if (end == 0) return;
+
+    final int start = v.selection.start >= 0 ? v.selection.start : end;
+    if (start != end) {
+      widget.controller.value = TextEditingValue(
+        text: v.text.replaceRange(start, end, ''),
+        selection: TextSelection.collapsed(offset: start),
+      );
+      return;
+    }
+
+    final String before = v.text.substring(0, end);
+    final int cut = before.characters.isEmpty
+        ? 0
+        : before.length - before.characters.last.length;
+    widget.controller.value = TextEditingValue(
+      text: v.text.replaceRange(cut, end, ''),
+      selection: TextSelection.collapsed(offset: cut),
+    );
+  }
+
+  void _toggleEmoji() {
+    setState(() => _emoji = !_emoji);
+    if (_emoji) {
+      // Put the keyboard away rather than stacking the panel on top of it.
+      FocusManager.instance.primaryFocus?.unfocus();
+    } else {
+      _focus.requestFocus();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
+    final TextEditingController controller = widget.controller;
+    final bool sending = widget.sending;
 
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(
-        AppSpacing.lg,
-        AppSpacing.xs,
-        AppSpacing.lg,
-        // ── THE SEND BUTTON WOULD SIT UNDER THE NAVIGATION PILL ─────────────
-        // AppScaffold floats the bar over the body and publishes its height as
-        // MediaQuery.padding.bottom; a screen that does not reserve it puts its
-        // own controls beneath something the user cannot see through. Every
-        // scrolling screen here already asks for it — a composer pinned to the
-        // bottom needs it more than any of them, because a list can be scrolled
-        // and a fixed row cannot.
-        //
-        // Caught by a widget test whose tap on the send button MISSED. Worth
-        // saying out loud: the assertion that failed was about sending a
-        // message, not about layout, and on a phone this reads as a button that
-        // does nothing.
-        AppSpacing.md +
-            bottomInset(context) +
-            MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: !sending,
-              // Grows with the message and then stops. A composer that keeps
-              // growing pushes the conversation off the screen it belongs to.
-              minLines: 1,
-              maxLines: 4,
-              // The database refuses anything longer; stopping the keystroke is
-              // kinder than accepting six hundred more characters and then
-              // rejecting the lot.
-              maxLength: 1000,
-              textInputAction: TextInputAction.newline,
-              keyboardType: TextInputType.multiline,
-              decoration: InputDecoration(
-                hintText: l.chatHint,
-                // The counter only matters near the cap, and a permanent
-                // «0/1000» under a chat box is clutter on every single screen.
-                counterText: '',
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.lg,
+            AppSpacing.xs,
+            AppSpacing.lg,
+            // ── THE SEND BUTTON WOULD SIT UNDER THE NAVIGATION PILL ─────────────
+            // AppScaffold floats the bar over the body and publishes its height as
+            // MediaQuery.padding.bottom; a screen that does not reserve it puts its
+            // own controls beneath something the user cannot see through. Every
+            // scrolling screen here already asks for it — a composer pinned to the
+            // bottom needs it more than any of them, because a list can be scrolled
+            // and a fixed row cannot.
+            //
+            // Caught by a widget test whose tap on the send button MISSED. Worth
+            // saying out loud: the assertion that failed was about sending a
+            // message, not about layout, and on a phone this reads as a button that
+            // does nothing.
+            // ⚠ AND THE SAME RESERVATION MOVES TO THE PANEL WHEN IT OPENS.
+            //   The grid hangs BELOW this row, so with the pill's height still
+            //   reserved here the panel is pushed down by it and its own last
+            //   row — the backspace key — ends up underneath the floating bar.
+            //   Exactly the bug the paragraph above describes, one widget
+            //   further down, and caught the same way: by a test whose tap
+            //   missed.
+            AppSpacing.md +
+                (_emoji ? 0 : bottomInset(context)) +
+                MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              // ── The emoji key ────────────────────────────────────────────────
+              // Before the field, where the system keyboard puts its own. The icon
+              // says which state a second tap leads to, which is how every keyboard
+              // toggle on the platform behaves.
+              IconButton(
+                onPressed: sending ? null : _toggleEmoji,
+                icon: Icon(
+                  _emoji
+                      ? Icons.keyboard_alt_outlined
+                      : Icons.emoji_emotions_outlined,
+                ),
+                tooltip: l.chatEmoji,
+                color: AppColors.muted,
+                visualDensity: VisualDensity.compact,
               ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: _focus,
+                  // Tapping the message box means "I want to type", so the grid
+                  // gets out of the way by itself.
+                  onTap: () {
+                    if (_emoji) setState(() => _emoji = false);
+                  },
+                  enabled: !sending,
+                  // Grows with the message and then stops. A composer that keeps
+                  // growing pushes the conversation off the screen it belongs to.
+                  minLines: 1,
+                  maxLines: 4,
+                  // The database refuses anything longer; stopping the keystroke is
+                  // kinder than accepting six hundred more characters and then
+                  // rejecting the lot.
+                  maxLength: 1000,
+                  textInputAction: TextInputAction.newline,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    hintText: l.chatHint,
+                    // The counter only matters near the cap, and a permanent
+                    // «0/1000» under a chat box is clutter on every single screen.
+                    counterText: '',
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // Send points the way the language reads: in Arabic, forward is
+              // leftward, and `Directionality` is what makes the same icon correct
+              // in both.
+              IconButton.filled(
+                onPressed: sending ? null : widget.onSend,
+                icon: sending
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.onFill,
+                        ),
+                      )
+                    : const Icon(Icons.send_rounded),
+                tooltip: l.chatSend,
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          // Send points the way the language reads: in Arabic, forward is
-          // leftward, and `Directionality` is what makes the same icon correct
-          // in both.
-          IconButton.filled(
-            onPressed: sending ? null : onSend,
-            icon: sending
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.onFill,
-                    ),
-                  )
-                : const Icon(Icons.send_rounded),
-            tooltip: l.chatSend,
+        ),
+        // ── The grid, where the keyboard would be ─────────────────────────────
+        // Below the composer rather than above it, so the message box does not
+        // jump when the panel opens — it occupies the space the keyboard just
+        // left. Hidden entirely while a send is in flight: the controller is
+        // read at that moment and a tap that edited it mid-send would put a
+        // character into the room or lose one.
+        if (_emoji && !sending)
+          Padding(
+            // The pill's height, handed over from the composer above.
+            padding: EdgeInsets.only(bottom: bottomInset(context)),
+            child: EmojiPanel(onPick: _insert, onBackspace: _backspace),
           ),
-        ],
-      ),
+      ],
     );
   }
 }

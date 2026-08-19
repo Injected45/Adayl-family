@@ -166,10 +166,10 @@ class LAr extends L {
   String get offlineBanner => 'لا يوجد اتصال بالإنترنت';
 
   @override
-  String get navChat => 'المجلس';
+  String get navChat => 'المحادثات';
 
   @override
-  String get chatHall => 'المجلس العام';
+  String get chatHall => 'محادثة جماعية';
 
   @override
   String get chatToBoard => 'مراسلة الإدارة';
@@ -191,6 +191,24 @@ class LAr extends L {
   String get chatSend => 'إرسال';
 
   @override
+  String get chatEmoji => 'رموز';
+
+  @override
+  String get emojiFaces => 'وجوه';
+
+  @override
+  String get emojiHands => 'إيماءات ودعاء';
+
+  @override
+  String get emojiHearts => 'قلوب';
+
+  @override
+  String get emojiOccasions => 'مناسبات';
+
+  @override
+  String get emojiBackspace => 'حذف حرف';
+
+  @override
   String get chatEmpty => 'لا رسائل بعد — كن أول من يتحدث';
 
   @override
@@ -204,7 +222,7 @@ class LAr extends L {
 
   @override
   String get chatDeleteBody =>
-      'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المجلس.';
+      'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المحادثة.';
 
   @override
   String get navHome => 'الرئيسية';

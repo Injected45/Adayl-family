@@ -5,6 +5,7 @@ import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/chat/domain/models.dart';
 import 'package:family_app/features/chat/presentation/chat_screen.dart';
+import 'package:family_app/features/chat/presentation/emoji_panel.dart';
 import 'package:family_app/features/chat/presentation/providers.dart';
 import 'package:family_app/l10n/app_localizations.dart';
 import 'package:family_app/l10n/app_localizations_ar.dart';
@@ -89,6 +90,8 @@ class _StubChat extends ChatController {
   Future<void> refresh() async {}
 }
 
+late Future<void> Function(WidgetTester) _openRoom;
+
 void main() {
   final L l = LAr();
   late _StubChat chat;
@@ -124,6 +127,10 @@ void main() {
     await tester.pumpWidget(host(messages, user: user));
     await tester.pumpAndSettle();
   }
+
+  _openRoom = (WidgetTester tester) =>
+      open(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
+  _emojiTests();
 
   testWidgets('the room shows what everyone said, not only what I said', (
     WidgetTester tester,
@@ -324,7 +331,6 @@ void _guardTests() {
   });
 }
 
-
 /// A bound portal account: approved, no staff reach, one عديل and one thread.
 const AppUser _member = AppUser(
   id: '00000000-0000-0000-0000-0000000000b1',
@@ -406,6 +412,7 @@ Future<_StubChat> _openPrivate(WidgetTester tester, AppUser user) async {
   await tester.pumpAndSettle();
   return opened;
 }
+
 /// الخاص — the private thread, and the wall the whole feature rests on.
 ///
 /// The wall itself is in the database: `read_chat` hands a member only threads
@@ -424,16 +431,17 @@ void _privateTests() {
       expect(sent.room, 6, reason: 'his own adeelId, never null');
     });
 
-    testWidgets('...and المجلس is still the other segment, not replaced by it', (
-      WidgetTester tester,
-    ) async {
-      await _pumpChat(tester, _member);
-      expect(find.text(l.chatHall), findsOneWidget);
-      // The same segment reads differently to the two accounts, and both
-      // readings are honest: he writes TO the board, they read FROM everyone.
-      expect(find.text(l.chatToBoard), findsOneWidget);
-      expect(find.text(l.chatInbox), findsNothing);
-    });
+    testWidgets(
+      '...and المجلس is still the other segment, not replaced by it',
+      (WidgetTester tester) async {
+        await _pumpChat(tester, _member);
+        expect(find.text(l.chatHall), findsOneWidget);
+        // The same segment reads differently to the two accounts, and both
+        // readings are honest: he writes TO the board, they read FROM everyone.
+        expect(find.text(l.chatToBoard), findsOneWidget);
+        expect(find.text(l.chatInbox), findsNothing);
+      },
+    );
 
     testWidgets('staff see an INBOX there instead, and no composer', (
       WidgetTester tester,
@@ -447,5 +455,117 @@ void _privateTests() {
       expect(find.text(l.chatInboxEmpty), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
     });
+  });
+}
+
+/// The emoji key, and what it must not break.
+///
+/// Every Android keyboard already has emoji, so the panel exists for a reason
+/// worth stating: on the Arabic layouts common on these handsets it is two taps
+/// behind a language switch. In a room where most of what is sent is a greeting,
+/// a prayer and a heart, those should be one tap from the message box.
+///
+/// ⚠ WHAT IS ACTUALLY BEING GUARDED IS THE MESSAGE BOX, NOT THE GRID. Writing
+///   to a TextEditingController bypasses the field's input formatters, so the
+///   picker is a second way into the same text with none of the field's rules
+///   applied — the 1000-character cap among them. And an emoji is several UTF-16
+///   units, so deleting by index leaves half a glyph, which renders as ▯.
+void _emojiTests() {
+  final L l = LAr();
+
+  Finder emojiKey() => find.byIcon(Icons.emoji_emotions_outlined);
+
+  testWidgets('the key opens the grid, and closes it again', (
+    WidgetTester tester,
+  ) async {
+    await _openRoom(tester);
+
+    expect(find.byType(EmojiPanel), findsNothing);
+
+    await tester.tap(emojiKey());
+    await tester.pumpAndSettle();
+    expect(find.byType(EmojiPanel), findsOneWidget);
+
+    // The icon now offers the way BACK, which is how every keyboard toggle on
+    // the platform behaves.
+    await tester.tap(find.byIcon(Icons.keyboard_alt_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(EmojiPanel), findsNothing);
+  });
+
+  testWidgets('a tap puts the emoji in the box, at the cursor', (
+    WidgetTester tester,
+  ) async {
+    await _openRoom(tester);
+
+    await tester.enterText(find.byType(TextField), 'سلام');
+    await tester.tap(emojiKey());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('😀'));
+    await tester.pumpAndSettle();
+
+    final TextField box = tester.widget<TextField>(find.byType(TextField));
+    expect(box.controller!.text, 'سلام😀');
+  });
+
+  testWidgets('the categories switch, and دعاء is behind its own chip', (
+    WidgetTester tester,
+  ) async {
+    // 🙏 is the most-sent glyph in an association room and it is NOT on the
+    // first page, so the chips are load-bearing rather than decoration.
+    await _openRoom(tester);
+    await tester.tap(emojiKey());
+    await tester.pumpAndSettle();
+
+    expect(find.text('🙏'), findsNothing);
+
+    await tester.tap(find.text(l.emojiHands));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('🙏'));
+    await tester.pumpAndSettle();
+
+    final TextField box = tester.widget<TextField>(find.byType(TextField));
+    expect(box.controller!.text, '🙏');
+  });
+
+  testWidgets('backspace removes ONE emoji, not half of one', (
+    WidgetTester tester,
+  ) async {
+    // The bug this exists for: an emoji is two or more UTF-16 code units, so
+    // deleting one unit leaves a lone surrogate that renders as ▯ and is sent
+    // to the database that way.
+    await _openRoom(tester);
+
+    await tester.tap(emojiKey());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('😀'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip(l.emojiBackspace));
+    await tester.pumpAndSettle();
+
+    final TextField box = tester.widget<TextField>(find.byType(TextField));
+    expect(box.controller!.text, isEmpty);
+  });
+
+  testWidgets('the grid cannot push a message past the 1000-character cap', (
+    WidgetTester tester,
+  ) async {
+    // maxLength stops TYPING past it. A controller written to directly is not
+    // filtered, so without the check in _insert the picker would be the one way
+    // to build a message send_chat_message then refuses.
+    await _openRoom(tester);
+
+    final TextField box = tester.widget<TextField>(find.byType(TextField));
+    box.controller!.text = 'ا' * 1000;
+    await tester.pump();
+
+    await tester.tap(emojiKey());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('😀'));
+    await tester.pumpAndSettle();
+
+    expect(box.controller!.text.characters.length, 1000);
   });
 }

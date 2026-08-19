@@ -385,16 +385,16 @@ abstract class L {
   /// **'لا يوجد اتصال بالإنترنت'**
   String get offlineBanner;
 
-  /// The association's chat room. «المجلس» rather than «الدردشة»: it is the word a Libyan family association uses for where its people sit and talk, and it carries the seriousness the room is meant to have.
+  /// The screen, from the outside. It was «المجلس» — the word a Libyan association uses for where its people sit — but the screen holds TWO rooms now, and a name that describes one of them cannot also name the container. «المحادثات» is the container; «محادثة جماعية» is the room inside it.
   ///
   /// In ar, this message translates to:
-  /// **'المجلس'**
+  /// **'المحادثات'**
   String get navChat;
 
-  /// The open room, as the segment that selects it. «المجلس العام» and not «المجلس»: the SCREEN is called المجلس and it holds two rooms, so naming one of them the same word puts the same string twice on one screen with two different meanings.
+  /// The open room, as the segment that selects it. Named for what it IS — everyone together — rather than for the hall, so it pairs plainly with «مراسلة الإدارة» beside it: one conversation with everybody, one with the board.
   ///
   /// In ar, this message translates to:
-  /// **'المجلس العام'**
+  /// **'محادثة جماعية'**
   String get chatHall;
 
   /// The member's side of the private segment. He writes to الإدارة as an institution, never to a named officer, so whoever is on duty answers.
@@ -433,6 +433,42 @@ abstract class L {
   /// **'إرسال'**
   String get chatSend;
 
+  /// The button that opens the in-app emoji panel. «رموز» rather than «إيموجي»: the association writes Arabic and the word is already in use for symbols.
+  ///
+  /// In ar, this message translates to:
+  /// **'رموز'**
+  String get chatEmoji;
+
+  /// No description provided for @emojiFaces.
+  ///
+  /// In ar, this message translates to:
+  /// **'وجوه'**
+  String get emojiFaces;
+
+  /// No description provided for @emojiHands.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيماءات ودعاء'**
+  String get emojiHands;
+
+  /// No description provided for @emojiHearts.
+  ///
+  /// In ar, this message translates to:
+  /// **'قلوب'**
+  String get emojiHearts;
+
+  /// No description provided for @emojiOccasions.
+  ///
+  /// In ar, this message translates to:
+  /// **'مناسبات'**
+  String get emojiOccasions;
+
+  /// No description provided for @emojiBackspace.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف حرف'**
+  String get emojiBackspace;
+
   /// No description provided for @chatEmpty.
   ///
   /// In ar, this message translates to:
@@ -460,7 +496,7 @@ abstract class L {
   /// No description provided for @chatDeleteBody.
   ///
   /// In ar, this message translates to:
-  /// **'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المجلس.'**
+  /// **'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المحادثة.'**
   String get chatDeleteBody;
 
   /// No description provided for @navHome.
