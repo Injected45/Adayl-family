@@ -33,6 +33,18 @@ class DashboardScreen extends ConsumerWidget {
     final AppRole role =
         ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
 
+    // ── عهد المشتركين comes from the TREASURY view, not from api_dashboard ──
+    // The dashboard RPC has no such field and adding one would mean another
+    // patch on the live project; v_cash_summary already publishes it, and
+    // read_cash is has_role('viewer') so every staff account that can open
+    // this page can read it.
+    //
+    // valueOrNull, deliberately: the headline must not wait on a second call,
+    // and if this one fails the qualifier is simply absent rather than the whole
+    // page being an error. A liability that cannot be read is not shown as zero.
+    final CashSummaryView? cash = ref.watch(cashSummaryProvider).valueOrNull;
+    final double held = double.tryParse(cash?.heldForMembers ?? '0') ?? 0;
+
     return AppScaffold(
       title: l.navHome,
       currentRoute: AppRoutes.home,
@@ -40,7 +52,10 @@ class DashboardScreen extends ConsumerWidget {
         value: dashboard,
         onRetry: () => ref.invalidate(dashboardProvider),
         builder: (DashboardData data) => RefreshIndicator(
-          onRefresh: () async => ref.invalidate(dashboardProvider),
+          onRefresh: () async {
+            ref.invalidate(dashboardProvider);
+            ref.invalidate(cashSummaryProvider);
+          },
           child: ListView(
             // See cash_screen: a RefreshIndicator over a list that fits the
             // screen ignores the pull unless the physics always accept it.
@@ -80,12 +95,34 @@ class DashboardScreen extends ConsumerWidget {
                   formatMoney(data.stats.cash),
                   formatMoney(data.stats.transfer),
                 ),
+                // ── WHAT THE HEADLINE DOES NOT SAY ON ITS OWN ──────────────
+                // إجمالي المحصل counts every dinar that arrived, and part of
+                // it can be عهدة — paid ahead for a month not yet billed, owed
+                // back until it is. Read without this line the figure is not
+                // wrong, it is MISREAD: a treasurer adds it to what the
+                // association has.
+                //
+                // On the FACE rather than in the breakdown because it is not a
+                // working. Tapping through is for «what is this made of»; this
+                // changes what the number means, and a meaning behind a tap is
+                // a meaning most readers never get.
+                note: held > 0 ? l.heldOfWhich(formatMoney(cash!.heldForMembers)) : null,
                 rows: <FigureRow>[
                   FigureRow(
                     label: l.statAdeels,
                     value: '${data.stats.adeels}',
                     trailing: l.subActive(data.stats.active),
                   ),
+                  // Between what came in and what is owed, and toned like a
+                  // debt rather than a collection — it is money that will
+                  // leave. Same placement and same tone as the treasury's own
+                  // bar, so the two read alike.
+                  if (held > 0)
+                    FigureRow(
+                      label: l.heldForMembers,
+                      value: formatMoney(cash!.heldForMembers),
+                      tone: AppColors.warning,
+                    ),
                   FigureRow(
                     label: l.statTotalDebt,
                     value: formatMoney(data.stats.debt),
@@ -198,6 +235,12 @@ Future<void> _closeMonth(BuildContext context, WidgetRef ref, L l) async {
     // The month just closed is now `closed`, and the one after it has become the
     // `selectable` one. Both flags are stale, so the list has to go with them.
     ref.invalidate(closablePeriodsProvider);
+    // ⚠ AND عهد المشتركين, which the close just SPENT. generate_period calls
+    //   settle_from_credit per عديل as it raises his receivable, so a member
+    //   who had paid ahead has less held for him — or none — the moment this
+    //   returns. Leave it out and the headline goes on qualifying itself with a
+    //   liability that no longer exists.
+    ref.invalidate(cashSummaryProvider);
     messenger.showSnackBar(
       SnackBar(
         content: Text(

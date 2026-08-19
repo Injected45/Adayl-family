@@ -3,6 +3,8 @@ import 'package:family_app/core/format/formatters.dart';
 import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
+import 'package:family_app/features/finance/domain/models.dart';
+import 'package:family_app/features/finance/presentation/providers.dart';
 import 'package:family_app/features/oversight/domain/models.dart';
 import 'package:family_app/features/oversight/presentation/dashboard_screen.dart';
 import 'package:family_app/features/oversight/presentation/providers.dart';
@@ -58,12 +60,30 @@ const DashboardStats _stats = DashboardStats(
   indebtedAdeels: 11,
 );
 
+late Future<void> Function(WidgetTester, String) pumpHeld;
+
 void main() {
   final L l = LAr();
 
-  Widget host() => ProviderScope(
+  Widget host({String held = '0.00'}) => ProviderScope(
     overrides: <Override>[
       authControllerProvider.overrideWith(_StubAuth.new),
+      // ⚠ OVERRIDDEN EVEN WHEN ZERO. Without it this provider reaches for a
+      //   real Supabase client, and the headline would then be exercised
+      //   against an ERROR rather than against a figure — which is the one
+      //   state that hides a broken qualifier, since a failed read and a zero
+      //   liability both show nothing.
+      cashSummaryProvider.overrideWith(
+        (Ref ref) async => CashSummaryView(
+          total: '8100.00',
+          cash: '5100.00',
+          transfer: '3000.00',
+          today: '0.00',
+          month: '0.00',
+          year: '0.00',
+          heldForMembers: held,
+        ),
+      ),
       dashboardProvider.overrideWith(
         (Ref ref) async => const DashboardData(
           stats: _stats,
@@ -90,13 +110,16 @@ void main() {
     ),
   );
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {String held = '0.00'}) async {
     tester.view.physicalSize = const Size(411, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(host());
+    await tester.pumpWidget(host(held: held));
     await tester.pumpAndSettle();
   }
+
+  pumpHeld = (WidgetTester tester, String held) => pump(tester, held: held);
+  _heldTests();
 
   testWidgets('the page leads with إجمالي المحصل and nothing beside it', (
     WidgetTester tester,
@@ -163,5 +186,60 @@ void main() {
     expect(find.text('2 متوفى'), findsNothing);
     // 3 موقوف + 2 متوفى — the figure the deleted tile carried.
     expect(find.text('5'), findsNothing);
+  });
+}
+
+/// عهد المشتركين on the FACE of the headline, and only when there is any.
+///
+/// إجمالي المحصل counts every dinar that ever arrived, and part of it can be a
+/// deposit paid ahead for a month not yet billed — real money, in the box, owed
+/// back. The figure is not wrong; it is MISREAD, and it is misread in the one
+/// direction that matters, because a treasurer adds it to what the association
+/// has.
+///
+/// ⚠ ON THE BAR, NOT IN THE SHEET. The breakdown answers «ما مكوّنات هذا
+///   الرقم» and can be skipped. This answers «ماذا يعني هذا الرقم» and cannot:
+///   a meaning that costs a tap is a meaning most readers never reach. The
+///   sheet gets the figure too, so the two agree, but the sentence lives on the
+///   face.
+///
+/// ⚠ AND IT VANISHES AT ZERO. «منها عهد للمشتركين 0.00» under every balance is
+///   a permanent line explaining a situation that is not happening — the same
+///   rule the treasury bar already follows.
+void _heldTests() {
+  final L l = LAr();
+
+  testWidgets('nothing held — the headline carries no qualifier', (
+    WidgetTester tester,
+  ) async {
+    await pumpHeld(tester, '0.00');
+    expect(find.textContaining(l.heldForMembers), findsNothing);
+  });
+
+  testWidgets('...and when a member has paid ahead, it says so on the bar', (
+    WidgetTester tester,
+  ) async {
+    await pumpHeld(tester, '340.00');
+
+    // On the FACE — found before anything is tapped.
+    expect(find.text(l.heldOfWhich(formatMoney('340.00'))), findsOneWidget);
+
+    // And the headline itself is untouched: عهد qualifies إجمالي المحصل, it
+    // does not subtract from it. Deducting here would contradict the treasury,
+    // where the same money is already excluded from رصيد الجمعية — one figure
+    // would then be netted twice.
+    expect(find.text(formatMoney('8100.00')), findsOneWidget);
+  });
+
+  testWidgets('...and the breakdown carries the same figure', (
+    WidgetTester tester,
+  ) async {
+    await pumpHeld(tester, '340.00');
+
+    await tester.tap(find.text(l.statTotalCollected));
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.heldForMembers), findsOneWidget);
+    expect(find.text(formatMoney('340.00')), findsWidgets);
   });
 }

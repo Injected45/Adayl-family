@@ -241,6 +241,7 @@
   "subActive": "{count} active",
   "subIndebtedAdeels": "{count} subscribers owing",
   "subCashTransfer": "Cash {cash} • Transfer {transfer}",
+  "heldOfWhich": "of which {amount} is held for members",
   "topDebtors": "Largest balances",
   "noDebtsNow": "No outstanding balances",
   "closeMonth": "Close a month",

@@ -736,6 +736,11 @@ class LEn extends L {
   }
 
   @override
+  String heldOfWhich(String amount) {
+    return 'of which $amount is held for members';
+  }
+
+  @override
   String get topDebtors => 'Largest balances';
 
   @override

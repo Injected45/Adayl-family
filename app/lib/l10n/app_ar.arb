@@ -331,6 +331,8 @@
   "@subIndebtedAdeels": { "placeholders": { "count": { "type": "int" } } },
   "subCashTransfer": "نقدي {cash} • تحويل {transfer}",
   "@subCashTransfer": { "placeholders": { "cash": { "type": "String" }, "transfer": { "type": "String" } } },
+  "heldOfWhich": "منها عهد للمشتركين {amount}",
+  "@heldOfWhich": { "placeholders": { "amount": { "type": "String" } } },
   "topDebtors": "أعلى المديونيات",
   "noDebtsNow": "لا توجد مديونيات حالية",
   "closeMonth": "إقفال شهر",

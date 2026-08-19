@@ -25,6 +25,7 @@ class FigureBar extends StatelessWidget {
     required this.value,
     required this.rows,
     this.sub,
+    this.note,
     this.tone,
     super.key,
   });
@@ -41,6 +42,19 @@ class FigureBar extends StatelessWidget {
   /// One short line under the figure — the part of the workings that is worth
   /// carrying on the face of it.
   final String? sub;
+
+  /// A QUALIFIER on the figure, not a working — one short line saying that part
+  /// of what is shown is not what it appears to be.
+  ///
+  /// It sits below [sub] and is toned, because the two are different kinds of
+  /// sentence: [sub] explains how the figure is made up and can be ignored,
+  /// while this changes what the figure MEANS and cannot. عهد المشتركين under
+  /// إجمالي المحصل is the case it was added for — money that arrived and was
+  /// counted, and is owed back.
+  ///
+  /// Pass null when there is nothing to qualify. A permanent «منها 0.00» is a
+  /// line explaining a situation that is not happening.
+  final String? note;
 
   final Color? tone;
 
@@ -77,6 +91,17 @@ class FigureBar extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                    if (note != null) ...<Widget>[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        note!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.warning,
                         ),
                       ),
                     ],

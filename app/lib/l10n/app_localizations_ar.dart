@@ -735,6 +735,11 @@ class LAr extends L {
   }
 
   @override
+  String heldOfWhich(String amount) {
+    return 'منها عهد للمشتركين $amount';
+  }
+
+  @override
   String get topDebtors => 'أعلى المديونيات';
 
   @override

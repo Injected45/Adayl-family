@@ -1405,6 +1405,12 @@ abstract class L {
   /// **'نقدي {cash} • تحويل {transfer}'**
   String subCashTransfer(String cash, String transfer);
 
+  /// No description provided for @heldOfWhich.
+  ///
+  /// In ar, this message translates to:
+  /// **'منها عهد للمشتركين {amount}'**
+  String heldOfWhich(String amount);
+
   /// No description provided for @topDebtors.
   ///
   /// In ar, this message translates to:
