@@ -164,25 +164,6 @@ class ReceivablesScreen extends ConsumerWidget {
           return ListView(
             padding: screenPadding(context),
             children: <Widget>[
-              // The prototype keeps this warning permanently on screen because
-              // it is the only place rule 5 is explained to the user.
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.warningSoft,
-                  borderRadius: BorderRadius.circular(AppRadius.control),
-                ),
-                child: Text(
-                  l.receivablesIntro,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF854D0E),
-                    height: 1.5,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
               Row(
                 children: <Widget>[
                   Expanded(

@@ -90,8 +90,7 @@ class LAr extends L {
   String get restartApp => 'إعادة تشغيل التطبيق';
 
   @override
-  String get restartAppBody =>
-      'سيبدأ التطبيق من جديد: تُمسح كل البيانات المحمَّلة وتُعاد قراءتها، وتعود إلى الشاشة الأولى، وما لم تحفظه يضيع. ملاحظة: هذا لا يجلب تعديلات الكود — تلك تحتاج إعادة تحميل ساخن من VS Code.';
+  String get restartAppBody => 'تعود إلى الشاشة الأولى ويضيع ما لم تحفظه.';
 
   @override
   String get restartConfirm => 'إعادة التشغيل';
@@ -236,9 +235,6 @@ class LAr extends L {
   String get navStatements => 'كشوف الحساب';
 
   @override
-  String get navAlerts => 'التنبيهات';
-
-  @override
   String get navReports => 'التقارير';
 
   @override
@@ -318,10 +314,6 @@ class LAr extends L {
   String get notProvided => '—';
 
   @override
-  String get receivablesIntro =>
-      'كل استحقاق يحتفظ بقيمه التاريخية كما كانت وقت الإنشاء، وتغيير الإعدادات لاحقاً لا يغيّر هذه السجلات.';
-
-  @override
   String get noReceivables => 'لم يتم إنشاء استحقاقات بعد';
 
   @override
@@ -386,9 +378,6 @@ class LAr extends L {
 
   @override
   String get closingBalance => 'الرصيد الختامي';
-
-  @override
-  String get officialsIntro => 'البيانات المعرفة من إعدادات الجمعية.';
 
   @override
   String get notAssigned => 'غير محدد';
@@ -764,15 +753,6 @@ class LAr extends L {
   String get periodBlockedNote => 'أقفل ما قبله أولاً';
 
   @override
-  String get noAlerts => 'لا توجد تنبيهات حالية';
-
-  @override
-  String get allTypes => 'كل الأنواع';
-
-  @override
-  String get reportsIntro => 'ملخص مالي حسب الفترة المحددة.';
-
-  @override
   String get fromDate => 'من تاريخ';
 
   @override
@@ -810,9 +790,6 @@ class LAr extends L {
   String get noReportRows => 'لا توجد حركات في الفترة المحددة';
 
   @override
-  String get auditIntro => 'أثر رقابي لجميع العمليات الإدارية والمالية المهمة.';
-
-  @override
   String get noAuditEntries => 'لا توجد عمليات مسجلة';
 
   @override
@@ -820,10 +797,6 @@ class LAr extends L {
 
   @override
   String get allEvents => 'كل العمليات';
-
-  @override
-  String get settingsIntro =>
-      'تتحكم هذه القيم في المستقبل فقط، ولا تعيد حساب الاستحقاقات القديمة.';
 
   @override
   String get settingsWarning =>
@@ -1029,9 +1002,6 @@ class LAr extends L {
 
   @override
   String get purgeAllNothingToDo => 'لا توجد بيانات لمسحها';
-
-  @override
-  String get usersIntro => 'اعتماد الحسابات الجديدة وإدارة الصلاحيات.';
 
   @override
   String get pendingRequests => 'طلبات معلقة';

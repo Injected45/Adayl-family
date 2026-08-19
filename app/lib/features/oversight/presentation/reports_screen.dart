@@ -54,11 +54,6 @@ class ReportsScreen extends ConsumerWidget {
         builder: (FinancialReport data) => ListView(
           padding: screenPadding(context),
           children: <Widget>[
-            Text(
-              l.reportsIntro,
-              style: const TextStyle(fontSize: 12, color: AppColors.muted),
-            ),
-            const SizedBox(height: AppSpacing.md),
 
             Row(
               children: <Widget>[

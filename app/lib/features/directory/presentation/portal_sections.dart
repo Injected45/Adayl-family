@@ -189,6 +189,7 @@ class SectionRow extends StatelessWidget {
     this.trailing,
     this.copyable = false,
     this.copyText,
+    this.tone,
     super.key,
   });
 
@@ -197,6 +198,14 @@ class SectionRow extends StatelessWidget {
   final String? trailing;
   final bool copyable;
   final String? copyText;
+
+  /// The value's colour. Null leaves it in the body tone, which is what almost
+  /// every row here wants — the portal states facts and does not grade them.
+  ///
+  /// The exception is عهد المشتركين, which is less a fact about the association
+  /// than a caution about one of its own figures, and which wears the same amber
+  /// here as on the two staff screens that show it.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) {
@@ -221,10 +230,11 @@ class SectionRow extends StatelessWidget {
               children: <Widget>[
                 Text(
                   value.isEmpty ? '—' : value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     height: 1.5,
+                    color: tone,
                   ),
                 ),
                 if (trailing != null && trailing!.isNotEmpty)
@@ -593,6 +603,7 @@ class _TreasuryBody extends ConsumerWidget {
                     SectionRow(
                       label: l.heldForMembers,
                       value: formatMoney(f.heldForMembers),
+                      tone: AppColors.warning,
                     ),
                     SectionRow(
                       label: l.dueFromMembers,

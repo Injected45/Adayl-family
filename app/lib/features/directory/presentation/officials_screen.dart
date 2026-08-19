@@ -28,11 +28,6 @@ class OfficialsScreen extends ConsumerWidget {
         builder: (List<Official> people) => ListView(
           padding: screenPadding(context),
           children: <Widget>[
-            Text(
-              l.officialsIntro,
-              style: const TextStyle(fontSize: 12, color: AppColors.muted),
-            ),
-            const SizedBox(height: AppSpacing.lg),
             for (final Official official in people)
               Card(
                 margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),

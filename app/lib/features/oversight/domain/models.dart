@@ -102,27 +102,6 @@ class DashboardData {
   );
 }
 
-class AlertItem {
-  const AlertItem({
-    required this.type,
-    required this.severity,
-    required this.text,
-    required this.adeelId,
-  });
-
-  final String type;
-  final String severity;
-  final String text;
-  final int adeelId;
-
-  factory AlertItem.fromJson(Map<String, dynamic> json) => AlertItem(
-    type: _string(json['type']),
-    severity: _string(json['severity']),
-    text: _string(json['text']),
-    adeelId: _int(json['adeelId']),
-  );
-}
-
 class ReportPaymentRow {
   const ReportPaymentRow({
     required this.receiptNo,
@@ -264,11 +243,7 @@ class UserAccount {
 }
 
 class OfficialInput {
-  const OfficialInput({
-    required this.name,
-    required this.phone,
-    this.adeelId,
-  });
+  const OfficialInput({required this.name, required this.phone, this.adeelId});
 
   final String name;
   final String phone;
@@ -468,4 +443,3 @@ class PurgeResult {
     adeels: _int(json['adeels']),
   );
 }
-

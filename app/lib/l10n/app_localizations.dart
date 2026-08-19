@@ -250,7 +250,7 @@ abstract class L {
   /// No description provided for @restartAppBody.
   ///
   /// In ar, this message translates to:
-  /// **'سيبدأ التطبيق من جديد: تُمسح كل البيانات المحمَّلة وتُعاد قراءتها، وتعود إلى الشاشة الأولى، وما لم تحفظه يضيع. ملاحظة: هذا لا يجلب تعديلات الكود — تلك تحتاج إعادة تحميل ساخن من VS Code.'**
+  /// **'تعود إلى الشاشة الأولى ويضيع ما لم تحفظه.'**
   String get restartAppBody;
 
   /// No description provided for @restartConfirm.
@@ -517,12 +517,6 @@ abstract class L {
   /// **'كشوف الحساب'**
   String get navStatements;
 
-  /// No description provided for @navAlerts.
-  ///
-  /// In ar, this message translates to:
-  /// **'التنبيهات'**
-  String get navAlerts;
-
   /// No description provided for @navReports.
   ///
   /// In ar, this message translates to:
@@ -673,12 +667,6 @@ abstract class L {
   /// **'—'**
   String get notProvided;
 
-  /// No description provided for @receivablesIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'كل استحقاق يحتفظ بقيمه التاريخية كما كانت وقت الإنشاء، وتغيير الإعدادات لاحقاً لا يغيّر هذه السجلات.'**
-  String get receivablesIntro;
-
   /// No description provided for @noReceivables.
   ///
   /// In ar, this message translates to:
@@ -810,12 +798,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'الرصيد الختامي'**
   String get closingBalance;
-
-  /// No description provided for @officialsIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'البيانات المعرفة من إعدادات الجمعية.'**
-  String get officialsIntro;
 
   /// No description provided for @notAssigned.
   ///
@@ -1459,24 +1441,6 @@ abstract class L {
   /// **'أقفل ما قبله أولاً'**
   String get periodBlockedNote;
 
-  /// No description provided for @noAlerts.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد تنبيهات حالية'**
-  String get noAlerts;
-
-  /// No description provided for @allTypes.
-  ///
-  /// In ar, this message translates to:
-  /// **'كل الأنواع'**
-  String get allTypes;
-
-  /// No description provided for @reportsIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'ملخص مالي حسب الفترة المحددة.'**
-  String get reportsIntro;
-
   /// No description provided for @fromDate.
   ///
   /// In ar, this message translates to:
@@ -1543,12 +1507,6 @@ abstract class L {
   /// **'لا توجد حركات في الفترة المحددة'**
   String get noReportRows;
 
-  /// No description provided for @auditIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'أثر رقابي لجميع العمليات الإدارية والمالية المهمة.'**
-  String get auditIntro;
-
   /// No description provided for @noAuditEntries.
   ///
   /// In ar, this message translates to:
@@ -1566,12 +1524,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'كل العمليات'**
   String get allEvents;
-
-  /// No description provided for @settingsIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'تتحكم هذه القيم في المستقبل فقط، ولا تعيد حساب الاستحقاقات القديمة.'**
-  String get settingsIntro;
 
   /// No description provided for @settingsWarning.
   ///
@@ -1938,12 +1890,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'لا توجد بيانات لمسحها'**
   String get purgeAllNothingToDo;
-
-  /// No description provided for @usersIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'اعتماد الحسابات الجديدة وإدارة الصلاحيات.'**
-  String get usersIntro;
 
   /// No description provided for @pendingRequests.
   ///

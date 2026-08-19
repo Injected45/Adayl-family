@@ -42,7 +42,6 @@ void refreshAll(WidgetRef ref) {
 
   // Oversight.
   ref.invalidate(oversight.dashboardProvider);
-  ref.invalidate(oversight.alertsProvider);
   ref.invalidate(oversight.reportProvider);
   ref.invalidate(oversight.auditProvider);
   ref.invalidate(oversight.usersProvider);

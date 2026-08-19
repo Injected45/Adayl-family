@@ -222,7 +222,20 @@ void _heldTests() {
     await pumpHeld(tester, '340.00');
 
     // On the FACE — found before anything is tapped.
-    expect(find.text(l.heldOfWhich(formatMoney('340.00'))), findsOneWidget);
+    final Finder note = find.text(l.heldOfWhich(formatMoney('340.00')));
+    expect(note, findsOneWidget);
+
+    // ── AND AMBER — not green, and not red ──────────────────────────────────
+    // The tone is the argument. Green would file عهدة on the association's
+    // side of the ledger, which is the misreading this whole line exists to
+    // stop. Red is what a debt and a disbursement are, and this is neither:
+    // nothing was lost and nothing is owed BY a member.
+    //
+    // Pinned because it briefly WAS green, and because the same amber now has
+    // to hold across three screens — this headline, the treasury bar, and the
+    // member's own portal. A colour that drifts on one of them turns one fact
+    // into two.
+    expect(tester.widget<Text>(note).style?.color, AppColors.warning);
 
     // And the headline itself is untouched: عهد qualifies إجمالي المحصل, it
     // does not subtract from it. Deducting here would contradict the treasury,

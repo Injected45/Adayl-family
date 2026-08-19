@@ -14,18 +14,6 @@ final FutureProvider<DashboardData> dashboardProvider =
       (Ref ref) => ref.watch(oversightRepositoryProvider).dashboard(),
     );
 
-/// Empty string means every type.
-final StateProvider<String> alertTypeProvider = StateProvider<String>(
-  (Ref ref) => '',
-);
-
-final FutureProviderFamily<List<AlertItem>, String> alertsProvider =
-    FutureProvider.family<List<AlertItem>, String>(
-      (Ref ref, String type) => ref
-          .watch(oversightRepositoryProvider)
-          .alerts(type: type.isEmpty ? null : type),
-    );
-
 typedef ReportRange = ({String from, String to});
 
 final StateProvider<ReportRange> reportRangeProvider =

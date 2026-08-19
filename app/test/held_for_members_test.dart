@@ -56,7 +56,7 @@ const CashSummaryView _withHoldings = CashSummaryView(
   balance: '20.00',
 );
 
-/// Nothing prepaid. The subtitle falls back to what went out.
+/// Nothing prepaid, so the amber line is absent and only the outflow shows.
 const CashSummaryView _noHoldings = CashSummaryView(
   total: '60.00',
   cash: '60.00',
@@ -112,16 +112,27 @@ void main() {
     expect(find.text(l.associationBalance), findsOneWidget);
   });
 
-  testWidgets('...and the subtitle says where the missing cash went', (
+  testWidgets('...and a line on the face says where the missing cash went', (
     WidgetTester tester,
   ) async {
     // The treasurer counted 60 and the screen says 20. This line is the whole
     // explanation, and it is on the face of the bar rather than one tap down
     // for exactly that reason.
+    //
+    // ⚠ It moved from the subtitle to its own line, and that was not cosmetic:
+    //   the subtitle held EITHER عهد OR what had been disbursed, so the more
+    //   urgent of the two displaced the other and neither could be toned. Now
+    //   both are on the face, and this one is amber.
     await pump(tester, _withHoldings);
 
+    final Finder note = find.text(l.heldOfWhich(formatMoney('40.00')));
+    expect(note, findsOneWidget);
+    expect(tester.widget<Text>(note).style?.color, AppColors.warning);
+
+    // And the outflow is no longer displaced by it — the reason the two were
+    // separated in the first place.
     expect(
-      find.text('${l.heldForMembers} ${formatMoney('40.00')}'),
+      find.text('${l.totalDisbursed} ${formatMoney('0.00')}'),
       findsOneWidget,
     );
   });
@@ -146,7 +157,9 @@ void main() {
     WidgetTester tester,
   ) async {
     // «عهد المشتركين 0.00» under every balance is a permanent explanation of a
-    // situation that is not happening. The subtitle falls back to the outflow.
+    // situation that is not happening. What went out stays on the subtitle,
+    // where it now lives on every balance rather than only on the ones with
+    // nothing prepaid.
     await pump(tester, _noHoldings);
 
     expect(find.textContaining(l.heldForMembers), findsNothing);

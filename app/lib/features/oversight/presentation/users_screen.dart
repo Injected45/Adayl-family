@@ -52,11 +52,6 @@ class UsersScreen extends ConsumerWidget {
           return ListView(
             padding: screenPadding(context),
             children: <Widget>[
-              Text(
-                l.usersIntro,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
-              const SizedBox(height: AppSpacing.lg),
 
               if (pending.isNotEmpty) ...<Widget>[
                 Text(

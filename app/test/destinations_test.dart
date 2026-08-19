@@ -11,10 +11,15 @@ void main() {
   group('navigation destinations', () {
     test('cover every screen the association actually has', () {
       // The families and members screens collapsed into one register when the
-      // عديل became the billed unit, so there are twelve rather than thirteen:
-      // eleven read/write screens plus the user management Google Sign-In needs.
-      expect(appDestinations.length, 13);
-      expect(_routesVisibleTo(AppRole.admin).length, 13);
+      // عديل became the billed unit; التنبيهات was then deleted outright at the
+      // association's request — every alert it listed was a figure already on
+      // the screen that owns it, restated on a screen of its own.
+      //
+      // The number is the point of this test: a destination removed without
+      // its route, or a route left behind without its destination, both look
+      // like nothing at all until somebody navigates.
+      expect(appDestinations.length, 12);
+      expect(_routesVisibleTo(AppRole.admin).length, 12);
     });
 
     test('a viewer cannot see the audit log, settings, or user management', () {

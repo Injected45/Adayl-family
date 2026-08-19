@@ -29,7 +29,6 @@ abstract final class AppRoutes {
   static const String payments = '/payments';
   static const String cash = '/cash';
   static const String statements = '/statements';
-  static const String alerts = '/alerts';
   static const String reports = '/reports';
   static const String officials = '/officials';
   static const String audit = '/audit';
@@ -148,12 +147,6 @@ const List<AppDestination> appDestinations = <AppDestination>[
     label: _statementsLabel,
   ),
   AppDestination(
-    route: AppRoutes.alerts,
-    icon: Icons.notifications_outlined,
-    selectedIcon: Icons.notifications,
-    label: _alertsLabel,
-  ),
-  AppDestination(
     route: AppRoutes.reports,
     icon: Icons.bar_chart_outlined,
     selectedIcon: Icons.bar_chart,
@@ -197,7 +190,6 @@ String _paymentsLabel(L l) => l.navPayments;
 String _paymentsShortLabel(L l) => l.navPaymentsShort;
 String _cashLabel(L l) => l.navCash;
 String _statementsLabel(L l) => l.navStatements;
-String _alertsLabel(L l) => l.navAlerts;
 String _reportsLabel(L l) => l.navReports;
 String _officialsLabel(L l) => l.navOfficials;
 String _auditLabel(L l) => l.navAudit;

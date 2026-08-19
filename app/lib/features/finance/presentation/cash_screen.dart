@@ -505,18 +505,23 @@ class _BalanceBar extends StatelessWidget {
     return FigureBar(
       label: l.associationBalance,
       value: formatMoney(summary.balance),
-      // ── The subtitle carries the LIABILITY, not the outflow ───────────────
-      // It used to name what had been disbursed. عهد is the more urgent of the
-      // two: money that is physically in the box and is not the association's,
-      // so a treasurer who counts the cash and reads this figure needs the
-      // difference on the same line — otherwise the app looks simply wrong to
-      // the one person who can check it against the notes in his hand.
+      sub: '${l.totalDisbursed} ${formatMoney(summary.disbursed)}',
+      // ── THE LIABILITY, ON ITS OWN LINE AND IN ITS OWN COLOUR ──────────────
+      // عهد shared the subtitle with the disbursed total, one OR the other. So
+      // the treasury — the single screen where somebody is holding the actual
+      // notes and can see the app disagree with his hands — showed the more
+      // urgent of the two in muted grey, and showed it INSTEAD of the outflow
+      // rather than beside it.
       //
-      // Shown only when there IS any. «عهد المشتركين 0.00» under every balance
-      // would be a permanent line explaining a situation that is not happening.
-      sub: (double.tryParse(summary.heldForMembers) ?? 0) > 0
-          ? '${l.heldForMembers} ${formatMoney(summary.heldForMembers)}'
-          : '${l.totalDisbursed} ${formatMoney(summary.disbursed)}',
+      // `note` is the slot the home screen already uses for this exact
+      // sentence, so the two screens now say the same thing in the same words
+      // and the same amber. Shown only when there IS any: «عهد المشتركين 0.00»
+      // under every balance is a permanent line explaining a situation that is
+      // not happening.
+      note: (double.tryParse(summary.heldForMembers) ?? 0) > 0
+          ? l.heldOfWhich(formatMoney(summary.heldForMembers))
+          : null,
+      noteTone: AppColors.warning,
       // The order is the reading order of the answer: what came in, how it came
       // in, what went out, what has NOT come in — then the conclusion, which is
       // the figure on the bar itself.
@@ -539,9 +544,12 @@ class _BalanceBar extends StatelessWidget {
         // ── The liability, between what came in and what went out ────────────
         // Placed here because that is where it belongs in the sentence the rows
         // read as: 60 arrived, 40 of it is not ours, 20 went out, this is what
-        // is left. Toned like a disbursement rather than a collection — it is
-        // money that will leave, and colouring it green beside «إجمالي المحصل»
-        // would invite it to be added to the association's side.
+        // is left. AMBER, and neither of the tones on either side of it: green
+        // would put it on the association's side of the ledger, and red is what
+        // the disbursement below it and the debt below that are. This is
+        // neither — nothing was lost and nothing is owed BY a member. It is
+        // money HELD, and amber is that third answer on every screen it appears
+        // on: here, the home headline, and the member's own portal.
         FigureRow(
           label: l.heldForMembers,
           value: formatMoney(summary.heldForMembers),

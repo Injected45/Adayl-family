@@ -21,7 +21,6 @@ import '../../features/finance/presentation/adeel_aid_screen.dart';
 import '../../features/finance/presentation/cash_screen.dart';
 import '../../features/finance/presentation/payments_screen.dart';
 import '../../features/home/presentation/placeholder_screen.dart';
-import '../../features/oversight/presentation/alerts_screen.dart';
 import '../../features/oversight/presentation/audit_screen.dart';
 import '../../features/oversight/presentation/dashboard_screen.dart';
 import '../../features/oversight/presentation/reports_screen.dart';
@@ -40,7 +39,6 @@ const Set<String> _implementedRoutes = <String>{
   AppRoutes.officials,
   AppRoutes.payments,
   AppRoutes.cash,
-  AppRoutes.alerts,
   AppRoutes.reports,
   AppRoutes.audit,
   AppRoutes.settings,
@@ -146,7 +144,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(path: AppRoutes.cash, builder: (_, _) => const CashScreen()),
 
       // ── Phase 6: reporting and oversight ────────────────────────────
-      GoRoute(path: AppRoutes.alerts, builder: (_, _) => const AlertsScreen()),
       GoRoute(
         path: AppRoutes.reports,
         builder: (_, _) => const ReportsScreen(),

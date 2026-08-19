@@ -20,20 +20,6 @@ class OversightRepository {
     return DashboardData.fromJson(_obj(payload));
   });
 
-  Future<List<AlertItem>> alerts({String? type}) => SupabaseFailures.guard(
-    () async {
-      final dynamic payload = await _db.rpc<dynamic>('api_alerts');
-      final List<AlertItem> all = (payload as List<dynamic>)
-          .map((dynamic e) => AlertItem.fromJson(_obj(e)))
-          .toList();
-      // Filtered here rather than in SQL: the whole list is a handful of rows,
-      // and a `p_type` parameter would be a second code path to keep in step
-      // with the three types the function emits.
-      if (type == null || type.isEmpty) return all;
-      return all.where((AlertItem a) => a.type == type).toList();
-    },
-  );
-
   Future<FinancialReport> report({required String from, required String to}) =>
       SupabaseFailures.guard(() async {
         final dynamic payload = await _db.rpc<dynamic>(
@@ -85,7 +71,10 @@ class OversightRepository {
   });
 
   Future<List<UserAccount>> users() => SupabaseFailures.guard(() async {
-    final dynamic rows = await _db.from('v_users').select().order('email', ascending: true);
+    final dynamic rows = await _db
+        .from('v_users')
+        .select()
+        .order('email', ascending: true);
     return _rows(rows).map(UserAccount.fromJson).toList();
   });
 

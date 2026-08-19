@@ -584,16 +584,6 @@ void main() {
       expect(debts.every((double v) => v > 0), isTrue);
     });
 
-    test('alerts parse and carry an عديل to navigate to', () {
-      final List<AlertItem> alerts = _list(
-        'alerts.json',
-      ).map(AlertItem.fromJson).toList();
-      expect(alerts, isNotEmpty);
-      expect(alerts.every((AlertItem a) => a.text.isNotEmpty), isTrue);
-      expect(alerts.every((AlertItem a) => a.adeelId > 0), isTrue);
-      expect(alerts.map((AlertItem a) => a.type).toSet(), isNot(contains('')));
-    });
-
     test('financial report parses with its payment rows', () {
       final FinancialReport r = FinancialReport.fromJson(
         _obj('financial_report.json'),

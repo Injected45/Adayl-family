@@ -92,7 +92,7 @@ class LEn extends L {
 
   @override
   String get restartAppBody =>
-      'The app will start over: every loaded figure is discarded and re-read, you return to the first screen, and anything unsaved is lost. Note: this does NOT pick up code changes — those need a hot reload from the host.';
+      'You return to the first screen and anything unsaved is lost.';
 
   @override
   String get restartConfirm => 'Restart';
@@ -237,9 +237,6 @@ class LEn extends L {
   String get navStatements => 'Statements';
 
   @override
-  String get navAlerts => 'Alerts';
-
-  @override
   String get navReports => 'Reports';
 
   @override
@@ -319,10 +316,6 @@ class LEn extends L {
   String get notProvided => '—';
 
   @override
-  String get receivablesIntro =>
-      'Each receivable keeps the values in force when it was raised; changing settings later does not alter these records.';
-
-  @override
   String get noReceivables => 'No receivables raised yet';
 
   @override
@@ -389,9 +382,6 @@ class LEn extends L {
 
   @override
   String get closingBalance => 'Closing balance';
-
-  @override
-  String get officialsIntro => 'Taken from the association settings.';
 
   @override
   String get notAssigned => 'Not set';
@@ -765,15 +755,6 @@ class LEn extends L {
   String get periodBlockedNote => 'Close the earlier month first';
 
   @override
-  String get noAlerts => 'No alerts at the moment';
-
-  @override
-  String get allTypes => 'All types';
-
-  @override
-  String get reportsIntro => 'Financial summary for the selected period.';
-
-  @override
   String get fromDate => 'From';
 
   @override
@@ -811,10 +792,6 @@ class LEn extends L {
   String get noReportRows => 'No movements in the selected period';
 
   @override
-  String get auditIntro =>
-      'An audit trail of every significant administrative and financial action.';
-
-  @override
   String get noAuditEntries => 'No actions recorded';
 
   @override
@@ -822,10 +799,6 @@ class LEn extends L {
 
   @override
   String get allEvents => 'All actions';
-
-  @override
-  String get settingsIntro =>
-      'These values govern the future only; they never recalculate past receivables.';
 
   @override
   String get settingsWarning =>
@@ -1031,9 +1004,6 @@ class LEn extends L {
 
   @override
   String get purgeAllNothingToDo => 'There is no data to erase';
-
-  @override
-  String get usersIntro => 'Approve new accounts and manage permissions.';
 
   @override
   String get pendingRequests => 'Pending requests';

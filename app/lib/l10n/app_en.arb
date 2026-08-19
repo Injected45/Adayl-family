@@ -31,7 +31,7 @@
   "refreshData": "Refresh data",
   "refreshedData": "Data refreshed from the database",
   "restartApp": "Restart the app",
-  "restartAppBody": "The app will start over: every loaded figure is discarded and re-read, you return to the first screen, and anything unsaved is lost. Note: this does NOT pick up code changes — those need a hot reload from the host.",
+  "restartAppBody": "You return to the first screen and anything unsaved is lost.",
   "restartConfirm": "Restart",
   "cancel": "Cancel",
   "close": "Close",
@@ -78,7 +78,6 @@
   "opsDisbursementsSoon": "The disbursement system is being built — the voucher fields are not settled yet",
   "navCash": "Treasury",
   "navStatements": "Statements",
-  "navAlerts": "Alerts",
   "navReports": "Reports",
   "navOfficials": "Officials",
   "navAudit": "Audit log",
@@ -111,7 +110,6 @@
   "age": "Age",
   "notProvided": "—",
 
-  "receivablesIntro": "Each receivable keeps the values in force when it was raised; changing settings later does not alter these records.",
   "noReceivables": "No receivables raised yet",
   "period": "Month",
   "totalAmount": "Total",
@@ -136,7 +134,6 @@
   "movementNote": "Notes",
   "closingBalance": "Closing balance",
 
-  "officialsIntro": "Taken from the association settings.",
   "notAssigned": "Not set",
 
   "noPayments": "No payments recorded yet",
@@ -251,10 +248,7 @@
   "periodClosedNote": "Already closed",
   "periodBlockedNote": "Close the earlier month first",
 
-  "noAlerts": "No alerts at the moment",
-  "allTypes": "All types",
 
-  "reportsIntro": "Financial summary for the selected period.",
   "fromDate": "From",
   "toDate": "To",
   "presetThisMonth": "This month",
@@ -267,12 +261,10 @@
   "openPartially": "receivables partly settled",
   "noReportRows": "No movements in the selected period",
 
-  "auditIntro": "An audit trail of every significant administrative and financial action.",
   "noAuditEntries": "No actions recorded",
   "auditActor": "User",
   "allEvents": "All actions",
 
-  "settingsIntro": "These values govern the future only; they never recalculate past receivables.",
   "settingsWarning": "Accounting rule: changing the fee here does not alter any receivable already raised.",
   "generalSection": "General",
   "treasurerSection": "Treasurer",
@@ -340,7 +332,6 @@
   "purgeAllConfirmAction": "Erase everything",
   "purgeAllNothingToDo": "There is no data to erase",
 
-  "usersIntro": "Approve new accounts and manage permissions.",
   "pendingRequests": "Pending requests",
   "allUsers": "Users",
   "approve": "Approve",

@@ -106,17 +106,31 @@ class DashboardScreen extends ConsumerWidget {
                 // working. Tapping through is for «what is this made of»; this
                 // changes what the number means, and a meaning behind a tap is
                 // a meaning most readers never get.
-                note: held > 0 ? l.heldOfWhich(formatMoney(cash!.heldForMembers)) : null,
+                //
+                // ⚠ AMBER, and neither of the two tones it sits between. Green
+                //   would put it on the association's side of the ledger, which
+                //   is the exact misreading this line exists to stop — a green
+                //   number under a green headline reads as more of the same
+                //   money. Red is what a debt and a disbursement are, and this
+                //   is neither: nothing was lost, and nothing is owed BY a
+                //   member. It is money HELD. Amber is the app's third answer,
+                //   and it is the same one on every screen that shows this
+                //   figure.
+                note: held > 0
+                    ? l.heldOfWhich(formatMoney(cash!.heldForMembers))
+                    : null,
+                noteTone: AppColors.warning,
                 rows: <FigureRow>[
                   FigureRow(
                     label: l.statAdeels,
                     value: '${data.stats.adeels}',
                     trailing: l.subActive(data.stats.active),
                   ),
-                  // Between what came in and what is owed, and toned like a
-                  // debt rather than a collection — it is money that will
-                  // leave. Same placement and same tone as the treasury's own
-                  // bar, so the two read alike.
+                  // Between what came in and what is owed, and amber like the
+                  // line on the face above it and like the treasury's own row.
+                  // One figure wearing one colour everywhere is the point: a
+                  // reader who learns what amber means here does not have to
+                  // learn it again on the next screen.
                   if (held > 0)
                     FigureRow(
                       label: l.heldForMembers,

@@ -26,6 +26,7 @@ class FigureBar extends StatelessWidget {
     required this.rows,
     this.sub,
     this.note,
+    this.noteTone,
     this.tone,
     super.key,
   });
@@ -55,6 +56,12 @@ class FigureBar extends StatelessWidget {
   /// Pass null when there is nothing to qualify. A permanent «منها 0.00» is a
   /// line explaining a situation that is not happening.
   final String? note;
+
+  /// The [note]'s colour. Defaults to the warning tone, which is what a
+  /// qualifier usually is — but the caller decides, because whether a
+  /// qualifier reads as a caution or as a plain fact depends on the figure it
+  /// hangs under, and that is knowledge this widget does not have.
+  final Color? noteTone;
 
   final Color? tone;
 
@@ -98,10 +105,10 @@ class FigureBar extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         note!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.warning,
+                          color: noteTone ?? AppColors.warning,
                         ),
                       ),
                     ],

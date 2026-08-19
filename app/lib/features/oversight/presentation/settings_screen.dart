@@ -231,11 +231,6 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     return ListView(
       padding: screenPadding(context),
       children: <Widget>[
-        Text(
-          l.settingsIntro,
-          style: const TextStyle(fontSize: 12, color: AppColors.muted),
-        ),
-        const SizedBox(height: AppSpacing.md),
         Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
@@ -402,7 +397,6 @@ class _DangerZoneState extends ConsumerState<_DangerZone> {
   /// but an عديل row carries his own debt, so those lists are stale either way.
   void _invalidateEverything() {
     ref.invalidate(dashboardProvider);
-    ref.invalidate(alertsProvider);
     ref.invalidate(auditProvider);
     ref.invalidate(reportProvider);
     ref.invalidate(directory.adeelsProvider);
