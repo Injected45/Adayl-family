@@ -2086,7 +2086,7 @@ abstract class L {
   /// No description provided for @myBalanceNow.
   ///
   /// In ar, this message translates to:
-  /// **'رصيدك الآن'**
+  /// **'المستحق عليك'**
   String get myBalanceNow;
 
   /// The portal's own word for what the association has charged him, with myPaidTotal and myRemainingTotal beside it. The staff screens keep issuedTotal — the accounting term, and the name of a whole admin screen. A member is not reading an accounts ledger; he is reading what he was asked to pay, what he paid, and what is left.
@@ -2104,13 +2104,13 @@ abstract class L {
   /// No description provided for @myRemainingTotal.
   ///
   /// In ar, this message translates to:
-  /// **'الرصيد'**
+  /// **'المتبقي'**
   String get myRemainingTotal;
 
   /// Heads the hero when netBalance is NEGATIVE — the association is holding prepaid money for him. The LABEL changes with the sign, not only the colour, so red-green is never the only thing carrying the meaning.
   ///
   /// In ar, this message translates to:
-  /// **'رصيدك لدى الجمعية'**
+  /// **'عهدتك لدى الجمعية'**
   String get myWalletTitle;
 
   /// No description provided for @myWalletBody.

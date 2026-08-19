@@ -10,6 +10,7 @@ import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../finance/domain/models.dart';
@@ -314,7 +315,6 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
                 ErrorStateView(message: describeApiFailure(l, error)),
             data: (Statement data) => _Ledger(statement: data, detail: detail),
           ),
-
       ],
     );
   }
@@ -491,7 +491,6 @@ class _PortalMoreSheet extends ConsumerWidget {
   }
 }
 
-
 /// WHO he is, then WHAT he owes — one card, in that order.
 ///
 /// The name used to live in a collapsed panel at the FOOT of the page, under
@@ -643,27 +642,47 @@ class _BalanceHero extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-            child: Divider(height: 1, thickness: 1, color: GlassColors.hairline),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: GlassColors.hairline,
+            ),
           ),
 
           // ── And what it says ─────────────────────────────────────────────
           Row(
             children: <Widget>[
-              Icon(
-                owes
-                    ? Icons.account_balance_wallet
-                    : inCredit
-                    ? Icons.savings_outlined
-                    : Icons.verified,
-                size: 18,
-                color: tone,
-              ),
+              // The middle state is عهدة — his money, held in the
+              // association's safe — so it wears the safe. The other two are
+              // about HIM, not about where the money is sitting.
+              if (inCredit)
+                VaultIcon(size: 18, color: tone)
+              else
+                Icon(
+                  owes ? Icons.account_balance_wallet : Icons.verified,
+                  size: 18,
+                  color: tone,
+                ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                // The LABEL changes with the sign, not just the colour. Colour
-                // alone would leave a member who cannot distinguish red from
-                // green — or who is reading in sunlight — with a bare figure
-                // and no way to tell whether it is his or theirs.
+                // ⚠ THE LABEL SAYS WHOSE MONEY IT IS, IN WORDS.
+                //
+                // It said «رصيدك الآن» over a red debt and «رصيدك لدى الجمعية»
+                // over a green credit — the same noun for two opposite facts,
+                // and رصيد in Arabic reads as money that is YOURS. A member
+                // seeing «رصيدك الآن ٦٠٠» in red could reasonably read it as
+                // six hundred in his favour, or wonder whether his prepaid
+                // عهدة had been added into it. He asked exactly that.
+                //
+                // Now the words carry the sign and the colour only reinforces
+                // it: «المستحق عليك» against «عهدتك لدى الجمعية». That matters
+                // for the member who cannot separate red from green, and for
+                // the one reading in sunlight — but it matters most because a
+                // figure whose OWNER is ambiguous is worse than no figure.
+                //
+                // The arithmetic never mixed them — netBalance is debt MINUS
+                // credit, and FIFO plus settle_from_credit make it impossible
+                // to hold both at once. Only the naming did.
                 owes
                     ? l.myBalanceNow
                     : inCredit
@@ -740,11 +759,7 @@ class _TotalsStrip extends StatelessWidget {
           const _StripOperator('−'),
           _StripCell(label: l.myPaidTotal, value: detail.paid),
           const _StripOperator('='),
-          _StripCell(
-            label: l.myRemainingTotal,
-            value: detail.debt,
-            bold: true,
-          ),
+          _StripCell(label: l.myRemainingTotal, value: detail.debt, bold: true),
         ],
       ),
     );
@@ -973,7 +988,8 @@ class _LedgerState extends State<_Ledger> {
           // the obvious and costs a line. The counter is only informative while
           // something is HIDDEN — either paged away, or filtered out by a query
           // the reader can then see the effect of.
-          if (total > 0 && (remaining > 0 || _search.text.isNotEmpty)) ...<Widget>[
+          if (total > 0 &&
+              (remaining > 0 || _search.text.isNotEmpty)) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             _LedgerPager(
               shown: shown,
@@ -982,8 +998,10 @@ class _LedgerState extends State<_Ledger> {
               pageSize: _Ledger.rowsPerPage,
               onMore: () => setState(() => _pagesShown++),
               onAll: () => setState(
-                () => _pagesShown =
-                    (total / _Ledger.rowsPerPage).ceil().clamp(1, 1 << 30),
+                () => _pagesShown = (total / _Ledger.rowsPerPage).ceil().clamp(
+                  1,
+                  1 << 30,
+                ),
               ),
             ),
           ],
@@ -1028,12 +1046,16 @@ List<StatementMovement> _filter(
 
 String _haystack(StatementMovement m, AdeelDetail detail) => _fold(
   <String>[
-    m.date, formatDate(m.date),
+    m.date,
+    formatDate(m.date),
     m.reference,
     m.type,
-    m.debit ?? '', formatMoney(m.debit),
-    m.credit ?? '', formatMoney(m.credit),
-    m.balance, formatMoney(m.balance),
+    m.debit ?? '',
+    formatMoney(m.debit),
+    m.credit ?? '',
+    formatMoney(m.credit),
+    m.balance,
+    formatMoney(m.balance),
     m.note,
     detail.adeel.fullName,
     detail.adeel.phone,
@@ -1172,7 +1194,11 @@ class _LedgerHead extends StatelessWidget {
           // is 22% of the screen — about 64dp on a Note 10 — and "الرصيد" at a
           // system font scale of 1.3 is wider than that. Ellipsis on a column
           // heading is worse than small type: "الرص…" names nothing.
-          _HeadCell(flex: _particularsFlex, label: l.ledgerParticulars, style: style),
+          _HeadCell(
+            flex: _particularsFlex,
+            label: l.ledgerParticulars,
+            style: style,
+          ),
           _HeadCell(flex: _moneyFlex, label: l.ledgerDebit, style: style),
           _HeadCell(flex: _moneyFlex, label: l.ledgerCredit, style: style),
           _HeadCell(flex: _moneyFlex, label: l.ledgerBalance, style: style),
@@ -1183,10 +1209,7 @@ class _LedgerHead extends StatelessWidget {
 }
 
 class _LedgerRow extends StatelessWidget {
-  const _LedgerRow({
-    required this.movement,
-    required this.shaded,
-  });
+  const _LedgerRow({required this.movement, required this.shaded});
 
   final StatementMovement movement;
   final bool shaded;
@@ -1280,10 +1303,7 @@ class _LedgerRow extends StatelessWidget {
 /// would put the association's totals on binary floating point, which is the
 /// one thing the money-as-text rule exists to prevent.
 class _LedgerTotals extends StatelessWidget {
-  const _LedgerTotals({
-    required this.detail,
-    required this.statement,
-  });
+  const _LedgerTotals({required this.detail, required this.statement});
 
   final AdeelDetail detail;
   final Statement statement;
@@ -1411,15 +1431,15 @@ class _Money extends StatelessWidget {
         fit: BoxFit.scaleDown,
         alignment: AlignmentDirectional.centerStart,
         child: Text(
-        text,
-        textAlign: TextAlign.start,
-        maxLines: 1,
-        style: TextStyle(
-          fontSize: _ledgerMoneySize,
-          fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-          color: tone,
+          text,
+          textAlign: TextAlign.start,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: _ledgerMoneySize,
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            color: tone,
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1506,10 +1526,7 @@ class _DueTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   l.ofTotal(formatMoney(item.total)),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.muted,
-                  ),
+                  style: const TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
               ],
             ],

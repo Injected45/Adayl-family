@@ -1104,7 +1104,7 @@ class LAr extends L {
   String get issuedLabel => 'إجمالي المستحق';
 
   @override
-  String get myBalanceNow => 'رصيدك الآن';
+  String get myBalanceNow => 'المستحق عليك';
 
   @override
   String get myIssuedTotal => 'الاشتراكات';
@@ -1113,10 +1113,10 @@ class LAr extends L {
   String get myPaidTotal => 'المسدد';
 
   @override
-  String get myRemainingTotal => 'الرصيد';
+  String get myRemainingTotal => 'المتبقي';
 
   @override
-  String get myWalletTitle => 'رصيدك لدى الجمعية';
+  String get myWalletTitle => 'عهدتك لدى الجمعية';
 
   @override
   String get myWalletBody =>

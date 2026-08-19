@@ -8,6 +8,7 @@ import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
+import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import 'providers.dart';
@@ -56,7 +57,7 @@ class _Section {
     required this.tone,
   });
 
-  final IconData icon;
+  final Widget Function(Color tone, double size) icon;
   final String title;
 
   /// One line saying what the page answers. It is on the MENU card as well as
@@ -158,7 +159,7 @@ class _Medallion extends StatelessWidget {
     required this.size,
   });
 
-  final IconData icon;
+  final Widget Function(Color tone, double size) icon;
   final Color tone;
   final double size;
 
@@ -172,7 +173,7 @@ class _Medallion extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.card),
         border: Border.all(color: GlassColors.wellEdge),
       ),
-      child: Icon(icon, color: tone, size: size * 0.45),
+      child: icon(tone, size * 0.45),
     );
   }
 }
@@ -288,25 +289,29 @@ enum PortalSection { details, bank, officials, treasury }
 
 _Section _describe(L l, PortalSection s) => switch (s) {
   PortalSection.details => _Section(
-    icon: Icons.badge_outlined,
+    icon: (Color t, double s) => Icon(Icons.badge_outlined, color: t, size: s),
     title: l.myDetailsTitle,
     subtitle: l.portalDetailsHint,
     tone: AppColors.brand,
   ),
   PortalSection.bank => _Section(
-    icon: Icons.account_balance_outlined,
+    icon: (Color t, double s) =>
+        Icon(Icons.account_balance_outlined, color: t, size: s),
     title: l.bankAccountSection,
     subtitle: l.portalBankHint,
     tone: AppColors.info,
   ),
   PortalSection.officials => _Section(
-    icon: Icons.contact_phone_outlined,
+    icon: (Color t, double s) =>
+        Icon(Icons.contact_phone_outlined, color: t, size: s),
     title: l.navOfficials,
     subtitle: l.portalOfficialsHint,
     tone: AppColors.success,
   ),
   PortalSection.treasury => _Section(
-    icon: Icons.savings_outlined,
+    // الخزينة. This section was a piggy bank — an animal, and a child's toy,
+    // standing for the fund that pays for a bereavement. See VaultIcon.
+    icon: (Color t, double s) => VaultIcon(size: s, color: t),
     title: l.navCash,
     subtitle: l.portalTreasuryHint,
     tone: AppColors.warning,

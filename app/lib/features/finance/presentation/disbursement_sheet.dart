@@ -8,6 +8,7 @@ import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_view.dart';
+import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../directory/domain/models.dart' show AdeelListItem;
 import '../../directory/presentation/providers.dart' as directory;
@@ -229,11 +230,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     ),
                     child: Row(
                       children: <Widget>[
-                        const Icon(
-                          Icons.savings_outlined,
-                          size: 18,
-                          color: AppColors.muted,
-                        ),
+                        const VaultIcon(size: 18, color: AppColors.muted),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(child: Text(l.associationBalance)),
                         Text(

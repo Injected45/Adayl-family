@@ -1107,7 +1107,7 @@ class LEn extends L {
   String get issuedLabel => 'Total charged';
 
   @override
-  String get myBalanceNow => 'Your balance now';
+  String get myBalanceNow => 'You owe';
 
   @override
   String get myIssuedTotal => 'Subscriptions';
@@ -1116,10 +1116,10 @@ class LEn extends L {
   String get myPaidTotal => 'Paid';
 
   @override
-  String get myRemainingTotal => 'Balance';
+  String get myRemainingTotal => 'Remaining';
 
   @override
-  String get myWalletTitle => 'Your credit with the association';
+  String get myWalletTitle => 'Held for you';
 
   @override
   String get myWalletBody =>

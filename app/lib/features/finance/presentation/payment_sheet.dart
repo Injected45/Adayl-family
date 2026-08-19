@@ -8,6 +8,7 @@ import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_view.dart';
+import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../directory/domain/models.dart';
@@ -333,11 +334,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     ),
                     child: Row(
                       children: <Widget>[
-                        const Icon(
-                          Icons.savings_outlined,
-                          size: 18,
-                          color: AppColors.warning,
-                        ),
+                        const VaultIcon(size: 18, color: AppColors.warning),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
