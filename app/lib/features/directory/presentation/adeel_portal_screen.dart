@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
+import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
@@ -15,6 +16,7 @@ import '../../finance/domain/models.dart';
 import '../../finance/presentation/adeel_aid_screen.dart';
 import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
+import 'portal_sections.dart';
 import 'providers.dart';
 
 /// Column shares, summing to 100: البيان | مدين | دائن | الرصيد.
@@ -259,6 +261,18 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
         // subtract one from the other. الجمعية خيرية — aid is never deducted
         // from a subscription, and the two figures must not share a column.
         _MyAidButton(adeelId: widget.adeelId),
+        const SizedBox(height: AppSpacing.sm),
+        // ── The room, from the portal ────────────────────────────────────────
+        // The عديل's ONLY way in, and the reason it is FILLED rather than
+        // outlined: the aid button above opens a record, this opens the one
+        // screen on which he is not a reader but a participant. It is the only
+        // place in this app where he writes anything.
+        //
+        // `context.go` rather than a Navigator.push, unlike the aid screen: the
+        // room is a real route with its own place in the router, and the guard
+        // was widened by exactly one entry to let him occupy it. A push would
+        // leave the location saying /my-dues while he sat somewhere else.
+        const _ChatButton(),
         const SizedBox(height: AppSpacing.xl),
 
         SegmentedButton<_PortalTab>(
@@ -406,6 +420,20 @@ class _MyAidButton extends ConsumerWidget {
   }
 }
 
+/// The four sections, as a MENU rather than as a stack.
+///
+/// It used to be all four in one scrolling sheet capped at three quarters of the
+/// phone — «تفاصيل اشتراكي»، «الحساب المصرفي»، «المسؤولون» و«الصندوق» one after
+/// another. Four unrelated answers in one column is not four answers; it is one
+/// long thing a reader scrolls past looking for the part he came for, and the
+/// part he came for is different every time.
+///
+/// Now each is a page of its own with its own colour and its own medallion — see
+/// portal_sections.dart, including why they are PUSHED rather than routed and
+/// what «ثلاثي الأبعاد» is allowed to mean inside this app's design system.
+///
+/// The sheet keeps sign-out, because that belongs to no section and has nowhere
+/// else to live.
 class _PortalMoreSheet extends ConsumerWidget {
   const _PortalMoreSheet({required this.adeelId});
 
@@ -414,37 +442,22 @@ class _PortalMoreSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
-    final AsyncValue<AdeelDetail> detail = ref.watch(
-      adeelDetailProvider(adeelId),
-    );
-    final AsyncValue<AssociationSettingsView> settings = ref.watch(
-      settingsProvider,
-    );
-    final AsyncValue<List<Official>> officials = ref.watch(officialsProvider);
-    final AsyncValue<AssociationFinance> finance = ref.watch(
-      associationFinanceProvider,
-    );
 
     return GlassSurface(
       lifted: true,
       fill: GlassColors.overlay,
       margin: const EdgeInsets.all(AppSpacing.md),
       child: SafeArea(
-        child: ConstrainedBox(
-          // Never taller than three quarters of the phone: a sheet that fills
-          // the screen is a page wearing the wrong shape, and the balance
-          // behind it is what tells him he has not left the portal.
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.lg,
           ),
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsetsDirectional.fromSTEB(
-              AppSpacing.lg,
-              AppSpacing.md,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Center(
                 child: Container(
@@ -457,157 +470,8 @@ class _PortalMoreSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-
-              // ── His own details ────────────────────────────────────────────
-              _SheetSection(icon: Icons.badge_outlined, title: l.myDetailsTitle),
-              detail.when(
-                loading: () => const LinearProgressIndicator(minHeight: 2),
-                error: (Object e, StackTrace _) =>
-                    _SheetNote(describeApiFailure(l, e)),
-                data: (AdeelDetail d) => Column(
-                  children: <Widget>[
-                    _SheetRow(label: l.fullNameField, value: d.adeel.fullName),
-                    _SheetRow(label: l.receiptNo, value: d.adeel.adeelCode),
-                    _SheetRow(
-                      label: l.statusLabel,
-                      value: d.adeel.membershipStatus,
-                    ),
-                    _SheetRow(label: l.phone, value: d.adeel.phone),
-                    _SheetRow(
-                      label: l.registeredAt,
-                      value: formatDate(d.adeel.registeredAt),
-                    ),
-                    _SheetRow(
-                      label: l.monthlyFeeLabel,
-                      value: formatMoney(d.monthlyExpected),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // ── Where to send a transfer ───────────────────────────────────
-              // He is the one being asked to pay and, until now, the app never
-              // told him where. `read_settings_adeel` was written for this.
-              _SheetSection(
-                icon: Icons.account_balance_outlined,
-                title: l.bankAccountSection,
-              ),
-              settings.when(
-                loading: () => const LinearProgressIndicator(minHeight: 2),
-                error: (Object e, StackTrace _) =>
-                    _SheetNote(describeApiFailure(l, e)),
-                data: (AssociationSettingsView s) => !s.hasBankAccount
-                    ? _SheetNote(l.bankAccountNotSetYet)
-                    : Column(
-                        children: <Widget>[
-                          _SheetRow(label: l.bankNameField, value: s.bankName),
-                          // COPYABLE, and only this one. An account number is
-                          // the single field here where retyping a digit sends
-                          // the money to a stranger.
-                          _SheetRow(
-                            label: l.bankAccountNoField,
-                            value: s.bankAccountNo,
-                            copyable: true,
-                          ),
-                          _SheetRow(
-                            label: l.bankAccountNameField,
-                            value: s.bankAccountName,
-                          ),
-                        ],
-                      ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // ── Who to ring ────────────────────────────────────────────────
-              _SheetSection(
-                icon: Icons.contact_phone_outlined,
-                title: l.navOfficials,
-              ),
-              officials.when(
-                loading: () => const LinearProgressIndicator(minHeight: 2),
-                error: (Object e, StackTrace _) =>
-                    _SheetNote(describeApiFailure(l, e)),
-                data: (List<Official> people) => Column(
-                  children: <Widget>[
-                    for (final Official o in people)
-                      _SheetRow(
-                        label: switch (o.role) {
-                          OfficialRoleWire.treasurer => l.treasurerSection,
-                          OfficialRoleWire.financeManager =>
-                            l.financeManagerSection,
-                          _ => o.role,
-                        },
-                        value: o.name.isEmpty ? l.notAssigned : o.name,
-                        trailing: o.phone.isEmpty ? null : o.phone,
-                        copyable: o.phone.isNotEmpty,
-                        copyText: o.phone,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // ── الصندوق, for a member to READ ──────────────────────────────
-              // "شفافية مطلقة": where the collective money stands, shown to the
-              // people it belongs to.
-              //
-              // It comes from api_association_finance(), NOT from the treasury
-              // view the admin screen uses. That view is SECURITY INVOKER and
-              // his RLS scopes cash_movements to `adeel_id = my_adeel_id()`, so
-              // pointing this at it would have shown him HIS OWN four figures
-              // under headings that say "the association's" — not a leak,
-              // something worse: a wrong answer he had no way to doubt.
-              //
-              // Aggregates only: no name, no receipt, no per-member figure. And
-              // no action anywhere on it — the note under it says so, because a
-              // member seeing the treasury for the first time will reasonably
-              // wonder whether he is meant to do something about it.
-              _SheetSection(
-                icon: Icons.savings_outlined,
-                title: l.navCash,
-              ),
-              finance.when(
-                loading: () => const LinearProgressIndicator(minHeight: 2),
-                error: (Object e, StackTrace _) =>
-                    _SheetNote(describeApiFailure(l, e)),
-                data: (AssociationFinance f) => Column(
-                  children: <Widget>[
-                    _SheetRow(
-                      label: l.collectedCash,
-                      value: formatMoney(f.cash),
-                    ),
-                    _SheetRow(
-                      label: l.collectedTransfer,
-                      value: formatMoney(f.transfer),
-                    ),
-                    _SheetRow(
-                      label: l.dueFromMembers,
-                      value: formatMoney(f.outstanding),
-                    ),
-                    // The outgoing side. Transparency that showed only what
-                    // came in would overstate the fund by everything it has
-                    // ever paid out — which is the opposite of transparency.
-                    // The TOTAL is his to see; who received it is not.
-                    _SheetRow(
-                      label: l.totalDisbursed,
-                      value: formatMoney(f.disbursed),
-                    ),
-                    _SheetRow(
-                      label: l.associationBalance,
-                      value: formatMoney(f.balance),
-                    ),
-                    _SheetRow(
-                      label: l.statAdeels,
-                      value: '${f.members}',
-                      trailing: l.subActive(f.activeMembers),
-                    ),
-                    _SheetNote(l.treasuryReadOnlyNote),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
+              PortalSectionMenu(adeelId: adeelId),
+              const SizedBox(height: AppSpacing.md),
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(context).pop();
@@ -627,124 +491,6 @@ class _PortalMoreSheet extends ConsumerWidget {
   }
 }
 
-class _SheetSection extends StatelessWidget {
-  const _SheetSection({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
-    child: Row(
-      children: <Widget>[
-        Icon(icon, size: 18, color: AppColors.brandDeep),
-        const SizedBox(width: AppSpacing.sm),
-        // Expanded, because a section heading is the one thing here whose width
-        // is not under this file's control: "الحساب المصرفي للجمعية" at a large
-        // system font overflows the row by a pixel or two, and an overflow is a
-        // rendering error rather than a cosmetic one.
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _SheetNote extends StatelessWidget {
-  const _SheetNote(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
-    child: Text(
-      text,
-      style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.muted),
-    ),
-  );
-}
-
-class _SheetRow extends StatelessWidget {
-  const _SheetRow({
-    required this.label,
-    required this.value,
-    this.trailing,
-    this.copyable = false,
-    this.copyText,
-  });
-
-  final String label;
-  final String value;
-  final String? trailing;
-  final bool copyable;
-  final String? copyText;
-
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-    final String shown = value.trim().isEmpty ? l.notProvided : value;
-
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SizedBox(
-            width: 96,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 13, color: AppColors.muted),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  shown,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (trailing != null && trailing!.trim().isNotEmpty)
-                  Text(
-                    trailing!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.muted,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (copyable)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              tooltip: l.copy,
-              icon: const Icon(Icons.copy, size: 16),
-              onPressed: () {
-                Clipboard.setData(
-                  ClipboardData(text: copyText ?? value),
-                );
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(SnackBar(content: Text(l.copied)));
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 /// WHO he is, then WHAT he owes — one card, in that order.
 ///
@@ -1768,6 +1514,43 @@ class _DueTile extends StatelessWidget {
               ],
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «المجلس», on the portal.
+///
+/// Filled rather than outlined because it is the only screen in this app where
+/// an عديل does something rather than reads something — and because a room
+/// nobody notices is a room nobody uses.
+class _ChatButton extends StatelessWidget {
+  const _ChatButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return FilledButton(
+      onPressed: () => context.go(AppRoutes.chat),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.forum_outlined, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              l.navChat,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const Icon(Icons.chevron_left, size: 18),
         ],
       ),
     );

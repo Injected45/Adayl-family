@@ -86,6 +86,10 @@ WITH have AS (
     EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_schema='public' AND table_name='v_cash_summary'
                AND column_name='heldForMembers')                    AS patch_18c,
+    -- The room. Probed by the TABLE rather than by a function name: every
+    -- function this patch touches already existed under some name, and a table
+    -- comes into existence exactly once.
+    to_regclass('public.chat_messages') IS NOT NULL                  AS patch_19,
 
     -- ── ACCESS, which is not schema and is lost independently of it ─────────
     -- The 16/08 reset kept auth.users and dropped public.profiles, so signing in
@@ -142,22 +146,24 @@ SELECT * FROM (
          CASE WHEN patch_18b THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 9, 'PATCH 18/08 (c) — عهد المشتركين',
          CASE WHEN patch_18c THEN 'applied' ELSE 'NOT applied' END FROM have
-  UNION ALL SELECT 10, 'مدير معتمد',
+  UNION ALL SELECT 10, 'PATCH 19/08 — مجلس العدايل (الدردشة)',
+         CASE WHEN patch_19 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
               ELSE 'NONE — run bootstrap_first_admin.sql' END FROM have
-  UNION ALL SELECT 11, 'عدايل مرتبطون بالبوابة (نطاق أثر قفل الجهاز)',
+  UNION ALL SELECT 12, 'عدايل مرتبطون بالبوابة (نطاق أثر قفل الجهاز)',
          CASE WHEN NOT has_profiles THEN 'unknown'
               WHEN portal_users = 0
                 THEN '0 — the device lock locks nobody out today'
               ELSE portal_users::text ||
                    ' — each needs a build that sends x-device-id, or he sees an empty portal'
          END FROM have
-  UNION ALL SELECT 12, 'السجل',
+  UNION ALL SELECT 13, 'السجل',
          CASE WHEN NOT adeel_schema THEN 'unknown'
               ELSE coalesce(n_adeels, 0)::text || ' عديل، '
                 || coalesce(n_payments, 0)::text || ' إيصال' END FROM have
-  UNION ALL SELECT 13, '‹‹ VERDICT ››',
+  UNION ALL SELECT 14, '‹‹ VERDICT ››',
          -- In dependency order, and it names ONE file rather than listing what
          -- is missing — a list invites picking from it. Each patch was tested
          -- against the state the one before it leaves, and only against that
@@ -176,6 +182,8 @@ SELECT * FROM (
               WHEN NOT patch_18c
                 THEN 'READY — apply supabase/PATCH_20260818c_member_holdings.sql'
                   || '  ⚠ رصيد الجمعية سينخفض بمقدار عهد المشتركين — وهو تصحيح لا خلل.'
-              ELSE 'UP TO DATE — every patch through 18/08 (c) is applied.'
+              WHEN NOT patch_19
+                THEN 'READY — apply supabase/PATCH_20260819_chat.sql'
+              ELSE 'UP TO DATE — every patch through 19/08 is applied.'
          END FROM have
 ) t ORDER BY ord;

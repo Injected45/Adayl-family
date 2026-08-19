@@ -408,20 +408,34 @@ void _moreSheetTests() {
     expect(find.text(l.signOut), findsOneWidget);
   });
 
+  /// Opens المزيد and then ONE of its four sections.
+  ///
+  /// The sheet used to be the destination; it is now a menu, and each section is
+  /// a page of its own. Two taps rather than one, and the second is what these
+  /// tests are actually about — «بخصوصية لكل جزء» means the bank account is not
+  /// on screen while the officials are being read.
+  Future<void> openSection(WidgetTester tester, Widget w, String title) async {
+    await openSheet(tester, w);
+    await tester.tap(find.text(title));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('it tells him where to send a transfer', (
     WidgetTester tester,
   ) async {
     // He is the man being asked to pay and the app never told him where. RLS
     // already allowed it — read_settings_adeel exists for this reason.
-    await openSheet(tester, app());
+    await openSection(tester, app(), l.bankAccountSection);
 
-    expect(find.text(l.bankAccountSection), findsOneWidget);
     expect(find.text('التجاري الوطني'), findsOneWidget);
     expect(find.text('0021-000-1234'), findsOneWidget);
+    // And nothing else is on the page with it.
+    expect(find.text(l.navOfficials), findsNothing);
+    expect(find.text(l.navCash), findsNothing);
   });
 
   testWidgets('and who to ring, by post', (WidgetTester tester) async {
-    await openSheet(tester, app());
+    await openSection(tester, app(), l.navOfficials);
 
     expect(find.text(l.treasurerSection), findsOneWidget);
     expect(find.text('المهدي عبدالله محمد'), findsWidgets);
@@ -434,7 +448,7 @@ void _moreSheetTests() {
   testWidgets('an unset bank account says so instead of showing blanks', (
     WidgetTester tester,
   ) async {
-    await openSheet(
+    await openSection(
       tester,
       app(
         settings: const AssociationSettingsView(
@@ -446,6 +460,7 @@ void _moreSheetTests() {
           bankAccountName: '',
         ),
       ),
+      l.bankAccountSection,
     );
 
     expect(find.text(l.bankAccountNotSetYet), findsOneWidget);
@@ -455,13 +470,12 @@ void _moreSheetTests() {
     WidgetTester tester,
   ) async {
     // The one that matters. His own balance is 20.00; the association's is
-    // 700.00 with 4,900.00 outstanding. If this section ever showed his own
+    // 700.00 with 4,900.00 outstanding. If this page ever showed his own
     // numbers — which is exactly what v_cash_summary would return for him,
     // because it is SECURITY INVOKER — the headings would be lying and nothing
     // on screen would betray it.
-    await openSheet(tester, app());
+    await openSection(tester, app(), l.navCash);
 
-    expect(find.text(l.navCash), findsOneWidget);
     expect(find.text(formatMoney('640.00')), findsOneWidget);
     expect(find.text(formatMoney('60.00')), findsOneWidget);
     expect(find.text(formatMoney('450.00')), findsOneWidget);
@@ -471,13 +485,31 @@ void _moreSheetTests() {
     // time will look for something to do about it.
     expect(find.text(l.treasuryReadOnlyNote), findsOneWidget);
 
-    // And nothing here is an action. The only button in the sheet is the way
-    // out of the app.
-    //
-    // Scoped to the SHEET, not the whole tree. The portal page behind it now
-    // carries «ما صُرف لك», which is a button and belongs there — an unscoped
-    // count made this assertion about the app rather than about the sheet, and
-    // it would go on breaking every time anything anywhere gained a control.
+    // And nothing on it is an action.
+    expect(find.byType(OutlinedButton), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
+  });
+
+  testWidgets('the MENU itself carries no figures, only doors', (
+    WidgetTester tester,
+  ) async {
+    // The change, stated as a test. Four unrelated answers in one scrolling
+    // column is one long thing a reader scrolls past looking for the part he
+    // came for — and the part he came for is different every time.
+    await openSheet(tester, app());
+
+    expect(find.text(l.myDetailsTitle), findsOneWidget);
+    expect(find.text(l.bankAccountSection), findsOneWidget);
+    expect(find.text(l.navOfficials), findsOneWidget);
+    expect(find.text(l.navCash), findsOneWidget);
+
+    // None of their contents.
+    expect(find.text('التجاري الوطني'), findsNothing);
+    expect(find.text('0925093709'), findsNothing);
+    expect(find.text(formatMoney('640.00')), findsNothing);
+
+    // Sign-out stays in the sheet: it belongs to no section and has nowhere
+    // else to live. It is still the ONLY button there.
     final Iterable<Widget> buttons = tester.widgetList(
       find.descendant(
         of: find.byType(BottomSheet),

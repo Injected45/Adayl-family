@@ -30,10 +30,16 @@ class AdeelsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
-    final String query = ref.watch(adeelSearchProvider);
-    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
-      adeelsProvider(query),
-    );
+    // ── THE SEARCH BOX IS GONE ────────────────────────────────────────────
+    // Removed at the association's request. The repository still takes a query
+    // and `adeelSearchProvider` still exists — the receivables screen and the
+    // payment sheet both search the register — so this screen simply asks for
+    // all of it.
+    //
+    // ⚠ It is one widget to put back, and the day the register outgrows a
+    //   single scroll is the day to do it: the filter itself lives in
+    //   PostgREST, not here, so nothing about it has been lost.
+    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(adeelsProvider(''));
 
     final AppRole role =
         ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
@@ -64,37 +70,25 @@ class AdeelsScreen extends ConsumerWidget {
           // binary floating point, and would silently mean something different
           // the moment the list were paged.
           //
-          // ⚠ HIDDEN WHILE A SEARCH IS ACTIVE, and that is the point of the
-          //   condition: it is the total for the WHOLE register, so showing it
-          //   above three filtered rows would put a figure on screen that does
-          //   not add up to what is under it — the one disagreement a register
-          //   must not display.
-          if (query.isEmpty) const _OutstandingBar(),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: SearchField(
-              hintText: l.searchAdeelsHint,
-              initialValue: query,
-              onChanged: (String value) =>
-                  ref.read(adeelSearchProvider.notifier).state = value,
-            ),
-          ),
+          // It used to hide while a search was active, because a whole-register
+          // total above three filtered rows is a figure that does not add up to
+          // what is under it. With no search there is nothing to filter and the
+          // figure always describes the list beneath it.
+          const _OutstandingBar(),
           Expanded(
             child: AsyncView<List<AdeelListItem>>(
               value: adeels,
-              onRetry: () => ref.invalidate(adeelsProvider(query)),
+              onRetry: () => ref.invalidate(adeelsProvider('')),
               builder: (List<AdeelListItem> items) {
                 if (items.isEmpty) {
                   return EmptyStateView(
-                    icon: query.isEmpty
-                        ? Icons.groups_outlined
-                        : Icons.search_off_outlined,
-                    title: query.isEmpty ? l.noAdeels : l.noSearchResults,
-                    message: query.isEmpty ? l.registerIntro : null,
+                    icon: Icons.groups_outlined,
+                    title: l.noAdeels,
+                    message: l.registerIntro,
                   );
                 }
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(adeelsProvider(query)),
+                  onRefresh: () async => ref.invalidate(adeelsProvider('')),
                   child: ListView.separated(
                     // Always scrollable so a register of three عدايل can still
                     // be pulled to refresh. Without it the RefreshIndicator

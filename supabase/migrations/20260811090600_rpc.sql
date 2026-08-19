@@ -1258,12 +1258,17 @@ BEGIN
            public.payments,
            public.receivables,
            public.closed_periods,
-           -- Money going OUT is financial data like any other. Omitting it here
-           -- would also make purge_all_data IMPOSSIBLE, not merely incomplete:
-           -- disbursements.payee_adeel_id references adeels ON DELETE RESTRICT,
-           -- so one surviving voucher would refuse the register's deletion and
-           -- abort the entire purge with a foreign-key error.
            public.disbursements,
+           -- ⚠ AND THE CHAT, which is not optional here: chat_messages
+           --   references adeels, and Postgres refuses to TRUNCATE a table that
+           --   a surviving table points at — so leaving this out does not make
+           --   the purge incomplete, it makes it FAIL. The room also has to go
+           --   on its own merits: every portal profile is deleted below, so what
+           --   would remain is a conversation whose speakers no longer exist.
+           --
+           --   It is NOT in purge_financial_data. Wiping the figures is not a
+           --   reason to erase what people said to each other.
+           public.chat_messages,
            public.audit_log
     RESTART IDENTITY;
 

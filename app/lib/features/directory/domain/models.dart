@@ -59,11 +59,7 @@ class AssociationSettingsView {
 }
 
 class Official {
-  const Official({
-    required this.role,
-    required this.name,
-    required this.phone,
-  });
+  const Official({required this.role, required this.name, required this.phone});
 
   final String role;
   final String name;
@@ -387,6 +383,7 @@ class AssociationFinance {
     required this.outstanding,
     required this.members,
     required this.activeMembers,
+    this.heldForMembers = '0.00',
   });
 
   /// What the association HOLDS: collections in, disbursements out.
@@ -397,6 +394,15 @@ class AssociationFinance {
   final String balance;
   final String collected;
   final String disbursed;
+
+  /// عهد المشتركين — cash the association holds and does not own, because a
+  /// member paid ahead and his months are not billed yet.
+  ///
+  /// Shown to a member for the same reason the outgoing side is: a balance that
+  /// counted money owed back to people would overstate the fund, which is the
+  /// opposite of transparency. Defaults to zero for a database that predates the
+  /// column.
+  final String heldForMembers;
   final String cash;
   final String transfer;
 
@@ -412,6 +418,7 @@ class AssociationFinance {
         balance: _string(json['balance']),
         collected: _string(json['collected']),
         disbursed: _string(json['disbursed']),
+        heldForMembers: _stringOr(json['heldForMembers'], '0.00'),
         cash: _string(json['cash']),
         transfer: _string(json['transfer']),
         issued: _string(json['issued']),

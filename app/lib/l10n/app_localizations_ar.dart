@@ -167,6 +167,47 @@ class LAr extends L {
   String get offlineBanner => 'لا يوجد اتصال بالإنترنت';
 
   @override
+  String get navChat => 'المجلس';
+
+  @override
+  String get chatHall => 'المجلس العام';
+
+  @override
+  String get chatToBoard => 'مراسلة الإدارة';
+
+  @override
+  String get chatInbox => 'الرسائل الخاصة';
+
+  @override
+  String get chatPrivateEmpty =>
+      'لا رسائل خاصة بعد — اكتب للإدارة وسيصلك الرد هنا';
+
+  @override
+  String get chatInboxEmpty => 'لا رسائل خاصة من المشتركين';
+
+  @override
+  String get chatHint => 'اكتب رسالتك…';
+
+  @override
+  String get chatSend => 'إرسال';
+
+  @override
+  String get chatEmpty => 'لا رسائل بعد — كن أول من يتحدث';
+
+  @override
+  String get chatDeleted => 'حُذفت الرسالة';
+
+  @override
+  String get chatFromBoard => 'الإدارة';
+
+  @override
+  String get chatDeleteTitle => 'حذف الرسالة؟';
+
+  @override
+  String get chatDeleteBody =>
+      'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المجلس.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override
@@ -457,6 +498,9 @@ class LAr extends L {
   String get payeeRequired => 'اختر المشترك المستفيد';
 
   @override
+  String get recipient => 'المستلم';
+
+  @override
   String get handedBy => 'المُسلِّم';
 
   @override
@@ -499,16 +543,19 @@ class LAr extends L {
       'تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق';
 
   @override
-  String get aidTitle => 'ما صُرف له من الجمعية';
+  String get aidTitle => 'مصروفات للمشترك';
 
   @override
   String get myAidTitle => 'ما صُرف لك';
 
   @override
-  String get aidSearchHint => 'ابحث بالبند أو الملاحظة أو رقم السند';
+  String get aidSearchHint => 'بحث';
 
   @override
   String get aidColDate => 'التاريخ';
+
+  @override
+  String get aidColSerial => '#';
 
   @override
   String get aidColCategory => 'البند';
@@ -518,9 +565,6 @@ class LAr extends L {
 
   @override
   String get aidColRunning => 'الإجمالي';
-
-  @override
-  String get aidGrandTotal => 'إجمالي ما صُرف';
 
   @override
   String get aidNoMatch => 'لا يوجد سند يطابق بحثك';
@@ -541,7 +585,7 @@ class LAr extends L {
   String get aidNoteLabel => 'الملاحظات';
 
   @override
-  String get openAid => 'سجل الإعانات';
+  String get openAid => 'سجل الأسلاف';
 
   @override
   String get aidTotal => 'إجمالي ما صُرف له';
@@ -550,21 +594,13 @@ class LAr extends L {
   String get aidCount => 'عدد السندات';
 
   @override
-  String aidPeriod(String from, String to) {
-    return 'من $from إلى $to';
-  }
-
-  @override
-  String get aidByCategory => 'حسب المناسبة';
-
-  @override
   String get aidByYear => 'حسب السنة';
 
   @override
   String get aidVouchers => 'السندات';
 
   @override
-  String get aidPanelTitle => 'ما تم صرفه للمشترك';
+  String get aidPanelTitle => 'الإجمالي';
 
   @override
   String aidVoucherCount(int count) {
@@ -590,7 +626,7 @@ class LAr extends L {
   String get dueFromMembers => 'المستحقات';
 
   @override
-  String get totalOutstanding => 'إجمالي المستحق';
+  String get totalOutstanding => 'اشتراكات مستحقة';
 
   @override
   String get heldForMembers => 'عهد المشتركين';
@@ -1063,9 +1099,6 @@ class LAr extends L {
   String get editAdeel => 'تعديل مشترك';
 
   @override
-  String get searchAdeelsHint => 'بحث بالاسم أو الرمز...';
-
-  @override
   String get noAdeels => 'لا يوجد مشتركون مسجلون بعد';
 
   @override
@@ -1127,6 +1160,18 @@ class LAr extends L {
       'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.';
 
   @override
+  String get portalDetailsHint => 'اسمك ورقمك وحالتك وقيمة اشتراكك الشهري';
+
+  @override
+  String get portalBankHint => 'إلى أين تُرسل الحوالة، ورقم الحساب لنسخه';
+
+  @override
+  String get portalOfficialsHint => 'بمن تتصل، وأرقام هواتفهم';
+
+  @override
+  String get portalTreasuryHint => 'أين يقف مال الجمعية — للاطلاع فقط';
+
+  @override
   String get myDetailsTitle => 'تفاصيل اشتراكي';
 
   @override
@@ -1155,6 +1200,20 @@ class LAr extends L {
 
   @override
   String get myDuesTitle => 'اشتراكاتي';
+
+  @override
+  String openPeriodsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count شهراً',
+      few: '$count أشهر',
+      two: 'شهران',
+      one: 'شهر واحد',
+      zero: 'لا مستحقات',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get duesSection => 'الاشتراكات';

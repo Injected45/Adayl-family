@@ -385,6 +385,84 @@ abstract class L {
   /// **'لا يوجد اتصال بالإنترنت'**
   String get offlineBanner;
 
+  /// The association's chat room. «المجلس» rather than «الدردشة»: it is the word a Libyan family association uses for where its people sit and talk, and it carries the seriousness the room is meant to have.
+  ///
+  /// In ar, this message translates to:
+  /// **'المجلس'**
+  String get navChat;
+
+  /// The open room, as the segment that selects it. «المجلس العام» and not «المجلس»: the SCREEN is called المجلس and it holds two rooms, so naming one of them the same word puts the same string twice on one screen with two different meanings.
+  ///
+  /// In ar, this message translates to:
+  /// **'المجلس العام'**
+  String get chatHall;
+
+  /// The member's side of the private segment. He writes to الإدارة as an institution, never to a named officer, so whoever is on duty answers.
+  ///
+  /// In ar, this message translates to:
+  /// **'مراسلة الإدارة'**
+  String get chatToBoard;
+
+  /// The same segment as chatToBoard, read from the board's side: the inbox of every member's private thread.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرسائل الخاصة'**
+  String get chatInbox;
+
+  /// No description provided for @chatPrivateEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا رسائل خاصة بعد — اكتب للإدارة وسيصلك الرد هنا'**
+  String get chatPrivateEmpty;
+
+  /// No description provided for @chatInboxEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا رسائل خاصة من المشتركين'**
+  String get chatInboxEmpty;
+
+  /// No description provided for @chatHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب رسالتك…'**
+  String get chatHint;
+
+  /// No description provided for @chatSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال'**
+  String get chatSend;
+
+  /// No description provided for @chatEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا رسائل بعد — كن أول من يتحدث'**
+  String get chatEmpty;
+
+  /// The tombstone left where a message was. The row survives so a gap in a conversation is visible rather than silent; the words themselves are erased in the database.
+  ///
+  /// In ar, this message translates to:
+  /// **'حُذفت الرسالة'**
+  String get chatDeleted;
+
+  /// Badge beside the name of anyone who spoke as staff. An announcement about a meeting reads differently from a member's opinion of it.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإدارة'**
+  String get chatFromBoard;
+
+  /// No description provided for @chatDeleteTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف الرسالة؟'**
+  String get chatDeleteTitle;
+
+  /// No description provided for @chatDeleteBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المجلس.'**
+  String get chatDeleteBody;
+
   /// No description provided for @navHome.
   ///
   /// In ar, this message translates to:
@@ -943,6 +1021,12 @@ abstract class L {
   /// **'اختر المشترك المستفيد'**
   String get payeeRequired;
 
+  /// Who RECEIVED a disbursement, in the aid ledger's detail block. ⚠ The voucher FORM calls the same person «المستفيد» (see `payee`) — two words for one role, kept only because the association asked for «المستلم» here by name. Unifying them is one value change in this file. Distinct from handedBy («المُسلِّم»), which is the officer who handed the money over; those two genuinely are different people and sit on adjacent lines.
+  ///
+  /// In ar, this message translates to:
+  /// **'المستلم'**
+  String get recipient;
+
   /// No description provided for @handedBy.
   ///
   /// In ar, this message translates to:
@@ -1018,7 +1102,7 @@ abstract class L {
   /// Staff heading, third person: the association looking at one man's aid history.
   ///
   /// In ar, this message translates to:
-  /// **'ما صُرف له من الجمعية'**
+  /// **'مصروفات للمشترك'**
   String get aidTitle;
 
   /// The same page in the member's own voice, inside his portal. The association's own wording.
@@ -1030,7 +1114,7 @@ abstract class L {
   /// No description provided for @aidSearchHint.
   ///
   /// In ar, this message translates to:
-  /// **'ابحث بالبند أو الملاحظة أو رقم السند'**
+  /// **'بحث'**
   String get aidSearchHint;
 
   /// No description provided for @aidColDate.
@@ -1038,6 +1122,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'التاريخ'**
   String get aidColDate;
+
+  /// The ledger's leading column — first in the children list, which in RTL puts it at the FAR RIGHT. «#» rather than «تسلسل»: the symbol is read as 'number' in an Arabic table without translation, and the word was five letters wide over a column of one to three digits, so it was sizing the column for its own heading and taking that width from البند. It numbers the voucher in the man's FULL history, oldest as 1, so the number stays attached to the voucher while a search or a period narrows the list — the same rule the الإجمالي column follows. Numbering the visible rows instead would put a «1» beside a running total of 600.
+  ///
+  /// In ar, this message translates to:
+  /// **'#'**
+  String get aidColSerial;
 
   /// No description provided for @aidColCategory.
   ///
@@ -1056,12 +1146,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'الإجمالي'**
   String get aidColRunning;
-
-  /// No description provided for @aidGrandTotal.
-  ///
-  /// In ar, this message translates to:
-  /// **'إجمالي ما صُرف'**
-  String get aidGrandTotal;
 
   /// No description provided for @aidNoMatch.
   ///
@@ -1093,10 +1177,10 @@ abstract class L {
   /// **'الملاحظات'**
   String get aidNoteLabel;
 
-  /// No description provided for @openAid.
+  /// Opens the aid ledger from a member's page. «سجل الأسلاف» is the association's own word for it, given by name. ⚠ Note for whoever reads this next: the record is of money the association GAVE and never deducts — a voucher writes no receivable, no payment and no allocation, and api_adeel_statement cannot reach it. The word «سلف» carries a sense of an advance to be repaid; nothing in the schema does. The label is the association's to choose, but it does not describe a debt and no code should ever start treating it as one.
   ///
   /// In ar, this message translates to:
-  /// **'سجل الإعانات'**
+  /// **'سجل الأسلاف'**
   String get openAid;
 
   /// No description provided for @aidTotal.
@@ -1110,18 +1194,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'عدد السندات'**
   String get aidCount;
-
-  /// No description provided for @aidPeriod.
-  ///
-  /// In ar, this message translates to:
-  /// **'من {from} إلى {to}'**
-  String aidPeriod(String from, String to);
-
-  /// No description provided for @aidByCategory.
-  ///
-  /// In ar, this message translates to:
-  /// **'حسب المناسبة'**
-  String get aidByCategory;
 
   /// No description provided for @aidByYear.
   ///
@@ -1138,7 +1210,7 @@ abstract class L {
   /// No description provided for @aidPanelTitle.
   ///
   /// In ar, this message translates to:
-  /// **'ما تم صرفه للمشترك'**
+  /// **'الإجمالي'**
   String get aidPanelTitle;
 
   /// No description provided for @aidVoucherCount.
@@ -1186,7 +1258,7 @@ abstract class L {
   /// No description provided for @totalOutstanding.
   ///
   /// In ar, this message translates to:
-  /// **'إجمالي المستحق'**
+  /// **'اشتراكات مستحقة'**
   String get totalOutstanding;
 
   /// Cash the association holds but has not earned: prepayments not yet settled against a billed month. It is subtracted from associationBalance, and register_disbursement refuses to spend past the same figure.
@@ -2005,12 +2077,6 @@ abstract class L {
   /// **'تعديل مشترك'**
   String get editAdeel;
 
-  /// No description provided for @searchAdeelsHint.
-  ///
-  /// In ar, this message translates to:
-  /// **'بحث بالاسم أو الرمز...'**
-  String get searchAdeelsHint;
-
   /// No description provided for @noAdeels.
   ///
   /// In ar, this message translates to:
@@ -2119,6 +2185,30 @@ abstract class L {
   /// **'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.'**
   String get deviceLockedBody;
 
+  /// No description provided for @portalDetailsHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسمك ورقمك وحالتك وقيمة اشتراكك الشهري'**
+  String get portalDetailsHint;
+
+  /// No description provided for @portalBankHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلى أين تُرسل الحوالة، ورقم الحساب لنسخه'**
+  String get portalBankHint;
+
+  /// No description provided for @portalOfficialsHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'بمن تتصل، وأرقام هواتفهم'**
+  String get portalOfficialsHint;
+
+  /// The one-line summary on the الصندوق menu card. It says «للاطلاع فقط» on the card itself, not only inside: a member should know before he opens it that there is nothing here for him to act on.
+  ///
+  /// In ar, this message translates to:
+  /// **'أين يقف مال الجمعية — للاطلاع فقط'**
+  String get portalTreasuryHint;
+
   /// Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee.
   ///
   /// In ar, this message translates to:
@@ -2154,6 +2244,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'اشتراكاتي'**
   String get myDuesTitle;
+
+  /// How many months are still outstanding, carried on the CLOSED row of the folded «الاشتراكات» section. A fold that hides the answer costs a tap to learn what a glance used to tell, so the heading keeps the one figure the section is opened for. «لا مستحقات» at zero is an ANSWER, not a count of nothing.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{لا مستحقات} =1{شهر واحد} =2{شهران} few{{count} أشهر} other{{count} شهراً}}'**
+  String openPeriodsCount(int count);
 
   /// No description provided for @duesSection.
   ///

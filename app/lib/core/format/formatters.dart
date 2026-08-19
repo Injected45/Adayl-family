@@ -101,6 +101,21 @@ String formatDateTime(String? iso) {
   return parsed == null ? iso : _dateTimeFormat.format(parsed.toLocal());
 }
 
+/// The clock alone: «09:24».
+///
+/// A chat bubble carries the time and the LIST carries the date, printed once
+/// between days — so repeating «10 فبراير 2026» on four hundred lines would be
+/// the same fact four hundred times. 24-hour, matching add_Hm() in
+/// [formatDateTime], because that is what the association's own screens
+/// already show.
+final DateFormat _timeOnlyFormat = DateFormat.Hm('ar');
+
+String formatTime(String? iso) {
+  if (iso == null || iso.isEmpty) return '';
+  final DateTime? parsed = DateTime.tryParse(iso);
+  return parsed == null ? '' : _timeOnlyFormat.format(parsed.toLocal());
+}
+
 /// Folds Arabic-Indic digits to ASCII as they are typed.
 ///
 /// The app forces the `ar` locale, so the keyboard offers ٠١٢٣٤٥٦٧٨٩ and

@@ -216,7 +216,7 @@ void main() {
     expect(find.text('شهر 2026-02'), findsNothing);
   });
 
-  testWidgets('his details open from his NAME, not from a panel at the foot', (
+  testWidgets('his details open from his NAME, through a MENU of four', (
     WidgetTester tester,
   ) async {
     // There was a card at the bottom of the page carrying his phone, his
@@ -226,6 +226,11 @@ void main() {
     //
     // The name is the right door: a man looking for what the association holds
     // ABOUT HIM reaches for his own name, not for a card below his ledger.
+    //
+    // ⚠ AND THE DOOR NOW OPENS ONTO A MENU, not onto all four sections stacked.
+    //   The facts themselves live one page further in — see portal_sections.dart
+    //   — so this asserts the ROUTE to them rather than their contents, and the
+    //   test below opens one and reads it.
     await pump(
       tester,
       _detail(
@@ -243,11 +248,25 @@ void main() {
     await tester.tap(find.text('المهدي العدولي'));
     await tester.pumpAndSettle();
 
-    // The sheet, opening on his own details.
+    // The menu: four doors, each named, and none of them opened yet.
     expect(find.text(l.myDetailsTitle), findsOneWidget);
+    expect(find.text(l.bankAccountSection), findsOneWidget);
+    expect(find.text(l.navOfficials), findsOneWidget);
+    expect(find.text(l.navCash), findsOneWidget);
+    // The facts are NOT on the menu. That is the whole change: four answers in
+    // one column was one long thing to scroll past, not four answers.
+    expect(find.text('0910000000'), findsNothing);
+
+    // One tap further, and his own page opens on his own facts.
+    await tester.tap(find.text(l.myDetailsTitle));
+    await tester.pumpAndSettle();
     expect(find.text('0910000000'), findsOneWidget);
-    // And the registration date, which was the panel's other reason to exist.
+    // And the registration date, which was the old panel's other reason to
+    // exist.
     expect(find.text('1 يناير 2026'), findsOneWidget);
+    // While the other three are no longer on screen at all — «بخصوصية لكل جزء».
+    expect(find.text(l.bankAccountSection), findsNothing);
+    expect(find.text(l.navOfficials), findsNothing);
   });
 
   testWidgets('the ledger fits a Galaxy Note 10 with no sideways scroll', (

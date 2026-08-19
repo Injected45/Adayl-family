@@ -168,6 +168,47 @@ class LEn extends L {
   String get offlineBanner => 'No internet connection';
 
   @override
+  String get navChat => 'The room';
+
+  @override
+  String get chatHall => 'Open room';
+
+  @override
+  String get chatToBoard => 'Message the board';
+
+  @override
+  String get chatInbox => 'Private messages';
+
+  @override
+  String get chatPrivateEmpty =>
+      'No private messages yet — write to the board and the reply lands here';
+
+  @override
+  String get chatInboxEmpty => 'No private messages from members';
+
+  @override
+  String get chatHint => 'Write a message…';
+
+  @override
+  String get chatSend => 'Send';
+
+  @override
+  String get chatEmpty => 'No messages yet — be the first to speak';
+
+  @override
+  String get chatDeleted => 'Message deleted';
+
+  @override
+  String get chatFromBoard => 'Board';
+
+  @override
+  String get chatDeleteTitle => 'Delete this message?';
+
+  @override
+  String get chatDeleteBody =>
+      'The words go permanently; the gap stays visible in the room.';
+
+  @override
   String get navHome => 'Home';
 
   @override
@@ -461,6 +502,9 @@ class LEn extends L {
   String get payeeRequired => 'Choose the beneficiary';
 
   @override
+  String get recipient => 'Recipient';
+
+  @override
   String get handedBy => 'Handed over by';
 
   @override
@@ -503,16 +547,19 @@ class LEn extends L {
       'Disbursement cancelled and its amount returned to the treasury';
 
   @override
-  String get aidTitle => 'Aid he received from the association';
+  String get aidTitle => 'Member expenses';
 
   @override
   String get myAidTitle => 'What was paid to you';
 
   @override
-  String get aidSearchHint => 'Search by heading, note or voucher number';
+  String get aidSearchHint => 'Search';
 
   @override
   String get aidColDate => 'Date';
+
+  @override
+  String get aidColSerial => '#';
 
   @override
   String get aidColCategory => 'Heading';
@@ -522,9 +569,6 @@ class LEn extends L {
 
   @override
   String get aidColRunning => 'Total';
-
-  @override
-  String get aidGrandTotal => 'Total paid';
 
   @override
   String get aidNoMatch => 'No voucher matches your search';
@@ -555,21 +599,13 @@ class LEn extends L {
   String get aidCount => 'Vouchers';
 
   @override
-  String aidPeriod(String from, String to) {
-    return 'From $from to $to';
-  }
-
-  @override
-  String get aidByCategory => 'By occasion';
-
-  @override
   String get aidByYear => 'By year';
 
   @override
   String get aidVouchers => 'Vouchers';
 
   @override
-  String get aidPanelTitle => 'Paid to the member';
+  String get aidPanelTitle => 'Total';
 
   @override
   String aidVoucherCount(int count) {
@@ -595,7 +631,7 @@ class LEn extends L {
   String get dueFromMembers => 'Due from members';
 
   @override
-  String get totalOutstanding => 'Total outstanding';
+  String get totalOutstanding => 'Dues outstanding';
 
   @override
   String get heldForMembers => 'Held for members';
@@ -1065,9 +1101,6 @@ class LEn extends L {
   String get editAdeel => 'Edit subscriber';
 
   @override
-  String get searchAdeelsHint => 'Search by name or code...';
-
-  @override
   String get noAdeels => 'No subscribers registered yet';
 
   @override
@@ -1130,6 +1163,20 @@ class LEn extends L {
       'Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.';
 
   @override
+  String get portalDetailsHint => 'Your name, number, status and monthly fee';
+
+  @override
+  String get portalBankHint =>
+      'Where to send a transfer, with the account number to copy';
+
+  @override
+  String get portalOfficialsHint => 'Who to call, and their numbers';
+
+  @override
+  String get portalTreasuryHint =>
+      'Where the association\'s money stands — to read only';
+
+  @override
   String get myDetailsTitle => 'My subscription details';
 
   @override
@@ -1156,6 +1203,18 @@ class LEn extends L {
 
   @override
   String get myDuesTitle => 'My subscriptions';
+
+  @override
+  String openPeriodsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count months',
+      one: 'One month',
+      zero: 'Nothing due',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get duesSection => 'Subscriptions';

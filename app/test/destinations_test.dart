@@ -13,8 +13,8 @@ void main() {
       // The families and members screens collapsed into one register when the
       // عديل became the billed unit, so there are twelve rather than thirteen:
       // eleven read/write screens plus the user management Google Sign-In needs.
-      expect(appDestinations.length, 12);
-      expect(_routesVisibleTo(AppRole.admin).length, 12);
+      expect(appDestinations.length, 13);
+      expect(_routesVisibleTo(AppRole.admin).length, 13);
     });
 
     test('a viewer cannot see the audit log, settings, or user management', () {

@@ -92,6 +92,13 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- backwards and the reason the fund cannot be overdrawn from a phone.
     'register_disbursement(numeric,disbursement_kind,pay_method,bigint,expense_category,text,text,text,text,text,text,date)',
     'cancel_disbursement(bigint,text)',
+    -- The room. `in_association()` is called by read_chat, which is an RLS
+    -- policy — so the caller whose policy is being evaluated must hold EXECUTE
+    -- or the whole chat screen errors instead of being empty. It answers one
+    -- boolean about the CALLER and nothing about anyone else.
+    'in_association()',
+    'send_chat_message(text,bigint)',
+    'delete_chat_message(bigint)',
 
     -- Reads. STABLE and SECURITY INVOKER, so RLS still decides what they return.
     'period_label(text)',

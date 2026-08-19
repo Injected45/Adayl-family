@@ -125,14 +125,21 @@ void main() {
     expect(find.text(formatMoney('160.00')), findsNothing);
   });
 
-  testWidgets('...and it steps aside while a search narrows the list', (
+  testWidgets('and the register carries no search box at all', (
     WidgetTester tester,
   ) async {
-    // A whole-register total above a filtered list is a figure that does not
-    // add up to what is under it. It comes back when the filter is cleared.
-    await pump(tester, host(query: 'أيمن'));
+    // The bar used to HIDE while a search was active: a whole-register total
+    // above three filtered rows is a figure that does not add up to what is
+    // under it, which is the one disagreement a register must not display.
+    //
+    // The association removed the search, so there is nothing to filter and the
+    // figure always describes the list beneath it. This is the assertion that
+    // keeps the two facts tied together — put the box back without restoring
+    // the hide, and this fails.
+    await pump(tester, host());
 
-    expect(find.text(l.totalOutstanding), findsNothing);
-    expect(find.text(formatMoney('4900.00')), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(l.totalOutstanding), findsOneWidget);
+    expect(find.text(formatMoney('4900.00')), findsOneWidget);
   });
 }

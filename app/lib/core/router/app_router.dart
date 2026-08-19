@@ -9,6 +9,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/pending_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/suspended_screen.dart';
+import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/directory/presentation/adeel_detail_screen.dart';
 import '../../features/directory/presentation/adeel_form_screen.dart';
 import '../../features/directory/presentation/adeel_portal_screen.dart';
@@ -80,6 +81,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         builder: (_, _) => const AdeelPortalScreen(),
       ),
       GoRoute(path: AppRoutes.home, builder: (_, _) => const DashboardScreen()),
+      GoRoute(path: AppRoutes.chat, builder: (_, _) => const ChatScreen()),
 
       // ── Phase 4: the read-only screens ──────────────────────────────
       GoRoute(
@@ -195,15 +197,27 @@ String? _guard(Ref ref, GoRouterState state) {
   // render empty for him because RLS hands him nothing but his own rows. Pinning
   // him to one route is what turns that emptiness into a coherent app.
   //
+  // ⚠ TWO ROUTES NOW, not one, and the second is the ONLY exception that will
+  //   ever be added lightly. The chat is the first table in this schema that
+  //   both kinds of account genuinely share — `read_chat` admits staff and bound
+  //   عدايل alike — so `/chat` is a screen that is FULL for him rather than
+  //   empty. Every other route is still refused, and the reason is unchanged:
+  //   not that he must not look, but that there would be nothing there.
+  //
+  //   The test that keeps this honest is the one asserting he is still bounced
+  //   off /adeels, /cash and the rest. Widening this set without widening a
+  //   policy would give him a blank screen and no explanation; widening it
+  //   because a policy was widened is what happened here.
+  //
   // Placed above the pre-auth redirect deliberately: that line sends anyone
   // arriving at /splash or /login to the dashboard, and for him the dashboard
   // is the wrong destination.
   //
   // This is presentation, as always. The database refuses him the same rows
-  // whether or not this branch exists — supabase/tests/45_adeel_portal.sql is
-  // where that is actually proved.
+  // whether or not this branch exists — supabase/tests/45_adeel_portal.sql and
+  // 46_chat.sql are where that is actually proved.
   if (auth.user?.isAdeelPortal ?? false) {
-    return location == AppRoutes.myDues ? null : AppRoutes.myDues;
+    return portalMayOpen(location) ? null : AppRoutes.myDues;
   }
 
   const Set<String> preAuthRoutes = <String>{

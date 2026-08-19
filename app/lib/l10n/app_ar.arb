@@ -62,6 +62,37 @@
   "errorTimeout": "انتهت مهلة الاتصال بالخادم",
   "offlineBanner": "لا يوجد اتصال بالإنترنت",
 
+  "navChat": "المجلس",
+  "@navChat": {
+    "description": "The association's chat room. «المجلس» rather than «الدردشة»: it is the word a Libyan family association uses for where its people sit and talk, and it carries the seriousness the room is meant to have."
+  },
+  "chatHall": "المجلس العام",
+  "@chatHall": {
+    "description": "The open room, as the segment that selects it. «المجلس العام» and not «المجلس»: the SCREEN is called المجلس and it holds two rooms, so naming one of them the same word puts the same string twice on one screen with two different meanings."
+  },
+  "chatToBoard": "مراسلة الإدارة",
+  "@chatToBoard": {
+    "description": "The member's side of the private segment. He writes to الإدارة as an institution, never to a named officer, so whoever is on duty answers."
+  },
+  "chatInbox": "الرسائل الخاصة",
+  "@chatInbox": {
+    "description": "The same segment as chatToBoard, read from the board's side: the inbox of every member's private thread."
+  },
+  "chatPrivateEmpty": "لا رسائل خاصة بعد — اكتب للإدارة وسيصلك الرد هنا",
+  "chatInboxEmpty": "لا رسائل خاصة من المشتركين",
+  "chatHint": "اكتب رسالتك…",
+  "chatSend": "إرسال",
+  "chatEmpty": "لا رسائل بعد — كن أول من يتحدث",
+  "chatDeleted": "حُذفت الرسالة",
+  "@chatDeleted": {
+    "description": "The tombstone left where a message was. The row survives so a gap in a conversation is visible rather than silent; the words themselves are erased in the database."
+  },
+  "chatFromBoard": "الإدارة",
+  "@chatFromBoard": {
+    "description": "Badge beside the name of anyone who spoke as staff. An announcement about a meeting reads differently from a member's opinion of it."
+  },
+  "chatDeleteTitle": "حذف الرسالة؟",
+  "chatDeleteBody": "ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المجلس.",
   "navHome": "الرئيسية",
   "navReceivables": "الاستحقاقات",
   "navPayments": "العمليات",
@@ -179,6 +210,10 @@
   "categoryRequired": "اختر بند الصرف",
   "payee": "المستفيد",
   "payeeRequired": "اختر المشترك المستفيد",
+  "recipient": "المستلم",
+  "@recipient": {
+    "description": "Who RECEIVED a disbursement, in the aid ledger's detail block. ⚠ The voucher FORM calls the same person «المستفيد» (see `payee`) — two words for one role, kept only because the association asked for «المستلم» here by name. Unifying them is one value change in this file. Distinct from handedBy («المُسلِّم»), which is the officer who handed the money over; those two genuinely are different people and sit on adjacent lines."
+  },
   "handedBy": "المُسلِّم",
   "disbursementDate": "تاريخ الصرف",
   "change": "تغيير",
@@ -199,7 +234,10 @@
   "cancelDisbursement": "إلغاء الصرف",
   "cancelDisbursementWarning": "سيتم إلغاء إيصال الصرف وإعادة قيمته إلى رصيد الجمعية، مع بقاء السجل التاريخي.",
   "disbursementCancelled": "تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق",
-  "aidTitle": "ما صُرف له من الجمعية",
+  "aidTitle": "مصروفات للمشترك",
+  "@aidTitle": {
+    "description": "The app bar over the aid ledger, third person: the association looking at one man's history. «ما صُرف له» and nothing more — «ما صُرف له من الجمعية» was truncated to «...من الجم» on a phone, which is a longer heading that says less. Whose it is, is on the page underneath it."
+  },
   "@aidTitle": {
     "description": "Staff heading, third person: the association looking at one man's aid history."
   },
@@ -207,12 +245,15 @@
   "@myAidTitle": {
     "description": "The same page in the member's own voice, inside his portal. The association's own wording."
   },
-  "aidSearchHint": "ابحث بالبند أو الملاحظة أو رقم السند",
+  "aidSearchHint": "بحث",
   "aidColDate": "التاريخ",
+  "aidColSerial": "#",
+  "@aidColSerial": {
+    "description": "The ledger's leading column — first in the children list, which in RTL puts it at the FAR RIGHT. «#» rather than «تسلسل»: the symbol is read as 'number' in an Arabic table without translation, and the word was five letters wide over a column of one to three digits, so it was sizing the column for its own heading and taking that width from البند. It numbers the voucher in the man's FULL history, oldest as 1, so the number stays attached to the voucher while a search or a period narrows the list — the same rule the الإجمالي column follows. Numbering the visible rows instead would put a «1» beside a running total of 600."
+  },
   "aidColCategory": "البند",
   "aidColAmount": "القيمة",
   "aidColRunning": "الإجمالي",
-  "aidGrandTotal": "إجمالي ما صُرف",
   "aidNoMatch": "لا يوجد سند يطابق بحثك",
   "aidShowing": "{shown} من {total}",
   "@aidShowing": {
@@ -222,17 +263,15 @@
   "disbursementNoteHint": "اسم المولود، أو صاحب المناسبة",
   "disbursementNoteHelp": "تظهر هذه الملاحظة في كشف المشترك بجانب البند، فيُعرف لماذا صُرف له.",
   "aidNoteLabel": "الملاحظات",
-  "openAid": "سجل الإعانات",
+  "openAid": "سجل الأسلاف",
+  "@openAid": {
+    "description": "Opens the aid ledger from a member's page. «سجل الأسلاف» is the association's own word for it, given by name. ⚠ Note for whoever reads this next: the record is of money the association GAVE and never deducts — a voucher writes no receivable, no payment and no allocation, and api_adeel_statement cannot reach it. The word «سلف» carries a sense of an advance to be repaid; nothing in the schema does. The label is the association's to choose, but it does not describe a debt and no code should ever start treating it as one."
+  },
   "aidTotal": "إجمالي ما صُرف له",
   "aidCount": "عدد السندات",
-  "aidPeriod": "من {from} إلى {to}",
-  "@aidPeriod": {
-    "placeholders": { "from": { "type": "String" }, "to": { "type": "String" } }
-  },
-  "aidByCategory": "حسب المناسبة",
   "aidByYear": "حسب السنة",
   "aidVouchers": "السندات",
-  "aidPanelTitle": "ما تم صرفه للمشترك",
+  "aidPanelTitle": "الإجمالي",
   "aidVoucherCount": "{count} سند",
   "@aidVoucherCount": { "placeholders": { "count": { "type": "int" } } },
   "noAid": "لم يُصرف له شيء من الجمعية بعد",
@@ -241,7 +280,7 @@
   "collectedCash": "المحصل نقداً",
   "collectedTransfer": "المحصل بتحويل",
   "dueFromMembers": "المستحقات",
-  "totalOutstanding": "إجمالي المستحق",
+  "totalOutstanding": "اشتراكات مستحقة",
   "@dueFromMembers": {
     "description": "Treasury tile: every subscriber's unpaid balance, summed. Distinct from outstandingTotal (المديونية القائمة), which the admin receivables and reports screens use — the treasury asks a shorter question and the tile is narrow."
   },
@@ -430,7 +469,6 @@
   "navRegister": "المشتركين",
   "addAdeel": "إضافة مشترك",
   "editAdeel": "تعديل مشترك",
-  "searchAdeelsHint": "بحث بالاسم أو الرمز...",
   "noAdeels": "لا يوجد مشتركون مسجلون بعد",
   "registerIntro": "كل مشترك يُسجَّل باسمه ويُحاسَب باشتراكه.",
   "adeelSaved": "تم حفظ بيانات المشترك",
@@ -463,6 +501,13 @@
     "description": "Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app."
   },
   "deviceLockedBody": "رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.",
+  "portalDetailsHint": "اسمك ورقمك وحالتك وقيمة اشتراكك الشهري",
+  "portalBankHint": "إلى أين تُرسل الحوالة، ورقم الحساب لنسخه",
+  "portalOfficialsHint": "بمن تتصل، وأرقام هواتفهم",
+  "portalTreasuryHint": "أين يقف مال الجمعية — للاطلاع فقط",
+  "@portalTreasuryHint": {
+    "description": "The one-line summary on the الصندوق menu card. It says «للاطلاع فقط» on the card itself, not only inside: a member should know before he opens it that there is nothing here for him to act on."
+  },
   "myDetailsTitle": "تفاصيل اشتراكي",
   "@myDetailsTitle": {
     "description": "Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee."
@@ -475,5 +520,10 @@
   "@openMonthsCount": { "placeholders": { "count": { "type": "int" } } },
   "monthlyFeeLabel": "الاشتراك الشهري",
   "myDuesTitle": "اشتراكاتي",
+  "openPeriodsCount": "{count, plural, =0{لا مستحقات} =1{شهر واحد} =2{شهران} few{{count} أشهر} other{{count} شهراً}}",
+  "@openPeriodsCount": {
+    "description": "How many months are still outstanding, carried on the CLOSED row of the folded «الاشتراكات» section. A fold that hides the answer costs a tap to learn what a glance used to tell, so the heading keeps the one figure the section is opened for. «لا مستحقات» at zero is an ANSWER, not a count of nothing.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "duesSection": "الاشتراكات"
 }

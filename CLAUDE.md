@@ -61,13 +61,15 @@ This dictates the data-access shape — do not deviate from it:
   N allocations, N receivable updates, and a cash movement, all-or-nothing. A
   function body is one transaction; a PostgREST call is not.
 
-  The fourteen RPCs (in `supabase/migrations/…_rpc.sql`): `register_payment`,
-  `cancel_payment`, `generate_period`, `auto_close_periods`, `save_adeel`,
-  `delete_adeel`, `update_settings`, `set_user_access`, `purge_financial_data`,
-  `purge_all_data`, `issue_adeel_code`, `redeem_adeel_code`,
-  `register_disbursement`, `cancel_disbursement`. (`write_audit` and
-  `settle_from_credit` exist but are called by triggers and by other RPCs, never
-  by the client.)
+  The sixteen RPCs (in `supabase/migrations/…_rpc.sql`, and `…_chat.sql` for the
+  last two): `register_payment`, `cancel_payment`, `generate_period`,
+  `auto_close_periods`, `save_adeel`, `delete_adeel`, `update_settings`,
+  `set_user_access`, `purge_financial_data`, `purge_all_data`,
+  `issue_adeel_code`, `redeem_adeel_code`, `register_disbursement`,
+  `cancel_disbursement`, `send_chat_message`, `delete_chat_message`.
+  (`write_audit`, `settle_from_credit` and `members_held` exist but are called by
+  triggers, by other RPCs, or from inside a view — never by the client;
+  `in_association` IS granted, because an RLS policy calls it.)
   `20260811091200_function_lockdown.sql` holds the allow-list and asserts it is
   EXACT — a function added without being listed there is unreachable, and one
   listed but ungranted fails the migration.
@@ -220,6 +222,57 @@ This dictates the data-access shape — do not deviate from it:
   history, and the panel says how many rows are showing so a jumping balance
   reads as a filter rather than a fault.
 
+  **مجلس العدايل — the first table BOTH ways in reach.** `chat_messages` is one
+  room and everyone in the association is in it, staff and عدايل alike. Every
+  other table in this schema belongs to exactly one audience; this one
+  deliberately does not, and that is its whole design problem. `read_chat` calls
+  `in_association()` — staff by `my_role()`, an عديل by `my_adeel_id()` — which
+  is the single place that question is answered. It still refuses a pending
+  applicant, a suspended account, and an عديل on a handset that has not claimed
+  his code, because BOTH functions already require `status = 'approved'` and
+  `my_adeel_id()` additionally requires the device to match.
+
+  The failure modes are silent in both directions and that is why
+  `supabase/tests/46_chat.sql` checks each from both sides: too narrow and an
+  عديل sees an empty room with nothing saying why — which a naive
+  `has_role('viewer')` policy would have produced, and which would pass every
+  test written by someone holding a staff account; too wide and an outsider is
+  sitting in the association's private conversation.
+
+  ⚠ **The author's name is SNAPSHOT onto the row.** The obvious shape —
+  `author_user_id` plus a join to `profiles` at read time — fails in the
+  dangerous way: `v_chat_messages` is SECURITY INVOKER, an عديل's RLS on
+  `profiles` shows him his own row only, so the join would return his name
+  beside his messages and NULL beside everyone else's. With the name on the row,
+  reading the room needs no access to the register or the staff list at all.
+
+  ⚠ **It polls; it is NOT Realtime, and that is not laziness.**
+  `my_adeel_id()` reads the `x-device-id` REQUEST HEADER and a websocket carries
+  no headers, so a `postgres_changes` subscription evaluated for a portal member
+  matches no policy and delivers him nothing. Staff would see messages appear
+  live while every عديل sat on a screen that never moved — invisible to anyone
+  testing with a staff account. The client asks `id > lastSeen` every four
+  seconds while the screen is open, which needs no dashboard configuration and
+  behaves identically for both kinds of account.
+
+  Deletion EMPTIES the text rather than flagging it: no policy would ever return
+  it, so keeping it protects nobody. The ROW survives as a tombstone, and the
+  ACT — who removed whose message — goes to the audit trail. Sending writes no
+  audit entry, because rule 12 exists so a FIGURE can be reconstructed and a
+  room of conversation would bury the money it was built for. Author or admin
+  only; `financeManager` is deliberately not enough, for the same reason الصرف
+  sits a rung above finance.
+
+  `chat_messages` is in `purge_all_data` and NOT in `purge_financial_data`.
+  That is forced rather than chosen: it references `adeels`, and Postgres
+  refuses to TRUNCATE a table a survivor points at — so omitting it would make
+  the wider purge FAIL, not merely leave messages behind.
+
+  In Dart it is `features/chat/`, and `/chat` is the ONE association route a
+  portal account may occupy. `portalMayOpen()` in `core/router/destinations.dart`
+  is that rule, extracted as a named function precisely so it can be asserted
+  without a router, a widget tree and a live session — `app/test/chat_test.dart`
+  pins the set at two.
 - **Money is text end to end.** Postgres serialises `numeric` as a bare JSON number
   and `dart:convert` decodes that to `double`. Every view casts amounts to text, and
   every RPC amount is sent from Dart as a `String` (not a number). Putting a treasury
@@ -257,6 +310,9 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
   the voucher form, whose fields switch on the kind. `finance_repository.dart`
   is the canonical example of the read-via-view / write-via-RPC pattern.
 - `features/oversight` — dashboard, alerts, reports, audit, settings, users.
+- `features/chat` — مجلس العدايل, the one room. `chat_repository.dart` is the
+  read-via-view / write-via-RPC pattern again; `providers.dart` holds the poll
+  and the note on why it is a poll and not Realtime.
 - `core/supabase` — client init, secure session storage (refresh token → keystore),
   error mapping (`SupabaseFailures.guard`).
 - `core/router` — `go_router` with a single `redirect` guard re-run on every
@@ -398,7 +454,7 @@ missing table cannot kill the script on one of the states it exists to name.
 
 ## Testing model — two layers, both required
 
-- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 427
+- **`supabase/tests/probe.sh`** proves the SQL against a real PostgreSQL — 480
   checks. Each rule runs with a passing case *and a failing case* (the failing
   case is what proves the rule bites). It also races two psql sessions on one
   balance to prove FIFO allocation can't double-spend, races two more on the

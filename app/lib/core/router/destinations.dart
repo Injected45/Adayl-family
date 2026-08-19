@@ -17,6 +17,10 @@ abstract final class AppRoutes {
 
   static const String home = '/';
 
+  /// مجلس العدايل. The ONE association screen a portal account may also open —
+  /// see the guard in app_router.dart, and the note on [myDues].
+  static const String chat = '/chat';
+
   /// The register. ONE route where there were two — `/families` listed
   /// households and `/members` listed the people inside them, and they describe
   /// the same rows now.
@@ -33,6 +37,28 @@ abstract final class AppRoutes {
   static const String users = '/users';
 }
 
+
+/// ── WHICH ROUTES A PORTAL ACCOUNT MAY OCCUPY ────────────────────────────────
+/// An عديل is signed in and approved, so he passes every check the router makes
+/// of a viewer — and every association screen would render EMPTY for him,
+/// because RLS hands him nothing but his own rows. Pinning him is what turns
+/// that emptiness into a coherent app.
+///
+/// ⚠ THE SET IS TWO, and the second was added for a reason that does not
+///   generalise. `/chat` is admitted because `read_chat` genuinely admits him:
+///   the room is the one table in this schema both kinds of account share, so it
+///   is a screen that is FULL for him. Anything else added here without a policy
+///   admitting him too is a blank page with no explanation on it.
+///
+/// A named function rather than a literal inside the guard, so the rule can be
+/// asserted directly — the guard around it needs a router, a widget tree and a
+/// live session before it will answer anything.
+///
+/// This is presentation either way. The database refuses him the same rows
+/// whether or not this exists; supabase/tests/45_adeel_portal.sql and 46_chat.sql
+/// are where that is actually proved.
+bool portalMayOpen(String route) =>
+    route == AppRoutes.myDues || route == AppRoutes.chat;
 class AppDestination {
   const AppDestination({
     required this.route,
@@ -77,6 +103,22 @@ const List<AppDestination> appDestinations = <AppDestination>[
     selectedIcon: Icons.groups,
     label: _registerLabel,
     primary: true,
+  ),
+  // The room. `viewer` like the register, because it is not an administrative
+  // screen — everyone in the association belongs in it, which is the point.
+  //
+  // ⚠ NOT `primary`, and that is a decision rather than an oversight. The phone
+  //   bar is a four-slot budget and this design spends it on the money path:
+  //   الرئيسية، السجل، العمليات، الصندوق. More importantly, the people this
+  //   room was built for never see the bar at all — an عديل is on the portal,
+  //   and his way in is the button on it, not this list. For staff it is one
+  //   tap behind «المزيد», which is the right weight for a screen they visit a
+  //   few times a day rather than work in.
+  AppDestination(
+    route: AppRoutes.chat,
+    icon: Icons.forum_outlined,
+    selectedIcon: Icons.forum,
+    label: _chatLabel,
   ),
   AppDestination(
     route: AppRoutes.payments,
@@ -148,6 +190,7 @@ const List<AppDestination> appDestinations = <AppDestination>[
 
 // Top-level functions, because a const list cannot hold closures.
 String _homeLabel(L l) => l.navHome;
+String _chatLabel(L l) => l.navChat;
 String _registerLabel(L l) => l.navRegister;
 String _receivablesLabel(L l) => l.navReceivables;
 String _paymentsLabel(L l) => l.navPayments;

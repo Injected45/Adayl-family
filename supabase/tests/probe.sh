@@ -39,7 +39,7 @@ export SP
 # to the broken state, so the one mechanism meant to catch a check that does not
 # exist certified its absence instead. Derive this number from the files, never
 # from what a run happened to report.
-EXPECTED_CHECKS=449
+EXPECTED_CHECKS=497
 
 run() {
   "$PSQL" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d famtest -X -q -v ON_ERROR_STOP=1 "$@"
@@ -71,6 +71,12 @@ run -f "$HERE/40_rls.sql"            2>&1 | grep -vE '^(GRANT|SET|RESET) ' || tr
 
 echo "=== family portal / per-family RLS ==="
 run -f "$HERE/45_adeel_portal.sql"    2>&1 | grep -vE "^(INSERT|UPDATE|DELETE|SELECT|SET|RESET|CREATE|DROP) " || true
+
+# The chat: the FIRST table both ways in reach. Runs beside the portal group,
+# because the rule it depends on is the portal's — my_role() returning NULL for
+# a bound عديل, and my_adeel_id() returning NULL for the wrong handset.
+echo "=== chat (one room, two kinds of account) ==="
+run -f "$HERE/46_chat.sql"           2>&1 | grep -vE '^(INSERT|UPDATE|DELETE|SELECT|SET|RESET|DO) ' || true
 
 echo "=== money precision + atomicity ==="
 run -f "$HERE/50_money_and_atomicity.sql" 2>&1 | grep -vE '^(CREATE|SET|RESET|DROP) ' || true
