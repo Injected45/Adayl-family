@@ -590,6 +590,44 @@ class LAr extends L {
   String get aidOthersAll => 'كل السندات';
 
   @override
+  String get valueTitle => 'الجدوى';
+
+  @override
+  String get valuePaid => 'دفعتَ';
+
+  @override
+  String get valueReceived => 'استلمتَ';
+
+  @override
+  String get valueAhead => 'أعطتك الجمعية أكثر مما دفعتَ بـ';
+
+  @override
+  String get valueSurplus => 'فائض تكافلك';
+
+  @override
+  String get valueSurplusNote =>
+      'ساهمتَ به في مساعدة غيرك، وهو ما يقف خلفك عند الحاجة';
+
+  @override
+  String get valueEven => 'دفعتَ واستلمتَ سواءً';
+
+  @override
+  String get valueFund => 'الجمعية';
+
+  @override
+  String valueBackToMembers(String rate) {
+    return 'من كل 100 محصَّلة، صُرف $rate على المشتركين';
+  }
+
+  @override
+  String valueHelped(int helped, int members) {
+    return 'وقفت خلف $helped من $members مشتركين';
+  }
+
+  @override
+  String get valueLargest => 'أكبر ما صُرف لمشترك واحد';
+
+  @override
   String get aidColDate => 'التاريخ';
 
   @override

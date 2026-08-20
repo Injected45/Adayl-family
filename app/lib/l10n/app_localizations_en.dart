@@ -593,6 +593,44 @@ class LEn extends L {
   String get aidOthersAll => 'All vouchers';
 
   @override
+  String get valueTitle => 'What it is worth';
+
+  @override
+  String get valuePaid => 'You paid';
+
+  @override
+  String get valueReceived => 'You received';
+
+  @override
+  String get valueAhead => 'The association gave you more than you paid, by';
+
+  @override
+  String get valueSurplus => 'Your share of others\' need';
+
+  @override
+  String get valueSurplusNote =>
+      'It went to helping others, and it is what stands behind you';
+
+  @override
+  String get valueEven => 'You paid and received the same';
+
+  @override
+  String get valueFund => 'The association';
+
+  @override
+  String valueBackToMembers(String rate) {
+    return 'Of every 100 collected, $rate went to members';
+  }
+
+  @override
+  String valueHelped(int helped, int members) {
+    return 'It stood behind $helped of $members members';
+  }
+
+  @override
+  String get valueLargest => 'Largest single payment to one member';
+
+  @override
   String get aidColDate => 'Date';
 
   @override

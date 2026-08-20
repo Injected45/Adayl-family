@@ -123,6 +123,84 @@ RETURNS jsonb LANGUAGE sql STABLE AS $fn$
   )
 $fn$;
 
+-- == 2b. جدوى العضوية =====================================================
+-- ما دفعه الرجل، وما استلمه، وموقع الجمعية كلها من ذلك — في نداء واحد.
+--
+-- ⚠ SECURITY DEFINER, AND THAT IS THE WHOLE RISK IN THIS FUNCTION.
+--   The association-wide figures — everything collected, everything given to
+--   members, how many men were helped — are NOT readable by a member: his RLS
+--   on cash_movements is `adeel_id = my_adeel_id()`, so a SECURITY INVOKER
+--   version would hand him HIS OWN four figures under headings that say «the
+--   association», which is not a leak but something worse: a wrong answer
+--   with nothing on screen to doubt. api_association_finance() is DEFINER for
+--   exactly this reason and this follows it.
+--
+--   DEFINER means RLS is bypassed, so the scoping is written HERE, in the
+--   first statement of the body: a member may ask about himself and nobody
+--   else. Staff may ask about any man, because the register is theirs to read
+--   already. Anyone else is refused outright rather than given zeros.
+--
+-- ⚠ AND IT RETURNS NO NAME, NO RECEIPT AND NO ROW — only sums and counts. A
+--   member learns what the fund did, never who did what inside it. Who
+--   received what is a separate question, answered by api_aid_others under a
+--   policy the association widened on purpose.
+CREATE OR REPLACE FUNCTION public.api_member_value(p_adeel_id bigint)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth AS $mv$
+DECLARE
+  v_me   bigint := public.my_adeel_id();
+  v_role app_role := public.my_role();
+  v_out  jsonb;
+BEGIN
+  IF v_role IS NULL AND v_me IS DISTINCT FROM p_adeel_id THEN
+    RAISE EXCEPTION 'FORBIDDEN' USING ERRCODE = 'RUL00';
+  END IF;
+  IF v_role IS NULL AND v_me IS NULL THEN
+    RAISE EXCEPTION 'FORBIDDEN' USING ERRCODE = 'RUL00';
+  END IF;
+
+  SELECT jsonb_build_object(
+    -- ── HIS SIDE ────────────────────────────────────────────────────────
+    -- What he has actually PAID, not what he was billed: the question is
+    -- what left his hand.
+    'paid', (SELECT coalesce(sum(p.amount), 0)::numeric(12,2)::text
+               FROM public.payments p
+              WHERE p.adeel_id = p_adeel_id AND p.status <> 'ملغي'),
+    'received', (SELECT coalesce(sum(d.amount), 0)::numeric(12,2)::text
+                   FROM public.disbursements d
+                  WHERE d.payee_adeel_id = p_adeel_id
+                    AND d.status <> 'ملغي'),
+
+    -- ── THE FUND ────────────────────────────────────────────────────────
+    'collected', (SELECT coalesce(sum(c.amount), 0)::numeric(12,2)::text
+                    FROM public.cash_movements c WHERE c.status <> 'ملغي'),
+    -- Everything given to NAMED members. Collective spending (فطور رمضان) is
+    -- excluded on purpose: this figure answers «how much of the fund comes
+    -- back to a man», and a shared meal comes back to everyone at once.
+    'toMembers', (SELECT coalesce(sum(d.amount), 0)::numeric(12,2)::text
+                    FROM public.disbursements d
+                   WHERE d.payee_adeel_id IS NOT NULL
+                     AND d.status <> 'ملغي'),
+
+    -- ── THE STATISTICS THAT ANSWER «ما الجدوى» ──────────────────────────
+    -- How many men the fund has actually stood behind, out of how many pay
+    -- into it. One ratio, no prose.
+    'helped', (SELECT count(DISTINCT d.payee_adeel_id)
+                 FROM public.disbursements d
+                WHERE d.payee_adeel_id IS NOT NULL AND d.status <> 'ملغي'),
+    'members', (SELECT count(*) FROM public.adeels),
+    -- ⚠ THE INSURANCE FIGURE, and the most useful number on the screen: the
+    --   largest single voucher the association has ever written to one man.
+    --   «هذا ما تقف خلفه الجمعية إن نزلت بك نازلة» is what a member is
+    --   actually buying, and no average says it.
+    'largest', (SELECT coalesce(max(d.amount), 0)::numeric(12,2)::text
+                  FROM public.disbursements d
+                 WHERE d.payee_adeel_id IS NOT NULL AND d.status <> 'ملغي')
+  ) INTO v_out;
+
+  RETURN v_out;
+END $mv$;
+
 -- ⚠ CREATED FRESH, SO IT HAS NO ACL TO KEEP — Postgres materialises EXECUTE to
 --   PUBLIC and Supabase layers anon on top. The allow-list is restated and the
 --   sweep re-run below; assert_no_public_execute() would otherwise roll this
@@ -217,7 +295,10 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     'api_association_finance()',
     -- ما أُعطي الآخرون. SECURITY INVOKER، فالسياسة هي التي تقرّر ماذا يرى
     -- المستدعي، وإسقاط read_all_disbursements_adeel يعيدها خاوية وحدها.
-    'api_aid_others(bigint)'
+    'api_aid_others(bigint)',
+    -- جدوى العضوية. SECURITY DEFINER لأن أرقام الجمعية ليست في متناول
+    -- المشترك، والنطاق مكتوب في أوّل جسدها: يسأل عن نفسه لا عن غيره.
+    'api_member_value(bigint)'
   ]::text[]
 $$;
 

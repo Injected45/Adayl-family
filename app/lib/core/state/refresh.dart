@@ -49,6 +49,8 @@ void refreshAll(WidgetRef ref) {
   ref.invalidate(finance.adeelAidProvider);
   // And what it gave everyone else — the same screen, the other direction.
   ref.invalidate(finance.aidOthersProvider);
+  // And the membership-value screen, which reads both sides at once.
+  ref.invalidate(finance.memberValueProvider);
 
   // Finance.
   ref.invalidate(finance.paymentsProvider);

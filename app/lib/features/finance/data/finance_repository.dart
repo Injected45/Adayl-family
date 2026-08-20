@@ -265,3 +265,20 @@ extension AidOthersRead on FinanceRepository {
     return AidOthers.fromJson(FinanceRepository._obj(payload));
   });
 }
+
+/// جدوى العضوية — his two figures and the fund's, in one call.
+///
+/// ⚠ SECURITY DEFINER on the server, so the scoping is written in the function
+///   rather than left to RLS: a member may ask about himself and nobody else,
+///   staff may ask about any man. It returns sums and counts only — no name, no
+///   receipt, no row.
+extension MemberValueRead on FinanceRepository {
+  Future<MemberValue> memberValue(int adeelId) =>
+      SupabaseFailures.guard(() async {
+        final dynamic payload = await _db.rpc<dynamic>(
+          'api_member_value',
+          params: <String, dynamic>{'p_adeel_id': adeelId},
+        );
+        return MemberValue.fromJson(FinanceRepository._obj(payload));
+      });
+}

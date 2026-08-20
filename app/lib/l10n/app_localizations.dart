@@ -1177,6 +1177,72 @@ abstract class L {
   /// **'كل السندات'**
   String get aidOthersAll;
 
+  /// The heading of the membership-value screen. «الجدوى» and not «الربح»: a mutual fund is not an investment, and the word chosen here is the one the whole screen depends on.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجدوى'**
+  String get valueTitle;
+
+  /// No description provided for @valuePaid.
+  ///
+  /// In ar, this message translates to:
+  /// **'دفعتَ'**
+  String get valuePaid;
+
+  /// No description provided for @valueReceived.
+  ///
+  /// In ar, this message translates to:
+  /// **'استلمتَ'**
+  String get valueReceived;
+
+  /// Shown when a member has received MORE than he paid. States the fact and nothing else — no «ربح», which would make the next man expect one.
+  ///
+  /// In ar, this message translates to:
+  /// **'أعطتك الجمعية أكثر مما دفعتَ بـ'**
+  String get valueAhead;
+
+  /// Shown when he has paid MORE than he received, and the most important string in the app. It is NOT a loss and NOT a debt the association owes him: in a mutual fund the surplus of the men nothing happened to is exactly what covers the man something happened to. Calling it anything else would teach members to stop paying once they are «ahead».
+  ///
+  /// In ar, this message translates to:
+  /// **'فائض تكافلك'**
+  String get valueSurplus;
+
+  /// No description provided for @valueSurplusNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'ساهمتَ به في مساعدة غيرك، وهو ما يقف خلفك عند الحاجة'**
+  String get valueSurplusNote;
+
+  /// No description provided for @valueEven.
+  ///
+  /// In ar, this message translates to:
+  /// **'دفعتَ واستلمتَ سواءً'**
+  String get valueEven;
+
+  /// No description provided for @valueFund.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجمعية'**
+  String get valueFund;
+
+  /// No description provided for @valueBackToMembers.
+  ///
+  /// In ar, this message translates to:
+  /// **'من كل 100 محصَّلة، صُرف {rate} على المشتركين'**
+  String valueBackToMembers(String rate);
+
+  /// No description provided for @valueHelped.
+  ///
+  /// In ar, this message translates to:
+  /// **'وقفت خلف {helped} من {members} مشتركين'**
+  String valueHelped(int helped, int members);
+
+  /// No description provided for @valueLargest.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكبر ما صُرف لمشترك واحد'**
+  String get valueLargest;
+
   /// No description provided for @aidColDate.
   ///
   /// In ar, this message translates to:

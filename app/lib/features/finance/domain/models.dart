@@ -645,3 +645,70 @@ class AidOthers {
     ],
   );
 }
+
+/// ما دفعه المشترك وما استلمه، وموقع الجمعية من ذلك.
+///
+/// ── WHY THIS EXISTS, AND THE RULE IT WAS BUILT AGAINST ──────────────────────
+/// The association asked a member to be shown what he has paid, what he has
+/// received, and the difference — which is precisely the layout the aid ledger
+/// was kept SEPARATE from his statement to avoid. «الجمعية خيرية»: aid is never
+/// deducted from a subscription, and a screen that subtracts one from the other
+/// invites the reading that a man who has taken more than he gave is square, or
+/// that one who has taken less is owed.
+///
+/// ⚠ SO THE SUBTRACTION IS NAMED, NOT AVOIDED. In a mutual fund the surplus of
+///   the men nothing happened to is exactly what covers the man something
+///   happened to — so a positive difference is «الجمعية أعطتك أكثر مما دفعت»
+///   and a negative one is «فائض تكافلك», what he contributed to others. Neither
+///   is a profit and neither is a debt, and the wording is what carries that.
+///   See AidValueScreen, where the labels live.
+///
+/// ⚠ AND NOTHING HERE IS SUBTRACTED IN DART. Every figure arrives summed by
+///   Postgres, as text — see api_member_value.
+class MemberValue {
+  const MemberValue({
+    required this.paid,
+    required this.received,
+    required this.collected,
+    required this.toMembers,
+    required this.helped,
+    required this.members,
+    required this.largest,
+  });
+
+  /// What HE has paid — receipts, not what he was billed.
+  final String paid;
+
+  /// What the association has given HIM.
+  final String received;
+
+  /// What the fund has collected, and how much of it has gone back to named
+  /// members. Collective spending is excluded from [toMembers] on purpose: a
+  /// shared meal comes back to everybody at once and answers a different
+  /// question.
+  final String collected;
+  final String toMembers;
+
+  /// How many men the fund has stood behind, out of how many pay into it.
+  final int helped;
+  final int members;
+
+  /// ⚠ THE INSURANCE FIGURE. The largest single voucher the association has
+  ///   written to one man — what a member is actually buying, and the one
+  ///   number no average can say.
+  final String largest;
+
+  // ⚠ EVERY AMOUNT DEFAULTS TO '0.00', NEVER TO AN EMPTY STRING. A blank in a
+  //   money column reads as a figure that failed to load, and on the one screen
+  //   whose entire purpose is figures that is the worst possible ambiguity —
+  //   the reader cannot tell «nothing yet» from «something went wrong».
+  factory MemberValue.fromJson(Map<String, dynamic> json) => MemberValue(
+    paid: _stringOr(json['paid'], '0.00'),
+    received: _stringOr(json['received'], '0.00'),
+    collected: _stringOr(json['collected'], '0.00'),
+    toMembers: _stringOr(json['toMembers'], '0.00'),
+    helped: _int(json['helped']),
+    members: _int(json['members']),
+    largest: _stringOr(json['largest'], '0.00'),
+  );
+}

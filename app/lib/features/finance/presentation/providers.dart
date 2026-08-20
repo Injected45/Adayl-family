@@ -71,3 +71,11 @@ final FutureProviderFamily<AidOthers, int> aidOthersProvider =
       (Ref ref, int adeelId) =>
           ref.watch(financeRepositoryProvider).aidOthers(adeelId),
     );
+
+/// جدوى العضوية. Listed in `refreshAll` like everything else that answers a
+/// question about money — see test/refresh_coverage_test.dart.
+final FutureProviderFamily<MemberValue, int> memberValueProvider =
+    FutureProvider.family<MemberValue, int>(
+      (Ref ref, int adeelId) =>
+          ref.watch(financeRepositoryProvider).memberValue(adeelId),
+    );

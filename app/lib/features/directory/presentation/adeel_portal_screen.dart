@@ -20,6 +20,7 @@ import '../../chat/presentation/unread_bell.dart';
 import '../../finance/domain/models.dart';
 import '../../finance/presentation/adeel_aid_screen.dart';
 import '../../finance/presentation/aid_others_screen.dart';
+import '../../finance/presentation/member_value_screen.dart';
 import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
 import 'portal_sections.dart';
@@ -152,6 +153,20 @@ class AdeelPortalScreen extends ConsumerWidget {
             label: l.navChat,
             badge: ref.watch(chatUnreadProvider).valueOrNull ?? 0,
             onTap: () => context.go(AppRoutes.chat),
+          ),
+          // ── ما جدوى العضوية ─────────────────────────────────────────────
+          // What he put in, what he got out, and what the fund did with the
+          // rest. A PUSH, not a route: the guard pins him to /my-dues and
+          // /chat, and pushing changes no location for it to redirect.
+          NavPillItem(
+            icon: Icons.insights_outlined,
+            selectedIcon: Icons.insights,
+            label: l.valueTitle,
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => MemberValueScreen(adeelId: adeelId),
+              ),
+            ),
           ),
         ],
       ),
