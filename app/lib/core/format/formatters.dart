@@ -192,3 +192,17 @@ class ArabicDigitsFormatter extends TextInputFormatter {
 /// for the same reason [formatPeriodMonth] takes it from there: Arabic has two
 /// homes in this project and a formatter is neither of them.
 String monthName(int month) => _monthOnlyFormat.format(DateTime(2000, month));
+
+/// «YYYY-MM» → the month name alone, for a chart axis.
+///
+/// ⚠ NO YEAR, unlike formatPeriodMonth. That one prints «ديسمبر 2025» when
+///   the period is not in the current year, which is right on a receipt and
+///   wrong on an axis tick 30px wide — the label would either collide with
+///   its neighbour or be clipped. A twelve-month window is unambiguous
+///   without it: the months run in order and the newest is named beside it.
+String formatMonthShort(String? period) {
+  if (period == null || period.length < 7) return period ?? '';
+  final int? month = int.tryParse(period.substring(5, 7));
+  if (month == null || month < 1 || month > 12) return period;
+  return monthName(month);
+}

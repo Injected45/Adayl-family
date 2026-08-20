@@ -117,6 +117,35 @@ void main() {
       );
     });
 
+    /// ── A TINTED KPI CARD ───────────────────────────────────────────────
+    ///
+    /// One card in the عديل summary wears its tone instead of merely printing
+    /// in it — العهدة, filled at 10% and bordered at 30% of AppColors.warning,
+    /// with the LABEL in that tone too. So the label and the figure sit on a
+    /// background made of themselves, which is the pairing most likely to fail:
+    /// both sides move together, and darkening the tone darkens the fill with
+    /// it.
+    test('a tinted KPI card stays legible on a fill made of its own tone', () {
+      // The design permits exactly one tinted card, but not one tinted COLOUR —
+      // the next one the association asks for will pick a different tone, and
+      // this should already have judged it.
+      final Map<String, Color> tones = <String, Color>{
+        'warning': AppColors.warning,
+        'danger': AppColors.danger,
+        'success': AppColors.success,
+        'info': AppColors.info,
+        'brandDeep': AppColors.brandDeep,
+      };
+      tones.forEach((String name, Color tone) {
+        final Color card = over(tone.withValues(alpha: 0.10), wellSurface);
+        expect(
+          contrast(tone, card),
+          greaterThanOrEqualTo(4.5),
+          reason: '$name label and figure on their own 10% fill',
+        );
+      });
+    });
+
     test('every accent is legible as text on a pane', () {
       final Map<String, Color> accents = <String, Color>{
         'brand': AppColors.brand,

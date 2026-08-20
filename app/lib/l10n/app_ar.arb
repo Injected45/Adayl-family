@@ -272,9 +272,9 @@
   "@valueAhead": { "description": "Shown when a member has received MORE than he paid. States the fact and nothing else — no «ربح», which would make the next man expect one." },
   "valueSurplus": "فائض تكافلك",
   "@valueSurplus": { "description": "Shown when he has paid MORE than he received, and the most important string in the app. It is NOT a loss and NOT a debt the association owes him: in a mutual fund the surplus of the men nothing happened to is exactly what covers the man something happened to. Calling it anything else would teach members to stop paying once they are «ahead»." },
-  "valueSurplusNote": "ساهمتَ به في مساعدة غيرك، وهو ما يقف خلفك عند الحاجة",
   "valueEven": "دفعتَ واستلمتَ سواءً",
   "valueFund": "الجمعية",
+  "valueMonths": "حركتك خلال 12 شهراً",
   "valueBackToMembers": "من كل 100 محصَّلة، صُرف {rate} على المشتركين",
   "@valueBackToMembers": { "placeholders": { "rate": { "type": "String" } } },
   "valueHelped": "وقفت خلف {helped} من {members} مشتركين",
@@ -319,6 +319,7 @@
     "description": "Treasury tile: every subscriber's unpaid balance, summed. Distinct from outstandingTotal (المديونية القائمة), which the admin receivables and reports screens use — the treasury asks a shorter question and the tile is narrow."
   },
   "heldForMembers": "عهد المشتركين",
+  "adeelCredit": "العهدة",
   "@heldForMembers": {
     "description": "Cash the association holds but has not earned: prepayments not yet settled against a billed month. It is subtracted from associationBalance, and register_disbursement refuses to spend past the same figure."
   },

@@ -117,6 +117,19 @@ WITH have AS (
     EXISTS (SELECT 1 FROM pg_policies
              WHERE schemaname='public' AND tablename='disbursements'
                AND policyname='read_all_disbursements_adeel')         AS aid_by_name,
+    -- حركة المشترك على اثني عشر شهراً. Probed by generate_series in the body of
+    -- api_member_value — the month spine, which nothing else in that function
+    -- has any reason to contain.
+    coalesce((SELECT pg_get_functiondef(p.oid) LIKE '%generate_series%'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'api_member_value'),
+             false)                                                AS patch_24,
+    -- المسح لا يترك مشتركاً خارج تطبيقه. Probed by the backfill it adds to
+    -- purge_all_data, not by the profiles table — that has always been there.
+    coalesce((SELECT p.prosrc LIKE '%INSERT INTO public.profiles%'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'purge_all_data'),
+             false)                                                AS patch_23,
     -- التاريخ من ساعة الخادم. Probed by the trigger it INSTALLS rather than
     -- by the one it removes: «the old thing is gone» is also true of a project
     -- that never had either.
@@ -203,6 +216,10 @@ SELECT * FROM (
          CASE WHEN patch_21 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 10.4, 'PATCH 22/08 — التاريخ بساعة الخادم',
          CASE WHEN patch_22 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.5, 'PATCH 23/08 — المسح يُبقي الدخول ممكناً',
+         CASE WHEN patch_23 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.6, 'PATCH 24/08 — حركة المشترك (رسم الجدوى)',
+         CASE WHEN patch_24 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -251,6 +268,14 @@ SELECT * FROM (
               WHEN NOT patch_22
                 THEN 'READY — apply supabase/PATCH_20260822_server_clock.sql'
                   || '  ⚠ التاريخ يصير من ساعة الخادم، ويسقط الإدخال اليدوي له.'
-              ELSE 'UP TO DATE — every patch through 22/08 is applied.'
+              -- ⚠ 23/08 BEFORE 24/08 and both after the clock: this one is the
+              -- only patch on the chain that un-strands people who are locked
+              -- out RIGHT NOW, so it never waits behind a chart.
+              WHEN NOT patch_23
+                THEN 'READY — apply supabase/PATCH_20260823_purge_keeps_signin.sql'
+                  || '  ⚠ يفكّ كل مشترك عَلِق بعد المسح.'
+              WHEN NOT patch_24
+                THEN 'READY — apply supabase/PATCH_20260824_member_months.sql'
+              ELSE 'UP TO DATE — every patch through 24/08 is applied.'
          END FROM have
 ) t ORDER BY ord;

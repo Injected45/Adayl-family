@@ -652,6 +652,7 @@ class MemberValue {
     required this.helped,
     required this.members,
     required this.largest,
+    this.months = const <MemberMonth>[],
   });
 
   /// What HE has paid — receipts, not what he was billed.
@@ -676,6 +677,19 @@ class MemberValue {
   ///   number no average can say.
   final String largest;
 
+  /// Twelve months of his own movement, oldest first — the chart at the foot
+  /// of «الجدوى».
+  ///
+  /// ⚠ ALWAYS TWELVE, INCLUDING THE EMPTY ONES. The server generates the
+  ///   spine rather than grouping the rows, because a chart drawn from only
+  ///   the months he happened to pay in has no time axis at all: three months
+  ///   of silence would be plotted exactly like three consecutive payments.
+  ///
+  /// ⚠ AND EMPTY ON A DATABASE THAT PREDATES THE COLUMN, which is why it
+  ///   defaults rather than being required — the screen then draws no chart
+  ///   instead of failing to parse.
+  final List<MemberMonth> months;
+
   // ⚠ EVERY AMOUNT DEFAULTS TO '0.00', NEVER TO AN EMPTY STRING. A blank in a
   //   money column reads as a figure that failed to load, and on the one screen
   //   whose entire purpose is figures that is the worst possible ambiguity —
@@ -688,5 +702,36 @@ class MemberValue {
     helped: _int(json['helped']),
     members: _int(json['members']),
     largest: _stringOr(json['largest'], '0.00'),
+    months: <MemberMonth>[
+      for (final dynamic m
+          in (json['months'] as List<dynamic>? ?? const <dynamic>[]))
+        MemberMonth.fromJson(m as Map<String, dynamic>),
+    ],
+  );
+}
+
+/// One column of the «الجدوى» chart: a calendar month, what he paid into the
+/// fund in it, and what the fund paid out to him.
+///
+/// ⚠ BOTH FIGURES ARE TEXT AND STAY TEXT. They are parsed to a double exactly
+///   once, inside the painter, to decide how tall to draw a bar — which is
+///   measuring, not accounting. Nothing sums them: the totals this chart sits
+///   under come from api_member_value already added up.
+class MemberMonth {
+  const MemberMonth({
+    required this.period,
+    required this.paid,
+    required this.received,
+  });
+
+  /// «YYYY-MM», the same shape a receivable's period has.
+  final String period;
+  final String paid;
+  final String received;
+
+  factory MemberMonth.fromJson(Map<String, dynamic> json) => MemberMonth(
+    period: _string(json['period']),
+    paid: _stringOr(json['paid'], '0.00'),
+    received: _stringOr(json['received'], '0.00'),
   );
 }

@@ -608,14 +608,13 @@ class LAr extends L {
   String get valueSurplus => 'فائض تكافلك';
 
   @override
-  String get valueSurplusNote =>
-      'ساهمتَ به في مساعدة غيرك، وهو ما يقف خلفك عند الحاجة';
-
-  @override
   String get valueEven => 'دفعتَ واستلمتَ سواءً';
 
   @override
   String get valueFund => 'الجمعية';
+
+  @override
+  String get valueMonths => 'حركتك خلال 12 شهراً';
 
   @override
   String valueBackToMembers(String rate) {
@@ -709,6 +708,9 @@ class LAr extends L {
 
   @override
   String get heldForMembers => 'عهد المشتركين';
+
+  @override
+  String get adeelCredit => 'العهدة';
 
   @override
   String get associationBalance => 'رصيد الجمعية';

@@ -612,14 +612,13 @@ class LEn extends L {
   String get valueSurplus => 'Your share of others\' need';
 
   @override
-  String get valueSurplusNote =>
-      'It went to helping others, and it is what stands behind you';
-
-  @override
   String get valueEven => 'You paid and received the same';
 
   @override
   String get valueFund => 'The association';
+
+  @override
+  String get valueMonths => 'Your movement over 12 months';
 
   @override
   String valueBackToMembers(String rate) {
@@ -714,6 +713,9 @@ class LEn extends L {
 
   @override
   String get heldForMembers => 'Held for members';
+
+  @override
+  String get adeelCredit => 'Credit held';
 
   @override
   String get associationBalance => 'Association balance';

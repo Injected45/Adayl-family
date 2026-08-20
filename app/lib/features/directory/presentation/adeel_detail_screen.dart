@@ -390,6 +390,12 @@ class _SummaryCard extends StatelessWidget {
     final L l = L.of(context);
     final bool owes = (double.tryParse(detail.debt) ?? 0) > 0;
 
+    // ⚠ PARSED FOR A COMPARISON, NEVER FOR ARITHMETIC. Money is text end to
+    //   end in this app because Postgres numerics must not land on binary
+    //   floating point — but asking «is there any» is not summing, and
+    //   AdeelDetail.owes already reads its own figure exactly this way.
+    final bool hasCredit = (double.tryParse(detail.credit) ?? 0) > 0;
+
     // ── FOLDED, with what he OWES on the closed row ─────────────────────────
     // Five figures in a grid answered a question a reader almost never asks in
     // full: what he is billed monthly, what has been issued, what he has paid,
@@ -463,6 +469,34 @@ class _SummaryCard extends StatelessWidget {
                   value: formatMoney(detail.debt),
                   tone: owes ? AppColors.danger : AppColors.success,
                 ),
+
+                // ── العهدة ────────────────────────────────────────────
+                // What he has handed over that no month has claimed yet.
+                //
+                // ⚠ ONLY WHEN THERE IS SOME. «العهدة: 0.00» on every man in
+                //   the register is one true fact repeated until it stops
+                //   being read, and a card that is coloured differently from
+                //   its five neighbours has to MEAN something when it appears.
+                //   Most men have no credit; the ones who do are the point.
+                //
+                // ⚠ AND IT SITS BESIDE THE DEBT ON PURPOSE, which is the
+                //   opposite of the rule for أسلاف. Aid must never be put
+                //   next to what a man owes, because the eye subtracts and
+                //   الجمعية خيرية — charity does not cancel dues. Credit is
+                //   different: `netBalance = debt − credit` is arithmetic the
+                //   database itself performs, so the two belong together and
+                //   subtracting them is the correct reading.
+                //
+                // AppColors.warning because that is already عهدة everywhere
+                // else — the treasury, the dashboard, the portal. A sixth
+                // colour for the sixth screen would make it a new concept.
+                if (hasCredit)
+                  _Kpi(
+                    label: l.adeelCredit,
+                    value: formatMoney(detail.credit),
+                    tone: AppColors.warning,
+                    tinted: true,
+                  ),
                 _Kpi(label: l.totalPaid, value: formatMoney(detail.paid)),
                 _Kpi(
                   label: l.openPeriodsBadge(detail.openPeriods),
@@ -482,22 +516,39 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _Kpi extends StatelessWidget {
-  const _Kpi({required this.label, required this.value, this.tone});
+  const _Kpi({
+    required this.label,
+    required this.value,
+    this.tone,
+    this.tinted = false,
+  });
 
   final String label;
   final String value;
   final Color? tone;
 
+  /// Wear the tone instead of merely printing in it — fill, border and label
+  /// all take it, not just the figure.
+  ///
+  /// ⚠ FOR EXACTLY ONE CARD IN THIS GRID, and it stops being useful the
+  ///   moment a second one has it. Five identical wells and one that is not
+  ///   is a difference the eye finds without being told; two tinted cards is
+  ///   a colour scheme, and a reader has to start comparing them.
+  final bool tinted;
+
   @override
   Widget build(BuildContext context) {
+    final Color paint = tone ?? AppColors.ink;
     // A recessed well, not another pane: these sit INSIDE the summary glass, and
     // glass on glass has no readable boundary.
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: GlassColors.well,
+        color: tinted ? paint.withValues(alpha: 0.10) : GlassColors.well,
         borderRadius: BorderRadius.circular(AppRadius.control),
-        border: Border.all(color: GlassColors.wellEdge),
+        border: Border.all(
+          color: tinted ? paint.withValues(alpha: 0.30) : GlassColors.wellEdge,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,7 +558,12 @@ class _Kpi extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall,
+            // The label joins the tone only when the card wears it. Elsewhere
+            // it stays the muted grey every other card uses, so a coloured
+            // FIGURE (a debt in red) still reads as one card among five.
+            style: tinted
+                ? Theme.of(context).textTheme.labelSmall?.copyWith(color: paint)
+                : Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(height: 2),
           FittedBox(
@@ -520,7 +576,7 @@ class _Kpi extends StatelessWidget {
                 fontFamily: AppFonts.display,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: tone ?? AppColors.ink,
+                color: paint,
               ),
             ),
           ),

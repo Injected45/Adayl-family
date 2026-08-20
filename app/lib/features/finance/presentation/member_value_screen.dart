@@ -9,6 +9,7 @@ import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
+import 'member_months_chart.dart';
 import 'providers.dart';
 
 /// «الجدوى» — what a man put in, what he got out, and what the fund did.
@@ -163,6 +164,15 @@ class _Body extends StatelessWidget {
             ],
           ),
         ),
+
+        // ── حركته، في الفراغ أسفل الشاشة ──────────────────────────────────
+        // ⚠ IT DRAWS ITSELF ONLY IF THERE IS MOVEMENT. A man who has never
+        //   paid gets the four figures and nothing else, rather than a
+        //   full-width graphic of twelve empty columns on the one screen
+        //   built to answer «ما الجدوى».
+        const SizedBox(height: AppSpacing.xl),
+        MemberMonthsChart(months: value.months),
+
         const SizedBox(height: AppSpacing.xl),
       ],
     );
@@ -255,18 +265,11 @@ class _Verdict extends StatelessWidget {
               color: ahead ? AppColors.success : AppColors.info,
             ),
           ),
-          if (!ahead) ...<Widget>[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              l.valueSurplusNote,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                height: 1.5,
-                color: AppColors.muted,
-              ),
-            ),
-          ],
+          // ⚠ THE SENTENCE UNDER THE FIGURE IS GONE, at the association’s
+          //   request — «ساهمتَ به في مساعدة غيرك…». Every heading above a
+          //   VALUE stays, and so does every line inside «الجمعية»: those
+          //   were asked for and kept. This one explained a figure that the
+          //   heading directly above it already names.
         ],
       ),
     );

@@ -1213,12 +1213,6 @@ abstract class L {
   /// **'فائض تكافلك'**
   String get valueSurplus;
 
-  /// No description provided for @valueSurplusNote.
-  ///
-  /// In ar, this message translates to:
-  /// **'ساهمتَ به في مساعدة غيرك، وهو ما يقف خلفك عند الحاجة'**
-  String get valueSurplusNote;
-
   /// No description provided for @valueEven.
   ///
   /// In ar, this message translates to:
@@ -1230,6 +1224,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'الجمعية'**
   String get valueFund;
+
+  /// No description provided for @valueMonths.
+  ///
+  /// In ar, this message translates to:
+  /// **'حركتك خلال 12 شهراً'**
+  String get valueMonths;
 
   /// No description provided for @valueBackToMembers.
   ///
@@ -1398,6 +1398,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'عهد المشتركين'**
   String get heldForMembers;
+
+  /// No description provided for @adeelCredit.
+  ///
+  /// In ar, this message translates to:
+  /// **'العهدة'**
+  String get adeelCredit;
 
   /// The treasury total, renamed. It is the LAST tile because it is the conclusion of the three above it — cash in, transfers in, still owed — rather than a fourth independent fact. `collectedThisYear` was removed with it: in an association's first year that tile showed the same number as this one.
   ///
