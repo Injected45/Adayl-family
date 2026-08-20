@@ -5,6 +5,7 @@ import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
+import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
@@ -109,15 +110,23 @@ class _AdeelAidScreenState extends ConsumerState<AdeelAidScreen> {
     );
     final String title = widget.mine ? l.myAidTitle : l.aidTitle;
 
-    final Widget body = AsyncView<AdeelAid>(
-      value: aid,
-      onRetry: () => ref.invalidate(adeelAidProvider(widget.adeelId)),
-      builder: (AdeelAid data) => _AidBody(
-        aid: data,
-        mine: widget.mine,
-        query: _query,
-        search: _search,
-        onQuery: (String q) => setState(() => _query = q),
+    // ⚠ THIS SCREEN HAD NO REFRESH AT ALL, and it is the one that showed a
+    //   member a stale ledger for hours. A member has no app bar and therefore
+    //   no ⟳ button; the portal behind him refreshed two providers and not this
+    //   one; and nothing else in the app touched it. The only thing that ever
+    //   cleared it was killing the app.
+    final Widget body = RefreshIndicator(
+      onRefresh: () async => refreshAll(ref),
+      child: AsyncView<AdeelAid>(
+        value: aid,
+        onRetry: () => ref.invalidate(adeelAidProvider(widget.adeelId)),
+        builder: (AdeelAid data) => _AidBody(
+          aid: data,
+          mine: widget.mine,
+          query: _query,
+          search: _search,
+          onQuery: (String q) => setState(() => _query = q),
+        ),
       ),
     );
 
@@ -214,9 +223,9 @@ class _AidBody extends StatelessWidget {
                 // The SAME size as the name, and muted rather than smaller:
                 // matching the size is what makes the two read as one line;
                 // the colour is what keeps the name the thing read first.
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppColors.muted,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(color: AppColors.muted),
               ),
             ],
           ),
@@ -408,6 +417,7 @@ List<DisbursementView> _liveUnder(
     .map((AidLedgerEntry e) => e.voucher)
     .where((DisbursementView v) => !v.cancelled && where(v))
     .toList();
+
 /// One line of a breakdown — and the vouchers behind it, on a tap.
 ///
 /// «مولود  ٣ سندات  450.00» answers how much went on births and stops there.
@@ -739,8 +749,6 @@ class _AidPanelState extends State<_AidPanel> {
   }
 }
 
-
-
 /// How wide each money column actually needs to be.
 ///
 /// ── WHY THE COLUMNS ARE NOT THIRDS ──────────────────────────────────────────
@@ -812,6 +820,7 @@ double _columnWidth({
   final double cap = available * share;
   return padded > cap ? cap : padded;
 }
+
 /// One cell: one line when the words fit, two when they do not.
 ///
 /// ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
@@ -1035,9 +1044,7 @@ class _LedgerLine extends StatelessWidget {
                       formatMoney(v.amount),
                       style: base.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: cancelled
-                            ? AppColors.muted
-                            : AppColors.danger,
+                        color: cancelled ? AppColors.muted : AppColors.danger,
                       ),
                     ),
                   ),
@@ -1155,7 +1162,6 @@ class _LedgerDetail extends StatelessWidget {
   }
 }
 
-
 /// Two facts on one line, each with its label ABOVE it.
 ///
 /// Used where the pair IS the fact: a voucher is identified by its number and
@@ -1191,9 +1197,13 @@ class _DetailPair extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Expanded(child: _Stacked(label: firstLabel, value: firstValue)),
+          Expanded(
+            child: _Stacked(label: firstLabel, value: firstValue),
+          ),
           const SizedBox(width: AppSpacing.md),
-          Expanded(child: _Stacked(label: secondLabel, value: secondValue)),
+          Expanded(
+            child: _Stacked(label: secondLabel, value: secondValue),
+          ),
         ],
       ),
     );
@@ -1222,6 +1232,7 @@ class _Stacked extends StatelessWidget {
     );
   }
 }
+
 class _DetailLine extends StatelessWidget {
   const _DetailLine({required this.label, required this.value});
 
@@ -1242,9 +1253,7 @@ class _DetailLine extends StatelessWidget {
               style: const TextStyle(fontSize: 11, color: AppColors.muted),
             ),
           ),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 12)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );

@@ -7,6 +7,7 @@ import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
+import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
@@ -163,10 +164,13 @@ class AdeelPortalScreen extends ConsumerWidget {
                   value: ref.watch(adeelDetailProvider(adeelId)),
                   onRetry: () => ref.invalidate(adeelDetailProvider(adeelId)),
                   builder: (AdeelDetail data) => RefreshIndicator(
-                    onRefresh: () async {
-                      ref.invalidate(adeelDetailProvider(adeelId));
-                      ref.invalidate(statementProvider(adeelId));
-                    },
+                    // ⚠ EVERYTHING, not the two providers this screen
+                    //   happens to name. It reloaded his detail and his
+                    //   statement and left «ما صُرف لك» untouched — so a
+                    //   member who pulled the page down was told, in the
+                    //   most direct way the app has, that he was now up to
+                    //   date. He was not.
+                    onRefresh: () async => refreshAll(ref),
                     child: _PortalBody(adeelId: adeelId, detail: data),
                   ),
                 ),
@@ -1591,10 +1595,7 @@ class _ChatButton extends ConsumerWidget {
           if (unread > 0)
             Container(
               margin: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 7,
-                vertical: 2,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               constraints: const BoxConstraints(minWidth: 22),
               alignment: Alignment.center,
               decoration: BoxDecoration(

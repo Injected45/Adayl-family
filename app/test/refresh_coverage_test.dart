@@ -60,6 +60,8 @@ void main() {
     'authControllerProvider': 'the session, watched live by the router',
   };
 
+  _pullRefreshTests();
+
   test('every data provider is thrown away by refreshAll', () {
     final String refresh = File(
       'lib/core/state/refresh.dart',
@@ -67,8 +69,9 @@ void main() {
 
     final List<String> missing = <String>[];
 
-    for (final FileSystemEntity e
-        in Directory('lib/features').listSync(recursive: true)) {
+    for (final FileSystemEntity e in Directory(
+      'lib/features',
+    ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
 
       for (final RegExpMatch m in RegExp(
@@ -96,8 +99,9 @@ void main() {
     // An exemption for a deleted provider is a note that has stopped being
     // read — and the next provider to take that name inherits the excuse.
     final Set<String> declared = <String>{};
-    for (final FileSystemEntity e
-        in Directory('lib/features').listSync(recursive: true)) {
+    for (final FileSystemEntity e in Directory(
+      'lib/features',
+    ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
       for (final RegExpMatch m in RegExp(
         r'^final\s+[A-Za-z<>,\s?]+\s+([a-zA-Z]+Provider)\s*=',
@@ -112,5 +116,57 @@ void main() {
         .toList();
 
     expect(stale, isEmpty, reason: 'exemptions for providers that are gone');
+  });
+}
+
+/// And no screen refreshes only ITSELF.
+///
+/// ── THE SECOND HALF OF THE SAME BUG ─────────────────────────────────────────
+/// refresh.dart argues this for the ⟳ button in the app bar: nothing in this app
+/// is only local, so a refresh that reloads the screen in front of you leaves
+/// five others quietly stale. The PULL gesture was never held to the same rule —
+/// each screen invalidated the two or three providers its author had in mind.
+///
+/// So a member could pull his portal down, watch the spinner, and still be shown
+/// an aid ledger from before the voucher existed: the pull reloaded his detail
+/// and his statement and touched nothing else. That is worse than no refresh at
+/// all, because the gesture told him he was up to date.
+///
+/// ⚠ AND A MEMBER HAS NO ⟳ BUTTON. The portal is not an AppScaffold — he has one
+///   destination, so he gets no navigation bar and no app bar with it. The pull
+///   is the ONLY refresh he has, which is why it has to be the whole one.
+void _pullRefreshTests() {
+  test('every pull-to-refresh calls refreshAll and nothing narrower', () {
+    final List<String> narrow = <String>[];
+
+    for (final FileSystemEntity e in Directory(
+      'lib/features',
+    ).listSync(recursive: true)) {
+      if (e is! File || !e.path.endsWith('.dart')) continue;
+      final String src = e.readAsStringSync();
+      if (!src.contains('onRefresh:')) continue;
+
+      // Everything from each `onRefresh:` to the end of its callback — good
+      // enough to tell «refreshAll(ref)» from a hand-picked list, which is the
+      // only distinction being made.
+      for (final RegExpMatch m in RegExp(
+        r'onRefresh:[\s\S]{0,400}?\n\s*(child:|\))',
+      ).allMatches(src)) {
+        final String block = m.group(0)!;
+        if (block.contains('refreshAll')) continue;
+        narrow.add(
+          '${e.path}\n      ${block.split('\n').take(3).join('\n      ')}',
+        );
+      }
+    }
+
+    expect(
+      narrow,
+      isEmpty,
+      reason:
+          'A pull that reloads part of the app tells the user he is up to date '
+          'when he is not — and for a member it is the only refresh there is. '
+          'Use refreshAll(ref):\n  ${narrow.join('\n  ')}',
+    );
   });
 }

@@ -52,7 +52,6 @@ class UsersScreen extends ConsumerWidget {
           return ListView(
             padding: screenPadding(context),
             children: <Widget>[
-
               if (pending.isNotEmpty) ...<Widget>[
                 Text(
                   '${l.pendingRequests} (${pending.length})',

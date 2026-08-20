@@ -45,15 +45,14 @@ class DirectoryRepository {
   /// OWN receipts, so it would have shown him his four figures under headings
   /// that say "the association's". `api_association_finance()` is SECURITY
   /// DEFINER and returns aggregates only — no name, no receipt, no row.
-  Future<AssociationFinance> associationFinance() =>
-      SupabaseFailures.guard(() async {
-        final dynamic payload = await _db.rpc<dynamic>(
-          'api_association_finance',
-        );
-        return AssociationFinance.fromJson(
-          (payload as Map).cast<String, dynamic>(),
-        );
-      });
+  Future<AssociationFinance> associationFinance() => SupabaseFailures.guard(
+    () async {
+      final dynamic payload = await _db.rpc<dynamic>('api_association_finance');
+      return AssociationFinance.fromJson(
+        (payload as Map).cast<String, dynamic>(),
+      );
+    },
+  );
 
   Future<List<Official>> officials() => SupabaseFailures.guard(() async {
     final dynamic rows = await _db.from('v_officials').select();
@@ -61,36 +60,35 @@ class DirectoryRepository {
   });
 
   /// The register. One list where there were two — families and members.
-  Future<List<AdeelListItem>> adeels({String query = ''}) =>
-      SupabaseFailures.guard(() async {
-        // The search covers his name and his code. `or` takes
-        // PostgREST filter syntax, so the pattern is interpolated — safe because
-        // the value never reaches SQL as code, but commas and parentheses would
-        // break the filter grammar, so they are stripped.
-        final String safe = query.replaceAll(RegExp(r'[(),*]'), ' ').trim();
-        final PostgrestFilterBuilder<dynamic> base = _db
-            .from('v_adeels')
-            .select();
-        // ── الأقدم في الأعلى: A-01 ثم A-02 … ─────────────────────────────────
-        // `ascending: true` مكتوبة صراحةً، وليست زائدة: الافتراضي في عميل Dart
-        // هو `ascending = false`، على خلاف PostgREST نفسه وعلى خلاف ما يوحي به
-        // اسم الدالة. فـ `.order('id')` وحدها كانت تعني تنازليًا — أي أحدث
-        // مشترك في الرأس — وهذا ما كان يظهر في الشاشة.
-        //
-        // والخطأ من النوع الذي لا يُكتشَف بالقراءة: السطر يبدو صحيحًا تمامًا،
-        // ولا يُرى إلا على شاشة فيها أكثر من صفّين. فالقاعدة في
-        // tool/supabase_lint.dart تُلزم كتابة `ascending:` في كل نداء، حتى لا
-        // يعود أحد يعتمد على افتراضٍ يقول عكس ما يبدو.
-        final dynamic rows = safe.isEmpty
-            ? await base.order('id', ascending: true)
-            : await base
-                  .or(
-                    'fullName.ilike.%$safe%,'
-                    'adeelCode.ilike.%$safe%',
-                  )
-                  .order('id', ascending: true);
-        return _rows(rows).map(AdeelListItem.fromJson).toList();
-      });
+  Future<List<AdeelListItem>> adeels({
+    String query = '',
+  }) => SupabaseFailures.guard(() async {
+    // The search covers his name and his code. `or` takes
+    // PostgREST filter syntax, so the pattern is interpolated — safe because
+    // the value never reaches SQL as code, but commas and parentheses would
+    // break the filter grammar, so they are stripped.
+    final String safe = query.replaceAll(RegExp(r'[(),*]'), ' ').trim();
+    final PostgrestFilterBuilder<dynamic> base = _db.from('v_adeels').select();
+    // ── الأقدم في الأعلى: A-01 ثم A-02 … ─────────────────────────────────
+    // `ascending: true` مكتوبة صراحةً، وليست زائدة: الافتراضي في عميل Dart
+    // هو `ascending = false`، على خلاف PostgREST نفسه وعلى خلاف ما يوحي به
+    // اسم الدالة. فـ `.order('id')` وحدها كانت تعني تنازليًا — أي أحدث
+    // مشترك في الرأس — وهذا ما كان يظهر في الشاشة.
+    //
+    // والخطأ من النوع الذي لا يُكتشَف بالقراءة: السطر يبدو صحيحًا تمامًا،
+    // ولا يُرى إلا على شاشة فيها أكثر من صفّين. فالقاعدة في
+    // tool/supabase_lint.dart تُلزم كتابة `ascending:` في كل نداء، حتى لا
+    // يعود أحد يعتمد على افتراضٍ يقول عكس ما يبدو.
+    final dynamic rows = safe.isEmpty
+        ? await base.order('id', ascending: true)
+        : await base
+              .or(
+                'fullName.ilike.%$safe%,'
+                'adeelCode.ilike.%$safe%',
+              )
+              .order('id', ascending: true);
+    return _rows(rows).map(AdeelListItem.fromJson).toList();
+  });
 
   Future<AdeelDetail> adeel(int id) => SupabaseFailures.guard(() async {
     final dynamic payload = await _db.rpc<dynamic>(
@@ -144,16 +142,14 @@ class DirectoryRepository {
   /// array of sons and had to delete the absent ones before inserting the
   /// present ones. One call writes one row now, and that ordering hazard cannot
   /// arise.
-  Future<int> saveAdeel({
-    int? id,
-    required Map<String, String> fields,
-  }) => SupabaseFailures.guard(() async {
-    final dynamic payload = await _db.rpc<dynamic>(
-      'save_adeel',
-      params: <String, dynamic>{'p_adeel_id': id, 'p_adeel': fields},
-    );
-    return (_obj(payload)['adeelId'] as num).toInt();
-  });
+  Future<int> saveAdeel({int? id, required Map<String, String> fields}) =>
+      SupabaseFailures.guard(() async {
+        final dynamic payload = await _db.rpc<dynamic>(
+          'save_adeel',
+          params: <String, dynamic>{'p_adeel_id': id, 'p_adeel': fields},
+        );
+        return (_obj(payload)['adeelId'] as num).toInt();
+      });
 
   /// Removes an عديل from the register outright.
   ///

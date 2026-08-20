@@ -455,10 +455,9 @@ class _DangerZoneState extends ConsumerState<_DangerZone> {
             dialogTitle: l.purgeAllConfirmTitle,
             dialogAction: l.purgeAllConfirmAction,
             dialogBody: <String>[l.purgeAllIntro, l.purgeAllWhyFinancial],
-            call: (String confirm) =>
-                ref.read(oversightRepositoryProvider).purgeAllData(
-                  confirm: confirm,
-                ),
+            call: (String confirm) => ref
+                .read(oversightRepositoryProvider)
+                .purgeAllData(confirm: confirm),
             emptyMessage: l.purgeAllNothingToDo,
           ),
         ),
@@ -682,9 +681,7 @@ class _OfficialPicker extends ConsumerWidget {
     // A post whose holder is not in the list — he was excluded as the other
     // official, or the register is still loading — must not be handed to the
     // dropdown, which asserts on a value with no matching item.
-    final bool valueIsOffered = options.any(
-      (AdeelListItem a) => a.id == value,
-    );
+    final bool valueIsOffered = options.any((AdeelListItem a) => a.id == value);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),

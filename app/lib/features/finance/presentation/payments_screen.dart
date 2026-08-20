@@ -417,10 +417,7 @@ class _DisbursementsTab extends ConsumerWidget {
           ),
 
           if (items.isEmpty)
-            EmptyStateView(
-              icon: Icons.north_east,
-              title: l.noDisbursements,
-            )
+            EmptyStateView(icon: Icons.north_east, title: l.noDisbursements)
           else
             for (final DisbursementView v in items)
               _VoucherCard(voucher: v, role: role),
@@ -429,7 +426,6 @@ class _DisbursementsTab extends ConsumerWidget {
     );
   }
 }
-
 
 /// A voucher: WHO and HOW MUCH on the face of it, the rest on a tap.
 ///
@@ -581,7 +577,8 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 if (v.note.isNotEmpty)
                   _VoucherLine(label: l.notesField, value: v.note),
 
-                if (!cancelled && widget.role.atLeast(AppRole.admin)) ...<Widget>[
+                if (!cancelled &&
+                    widget.role.atLeast(AppRole.admin)) ...<Widget>[
                   const SizedBox(height: AppSpacing.sm),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
@@ -623,9 +620,7 @@ class _VoucherLine extends StatelessWidget {
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
         ),
-        Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 13)),
-        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
       ],
     ),
   );

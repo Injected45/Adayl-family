@@ -7,6 +7,7 @@ import '../../../core/config/theme.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/destinations.dart';
+import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/figure_breakdown.dart';
@@ -52,10 +53,7 @@ class DashboardScreen extends ConsumerWidget {
         value: dashboard,
         onRetry: () => ref.invalidate(dashboardProvider),
         builder: (DashboardData data) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(dashboardProvider);
-            ref.invalidate(cashSummaryProvider);
-          },
+          onRefresh: () async => refreshAll(ref),
           child: ListView(
             // See cash_screen: a RefreshIndicator over a list that fits the
             // screen ignores the pull unless the physics always accept it.
@@ -64,8 +62,7 @@ class DashboardScreen extends ConsumerWidget {
             children: <Widget>[
               if (role.atLeast(AppRole.financeManager)) ...<Widget>[
                 FilledButton.icon(
-                  onPressed: () =>
-                      _closeMonth(context, ref, l),
+                  onPressed: () => _closeMonth(context, ref, l),
                   icon: const Icon(Icons.event_available, size: 18),
                   label: Text(l.closeMonth),
                 ),
@@ -221,10 +218,7 @@ Future<void> _closeMonth(BuildContext context, WidgetRef ref, L l) async {
     context: context,
     builder: (BuildContext dialogContext) => GlassDialog(
       title: Text(l.generateConfirmTitle(chosen.label)),
-      content: Text(
-        l.generateConfirmBody,
-        style: const TextStyle(height: 1.5),
-      ),
+      content: Text(l.generateConfirmBody, style: const TextStyle(height: 1.5)),
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -323,9 +317,7 @@ class _PeriodPickerDialog extends ConsumerWidget {
                         p.label,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: p.selectable
-                              ? AppColors.ink
-                              : AppColors.muted,
+                          color: p.selectable ? AppColors.ink : AppColors.muted,
                         ),
                       ),
                       subtitle: Text(

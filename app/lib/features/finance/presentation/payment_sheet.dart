@@ -413,8 +413,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                 _ReceiverField(
                   value: _receiver,
                   enabled: !_submitting,
-                  onChanged: (String? name) =>
-                      setState(() => _receiver = name),
+                  onChanged: (String? name) => setState(() => _receiver = name),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
@@ -457,7 +456,6 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
     );
   }
 }
-
 
 /// Who received the money, chosen from the two officials named in settings.
 ///
@@ -505,8 +503,7 @@ class _ReceiverField extends ConsumerWidget {
       // A name that is no longer offered — an official renamed in settings
       // while this sheet sat open — would make the dropdown assert. Fall back
       // to nothing selected instead.
-      initialValue:
-          named.any((Official official) => official.name == value)
+      initialValue: named.any((Official official) => official.name == value)
           ? value
           : null,
       isExpanded: true,

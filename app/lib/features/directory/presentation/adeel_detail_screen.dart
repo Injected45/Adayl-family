@@ -303,7 +303,6 @@ class AdeelDetailScreen extends ConsumerWidget {
   }
 }
 
-
 /// His personal data, behind his name.
 ///
 /// It was a panel halfway down the page carrying three facts — his telephone,
@@ -379,6 +378,7 @@ void _showPersonalData(BuildContext context, AdeelView adeel) {
     ),
   );
 }
+
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.detail, required this.currency});
 

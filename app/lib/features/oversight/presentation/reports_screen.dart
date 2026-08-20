@@ -54,7 +54,6 @@ class ReportsScreen extends ConsumerWidget {
         builder: (FinancialReport data) => ListView(
           padding: screenPadding(context),
           children: <Widget>[
-
             Row(
               children: <Widget>[
                 Expanded(

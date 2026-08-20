@@ -7,6 +7,7 @@ import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
+import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
@@ -39,7 +40,9 @@ class AdeelsScreen extends ConsumerWidget {
     // ⚠ It is one widget to put back, and the day the register outgrows a
     //   single scroll is the day to do it: the filter itself lives in
     //   PostgREST, not here, so nothing about it has been lost.
-    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(adeelsProvider(''));
+    final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
+      adeelsProvider(''),
+    );
 
     final AppRole role =
         ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
@@ -88,7 +91,9 @@ class AdeelsScreen extends ConsumerWidget {
                   );
                 }
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(adeelsProvider('')),
+                  // The register moves with every payment and every
+                  // closing, and so does everything else — see refreshAll.
+                  onRefresh: () async => refreshAll(ref),
                   child: ListView.separated(
                     // Always scrollable so a register of three عدايل can still
                     // be pulled to refresh. Without it the RefreshIndicator
@@ -204,9 +209,7 @@ class _OutstandingBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
-    final CashSummaryView? summary = ref
-        .watch(cashSummaryProvider)
-        .valueOrNull;
+    final CashSummaryView? summary = ref.watch(cashSummaryProvider).valueOrNull;
     if (summary == null) return const SizedBox.shrink();
 
     return Padding(

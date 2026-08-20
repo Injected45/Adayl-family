@@ -6,6 +6,7 @@ import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
+import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/figure_breakdown.dart';
@@ -29,14 +30,11 @@ class CashScreen extends ConsumerWidget {
       title: l.navCash,
       currentRoute: AppRoutes.cash,
       body: (BuildContext context) => RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(cashSummaryProvider);
-          ref.invalidate(cashMovementsProvider);
-          // The outgoing side refreshes with the incoming one. A pull that
-          // reloaded half the page would leave the balance tile disagreeing
-          // with the vouchers listed under it.
-          ref.invalidate(disbursementsProvider);
-        },
+        // Was three providers, chosen by hand. The argument for naming them —
+        // that the balance must not disagree with the vouchers under it — is
+        // the argument for refreshAll: the register, the dashboard and a
+        // member's own aid ledger move with the same payment.
+        onRefresh: () async => refreshAll(ref),
         child: ListView(
           // The RefreshIndicator above needs a scrollable that always accepts
           // the gesture, or an empty treasury cannot be pulled to refresh.

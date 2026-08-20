@@ -300,7 +300,8 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   // what the admin came here knowing.
                   if (_kind == DisbursementKindWire.member) ...<Widget>[
                     adeels.when(
-                      loading: () => const LinearProgressIndicator(minHeight: 2),
+                      loading: () =>
+                          const LinearProgressIndicator(minHeight: 2),
                       error: (Object e, StackTrace _) =>
                           Text(describeApiFailure(l, e)),
                       data: (List<AdeelListItem> options) =>

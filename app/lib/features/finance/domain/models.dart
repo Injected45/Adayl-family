@@ -547,18 +547,18 @@ class AdeelAid {
     firstAt: _string(json['firstAt']),
     lastAt: _string(json['lastAt']),
     byCategory: <ExpenseByCategory>[
-      for (final dynamic e in (json['byCategory'] as List<dynamic>? ??
-          const <dynamic>[]))
+      for (final dynamic e
+          in (json['byCategory'] as List<dynamic>? ?? const <dynamic>[]))
         ExpenseByCategory.fromJson(e as Map<String, dynamic>),
     ],
     byYear: <AidByYear>[
-      for (final dynamic e in (json['byYear'] as List<dynamic>? ??
-          const <dynamic>[]))
+      for (final dynamic e
+          in (json['byYear'] as List<dynamic>? ?? const <dynamic>[]))
         AidByYear.fromJson(e as Map<String, dynamic>),
     ],
     ledger: <AidLedgerEntry>[
-      for (final dynamic e in (json['vouchers'] as List<dynamic>? ??
-          const <dynamic>[]))
+      for (final dynamic e
+          in (json['vouchers'] as List<dynamic>? ?? const <dynamic>[]))
         AidLedgerEntry.fromJson(e as Map<String, dynamic>),
     ],
   );

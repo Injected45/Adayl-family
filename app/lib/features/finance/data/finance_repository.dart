@@ -26,18 +26,17 @@ class FinanceRepository {
   static List<Map<String, dynamic>> _rows(dynamic value) =>
       (value as List<dynamic>).map(_obj).toList();
 
-  Future<List<PaymentView>> payments({int? adeelId}) =>
-      SupabaseFailures.guard(() async {
-        final PostgrestFilterBuilder<dynamic> base = _db
-            .from('v_payments')
-            .select();
-        final dynamic rows = adeelId == null
-            ? await base.order('paidAt', ascending: false)
-            : await base
-                  .eq('adeelId', adeelId)
-                  .order('paidAt', ascending: false);
-        return _rows(rows).map(PaymentView.fromJson).toList();
-      });
+  Future<List<PaymentView>> payments({int? adeelId}) => SupabaseFailures.guard(
+    () async {
+      final PostgrestFilterBuilder<dynamic> base = _db
+          .from('v_payments')
+          .select();
+      final dynamic rows = adeelId == null
+          ? await base.order('paidAt', ascending: false)
+          : await base.eq('adeelId', adeelId).order('paidAt', ascending: false);
+      return _rows(rows).map(PaymentView.fromJson).toList();
+    },
+  );
 
   /// Reads back the full row a write produced.
   ///
