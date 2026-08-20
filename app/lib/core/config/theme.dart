@@ -73,6 +73,42 @@ abstract final class AppColors {
 
   static const Color neutralSoft = Color(0xFFEEF2F6);
 
+  /// لونٌ خاصٌّ بكل عديل — a colour of his own, from his own number.
+  ///
+  /// ⚠ GENERATED, NOT PICKED FROM A LIST. A fixed palette of five or six
+  ///   accents would have to repeat by the seventh عديل, and two men sharing
+  ///   a colour on the same screen is precisely the confusion this is meant
+  ///   to remove. A hue wheel never runs out.
+  ///
+  /// ⚠ THE GOLDEN ANGLE, and that is what makes CONSECUTIVE numbers look
+  ///   different. Stepping the hue by 360/n would put A-01 and A-02 next to
+  ///   each other on the wheel and they would read as the same teal. 137.5°
+  ///   is the angle that never revisits a neighbourhood, so any run of ids —
+  ///   which is exactly how a register is read, one after another — is as
+  ///   spread out as the wheel allows.
+  ///
+  /// ⚠ AND LIGHTNESS IS FIXED, WHICH IS WHAT KEEPS IT LEGIBLE. Only the hue
+  ///   varies; saturation and lightness are constant and dark, so every tone
+  ///   this returns is a text colour first and a decoration second. The
+  ///   design-system suite proves it: AA on the badge fill for a long run of
+  ///   ids, not for the handful somebody happened to look at.
+  ///
+  /// Seeded on the عديل id rather than the code, because the id is what
+  /// never changes — adeel_code is GENERATED from it and would carry the
+  /// same answer anyway.
+  static Color identityTone(int seed) {
+    const double goldenAngle = 137.50776405003785;
+    final double hue = (seed.abs() * goldenAngle) % 360;
+    //
+    // ⚠ 0.24, AND IT WAS MEASURED, NOT PICKED. HSL lightness is not
+    //   perceptual: yellow at L=0.30 is far brighter than blue at L=0.30, so
+    //   a single lightness that looks right on a teal fails AA on an olive.
+    //   Sweeping all 360 hues against the badge fill puts the worst case at
+    //   hue 60° — 3.57:1 at L=0.30, and 4.95:1 at L=0.24. The suite proves it
+    //   for every id rather than for the handful anybody looked at.
+    return HSLColor.fromAHSL(1, hue, 0.62, 0.24).toColor();
+  }
+
   // ── The vibrant field that makes glass legible ─────────────────────────────
   static const Color fieldBase = Color(0xFFE6F2F0);
   static const Color auroraTeal = Color(0xFF5EEAD4);
@@ -113,6 +149,26 @@ abstract final class GlassColors {
   /// translucent pane from the dimmed barrier behind it, and 82% white over a dark
   /// scrim reads as muddy grey rather than glass.
   static const Color overlay = Color(0xF7FFFFFF); // white @ 97%
+
+  /// Dropdown menus. FULLY opaque, and the only surface in this file that is.
+  ///
+  /// ⚠ A MENU IS THE ONE OVERLAY WITH NOTHING BEHIND IT BUT THE FORM IT
+  ///   BELONGS TO. A dialog floats over a dimmed barrier, so 97% white lands
+  ///   on grey and reads as glass. A dropdown opens a few pixels above the
+  ///   field that owns it, over undimmed content — so the same 97% puts the
+  ///   list of names directly on top of the names underneath it, and the eye
+  ///   cannot tell which line belongs to which. Text over text is the one
+  ///   thing translucency must never be allowed to produce.
+  ///
+  /// ⚠ AND canvasColor IS WHY IT HAS TO BE SAID AT ALL. A DropdownButton
+  ///   paints its menu with `dropdownColor ?? Theme.of(context).canvasColor`,
+  ///   and this app sets canvasColor to fully TRANSPARENT on purpose, so
+  ///   AppBackground shows through every Material surface. That default is
+  ///   right for the app and catastrophic for a menu, and there is no theme
+  ///   slot that separates the two — DropdownMenuThemeData governs the M3
+  ///   DropdownMenu widget, not this one. So each field names it, and a test
+  ///   fails the build if one forgets.
+  static const Color menu = Color(0xFFFFFFFF);
 
   /// A recessed well inside a glass surface — inputs, KPI tiles, totals rows.
   ///

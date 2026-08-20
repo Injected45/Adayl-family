@@ -34,6 +34,8 @@ class StatementsScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: DropdownButtonFormField<int>(
+                // Opaque: see GlassColors.menu.
+                dropdownColor: GlassColors.menu,
                 initialValue: selected,
                 isExpanded: true,
                 decoration: InputDecoration(labelText: l.selectFamily),

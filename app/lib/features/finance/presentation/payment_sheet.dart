@@ -229,6 +229,8 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                 const SizedBox(height: AppSpacing.lg),
 
                 DropdownButtonFormField<int>(
+                  // Opaque: see GlassColors.menu.
+                  dropdownColor: GlassColors.menu,
                   initialValue: _adeelId,
                   isExpanded: true,
                   decoration: InputDecoration(labelText: l.selectFamily),
@@ -500,6 +502,8 @@ class _ReceiverField extends ConsumerWidget {
     ];
 
     return DropdownButtonFormField<String>(
+      // Opaque: see GlassColors.menu.
+      dropdownColor: GlassColors.menu,
       // A name that is no longer offered — an official renamed in settings
       // while this sheet sat open — would make the dropdown assert. Fall back
       // to nothing selected instead.

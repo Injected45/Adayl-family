@@ -300,6 +300,8 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                           Text(describeApiFailure(l, e)),
                       data: (List<AdeelListItem> options) =>
                           DropdownButtonFormField<int>(
+                            // Opaque: see GlassColors.menu.
+                            dropdownColor: GlassColors.menu,
                             initialValue: _payeeAdeelId,
                             isExpanded: true,
                             decoration: InputDecoration(labelText: l.payee),
@@ -329,6 +331,8 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   // pairing outright, so this only keeps the picker from
                   // offering what the server would reject.
                   DropdownButtonFormField<String>(
+                    // Opaque: see GlassColors.menu.
+                    dropdownColor: GlassColors.menu,
                     initialValue: _category,
                     isExpanded: true,
                     decoration: InputDecoration(labelText: l.expenseCategory),

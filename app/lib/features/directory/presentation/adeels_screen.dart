@@ -152,7 +152,16 @@ class _AdeelCard extends StatelessWidget {
               //   name here, not as a label attached afterwards.
               Row(
                 children: <Widget>[
-                  StatusBadge.neutral(label: adeel.adeelCode),
+                  // ⚠ HIS OWN COLOUR, not the neutral grey it used to be.
+                  //   The register is scanned, not read: a man is found by
+                  //   the shape of his row before any of it is spelled out,
+                  //   and eight identical grey chips give the eye nothing to
+                  //   aim at. Seeded on the id, so his colour is the same on
+                  //   every screen and every device, for ever.
+                  StatusBadge(
+                    label: adeel.adeelCode,
+                    tone: AppColors.identityTone(adeel.id),
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(

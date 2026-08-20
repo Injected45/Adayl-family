@@ -243,6 +243,8 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                     bottom: AppSpacing.md,
                   ),
                   child: DropdownButtonFormField<String>(
+                    // Opaque: see GlassColors.menu.
+                    dropdownColor: GlassColors.menu,
                     initialValue: _status,
                     decoration: InputDecoration(
                       labelText: l.membershipStatusField,

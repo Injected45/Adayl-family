@@ -750,6 +750,8 @@ class _OfficialPicker extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: DropdownButtonFormField<int?>(
+        // Opaque: see GlassColors.menu.
+        dropdownColor: GlassColors.menu,
         initialValue: valueIsOffered ? value : null,
         isExpanded: true,
         decoration: InputDecoration(
@@ -947,6 +949,8 @@ class _ExceptionRow extends StatelessWidget {
           Expanded(
             flex: 5,
             child: DropdownButtonFormField<String>(
+              // Opaque: see GlassColors.menu.
+              dropdownColor: GlassColors.menu,
               initialValue: month,
               isDense: true,
               items: <DropdownMenuItem<String>>[

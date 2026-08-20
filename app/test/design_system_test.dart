@@ -205,6 +205,94 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────────
+  /// لونٌ خاصٌّ بكل عديل، ويجب أن يبقى مقروءاً.
+  ///
+  /// AppColors.identityTone GENERATES a colour per عديل instead of cycling a
+  /// fixed list, so nobody can look at «the palette» and judge it — there are
+  /// as many colours as there are members. That is precisely why it has to be
+  /// asserted across a long run rather than eyeballed on the first eight.
+  group('identity tones', () {
+    /// The register runs to hundreds at most; two hundred covers it with room.
+    Iterable<int> ids() sync* {
+      for (int i = 1; i <= 200; i++) {
+        yield i;
+      }
+    }
+
+    test('every one of them clears AA on its own badge fill', () {
+      // ⚠ 14%, NOT THE 10% StatusBadge ACTUALLY DRAWS. A lighter fill only
+      //   raises the ratio against a dark label, so testing the heavier one
+      //   tests the worse case — and leaves the badge free to darken its fill
+      //   later without silently crossing the line.
+      for (final int id in ids()) {
+        final Color tone = AppColors.identityTone(id);
+        final Color fill = over(tone.withValues(alpha: 0.14), contentSurface);
+        expect(
+          contrast(tone, fill),
+          greaterThanOrEqualTo(4.5),
+          reason: 'A-$id (${tone.toARGB32().toRadixString(16)}) on its fill',
+        );
+      }
+    });
+
+    test('and on a plain content pane, for the day one is used as text', () {
+      for (final int id in ids()) {
+        expect(
+          contrast(AppColors.identityTone(id), contentSurface),
+          greaterThanOrEqualTo(4.5),
+          reason: 'A-$id as text on glass',
+        );
+      }
+    });
+
+    /// ⚠ THE POINT OF THE GOLDEN ANGLE, stated as a number.
+    ///
+    ///   Stepping the hue by 360/n would make A-01 and A-02 neighbours on the
+    ///   wheel — two teals, indistinguishable in an 11px chip. A register is
+    ///   read as a RUN of consecutive numbers, so consecutive is exactly where
+    ///   the separation has to be.
+    test('a screenful of consecutive عدايل are visibly different hues', () {
+      final List<double> hues = <double>[
+        for (int id = 1; id <= 12; id++)
+          HSLColor.fromColor(AppColors.identityTone(id)).hue,
+      ];
+      double gap = 360;
+      for (int i = 0; i < hues.length; i++) {
+        for (int j = i + 1; j < hues.length; j++) {
+          final double d = (hues[i] - hues[j]).abs();
+          gap = math.min(gap, math.min(d, 360 - d));
+        }
+      }
+      // ⚠ THE FIRST VERSION ASSERTED 20° AND MEASURED 19.58°, which is the
+      //   right way for a threshold to be wrong: guessed, then corrected by
+      //   the thing it was guarding. Twelve golden-angle points really do come
+      //   within ~19.6° of each other somewhere in the set.
+      expect(gap, greaterThan(15));
+
+      // ⚠ AND THIS IS THE ASSERTION THAT ACTUALLY MATTERS. A register is read
+      //   as a RUN — A-01 above A-02 above A-03 — so the separation has to be
+      //   between NEIGHBOURS, and a global minimum says nothing about them.
+      //   The golden angle puts consecutive ids 137.5° apart; a naive 360/n
+      //   stepping would put them 30° apart and they would read as one colour.
+      for (int i = 1; i < hues.length; i++) {
+        final double d = (hues[i] - hues[i - 1]).abs();
+        expect(
+          math.min(d, 360 - d),
+          greaterThan(100),
+          reason: 'A-$i and A-${i + 1} sit side by side',
+        );
+      }
+    });
+
+    test('and a man keeps his colour — the same id gives the same tone', () {
+      // Seeded on adeel_id, which never changes. If this ever became random or
+      // position-based, a register would repaint itself on every sort.
+      expect(AppColors.identityTone(5), AppColors.identityTone(5));
+      expect(AppColors.identityTone(5), isNot(AppColors.identityTone(6)));
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
   group('blur budget', () {
     Widget host(Widget child) => MaterialApp(
       theme: buildAppTheme(),
@@ -604,6 +692,51 @@ void main() {
         reason:
             'Use GlassCard / GlassColors.surface, not an opaque white fill.',
       );
+    });
+
+    /// ── القوائم المنسدلة لا تكون شفافة ─────────────────────────────────
+    ///
+    /// The association reported it plainly: opening the payee list put the
+    /// names ON TOP of the data underneath, and neither could be read.
+    ///
+    /// ⚠ THE CAUSE IS A THEME DEFAULT THAT IS RIGHT EVERYWHERE ELSE. A
+    ///   DropdownButton paints its menu with
+    ///   `dropdownColor ?? Theme.of(context).canvasColor`, and this app sets
+    ///   canvasColor fully TRANSPARENT so AppBackground shows through every
+    ///   Material surface. Correct for the app; catastrophic for a menu.
+    ///
+    /// ⚠ AND NO THEME SLOT SEPARATES THE TWO. DropdownMenuThemeData governs
+    ///   the Material 3 DropdownMenu widget, not DropdownButtonFormField — so
+    ///   the colour cannot be set once centrally. It has to be named at every
+    ///   field, which means the ninth one somebody adds will forget it. This
+    ///   test is the thing that remembers.
+    test('every dropdown menu names an opaque background', () {
+      final List<String> offenders = <String>[];
+      for (final File f in screenFiles()) {
+        final String src = code(f);
+        final int fields = 'DropdownButtonFormField'.allMatches(src).length;
+        if (fields == 0) continue;
+        final int coloured = 'dropdownColor:'.allMatches(src).length;
+        if (coloured < fields) {
+          offenders.add('${f.path}: $fields dropdown(s), $coloured coloured');
+        }
+      }
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'A dropdown opens over the form that owns it, with no dimmed '
+            'barrier behind it — so a translucent menu prints its options on '
+            'top of the fields underneath. Pass dropdownColor: '
+            'GlassColors.menu.',
+      );
+    });
+
+    test('and that background is genuinely opaque, not merely pale', () {
+      // ⚠ 97% IS NOT ENOUGH HERE, which is why this is asserted rather than
+      //   left to the eye. GlassColors.overlay looks opaque against a dialog
+      //   scrim and is visibly see-through against an undimmed form.
+      expect(GlassColors.menu.a, 1.0);
     });
   });
 }
