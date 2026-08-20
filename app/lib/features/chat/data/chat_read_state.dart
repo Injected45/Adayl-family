@@ -107,3 +107,32 @@ extension ChatThreadMarks on ChatReadState {
     );
   }
 }
+
+/// The open room's own mark.
+///
+/// ── WHY A THIRD MARK ────────────────────────────────────────────────────────
+/// There are now three questions, and no two of them share an answer:
+///
+///   • the bell — «هل هناك جديد في الجمعية» — one number over every room;
+///   • the inbox — «من منهم ينتظر» — one number per private thread;
+///   • the segments — «في أي الغرفتين» — one number for المجلس and one for
+///     الخاص, so a man reading one is told about the other.
+///
+/// The third needs المجلس counted on its own, and neither of the first two can
+/// give it: the global mark advances when ANY room is read, and the per-thread
+/// map has no entry for a room that belongs to nobody.
+extension ChatHallMark on ChatReadState {
+  static const String _hallKey = 'chat_hall_read';
+
+  Future<int> hallRead() async {
+    final String? raw = await store.read(key: _hallKey);
+    return int.tryParse(raw ?? '') ?? 0;
+  }
+
+  /// Monotonic, for the same reason as the other two.
+  Future<void> markHallRead(int id) async {
+    if (id <= 0) return;
+    if (id <= await hallRead()) return;
+    await store.write(key: _hallKey, value: id.toString());
+  }
+}

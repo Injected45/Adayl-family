@@ -257,3 +257,75 @@ class ThreadUnreadBadge extends StatelessWidget {
     );
   }
 }
+
+/// What is waiting in each of the two rooms.
+///
+/// ── WHY THE SEGMENTS NEED THEIR OWN NUMBERS ─────────────────────────────────
+/// A man sitting in الخاص is told nothing when المجلس moves, and the reverse. The
+/// bell says «هناك ٣» from the top of the screen and does not say WHERE — which
+/// on this screen, where the two rooms are one tap apart, is the only part he
+/// needs.
+///
+/// ⚠ THE ROOM HE IS IN IS ALWAYS ZERO, and that is not special-cased here. It
+///   falls out of the marks: the list writes its room's mark as it renders, so
+///   by the time this is asked the room in front of him has nothing above its
+///   mark. A count that had to be suppressed by the screen would be a second
+///   place the rule lives.
+typedef RoomUnread = ({int hall, int private});
+
+final FutureProvider<RoomUnread>
+roomUnreadProvider = FutureProvider<RoomUnread>((Ref ref) async {
+  // Rides the bell's clock, exactly as the inbox counts do: three timers for
+  // one question would be three requests where one will do.
+  ref.watch(chatUnreadProvider);
+
+  final ChatReadState reads = ref.watch(chatReadStateProvider);
+  final ChatRepository repo = ref.watch(chatRepositoryProvider);
+
+  final int hall = await repo.unreadInHall(await reads.hallRead());
+  // Summed over every thread this caller can see — which is HIS OWN for a
+  // member and all of them for staff, decided by RLS rather than here.
+  final Map<int, int> byThread = await repo.unreadByThread(
+    await reads.threadMarks(),
+  );
+  final int private = byThread.values.fold<int>(0, (int a, int b) => a + b);
+
+  return (hall: hall, private: private);
+});
+
+/// A count on a segment label.
+///
+/// Small and inline rather than a floating dot: it sits inside a button whose
+/// width is already decided by its text, so anything positioned outside the box
+/// would be clipped by the segmented control.
+class SegmentCount extends StatelessWidget {
+  const SegmentCount({required this.count, super.key});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    final L l = L.of(context);
+
+    return Container(
+      margin: const EdgeInsetsDirectional.only(start: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      constraints: const BoxConstraints(minWidth: 18),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.danger,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
+        count > 99 ? l.chatUnreadMany : '$count',
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: AppColors.onFill,
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+}

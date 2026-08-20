@@ -7,6 +7,7 @@ import 'package:family_app/features/chat/domain/models.dart';
 import 'package:family_app/features/chat/presentation/chat_screen.dart';
 import 'package:family_app/features/chat/presentation/emoji_panel.dart';
 import 'package:family_app/features/chat/presentation/providers.dart';
+import 'package:family_app/features/chat/presentation/unread_bell.dart';
 import 'package:family_app/l10n/app_localizations.dart';
 import 'package:family_app/l10n/app_localizations_ar.dart';
 import 'package:flutter/material.dart';
@@ -93,6 +94,7 @@ class _StubChat extends ChatController {
 }
 
 late Future<void> Function(WidgetTester) _openRoom;
+late Future<void> Function(WidgetTester, {int hall, int private}) _openWithRooms;
 late Future<void> Function(WidgetTester, List<ChatMessage>, {AppUser user})
 _openAs;
 
@@ -101,13 +103,20 @@ void main() {
   late _StubChat chat;
   final List<ChatThread> threads = <ChatThread>[];
 
-  Widget host(List<ChatMessage> messages, {AppUser user = _viewer}) {
+  Widget host(
+    List<ChatMessage> messages, {
+    AppUser user = _viewer,
+    RoomUnread rooms = (hall: 0, private: 0),
+  }) {
     chat = _StubChat(messages);
     return ProviderScope(
       overrides: <Override>[
         authControllerProvider.overrideWith(() => _StubAuth(user)),
         chatProvider.overrideWith(() => chat),
         chatThreadsProvider.overrideWith((Ref ref) async => threads),
+      // The counts are given, not fetched — these tests are about where the
+      // numbers LAND, and the query that produces them has its own file.
+      roomUnreadProvider.overrideWith((Ref ref) async => rooms),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -124,11 +133,12 @@ void main() {
     WidgetTester tester,
     List<ChatMessage> messages, {
     AppUser user = _viewer,
+    RoomUnread rooms = (hall: 0, private: 0),
   }) async {
     tester.view.physicalSize = const Size(411, 2200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(host(messages, user: user));
+    await tester.pumpWidget(host(messages, user: user, rooms: rooms));
     await tester.pumpAndSettle();
   }
 
@@ -139,6 +149,13 @@ void main() {
     List<ChatMessage> messages, {
     AppUser user = _viewer,
   }) => open(tester, messages, user: user);
+  _openWithRooms = (WidgetTester tester, {int hall = 0, int private = 0}) =>
+      open(
+        tester,
+        <ChatMessage>[_msg(id: 1, body: 'أهلاً')],
+        rooms: (hall: hall, private: private),
+      );
+  _segmentCountTests();
   _emojiTests();
   _openThreadTests();
 
@@ -665,5 +682,44 @@ void _openThreadTests() {
 
     expect(find.text(l.chatHall), findsOneWidget);
     expect(find.byIcon(Icons.arrow_forward), findsNothing);
+  });
+}
+
+/// A count on the room you are NOT in.
+///
+/// The bell at the top says «هناك ٣» and does not say where. On this screen the
+/// two rooms are one tap apart, so WHERE is the only part that is missing — a
+/// man reading الخاص must be told that المجلس moved, and the reverse.
+///
+/// ⚠ THE ROOM HE IS IN READS ZERO BY CONSTRUCTION, not by a branch. The list
+///   writes its own room's mark as it renders, so by the time the count is asked
+///   there is nothing above it. A screen that also suppressed the badge would be
+///   a second copy of that rule, free to disagree with the first.
+void _segmentCountTests() {
+  final L l = LAr();
+
+  testWidgets('the other room carries its number', (WidgetTester tester) async {
+    await _openWithRooms(tester, hall: 0, private: 4);
+
+    // He is in المجلس; الخاص is the one with something waiting.
+    expect(find.text('4'), findsOneWidget);
+  });
+
+  testWidgets('...and both are shown when both have something', (
+    WidgetTester tester,
+  ) async {
+    await _openWithRooms(tester, hall: 2, private: 7);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+  });
+
+  testWidgets('nothing waiting anywhere — no numbers at all', (
+    WidgetTester tester,
+  ) async {
+    await _openWithRooms(tester, hall: 0, private: 0);
+    expect(find.text('0'), findsNothing);
+    // And the labels are still there, which is what says the badges are an
+    // annotation rather than a replacement.
+    expect(find.text(l.chatHall), findsOneWidget);
   });
 }

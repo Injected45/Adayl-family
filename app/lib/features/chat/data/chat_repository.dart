@@ -191,3 +191,25 @@ extension ChatThreadUnread on ChatRepository {
         return out;
       });
 }
+
+/// How many are waiting in المجلس alone.
+///
+/// The segment badge answers «في أي الغرفتين», and المجلس is the half of that
+/// question no other count can reach: the bell sums both rooms, and the
+/// per-thread map has no entry for a room attributed to nobody.
+///
+/// ⚠ NOT MINE, like every other count here. A man reading الخاص is not owed a
+///   badge on المجلس for the sentence he typed there ten minutes ago.
+extension ChatHallUnread on ChatRepository {
+  Future<int> unreadInHall(int sinceId, {int cap = 99}) =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db
+            .from('v_chat_messages')
+            .select('id')
+            .isFilter('threadAdeelId', null)
+            .gt('id', sinceId)
+            .eq('mine', false)
+            .limit(cap);
+        return (rows as List<dynamic>).length;
+      });
+}

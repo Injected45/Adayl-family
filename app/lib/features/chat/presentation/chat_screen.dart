@@ -224,6 +224,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final bool inbox = _room == _Room.private && _thread == null;
 
+    // valueOrNull: the room must never wait on a badge. Absent counts render
+    // as no badge, which is what zero looks like — and zero is the honest
+    // reading while they are still on their way.
+    final RoomUnread rooms =
+        ref.watch(roomUnreadProvider).valueOrNull ?? (hall: 0, private: 0);
+
     ref.listen<AsyncValue<List<ChatMessage>>>(chatProvider(_key), (
       AsyncValue<List<ChatMessage>>? before,
       AsyncValue<List<ChatMessage>> after,
@@ -249,7 +255,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               segments: <ButtonSegment<_Room>>[
                 ButtonSegment<_Room>(
                   value: _Room.hall,
-                  label: Text(l.chatHall),
+                  // ── THE OTHER ROOM, ON ITS OWN LABEL ──────────────────
+                  // A man sitting in الخاص is told nothing when المجلس moves,
+                  // and the reverse. The bell says «هناك ٣» from the top of
+                  // the screen and does not say WHERE — which on this screen,
+                  // where the two rooms are one tap apart, is the only part
+                  // he needs.
+                  //
+                  // ⚠ The room he is IN always reads zero, and nothing here
+                  //   suppresses it: the list writes its own room mark as it
+                  //   renders, so by the time this is asked there is nothing
+                  //   above it. A rule enforced twice is a rule that can
+                  //   disagree with itself.
+                  // ⚠ Flexible, and it is not defensive coding. A segmented
+                  //   control divides the width between its segments and hands
+                  //   the label whatever is left after the icon; adding a badge
+                  //   overflowed both segments on a 411-pixel phone by fifty
+                  //   pixels. The text is what gives way, because the COUNT is
+                  //   the part that cannot be inferred from anything else on
+                  //   screen.
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          l.chatHall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SegmentCount(count: rooms.hall),
+                    ],
+                  ),
                   icon: const Icon(Icons.forum_outlined, size: 18),
                 ),
                 ButtonSegment<_Room>(
@@ -257,7 +294,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   // that is the honest label in both: a member is writing TO the
                   // board, the board is reading FROM everyone.
                   value: _Room.private,
-                  label: Text(isMember ? l.chatToBoard : l.chatInbox),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          isMember ? l.chatToBoard : l.chatInbox,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SegmentCount(count: rooms.private),
+                    ],
+                  ),
                   icon: const Icon(Icons.lock_outline, size: 18),
                 ),
               ],
@@ -315,9 +364,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             .markThreadRead(open, newest)
                             .catchError((Object _) {}),
                       );
+                    } else {
+                      // ⚠ AND المجلس HAS ITS OWN MARK. Without it the segment
+                      //   badge on المجلس would never clear — the global mark
+                      //   advances when any room is read and cannot say which,
+                      //   and the per-thread map has no entry for a room that
+                      //   belongs to nobody.
+                      unawaited(
+                        _reads.markHallRead(newest).catchError((Object _) {}),
+                      );
                     }
                     ref.invalidate(chatUnreadProvider);
                     ref.invalidate(threadUnreadProvider);
+                    ref.invalidate(roomUnreadProvider);
                   });
                   return ListView.builder(
                     controller: _scroll,
