@@ -1,5 +1,5 @@
 -- ============================================================================
---  جمعية العدايل — PATCH 2026-08-23.  المسح لا يترك مشتركاً خارج تطبيقه.
+--  جمعية العدايل — PATCH 2026-08-20 (e).  المسح لا يترك مشتركاً خارج تطبيقه.
 --
 --  WHAT WENT WRONG, and it was reported the moment it bit
 --    After purge_all_data, a member signed in with Google and was told:

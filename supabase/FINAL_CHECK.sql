@@ -255,9 +255,9 @@ SELECT * FROM (
                 THEN 'طبّق supabase/PATCH_20260820b_aid_transparency.sql'
               WHEN NOT (col_fee_exc AND ck_fee_exc AND gen_reads_exc
                         AND upd_takes_exc AND api_returns_exc)
-                THEN 'طبّق supabase/PATCH_20260821_fee_exceptions.sql'
+                THEN 'طبّق supabase/PATCH_20260820c_fee_exceptions.sql'
               WHEN NOT (trg_stamp_disb AND trg_stamp_pay AND old_guard_gone)
-                THEN 'طبّق supabase/PATCH_20260822_server_clock.sql'
+                THEN 'طبّق supabase/PATCH_20260820d_server_clock.sql'
               WHEN future_vouchers <> 'لا شيء'
                 THEN 'القاعدة سليمة — يبقى تصحيح السندات المؤرَّخة في المستقبل،'
                   || ' بإلغاء كلٍّ منها وإعادة تسجيله بتاريخه الصحيح.'

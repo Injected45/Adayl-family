@@ -130,7 +130,7 @@ This dictates the data-access shape — do not deviate from it:
     since the first time. So the one event that creates a profile had already
     happened, once, and could never happen again — the member signed in
     successfully and was told «لا يوجد سجل لهذا الحساب … لن تنجح المحاولة مرة
-    أخرى», which was true. `PATCH_20260823_purge_keeps_signin.sql` re-inserts a
+    أخرى», which was true. `PATCH_20260820e_purge_keeps_signin.sql` re-inserts a
     blank `viewer`/`pending` row for every `auth.users` account that has none,
     which is exactly what `20260811090100_profiles.sql` does after a reset and
     for exactly the same reason.
@@ -372,7 +372,7 @@ This dictates the data-access shape — do not deviate from it:
   every RPC amount is sent from Dart as a `String` (not a number). Putting a treasury
   on binary floating point is the bug this prevents.
 
-## Two custom lints enforce the invariants the Dart analyzer can't
+## Three custom lints enforce the invariants the Dart analyzer can't
 
 Run both from `app/`; they exit non-zero on violation and are part of the build gate.
 
@@ -383,6 +383,21 @@ Run both from `app/`; they exit non-zero on violation and are part of the build 
 - **`dart run tool/rtl_lint.dart`** — fails on physical left/right layout
   (`EdgeInsets.only(left:)`, `Alignment.centerLeft`, `TextAlign.left`, etc. — use the
   `Directional`/`start`/`end` variants) and on Arabic string literals in widget code.
+- **`dart run tool/patch_lint.dart`** — reads every `supabase/PATCH_*.sql` and
+  refuses six things, each of which had been checked BY HAND once per patch and
+  was therefore going to be skipped on the evening it mattered:
+  **a date in the filename that has not happened**; a missing or duplicated
+  `BEGIN;`/`COMMIT;`; an unbalanced `$`; a `public.` table that does not
+  exist (`settings` for `association_settings` was written once and would have
+  aborted on the first statement); a `DO $` sweep with a `CREATE`
+  after it; and a patch that does not call all four `assert_*` guards.
+
+  ⚠ **The date rule is the reason it exists.** Four patches were numbered as a
+  SEQUENCE and dressed as dates — 22, 23, 24 — while the calendar said the
+  20th, on the very day spent making a voucher's date impossible to get wrong.
+  They were RENAMED to their true dates rather than exempted: this lint keeps
+  no allow-list, because the moment one exists the list is the real rule and
+  the check is decoration.
 
 **Arabic strings have exactly two homes.** User-facing text → `app/lib/l10n/app_ar.arb`
 (the ARB template; `en` is the translation). Arabic *wire values* the DB stores
@@ -512,6 +527,7 @@ flutter test test/rtl_test.dart  # a single test file
 flutter analyze
 dart run tool/rtl_lint.dart
 dart run tool/supabase_lint.dart
+dart run tool/patch_lint.dart   # every PATCH_*.sql, before it is handed over
 
 # Database / SQL verification (from repo root)
 bash supabase/tests/local_pg.sh start   # provision a local PostgreSQL

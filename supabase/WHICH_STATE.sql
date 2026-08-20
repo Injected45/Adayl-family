@@ -264,18 +264,18 @@ SELECT * FROM (
                 THEN 'READY — apply supabase/PATCH_20260820b_aid_transparency.sql'
                   || '  ⚠ يعرض الصرف الجماعي للمشترك، ويُغلق كشف أسلاف الآخرين بالأسماء.'
               WHEN NOT patch_21
-                THEN 'READY — apply supabase/PATCH_20260821_fee_exceptions.sql'
+                THEN 'READY — apply supabase/PATCH_20260820c_fee_exceptions.sql'
               WHEN NOT patch_22
-                THEN 'READY — apply supabase/PATCH_20260822_server_clock.sql'
+                THEN 'READY — apply supabase/PATCH_20260820d_server_clock.sql'
                   || '  ⚠ التاريخ يصير من ساعة الخادم، ويسقط الإدخال اليدوي له.'
               -- ⚠ 23/08 BEFORE 24/08 and both after the clock: this one is the
               -- only patch on the chain that un-strands people who are locked
               -- out RIGHT NOW, so it never waits behind a chart.
               WHEN NOT patch_23
-                THEN 'READY — apply supabase/PATCH_20260823_purge_keeps_signin.sql'
+                THEN 'READY — apply supabase/PATCH_20260820e_purge_keeps_signin.sql'
                   || '  ⚠ يفكّ كل مشترك عَلِق بعد المسح.'
               WHEN NOT patch_24
-                THEN 'READY — apply supabase/PATCH_20260824_member_months.sql'
+                THEN 'READY — apply supabase/PATCH_20260821_member_months.sql'
               ELSE 'UP TO DATE — every patch through 24/08 is applied.'
          END FROM have
 ) t ORDER BY ord;
