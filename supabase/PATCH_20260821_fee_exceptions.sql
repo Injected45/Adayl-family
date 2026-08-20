@@ -19,8 +19,16 @@
 --    already states about the monthly fee, and for the same reason: a closed
 --    month is a fact, not a formula.
 --
---  ⚠ NO ROW IS TOUCHED. One column with a default, three bodies replaced, one
---    view widened. Every existing figure is exactly what it was.
+--  ⚠ NO ROW IS TOUCHED. One column with a default and three function bodies
+--    replaced. No view changes. Every existing figure is exactly what it was.
+--
+--  ⚠ AND THE THREE BODIES ARE THE LIVE ONES, VERIFIED. generate_period was
+--    last restated in PATCH_20260817 and update_settings/api_settings in
+--    PATCH_20260816; all three were compared character for character against
+--    the copies this patch carries before it was written. Lifting a body from
+--    an older file is how a patch silently REVERTS the fix before it — the
+--    check that matters is not «does it compile» but «is this the version
+--    that is actually running».
 --
 --  HOW TO APPLY
 --    Supabase dashboard, SQL Editor, New query, paste all of this, Run.
@@ -36,7 +44,7 @@ BEGIN;
 -- settings — a single row the whole association shares. A table would buy
 -- referential integrity over a set of twelve constants and cost a join on every
 -- close.
-ALTER TABLE public.settings
+ALTER TABLE public.association_settings
   ADD COLUMN IF NOT EXISTS fee_exceptions jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 -- ⚠ THE KEYS ARE CHECKED, because a typo here is a wrong charge on every
@@ -63,8 +71,8 @@ $ok$;
 REVOKE EXECUTE ON FUNCTION public.fee_exceptions_ok(jsonb)
   FROM PUBLIC, anon, authenticated, service_role;
 
-ALTER TABLE public.settings DROP CONSTRAINT IF EXISTS ck_settings_fee_exceptions;
-ALTER TABLE public.settings
+ALTER TABLE public.association_settings DROP CONSTRAINT IF EXISTS ck_settings_fee_exceptions;
+ALTER TABLE public.association_settings
   ADD CONSTRAINT ck_settings_fee_exceptions
   CHECK (public.fee_exceptions_ok(fee_exceptions));
 
@@ -490,7 +498,7 @@ $$;
 -- Read-only. Every row must say true.
 SELECT 'عمود الاستثناءات موجود' AS "الفحص",
        EXISTS (SELECT 1 FROM information_schema.columns
-                WHERE table_schema='public' AND table_name='settings'
+                WHERE table_schema='public' AND table_name='association_settings'
                   AND column_name='fee_exceptions') AS "النتيجة"
 UNION ALL SELECT 'وقيده يرفض مفتاحاً غير شهر',
        EXISTS (SELECT 1 FROM pg_constraint
