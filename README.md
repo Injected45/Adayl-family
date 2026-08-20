@@ -1,4 +1,4 @@
-# مشروع جمعية العدايل — Adayl Family Association
+# جمعية العدايل — Adayl Family Association
 
 A Flutter app on Supabase for the Adayl family association: member directory,
 monthly subscription receivables, payment collection with FIFO allocation, a

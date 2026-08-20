@@ -7,7 +7,7 @@
          all — the app installs, opens, and fails every call. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="مشروع جمعية العدايل"
+        android:label="جمعية العدايل"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

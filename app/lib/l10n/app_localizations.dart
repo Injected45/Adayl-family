@@ -100,7 +100,7 @@ abstract class L {
   /// No description provided for @appTitle.
   ///
   /// In ar, this message translates to:
-  /// **'مشروع جمعية العدايل'**
+  /// **'جمعية العدايل'**
   String get appTitle;
 
   /// No description provided for @appTagline.

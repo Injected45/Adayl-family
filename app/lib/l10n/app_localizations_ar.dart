@@ -9,7 +9,7 @@ class LAr extends L {
   LAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get appTitle => 'مشروع جمعية العدايل';
+  String get appTitle => 'جمعية العدايل';
 
   @override
   String get appTagline => 'نظام إدارة المشتركين والاشتراكات والصندوق';

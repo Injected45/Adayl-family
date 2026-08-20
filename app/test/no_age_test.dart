@@ -122,8 +122,19 @@ void main() {
 
     expect(find.text('المهدي العدولي'), findsOneWidget);
     expect(find.text(l.ageYears(46)), findsNothing);
-    // Membership status still carries the whole billing answer, and still has
-    // the badge the age one used to sit beside.
-    expect(find.text('نشط'), findsOneWidget);
+
+    // ⚠ AND THE CODE IS THE POSITIVE CONTROL NOW, not the status badge. A
+    //   test that only asserts absences passes just as well on a screen that
+    //   rendered nothing at all, so one thing that MUST be there has to be
+    //   named — and after the association put the name and the code on one
+    //   line, the code is what that line carries beside the name.
+    expect(find.text('A-01'), findsOneWidget);
+
+    // ⚠ «نشط» IS DELIBERATELY ABSENT FROM THE REGISTER. It used to sit here,
+    //   and it was removed because the register lists everyone and almost
+    //   everyone is نشط — one true fact repeated on every row, distinguishing
+    //   nobody. It lives on the detail screen instead, beside the fields it
+    //   qualifies, where a موقوف is read against the man rather than a list.
+    expect(find.text('نشط'), findsNothing);
   });
 }

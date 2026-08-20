@@ -16,7 +16,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE public.association_settings (
   id                          smallint      NOT NULL DEFAULT 1,
-  association_name            text          NOT NULL DEFAULT 'مشروع جمعية العدايل',
+  association_name            text          NOT NULL DEFAULT 'جمعية العدايل',
   currency                    text          NOT NULL DEFAULT 'د.ل',
   member_fee                  numeric(12,2) NOT NULL DEFAULT 20.00,
   system_start                date          NOT NULL,

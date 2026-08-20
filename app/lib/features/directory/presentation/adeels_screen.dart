@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
-import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/state/refresh.dart';
@@ -137,7 +136,6 @@ class _AdeelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
-    final bool active = adeel.membershipStatus == MembershipStatusWire.active;
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.card),
@@ -147,11 +145,20 @@ class _AdeelCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              // ── سطر واحد: الرقم ثم الاسم ────────────────────────────────
+              // ⚠ THE CODE LEADS, and that is what puts it beside the name
+              //   instead of under it. A-01 is how the association refers to a
+              //   man out loud — «العديل واحد» — so it reads as part of his
+              //   name here, not as a label attached afterwards.
               Row(
                 children: <Widget>[
+                  StatusBadge.neutral(label: adeel.adeelCode),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       adeel.fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -165,30 +172,26 @@ class _AdeelCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: <Widget>[
-                  StatusBadge.neutral(label: adeel.adeelCode),
-                  // Membership status carries the whole billing answer now, so it
-                  // is the badge that used to be "eligible / approaching age".
-                  StatusBadge(
-                    label: adeel.membershipStatus,
-                    tone: active ? AppColors.success : AppColors.muted,
-                  ),
-                  // No age badge. The association stopped collecting a date of
-                  // birth, and age decided nothing about billing even while it
-                  // was collected — membership status above carries the whole
-                  // answer, which is why it took the badge that used to read
-                  // "eligible / approaching age".
-                  if (adeel.hasDebt)
-                    StatusBadge(
-                      label: l.debtBadge(formatMoney(adeel.debt)),
-                      tone: AppColors.danger,
-                    ),
-                ],
-              ),
+
+              // ⚠ «نشط» IS GONE FROM HERE, and it belongs where it went. The
+              //   register lists everyone, and the overwhelming majority are
+              //   نشط — so the badge repeated one true fact on every row and
+              //   said nothing about any of them. It is on the detail screen,
+              //   beside the fields it actually qualifies, where a موقوف or a
+              //   متوفى is read against the man rather than against a list.
+              //
+              // ⚠ THE DEBT IS NOT, and this is the one line I kept against the
+              //   letter of «الاسم والرقم فقط». It appears only for a man who
+              //   actually owes — never on a clear register — and it is the
+              //   figure the collection round is planned from. Say the word and
+              //   it goes too; it is one `if` away.
+              if (adeel.hasDebt) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                StatusBadge(
+                  label: l.debtBadge(formatMoney(adeel.debt)),
+                  tone: AppColors.danger,
+                ),
+              ],
             ],
           ),
         ),
