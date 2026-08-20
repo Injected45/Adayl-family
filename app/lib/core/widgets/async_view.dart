@@ -69,6 +69,28 @@ class AsyncView<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
+
+    // ── ONCE THERE IS AN ANSWER ON SCREEN, IT STAYS THERE ────────────────────
+    //
+    // The app refreshes every read on a clock now (see core/state/auto_refresh),
+    // and `ref.invalidate` puts a provider back into loading. Written the plain
+    // way — `value.when(loading: spinner)` — that means every list in the app
+    // blinks to a spinner every forty-five seconds, which is a worse screen than
+    // the stale figure it was trying to prevent.
+    //
+    // So a refresh in flight keeps the last good data. The FIRST load still
+    // shows the spinner, because then there is genuinely nothing to show.
+    final T? last = value.valueOrNull;
+    if (last != null && value.isLoading) return builder(last);
+
+    // ⚠ AND A FAILED REFRESH KEEPS IT TOO, which is the harder call. Blanking a
+    //   treasury screen to «حدث خطأ» because one background tick lost the
+    //   network would be a worse lie than a figure that is forty-five seconds
+    //   old — and the next tick corrects it without anyone doing anything. An
+    //   error with nothing behind it is still an error page: that is the case
+    //   below, and it is the one somebody must actually act on.
+    if (last != null && value.hasError) return builder(last);
+
     return value.when(
       data: builder,
       loading: () => const LoadingStateView(),

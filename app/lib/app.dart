@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'core/config/theme.dart';
 import 'core/l10n/latin_digit_localizations.dart';
 import 'core/router/app_router.dart';
+import 'core/state/auto_refresh.dart';
 import 'l10n/app_localizations.dart';
 
 class FamilyApp extends ConsumerWidget {
@@ -37,6 +38,14 @@ class FamilyApp extends ConsumerWidget {
       supportedLocales: L.supportedLocales,
 
       routerConfig: router,
+
+      // ── EVERY FIGURE STAYS CURRENT ON ITS OWN ────────────────────────────
+      // Wrapped around the whole app rather than mounted per screen: one clock
+      // for the association, so navigating does not restart it and a screen
+      // left open does not stop it. The refresh costs a request only for the
+      // providers actually being watched — see core/state/auto_refresh.dart.
+      builder: (BuildContext context, Widget? child) =>
+          AutoRefresh(child: child ?? const SizedBox.shrink()),
     );
   }
 }
