@@ -101,6 +101,10 @@ WITH have AS (
     EXISTS (SELECT 1 FROM pg_policies
              WHERE schemaname='public' AND tablename='disbursements'
                AND policyname='read_all_disbursements_adeel')         AS patch_20b,
+    -- اشتراك يختلف باختلاف الشهر. Probed by the COLUMN it adds.
+    EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='settings'
+               AND column_name='fee_exceptions')                     AS patch_21,
 
     -- ── ACCESS, which is not schema and is lost independently of it ─────────
     -- The 16/08 reset kept auth.users and dropped public.profiles, so signing in
@@ -163,6 +167,8 @@ SELECT * FROM (
          CASE WHEN patch_20 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 10.2, 'PATCH 20/08 (b) — أسلاف مكشوفة بالأسماء',
          CASE WHEN patch_20b THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.3, 'PATCH 21/08 — اشتراك يختلف باختلاف الشهر',
+         CASE WHEN patch_21 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -204,6 +210,8 @@ SELECT * FROM (
               WHEN NOT patch_20b
                 THEN 'READY — apply supabase/PATCH_20260820b_aid_transparency.sql'
                   || '  ⚠ يفتح أسلاف كل مشترك لكل المشتركين بالأسماء — قرار الجمعية.'
-              ELSE 'UP TO DATE — every patch through 20/08 is applied.'
+              WHEN NOT patch_21
+                THEN 'READY — apply supabase/PATCH_20260821_fee_exceptions.sql'
+              ELSE 'UP TO DATE — every patch through 21/08 is applied.'
          END FROM have
 ) t ORDER BY ord;

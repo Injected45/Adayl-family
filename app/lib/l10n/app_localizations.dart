@@ -1711,6 +1711,18 @@ abstract class L {
   /// **'اشتراك العضو الشهري'**
   String get memberFeeField;
 
+  /// Heads each month-exception row in Settings, directly under the monthly fee it is the exception TO. One word, because the row that follows it — a month and an amount — is the sentence.
+  ///
+  /// In ar, this message translates to:
+  /// **'ماعدا'**
+  String get feeExceptionLabel;
+
+  /// No description provided for @feeExceptionAdd.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة شهر مستثنى'**
+  String get feeExceptionAdd;
+
   /// No description provided for @systemStartField.
   ///
   /// In ar, this message translates to:

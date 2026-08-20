@@ -55,6 +55,15 @@ class _SettingsForm extends ConsumerStatefulWidget {
 }
 
 class _SettingsFormState extends ConsumerState<_SettingsForm> {
+  /// The months that cost something other than the standard fee.
+  ///
+  /// ⚠ A COPY, not the widget’s own map. An admin who adds an exception and
+  ///   then leaves without saving must leave the settings as they were, and a
+  ///   map edited in place would already have changed them.
+  late final Map<String, String> _exceptions = <String, String>{
+    ...widget.initial.feeExceptions,
+  };
+
   late final Map<String, TextEditingController> _fields =
       <String, TextEditingController>{
         'associationName': TextEditingController(
@@ -95,10 +104,16 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
 
   String _text(String key) => _fields[key]!.text.trim();
 
+  /// January first, whatever order they were added in. A map keeps insertion
+  /// order, so without this the list reorders itself as an admin edits it.
+  List<String> _sortedMonths() =>
+      _exceptions.keys.toList()..sort();
+
   EditableSettings _collect() => EditableSettings(
     associationName: _text('associationName'),
     currency: _text('currency'),
     memberFee: _text('memberFee'),
+    feeExceptions: _exceptions,
     systemStart: _text('systemStart'),
     autoClosePreviousMonths: widget.initial.autoClosePreviousMonths,
     bankName: _text('bankName'),
@@ -259,6 +274,48 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           controller: _fields['memberFee']!,
           money: true,
         ),
+
+        // ── ماعدا ─────────────────────────────────────────────────────────
+        // The association agreed some calendar months carry a different
+        // subscription — يناير and يونيو at 200 while the rest stay at 100.
+        // The rows sit directly under the fee they are the exception to,
+        // because read anywhere else they are a second unrelated setting.
+        //
+        // ⚠ CALENDAR MONTH, NOT A DATE. «January is 200» holds every year
+        //   until it is removed; a period would have to be set again each
+        //   December, and the December it was forgotten would bill the wrong
+        //   figure with nothing refusing.
+        for (final String month in _sortedMonths())
+          _ExceptionRow(
+            month: month,
+            amount: _exceptions[month] ?? '',
+            taken: _exceptions.keys.toSet(),
+            onMonth: (String to) => setState(() {
+              final String? amount = _exceptions.remove(month);
+              _exceptions[to] = amount ?? '';
+            }),
+            onAmount: (String v) => _exceptions[month] = v,
+            onRemove: () => setState(() => _exceptions.remove(month)),
+          ),
+        if (_exceptions.length < 12)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () => setState(() {
+                // The first month not already spoken for, so adding twice in
+                // a row cannot produce two rows for January.
+                for (int m = 1; m <= 12; m++) {
+                  final String key = m.toString().padLeft(2, '0');
+                  if (!_exceptions.containsKey(key)) {
+                    _exceptions[key] = '';
+                    return;
+                  }
+                }
+              }),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(l.feeExceptionAdd),
+            ),
+          ),
         _Field(
           label: l.systemStartField,
           controller: _fields['systemStart']!,
@@ -804,6 +861,94 @@ class _Field extends StatelessWidget {
           isDense: true,
           hintText: date ? '2026-01-01' : null,
         ),
+      ),
+    );
+  }
+}
+
+/// One «ماعدا» row: a month, the fee it carries, and a way to remove it.
+///
+/// ── WHY A DROPDOWN AND NOT A TYPED MONTH ────────────────────────────────────
+/// The key must be exactly «01»..«12» — `generate_period` matches it against
+/// `substr(period, 6, 2)`, so «1» would never match and the exception would be
+/// silently ignored. Nothing would refuse it and the month would quietly bill
+/// the standard fee, which for a money rule is the worst failure available.
+///
+/// A list of twelve makes that unreachable, and the database refuses anything
+/// else anyway — `ck_settings_fee_exceptions` — so the two agree.
+class _ExceptionRow extends StatelessWidget {
+  const _ExceptionRow({
+    required this.month,
+    required this.amount,
+    required this.taken,
+    required this.onMonth,
+    required this.onAmount,
+    required this.onRemove,
+  });
+
+  final String month;
+  final String amount;
+
+  /// The months already spoken for, so one cannot be chosen twice — two rows
+  /// for January would be one row silently overwriting the other.
+  final Set<String> taken;
+
+  final ValueChanged<String> onMonth;
+  final ValueChanged<String> onAmount;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            l.feeExceptionLabel,
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            flex: 5,
+            child: DropdownButtonFormField<String>(
+              initialValue: month,
+              isDense: true,
+              items: <DropdownMenuItem<String>>[
+                for (int m = 1; m <= 12; m++)
+                  if (!taken.contains(m.toString().padLeft(2, '0')) ||
+                      m.toString().padLeft(2, '0') == month)
+                    DropdownMenuItem<String>(
+                      value: m.toString().padLeft(2, '0'),
+                      child: Text(monthName(m)),
+                    ),
+              ],
+              onChanged: (String? v) {
+                if (v != null) onMonth(v);
+              },
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            flex: 4,
+            child: TextFormField(
+              initialValue: amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: <TextInputFormatter>[ArabicDigitsFormatter()],
+              decoration: const InputDecoration(isDense: true),
+              onChanged: onAmount,
+            ),
+          ),
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: l.delete,
+            color: AppColors.muted,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }

@@ -278,6 +278,7 @@ class EditableSettings {
     required this.associationName,
     required this.currency,
     required this.memberFee,
+    required this.feeExceptions,
     required this.systemStart,
     required this.autoClosePreviousMonths,
     required this.bankName,
@@ -290,6 +291,21 @@ class EditableSettings {
   final String associationName;
   final String currency;
   final String memberFee;
+
+  /// The months that carry a different subscription: calendar month («01»…
+  /// «12») to the fee that month costs.
+  ///
+  /// ⚠ CALENDAR MONTH, NOT PERIOD. The association’s agreement is «January is
+  ///   200», not «January 2026 is 200» — so an entry holds every year until it
+  ///   is removed, and nobody has to set it again each December.
+  ///
+  /// ⚠ AND IT REPRICES NOTHING ALREADY CLOSED. Rule 5 snapshots the amount
+  ///   onto each receivable when the month is raised, and the snapshot trigger
+  ///   refuses to let it move afterwards — so adding an exception in March
+  ///   does not change what January billed. Same guarantee the monthly fee
+  ///   already carries, and the settings screen already states it.
+  final Map<String, String> feeExceptions;
+
   final String systemStart;
   final bool autoClosePreviousMonths;
 
@@ -355,6 +371,12 @@ class EditableSettings {
     // the patch is the same guarantee restated server-side, for callers that are
     // not this app.
     if (memberFee.trim().isNotEmpty) 'memberFee': memberFee.trim(),
+    // ── Sent WHOLE, always, including empty ─────────────────────────────
+    // update_settings replaces the set rather than merging it, so removing
+    // an exception is sending one fewer. Omitting the key when the map is
+    // empty would make the last removal impossible — the very case an admin
+    // reaches for when the association drops a special month.
+    'feeExceptions': feeExceptions,
     if (systemStart.trim().isNotEmpty) 'systemStart': systemStart.trim(),
     'autoClosePreviousMonths': autoClosePreviousMonths,
     'bankName': bankName,
@@ -380,6 +402,7 @@ class EditableSettings {
         associationName: _string(json['associationName']),
         currency: _string(json['currency']),
         memberFee: _string(json['memberFee']),
+        feeExceptions: _feeExceptions(json['feeExceptions']),
         systemStart: _string(json['systemStart']),
         autoClosePreviousMonths: json['autoClosePreviousMonths'] == true,
         bankName: _string(json['bankName']),
@@ -392,6 +415,20 @@ class EditableSettings {
           (json['financeManager'] as Map).cast<String, dynamic>(),
         ),
       );
+}
+
+/// The month-to-fee map, read defensively.
+///
+/// A database that predates the column sends no key at all, and one that has
+/// never had an exception sends `{}`. Both mean the same thing to the screen —
+/// every month costs the standard fee — so both produce an empty map rather
+/// than a null the caller has to remember to check.
+Map<String, String> _feeExceptions(Object? value) {
+  if (value is! Map) return const <String, String>{};
+  return value.map(
+    (Object? k, Object? v) =>
+        MapEntry<String, String>(k.toString(), _string(v)),
+  );
 }
 
 /// What `purge_financial_data` reports it erased.

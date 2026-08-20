@@ -138,7 +138,8 @@ void main() {
       const EditableSettings settings = EditableSettings(
         associationName: 'جمعية العدايل',
         currency: 'د.ل',
-        memberFee: '20.00',
+        feeExceptions: <String, String>{},
+      memberFee: '20.00',
         systemStart: '2026-01-01',
         autoClosePreviousMonths: true,
         bankName: 'مصرف الجمهورية',
@@ -182,7 +183,8 @@ void main() {
       const EditableSettings vacant = EditableSettings(
         associationName: 'ج',
         currency: 'د.ل',
-        memberFee: '20.00',
+        feeExceptions: <String, String>{},
+      memberFee: '20.00',
         systemStart: '2026-01-01',
         autoClosePreviousMonths: true,
         bankName: '',
@@ -218,7 +220,8 @@ void main() {
       const EditableSettings blank = EditableSettings(
         associationName: 'ج',
         currency: 'د.ل',
-        memberFee: '   ',
+        feeExceptions: <String, String>{},
+      memberFee: '   ',
         systemStart: '',
         autoClosePreviousMonths: true,
         bankName: '',

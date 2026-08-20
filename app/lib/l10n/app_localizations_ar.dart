@@ -908,6 +908,12 @@ class LAr extends L {
   String get memberFeeField => 'اشتراك العضو الشهري';
 
   @override
+  String get feeExceptionLabel => 'ماعدا';
+
+  @override
+  String get feeExceptionAdd => 'إضافة شهر مستثنى';
+
+  @override
   String get systemStartField => 'تاريخ بداية العمل بالنظام';
 
   @override

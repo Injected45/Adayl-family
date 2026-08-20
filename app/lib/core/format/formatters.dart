@@ -162,3 +162,11 @@ class ArabicDigitsFormatter extends TextInputFormatter {
     );
   }
 }
+
+/// A calendar month by number — «يناير» for 1.
+///
+/// For the «ماعدا» rows in Settings, where the exception belongs to January
+/// every year rather than to one January. The name comes from intl's `ar` data
+/// for the same reason [formatPeriodMonth] takes it from there: Arabic has two
+/// homes in this project and a formatter is neither of them.
+String monthName(int month) => _monthOnlyFormat.format(DateTime(2000, month));

@@ -908,6 +908,12 @@ class LEn extends L {
   String get memberFeeField => 'Monthly member fee';
 
   @override
+  String get feeExceptionLabel => 'Except';
+
+  @override
+  String get feeExceptionAdd => 'Add an excepted month';
+
+  @override
   String get systemStartField => 'System start date';
 
   @override

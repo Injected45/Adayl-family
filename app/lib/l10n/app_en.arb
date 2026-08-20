@@ -296,6 +296,8 @@
   "associationNameField": "Association name",
   "currencyField": "Currency",
   "memberFeeField": "Monthly member fee",
+  "feeExceptionLabel": "Except",
+  "feeExceptionAdd": "Add an excepted month",
   "systemStartField": "System start date",
   "fullNameField": "Name",
   "save": "Save",
