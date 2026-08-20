@@ -324,35 +324,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.client_callable_functions()
   FROM PUBLIC, anon, authenticated, service_role;
 
--- والمسحة نفسها، حرفاً بحرف من 20260811091200_function_lockdown.sql.
-DO $lockdown$
-DECLARE
-  r        record;
-  v_allow  text[] := public.client_callable_functions();
-  v_sig    text;
-BEGIN
-  FOR r IN
-    SELECT p.oid,
-           p.oid::regprocedure::text AS full_sig
-      FROM pg_proc p
-      JOIN pg_namespace n ON n.oid = p.pronamespace
-     WHERE n.nspname = 'public'
-       AND NOT EXISTS (SELECT 1 FROM pg_depend d
-                        WHERE d.objid = p.oid
-                          AND d.classid = 'pg_proc'::regclass
-                          AND d.deptype = 'e')
-  LOOP
-    EXECUTE format(
-      'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role',
-      r.full_sig);
-    v_sig := replace(ltrim(replace(r.full_sig, 'public.', ''), ' '), ' ', '');
-    IF v_sig = ANY (SELECT replace(a, ' ', '') FROM unnest(v_allow) a) THEN
-      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role',
-                     r.full_sig);
-    END IF;
-  END LOOP;
-END $lockdown$;
-
 -- == 3. لا صرف بتاريخ لم يأتِ بعد =========================================
 -- ⚠ THE ASSOCIATION FOUND THIS, and the way it showed itself is worth
 --   recording: a voucher was entered dated TOMORROW, and the member reported
@@ -389,6 +360,18 @@ BEGIN
   RETURN NEW;
 END $future$;
 
+-- ⚠ NOT CLIENT-CALLABLE, AND THIS REVOKE IS WHY THE PATCH ONCE ROLLED BACK.
+--   A trigger function is called by Postgres, never by a client, so it is
+--   deliberately absent from the allow-list. But it is created FRESH, and a
+--   fresh function gets the built-in default — EXECUTE to PUBLIC — with
+--   Supabase's ALTER DEFAULT PRIVILEGES layering anon on top. The first
+--   version of this file created it AFTER the lockdown sweep, so the sweep
+--   never saw it, and assert_function_grants() refused the whole patch with
+--   «callable by anon/authenticated but not on the allow-list:
+--   disb_refuse_future()». The guard was right; the ORDER was wrong.
+REVOKE EXECUTE ON FUNCTION public.disb_refuse_future()
+  FROM PUBLIC, anon, authenticated, service_role;
+
 -- INSERT and UPDATE both: a correction that moved the date forward would
 -- otherwise walk straight past a rule that only watched new rows.
 DROP TRIGGER IF EXISTS trg_disb_no_future ON public.disbursements;
@@ -401,6 +384,45 @@ CREATE TRIGGER trg_disb_no_future
 --   The association can correct a wrong date by reversing the voucher and
 --   recording it again — which is the same path every other correction takes,
 --   and leaves both halves visible.
+
+-- == 3b. المسحة، وموضعها ليس اعتباطاً ======================================
+-- ⚠ AFTER THE LAST CREATE IN THIS FILE, and that is the whole rule. On a full
+--   apply, 20260811091200_function_lockdown.sql runs LAST and normalises every
+--   grant in the schema, so nothing else has to think about privileges. A
+--   patch gets no such pass — it has to carry the sweep itself, and a sweep
+--   that runs before the file has finished creating things is a sweep that
+--   missed something.
+--
+--   It recomputes every grant from the allow-list, so it also fixes the NEXT
+--   function anybody adds — provided that function is added above this line.
+-- والمسحة نفسها، حرفاً بحرف من 20260811091200_function_lockdown.sql.
+DO $lockdown$
+DECLARE
+  r        record;
+  v_allow  text[] := public.client_callable_functions();
+  v_sig    text;
+BEGIN
+  FOR r IN
+    SELECT p.oid,
+           p.oid::regprocedure::text AS full_sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                        WHERE d.objid = p.oid
+                          AND d.classid = 'pg_proc'::regclass
+                          AND d.deptype = 'e')
+  LOOP
+    EXECUTE format(
+      'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role',
+      r.full_sig);
+    v_sig := replace(ltrim(replace(r.full_sig, 'public.', ''), ' '), ' ', '');
+    IF v_sig = ANY (SELECT replace(a, ' ', '') FROM unnest(v_allow) a) THEN
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role',
+                     r.full_sig);
+    END IF;
+  END LOOP;
+END $lockdown$;
 
 -- == 4. Confirmation ========================================================
 -- Read-only. Every row must say true.

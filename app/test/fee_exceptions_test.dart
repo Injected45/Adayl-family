@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:family_app/features/oversight/domain/models.dart';
+import 'package:family_app/features/oversight/presentation/settings_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// اشتراكٌ يختلف باختلاف الشهر.
@@ -89,5 +92,65 @@ void main() {
     expect(s.feeExceptions['01'], '200.00');
     expect(s.feeExceptions['06'], '200.00');
     expect(s.feeExceptions['02'], isNull);
+  });
+
+  // ── ما الذي يصل فعلاً إلى القاعدة ─────────────────────────────────────────
+  //
+  // `update_settings` saves the WHOLE settings screen in one statement, and
+  // `ck_settings_fee_exceptions` refuses anything that is not «شهر: مبلغ». So a
+  // row the admin added and never filled in does not merely fail to save
+  // itself — it takes the association name, the fee, the bank details and the
+  // officials down with it, to a 23514 that shows no Arabic message at all
+  // because _isDisplayable only trusts a RULnn.
+  group('ماعدا — ما يُرسَل وما يُسقَط', () {
+    test('⚠ a row added and never filled in is dropped, not sent', () {
+      expect(
+        liveFeeExceptions(<String, String>{'01': '200', '06': ''}),
+        <String, String>{'01': '200'},
+      );
+    });
+
+    test('and whitespace is not an amount either', () {
+      expect(liveFeeExceptions(<String, String>{'01': '   '}), isEmpty);
+    });
+
+    test('a figure is trimmed on its way out', () {
+      expect(
+        liveFeeExceptions(<String, String>{'01': ' 200.00 '}),
+        <String, String>{'01': '200.00'},
+      );
+    });
+
+    // ⚠ THE OTHER HALF OF THE RULE. A MALFORMED figure still travels: «200.»
+    //   is refused by the CHECK and the admin is told. Dropping it here would
+    //   save silently and leave يناير at the standard fee while he believed he
+    //   had changed it — the worse of the two failures by a wide margin.
+    test('⚠ but a malformed figure still travels, so the database refuses it', () {
+      expect(
+        liveFeeExceptions(<String, String>{'01': '200.'}),
+        <String, String>{'01': '200.'},
+      );
+    });
+  });
+
+  // ⚠ THE ROWS MUST BE KEYED BY THEIR MONTH. Both fields in _ExceptionRow take
+  //   `initialValue`, which is read on the FIRST build and never again — so
+  //   without a key, removing a row or changing a month (the list re-sorts)
+  //   makes Flutter match the widgets by POSITION, and the field that moved up
+  //   keeps the amount of the row that used to be there. The admin then reads a
+  //   figure against a month it does not belong to, and saves it.
+  //
+  //   Scanned rather than pumped: reaching that row needs a router, a session
+  //   and a live Supabase client, and the property is one line of source.
+  test('⚠ each ماعدا row is keyed by its month', () {
+    final String src = File(
+      'lib/features/oversight/presentation/settings_screen.dart',
+    ).readAsStringSync();
+
+    expect(
+      src.contains('key: ValueKey<String>(month)'),
+      isTrue,
+      reason: 'without a key the amount fields keep the previous row’s text',
+    );
   });
 }

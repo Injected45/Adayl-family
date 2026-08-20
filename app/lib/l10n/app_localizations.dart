@@ -1075,6 +1075,12 @@ abstract class L {
   /// **'تاريخ الصرف'**
   String get disbursementDate;
 
+  /// No description provided for @disbursementDateAuto.
+  ///
+  /// In ar, this message translates to:
+  /// **'التاريخ يُسجَّل تلقائياً بساعة الجمعية'**
+  String get disbursementDateAuto;
+
   /// No description provided for @change.
   ///
   /// In ar, this message translates to:

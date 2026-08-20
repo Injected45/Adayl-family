@@ -89,16 +89,38 @@ String formatPeriodMonth(String? period) {
   return year == DateTime.now().year ? name : '$name $year';
 }
 
+/// Libya’s wall clock, and deliberately NOT the handset’s.
+///
+/// ⚠ `toLocal()` READS THE DEVICE TIMEZONE, which is a setting. A phone put
+///   on UTC+9 renders a voucher stamped at 23:30 Tripoli as the NEXT day, and
+///   two members comparing screens then see different dates for one receipt.
+///   The database stamps an absolute instant; the day it belongs to is the
+///   association’s day, not the reader’s.
+///
+/// ⚠ A FIXED +02:00, and that is exact rather than approximate: Libya has
+///   observed no daylight saving since 2013 and sits on UTC+2 all year. One
+///   constant, no timezone database, no package — and if that ever changes,
+///   this line is the only thing that changes with it.
+const Duration _libyaOffset = Duration(hours: 2);
+
+/// ⚠ ONLY WHEN THE WIRE CARRIED A ZONE. `DateTime.tryParse` marks a value UTC
+///   when the text ends in Z or an offset — which is what a Postgres
+///   `timestamptz` always sends. A bare «2026-08-21» from a `date` column
+///   parses as LOCAL midnight instead, and shifting that would move the day
+///   by one on any device east of Tripoli. So a day that arrived as a day is
+///   already the answer, and is left exactly as it is.
+DateTime _tripoli(DateTime t) => t.isUtc ? t.add(_libyaOffset) : t;
+
 String formatDate(String? iso) {
   if (iso == null || iso.isEmpty) return '';
   final DateTime? parsed = DateTime.tryParse(iso);
-  return parsed == null ? iso : _dayFormat.format(parsed.toLocal());
+  return parsed == null ? iso : _dayFormat.format(_tripoli(parsed));
 }
 
 String formatDateTime(String? iso) {
   if (iso == null || iso.isEmpty) return '';
   final DateTime? parsed = DateTime.tryParse(iso);
-  return parsed == null ? iso : _dateTimeFormat.format(parsed.toLocal());
+  return parsed == null ? iso : _dateTimeFormat.format(_tripoli(parsed));
 }
 
 /// The clock alone: «09:24».
@@ -113,7 +135,7 @@ final DateFormat _timeOnlyFormat = DateFormat.Hm('ar');
 String formatTime(String? iso) {
   if (iso == null || iso.isEmpty) return '';
   final DateTime? parsed = DateTime.tryParse(iso);
-  return parsed == null ? '' : _timeOnlyFormat.format(parsed.toLocal());
+  return parsed == null ? '' : _timeOnlyFormat.format(_tripoli(parsed));
 }
 
 /// Folds Arabic-Indic digits to ASCII as they are typed.

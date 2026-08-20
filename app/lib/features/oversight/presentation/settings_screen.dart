@@ -106,14 +106,13 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
 
   /// January first, whatever order they were added in. A map keeps insertion
   /// order, so without this the list reorders itself as an admin edits it.
-  List<String> _sortedMonths() =>
-      _exceptions.keys.toList()..sort();
+  List<String> _sortedMonths() => _exceptions.keys.toList()..sort();
 
   EditableSettings _collect() => EditableSettings(
     associationName: _text('associationName'),
     currency: _text('currency'),
     memberFee: _text('memberFee'),
-    feeExceptions: _exceptions,
+    feeExceptions: liveFeeExceptions(_exceptions),
     systemStart: _text('systemStart'),
     autoClosePreviousMonths: widget.initial.autoClosePreviousMonths,
     bankName: _text('bankName'),
@@ -287,6 +286,14 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         //   figure with nothing refusing.
         for (final String month in _sortedMonths())
           _ExceptionRow(
+            // ⚠ KEYED BY THE MONTH, and without this the rows lie. Both fields
+            //   below take `initialValue`, which is read on the FIRST build and
+            //   never again — so when a row is removed, or a month is changed
+            //   and the list re-sorts, Flutter matches the widgets by POSITION
+            //   and the field that moved up keeps the amount of the row that
+            //   used to be there. An admin would then read a figure against a
+            //   month it does not belong to, and save it.
+            key: ValueKey<String>(month),
             month: month,
             amount: _exceptions[month] ?? '',
             taken: _exceptions.keys.toSet(),
@@ -866,6 +873,31 @@ class _Field extends StatelessWidget {
   }
 }
 
+/// The fee exceptions that actually carry a figure.
+///
+/// ⚠ AN EMPTY ROW WOULD REFUSE THE ENTIRE SAVE. Tapping «إضافة» puts a month
+///   on screen with no amount yet, and `ck_settings_fee_exceptions` refuses
+///   `{"01": ""}` — so an admin who added a row, changed his mind and pressed
+///   حفظ would lose the association name, the fee, the bank details and the
+///   officials along with it, to a 23514 that carries no Arabic message at all
+///   because _isDisplayable only trusts a RULnn. `update_settings` saves the
+///   whole screen in one statement; one blank field must not be able to fail
+///   it.
+///
+/// ⚠ AND ONLY THE EMPTY ONES GO. A malformed figure — «200.» — is still sent
+///   and still refused, because the admin typed it and meant something by it.
+///   Dropping it here would save silently and leave يناير at the standard fee
+///   while he believed he had changed it.
+///
+/// Top-level and public so it can be proved without a screen, a router and a
+/// live session: it is the one rule in this file that decides what reaches the
+/// database.
+Map<String, String> liveFeeExceptions(Map<String, String> raw) =>
+    <String, String>{
+      for (final MapEntry<String, String> e in raw.entries)
+        if (e.value.trim().isNotEmpty) e.key: e.value.trim(),
+    };
+
 /// One «ماعدا» row: a month, the fee it carries, and a way to remove it.
 ///
 /// ── WHY A DROPDOWN AND NOT A TYPED MONTH ────────────────────────────────────
@@ -884,6 +916,7 @@ class _ExceptionRow extends StatelessWidget {
     required this.onMonth,
     required this.onAmount,
     required this.onRemove,
+    super.key,
   });
 
   final String month;
@@ -935,7 +968,9 @@ class _ExceptionRow extends StatelessWidget {
             flex: 4,
             child: TextFormField(
               initialValue: amount,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: <TextInputFormatter>[ArabicDigitsFormatter()],
               decoration: const InputDecoration(isDense: true),
               onChanged: onAmount,

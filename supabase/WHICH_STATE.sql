@@ -96,14 +96,42 @@ WITH have AS (
     EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_schema='public' AND table_name='chat_messages'
                AND column_name='thread_adeel_id')                     AS patch_20,
-    -- Full transparency on aid: the POLICY, not the function, because the
-    --   function is what a member calls and the policy is what answers him.
+    -- الصرف الجماعي. The POLICY, not the function: the function is what a
+    --   member calls, the policy is what answers him, and CREATE OR REPLACE
+    --   leaves a function's NAME standing whatever its body says.
+    --
+    -- ⚠ AND THE NAME CHANGED WITH THE RULE. An earlier draft of that patch
+    --   created read_all_disbursements_adeel — every voucher, by name. The
+    --   association chose the COLLECTIVE spending instead, so the patch now
+    --   drops that one and creates read_collective_disbursements. Probing the
+    --   old name here answered «NOT applied» for a patch that had just landed
+    --   correctly, and the VERDICT then asked for it again, forever. A probe
+    --   is a version claim: rewrite the patch and the probe is stale too.
     EXISTS (SELECT 1 FROM pg_policies
              WHERE schemaname='public' AND tablename='disbursements'
-               AND policyname='read_all_disbursements_adeel')         AS patch_20b,
+               AND policyname='read_collective_disbursements')        AS patch_20b,
+    -- ⚠ AND THE WIDE ONE MUST BE GONE. This is not a patch level, it is a
+    --   privacy guarantee: while that policy stands, every مشترك reads every
+    --   other man's إعانة by name. Its own row, because a schema can hold both
+    --   policies at once and «applied» would then hide it.
+    EXISTS (SELECT 1 FROM pg_policies
+             WHERE schemaname='public' AND tablename='disbursements'
+               AND policyname='read_all_disbursements_adeel')         AS aid_by_name,
+    -- التاريخ من ساعة الخادم. Probed by the trigger it INSTALLS rather than
+    -- by the one it removes: «the old thing is gone» is also true of a project
+    -- that never had either.
+    EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+             WHERE c.relname='disbursements'
+               AND t.tgname='trg_disb_stamp_time')                 AS patch_22,
     -- اشتراك يختلف باختلاف الشهر. Probed by the COLUMN it adds.
+    --
+    -- ⚠ association_settings, NOT settings. There is no public.settings in
+    --   this schema and there never was — so this probe could only ever
+    --   answer false, reporting the patch as missing however many times it
+    --   was applied. The identical wrong name was in the patch itself, where
+    --   it aborted on the first statement; here it said nothing and lied.
     EXISTS (SELECT 1 FROM information_schema.columns
-             WHERE table_schema='public' AND table_name='settings'
+             WHERE table_schema='public' AND table_name='association_settings'
                AND column_name='fee_exceptions')                     AS patch_21,
 
     -- ── ACCESS, which is not schema and is lost independently of it ─────────
@@ -165,10 +193,16 @@ SELECT * FROM (
          CASE WHEN patch_19 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 10.1, 'PATCH 20/08 — الغرفتان (المحادثة الخاصة)',
          CASE WHEN patch_20 THEN 'applied' ELSE 'NOT applied' END FROM have
-  UNION ALL SELECT 10.2, 'PATCH 20/08 (b) — أسلاف مكشوفة بالأسماء',
+  UNION ALL SELECT 10.2, 'PATCH 20/08 (b) — أسلاف للغير (الصرف الجماعي)',
          CASE WHEN patch_20b THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.21, 'خصوصية الأسلاف',
+         CASE WHEN aid_by_name
+                THEN '⚠ مكشوفة بالأسماء — PATCH_20260820b يُغلقها'
+              ELSE 'مصونة — لا يقرأ مشتركٌ سلف مشتركٍ آخر' END FROM have
   UNION ALL SELECT 10.3, 'PATCH 21/08 — اشتراك يختلف باختلاف الشهر',
          CASE WHEN patch_21 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.4, 'PATCH 22/08 — التاريخ بساعة الخادم',
+         CASE WHEN patch_22 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -207,11 +241,16 @@ SELECT * FROM (
                 THEN 'READY — apply supabase/PATCH_20260819_chat.sql'
               WHEN NOT patch_20
                 THEN 'READY — apply supabase/PATCH_20260820_chat_threads.sql'
-              WHEN NOT patch_20b
+              -- OR, not just NOT: a project holding the old wide policy needs
+              -- this patch even if the new policy is somehow already there.
+              WHEN NOT patch_20b OR aid_by_name
                 THEN 'READY — apply supabase/PATCH_20260820b_aid_transparency.sql'
-                  || '  ⚠ يفتح أسلاف كل مشترك لكل المشتركين بالأسماء — قرار الجمعية.'
+                  || '  ⚠ يعرض الصرف الجماعي للمشترك، ويُغلق كشف أسلاف الآخرين بالأسماء.'
               WHEN NOT patch_21
                 THEN 'READY — apply supabase/PATCH_20260821_fee_exceptions.sql'
-              ELSE 'UP TO DATE — every patch through 21/08 is applied.'
+              WHEN NOT patch_22
+                THEN 'READY — apply supabase/PATCH_20260822_server_clock.sql'
+                  || '  ⚠ التاريخ يصير من ساعة الخادم، ويسقط الإدخال اليدوي له.'
+              ELSE 'UP TO DATE — every patch through 22/08 is applied.'
          END FROM have
 ) t ORDER BY ord;

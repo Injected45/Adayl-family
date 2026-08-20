@@ -536,6 +536,10 @@ class LEn extends L {
   String get disbursementDate => 'Date of disbursement';
 
   @override
+  String get disbursementDateAuto =>
+      'The date is stamped automatically by the association clock';
+
+  @override
   String get change => 'Change';
 
   @override

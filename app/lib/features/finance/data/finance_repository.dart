@@ -209,7 +209,6 @@ class FinanceRepository {
     String? bankAccountNo,
     String? handedBy,
     String? note,
-    String? spentAt,
   }) => SupabaseFailures.guard(() async {
     final dynamic payload = await _db.rpc<dynamic>(
       'register_disbursement',
@@ -233,7 +232,12 @@ class FinanceRepository {
             : bankAccountNo,
         'p_handed_by': (handedBy?.isEmpty ?? true) ? null : handedBy,
         'p_note': (note?.isEmpty ?? true) ? null : note,
-        'p_spent_at': (spentAt?.isEmpty ?? true) ? null : spentAt,
+        // ⚠ p_spent_at IS DELIBERATELY NOT SENT. It still exists on the
+        //   function — dropping a parameter means DROP and CREATE, a fresh
+        //   ACL, and an app already in the field calling a signature that no
+        //   longer resolves — but a BEFORE INSERT trigger overwrites spent_at
+        //   with the server clock, so anything sent here would be discarded.
+        //   Not sending it is how the code says that out loud.
       },
     );
     return _obj(payload);

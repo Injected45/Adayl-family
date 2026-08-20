@@ -533,6 +533,9 @@ class LAr extends L {
   String get disbursementDate => 'تاريخ الصرف';
 
   @override
+  String get disbursementDateAuto => 'التاريخ يُسجَّل تلقائياً بساعة الجمعية';
+
+  @override
   String get change => 'تغيير';
 
   @override

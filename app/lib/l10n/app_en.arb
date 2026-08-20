@@ -183,6 +183,7 @@
   "recipient": "Recipient",
   "handedBy": "Handed over by",
   "disbursementDate": "Date of disbursement",
+  "disbursementDateAuto": "The date is stamped automatically by the association clock",
   "change": "Change",
   "voucherNo": "Voucher no.",
   "noDisbursements": "No disbursements recorded yet",

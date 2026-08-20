@@ -70,7 +70,6 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
   /// voucher cannot name one person while pointing at another.
   int? _payeeAdeelId;
 
-  DateTime _spentAt = DateTime.now();
   bool _submitting = false;
   String? _error;
 
@@ -91,10 +90,6 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
     super.dispose();
   }
 
-  String _date(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
 
   /// Mirrors the server's guards so the button can be dead before a round trip.
   /// The server re-reads the treasury under a lock and is the only authority;
@@ -153,7 +148,6 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                 : null,
             handedBy: _handedBy.text.trim(),
             note: _note.text.trim(),
-            spentAt: _date(_spentAt),
           );
 
       // Everything the voucher moved. The treasury summary and the member
@@ -451,25 +445,36 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today, size: 18),
-                    title: Text(l.disbursementDate),
-                    subtitle: Text(formatDate(_date(_spentAt))),
-                    trailing: TextButton(
-                      onPressed: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: _spentAt,
-                          firstDate: DateTime(2020),
-                          // Never the future: a voucher dated tomorrow is money
-                          // the association has not yet handed over.
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) setState(() => _spentAt = picked);
-                      },
-                      child: Text(l.change),
-                    ),
+                  // ── التاريخ ─────────────────────────────────────────
+                  // ⚠ THERE IS NO PICKER HERE ANY MORE, and its absence is
+                  //   the guarantee. It defaulted to the HANDSET clock and
+                  //   then let that be edited — which is how a voucher came
+                  //   to be dated tomorrow. The database now stamps spent_at
+                  //   with its own now() in a BEFORE INSERT trigger, so no
+                  //   value is left for this screen to propose or get wrong.
+                  //
+                  //   And a read-only line showing «today» would be worse
+                  //   than nothing: it could only come from the device clock,
+                  //   so on a tampered phone it would display a date the row
+                  //   will not carry. One sentence, and no figure to doubt.
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.schedule,
+                        size: 16,
+                        color: AppColors.muted,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          l.disbursementDateAuto,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   if (_error != null) ...<Widget>[

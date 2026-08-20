@@ -161,4 +161,41 @@ void main() {
     );
     expect(out.text, '500.5');
   });
+
+  // ── التاريخ بتوقيت طرابلس، لا بتوقيت الجهاز ─────────────────────────────
+  //
+  // The database stamps an absolute instant. Which DAY that instant belongs
+  // to used to be answered by `toLocal()` — the device timezone, which is a
+  // setting a member can change. Two men comparing the same receipt on two
+  // phones could read two different dates, and neither screen would say so.
+  //
+  // ⚠ THESE TWO CASES PASS ON ANY MACHINE, WHATEVER ITS TIMEZONE, which is
+  //   the whole point: the answer no longer depends on where it is read.
+  group('التاريخ يُعرض بتوقيت طرابلس', () {
+    // 23:30 UTC is 01:30 the NEXT day in Tripoli. Under toLocal() this
+    // printed the 20th on every machine west of UTC+1 — the exact off-by-one
+    // that makes a voucher look like it belongs to another day.
+    test('an instant late at night lands on Libya’s day', () {
+      expect(formatDate('2026-08-20T23:30:00+00:00'), contains('21'));
+    });
+
+    // And the other direction: 00:30 UTC is 02:30 the SAME day in Tripoli.
+    test('and an instant just after midnight does not move', () {
+      expect(formatDate('2026-08-21T00:30:00+00:00'), contains('21'));
+    });
+
+    // ⚠ A BARE DAY IS ALREADY THE ANSWER. A `date` column sends «2026-08-21»
+    //   with no zone, which Dart parses as LOCAL midnight — so adding two
+    //   hours to it would move the day by one on any device east of Tripoli.
+    //   period_end and systemStart both arrive this way.
+    test('⚠ but a bare date carries no zone and is left alone', () {
+      expect(formatDate('2026-08-21'), contains('21'));
+    });
+
+    // The clock, for the same reason the date is: a receipt written at 01:30
+    // Tripoli must not read 23:30 to a member whose phone is on UTC.
+    test('and the clock is Libya’s too', () {
+      expect(formatTime('2026-08-20T23:30:00+00:00'), '01:30');
+    });
+  });
 }

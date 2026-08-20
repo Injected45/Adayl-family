@@ -226,6 +226,7 @@
   },
   "handedBy": "المُسلِّم",
   "disbursementDate": "تاريخ الصرف",
+  "disbursementDateAuto": "التاريخ يُسجَّل تلقائياً بساعة الجمعية",
   "change": "تغيير",
   "voucherNo": "رقم الإيصال",
   "noDisbursements": "لم يُسجَّل أي صرف بعد",
