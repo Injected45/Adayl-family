@@ -1,50 +1,44 @@
 -- ============================================================================
---  جمعية العدايل — PATCH 2026-08-20 (b).  أسلاف الجمعية مكشوفة لكل مشترك.
+--  جمعية العدايل — PATCH 2026-08-20 (b).  الصرف الجماعي مكشوف لكل مشترك.
 --
 --  WHAT THIS DOES
---    One policy. A bound عديل may read EVERY voucher, not only his own — so
---    «أسلاف للغير» in his portal can list what the association gave each man,
---    with names, occasions and amounts.
+--    A bound عديل may read every COLLECTIVE voucher — فطور رمضان and its like:
+--    money the association spent on everybody at once, attributed to nobody.
+--    «أسلاف للغير» in his portal lists them, with the occasion, the amount and
+--    the date, and a breakdown by وجه الصرف.
 --
---  ⚠ THIS IS A DECISION OF THE ASSOCIATION, NOT A TECHNICAL CHANGE, AND IT IS
---    THE MOST PRIVATE FACT THIS SYSTEM HOLDS.
+--  ⚠ AND IT DELIBERATELY DOES NOT SHOW WHAT ANOTHER MAN RECEIVED.
 --
---    Until now a member saw his own aid and nothing else, and the comment beside
---    read_own_disbursements said why: a row here records that a NAMED man
---    received إعانة — for a bereavement, a birth, an emergency. After this
---    patch every member of the association can read that about every other
---    member.
+--    An earlier draft of this file did: one policy admitting a member to every
+--    voucher including the named ones. The association looked at it and chose
+--    otherwise — the screen is to carry the COLLECTIVE spending, not other
+--    members' aid — so the wide policy is DROPPED here and replaced by one
+--    scoped to `payee_adeel_id IS NULL`.
 --
---    The association asked for exactly this, in those words: «كل شيء
---    بالأسماء». It is consistent with the «شفافية مطلقة» already recorded
---    beside read_disbursements. It is written down here because a policy that
---    widens who may read a private fact should never be found by accident in a
---    diff.
+--    That is the better rule and not merely the narrower one. A row naming a
+--    man who received إعانة for a bereavement is the most private fact this
+--    system holds; a row saying the association spent 400 on فطور رمضان names
+--    nobody and answers the question a member actually has — «أين يذهب مالي».
 --
---    ⚠ AND IT CANNOT BE UNDONE FOR WHAT IS ALREADY READ. Reversing the policy
---      closes the screen; it does not unsee what was on it. If the association
---      changes its mind, the revert is one DROP POLICY — the file below names
---      it — but the knowledge is out.
+--  ⚠ THE DROP IS UNCONDITIONAL, so this file is correct whether or not its
+--    earlier draft was ever applied. Run it on a project that has the wide
+--    policy and it is removed; run it on one that never had it and the DROP
+--    finds nothing. Either way the state afterwards is the same, which is the
+--    only property that makes a corrective patch safe to hand over.
 --
---  ⚠ WHAT IT DOES NOT DO
---    • It does not let a member WRITE anything. There is no write policy on
---      this table at all — register_disbursement is admin-only and stays so.
---    • It does not touch the money. No row is added, changed or removed, and
---      no figure any screen shows is computed differently.
---    • It does not widen anything else. `adeels`, `payments`, `receivables`,
---      `profiles` and the audit trail are exactly as scoped as they were — a
---      member still cannot read another man's DUES, only what he was GIVEN.
+--  ⚠ WHAT ELSE IS IN HERE
+--    • api_aid_others  — the collective vouchers and their totals by occasion.
+--    • api_member_value — «الجدوى»: what a man paid, what he received, and
+--      what the fund did. Aggregates only: no name, no receipt, no row.
+--    • A trigger refusing a voucher dated in a day that has not happened.
 --
---  ⚠ AND THE CODE COLUMN WILL BE BLANK FOR OTHER MEN, which is correct rather
---    than broken. v_disbursements LEFT JOINs `adeels` for the payee's code, and
---    a member's RLS on that table is still his own row only. The NAME comes
---    through because it is SNAPSHOT onto the voucher (`payee_name`) — so the
---    screen reads «أيمن صالح بلها» with no code beside it, and the register
---    itself stays closed.
+--  ⚠ NO ROW IS TOUCHED AND NO FIGURE MOVES. Policies, two new reads and one
+--    trigger. Every existing amount is exactly what it was.
 --
 --  HOW TO APPLY
 --    Supabase dashboard, SQL Editor, New query, paste all of this, Run.
---    One transaction. Safe to run twice.
+--    One transaction. Safe to run twice, and safe to run again after the
+--    earlier draft.
 -- ============================================================================
 
 BEGIN;
@@ -57,7 +51,12 @@ BEGIN
   END IF;
 END $prereq$;
 
--- == 1. كل مشترك يقرأ كل سند ================================================
+-- == 1. كل مشترك يقرأ الصرف الجماعي =========================================
+-- ⚠ THE EARLIER DRAFT OF THIS FILE ADMITTED A MEMBER TO EVERY VOUCHER.
+--   It is dropped below unconditionally, so applying this after that draft
+--   closes it again. Nothing else has to be undone: the wide policy granted
+--   only reading, and reading leaves no trace to reverse.
+
 -- ⚠ my_adeel_id() IS NOT NULL, and that clause is doing more than it looks.
 --   It is NULL for staff — who are already covered by read_disbursements — and
 --   NULL for an عديل whose handset has not claimed his code, and NULL for a
@@ -69,52 +68,72 @@ END $prereq$;
 --   this one can be read — or DROPPED — without touching it. Reverting the
 --   association's decision is then one statement:
 --
---     DROP POLICY read_all_disbursements_adeel ON public.disbursements;
+--     DROP POLICY read_collective_disbursements ON public.disbursements;
+
+-- ⚠ AND `payee_adeel_id IS NULL` IS THE WHOLE PRIVACY RULE. A collective
+--   voucher is attributed to nobody by ck_disb_shape — that is what makes it
+--   collective — so this clause admits exactly the rows that name no man, and
+--   cannot be widened by accident into the ones that do.
 DROP POLICY IF EXISTS read_all_disbursements_adeel ON public.disbursements;
-CREATE POLICY read_all_disbursements_adeel ON public.disbursements
+DROP POLICY IF EXISTS read_collective_disbursements ON public.disbursements;
+CREATE POLICY read_collective_disbursements ON public.disbursements
   FOR SELECT TO authenticated
-  USING (public.my_adeel_id() IS NOT NULL);
+  USING (payee_adeel_id IS NULL AND public.my_adeel_id() IS NOT NULL);
 
 
--- == 2. ما أُعطي غيرُك =====================================================
+-- == 2. الصرف الجماعي ======================================================
 -- ⚠ المجاميع تُحسب هنا ولا تُجمع في Dart. المال نصّ من طرف إلى طرف
 --   في هذا المشروع: numeric يصل إلى dart:convert رقماً عائماً، وشاشةٌ تجمع
 --   مبالغ الجمعية بنفسها تضع خزينتها على حساب ثنائيّ عائم.
 --
 -- SECURITY INVOKER مثل api_adeel_aid: السياسة أعلاه هي التي تقرّر، فإن
 -- أُسقطت عادت هذه الدالة خاوية من تلقاء نفسها ولا تبقى ثغرة مفتوحة.
+-- ⚠ THE ARGUMENT IS UNUSED, AND KEPT ON PURPOSE. It named the man to exclude
+--   back when this listed other members' aid. Collective spending belongs to
+--   nobody, so there is nobody to exclude — but changing the signature would
+--   mean DROP and CREATE, a fresh ACL, and an app in the field calling a
+--   function that no longer exists. One unused parameter is the cheaper half
+--   of that trade by a wide margin.
 CREATE OR REPLACE FUNCTION public.api_aid_others(p_adeel_id bigint)
 RETURNS jsonb LANGUAGE sql STABLE AS $fn$
-  -- ⚠ CANCELLED VOUCHERS ARE EXCLUDED HERE, unlike a man's own ledger.
-  --   His own screen LISTS a reversed voucher struck through, because rule 9
-  --   says his history is not an embarrassment and he is entitled to see what
-  --   was undone in his name. Another man's reversal is not his business — it
-  --   is an administrative correction, and showing it invites the reading that
-  --   somebody was given something and had it taken back.
+  -- ⚠ COLLECTIVE ONLY — `payee_adeel_id IS NULL`. That is the same clause the
+  --   policy above uses, restated here so the function is honest on its own:
+  --   a reader who somehow held a wider policy would still get only these.
+  --
+  -- ⚠ AND CANCELLED VOUCHERS ARE EXCLUDED. A man's own ledger keeps his
+  --   reversals listed and struck through, because rule 9 says his history is
+  --   not an embarrassment. A reversal on a communal expense is an
+  --   administrative correction and belongs in the audit trail, not on a
+  --   screen a member reads to see where the fund went.
   WITH live AS (
     SELECT d.* FROM public.disbursements d
-     WHERE d.payee_adeel_id IS NOT NULL
-       AND d.payee_adeel_id IS DISTINCT FROM p_adeel_id
+     WHERE d.payee_adeel_id IS NULL
        AND d.status <> 'ملغي'
   )
   SELECT jsonb_build_object(
     'total', (SELECT coalesce(sum(l.amount), 0)::numeric(12,2)::text FROM live l),
     'count', (SELECT count(*) FROM live l),
-    -- Per man, largest first: «من أخذ أكثر» is the question a member opens this
-    -- with, and a list in date order answers a different one.
-    'men', coalesce((
+    -- ── BY OCCASION, largest first ────────────────────────────────────────
+    -- «على ماذا أُنفق» is the question this screen is opened with — a member
+    -- wants to know where the fund went, and a communal expense has no man to
+    -- group under. The وجه is the only grouping it HAS, and it is exactly the
+    -- one the association chose an enum for so that عزاء and مصاريف عزاء
+    -- could not become two answers to one question.
+    --
+    -- Only the headings actually spent on, unlike v_expense_by_category which
+    -- lists the empty ones too: «صُرف صفر على فرح» is an answer a treasurer
+    -- wants and a member does not.
+    'byCategory', coalesce((
       SELECT jsonb_agg(jsonb_build_object(
-               'adeelId', g.pid,
-               'name',    g.nm,
-               'total',   g.amt::numeric(12,2)::text,
-               'count',   g.n)
-             ORDER BY g.amt DESC, g.nm)
-        FROM (SELECT l.payee_adeel_id AS pid,
-                     coalesce(l.payee_name, '') AS nm,
-                     sum(l.amount) AS amt,
-                     count(*)      AS n
+               'category', g.cat,
+               'total',    g.amt::numeric(12,2)::text,
+               'count',    g.n)
+             ORDER BY g.amt DESC, g.cat)
+        FROM (SELECT l.category::text AS cat,
+                     sum(l.amount)    AS amt,
+                     count(*)         AS n
                 FROM live l
-               GROUP BY l.payee_adeel_id, l.payee_name) g), '[]'::jsonb),
+               GROUP BY l.category) g), '[]'::jsonb),
     -- And the vouchers themselves, newest first.
     'vouchers', coalesce((
       SELECT jsonb_agg(to_jsonb(v) ORDER BY v."spentAt" DESC, v."id" DESC)
@@ -293,8 +312,8 @@ RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
     -- "the association's" — a wrong answer he has no way to doubt. It returns
     -- no name, no receipt and no row, takes no argument, and writes nothing.
     'api_association_finance()',
-    -- ما أُعطي الآخرون. SECURITY INVOKER، فالسياسة هي التي تقرّر ماذا يرى
-    -- المستدعي، وإسقاط read_all_disbursements_adeel يعيدها خاوية وحدها.
+    -- الصرف الجماعي. SECURITY INVOKER، فالسياسة هي التي تقرّر ماذا يرى
+    -- المستدعي، وإسقاط read_collective_disbursements يعيدها خاوية وحدها.
     'api_aid_others(bigint)',
     -- جدوى العضوية. SECURITY DEFINER لأن أرقام الجمعية ليست في متناول
     -- المشترك، والنطاق مكتوب في أوّل جسدها: يسأل عن نفسه لا عن غيره.
@@ -385,10 +404,18 @@ CREATE TRIGGER trg_disb_no_future
 
 -- == 4. Confirmation ========================================================
 -- Read-only. Every row must say true.
-SELECT 'السياسة الجديدة قائمة' AS "الفحص",
+SELECT 'سياسة الصرف الجماعي قائمة' AS "الفحص",
        EXISTS (SELECT 1 FROM pg_policies
                 WHERE schemaname='public' AND tablename='disbursements'
-                  AND policyname='read_all_disbursements_adeel') AS "النتيجة"
+                  AND policyname='read_collective_disbursements'
+                  AND qual LIKE '%payee_adeel_id IS NULL%') AS "النتيجة"
+-- ⚠ AND THE WIDE ONE IS GONE. This is the row that matters if the earlier
+--   draft of this file was ever applied: it proves the policy that let a
+--   member read another man's aid is no longer there.
+UNION ALL SELECT 'ولا يقرأ مشتركٌ سلف مشتركٍ آخر',
+       NOT EXISTS (SELECT 1 FROM pg_policies
+                    WHERE schemaname='public' AND tablename='disbursements'
+                      AND policyname='read_all_disbursements_adeel')
 -- ⚠ AND THE OLD ONE SURVIVES. It is what still answers for a member on a
 --   handset that has claimed his code but whose session is mid-refresh, and it
 --   is what remains if the association ever drops the wide one.

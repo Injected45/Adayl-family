@@ -1162,13 +1162,13 @@ abstract class L {
   /// No description provided for @aidOthersEmpty.
   ///
   /// In ar, this message translates to:
-  /// **'لم تُصرف أسلاف لغيرك بعد'**
+  /// **'لا صرف جماعي بعد'**
   String get aidOthersEmpty;
 
   /// No description provided for @aidOthersRecipients.
   ///
   /// In ar, this message translates to:
-  /// **'المستفيدون'**
+  /// **'حسب الوجه'**
   String get aidOthersRecipients;
 
   /// No description provided for @aidOthersAll.

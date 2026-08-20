@@ -564,66 +564,44 @@ class AdeelAid {
   );
 }
 
-/// One man's share of what the association gave OTHERS, for «أسلاف للغير».
+/// الصرف الجماعي — what the association spent on everybody at once.
 ///
-/// The name is the SNAPSHOT on the voucher, never a lookup: a member reading
-/// this screen has no access to the register beyond his own row, so a joined
-/// name would come back empty for everybody but himself — the same failure the
-/// chat room avoids by snapshotting its author.
-class AidRecipient {
-  const AidRecipient({
-    required this.adeelId,
-    required this.name,
-    required this.total,
-    required this.count,
-  });
-
-  final int adeelId;
-  final String name;
-
-  /// Summed by Postgres. Never in Dart — see `api_aid_others`.
-  final String total;
-  final int count;
-
-  factory AidRecipient.fromJson(Map<String, dynamic> json) => AidRecipient(
-    adeelId: _int(json['adeelId']),
-    name: _string(json['name']),
-    total: _string(json['total']),
-    count: _int(json['count']),
-  );
-}
-
-/// What the association gave everybody EXCEPT the man reading it.
+/// ── WHAT THIS IS, AND WHAT IT DELIBERATELY IS NOT ───────────────────────────
+/// فطور رمضان and its like: money that belongs to no member in particular. A
+/// collective voucher carries no payee at all — `ck_disb_shape` refuses one —
+/// so this list names nobody and cannot be made to.
 ///
-/// ── WHY THIS EXISTS, AND WHAT IT COSTS ──────────────────────────────────────
-/// The association chose full transparency, in these words: «كل شيء بالأسماء».
-/// Until that decision a member saw his own aid and nothing else, because a row
-/// here records that a NAMED man received إعانة — for a bereavement, a birth, an
-/// emergency — which is the most private fact this system holds.
+/// ⚠ AN EARLIER DRAFT SHOWED OTHER MEMBERS' AID, BY NAME. The association
+///   looked at it and chose otherwise, and the choice is the better one: a row
+///   saying a named man received إعانة for a bereavement is the most private
+///   fact this system holds, while a row saying 400 went on فطور رمضان answers
+///   the question a member actually has — «أين يذهب مالي» — and exposes no one.
 ///
-/// The widening is a POLICY on the table, not a filter here:
-/// `read_all_disbursements_adeel` in PATCH_20260820b. Drop that one statement
-/// and this screen empties itself; nothing in Dart is deciding who may read
-/// what, and nothing in Dart could be trusted to.
+/// ⚠ AND THE SCOPE IS A POLICY, NOT A FILTER HERE.
+///   `read_collective_disbursements` is `payee_adeel_id IS NULL AND
+///   my_adeel_id() IS NOT NULL`. Drop it and this screen empties itself;
+///   nothing in Dart decides who may read what, and nothing in Dart could be
+///   trusted to.
 ///
-/// ⚠ CANCELLED VOUCHERS ARE ABSENT, unlike a man's own ledger where rule 9 keeps
-///   them listed and struck through. His own reversals are his history; another
-///   man's are an administrative correction, and showing them invites the
-///   reading that somebody was given something and had it taken back.
+/// ⚠ CANCELLED VOUCHERS ARE ABSENT. A reversal on a communal expense is an
+///   administrative correction and belongs in the audit trail, not on a screen
+///   a member opens to see where the fund went.
 class AidOthers {
   const AidOthers({
     required this.total,
     required this.count,
-    required this.men,
+    required this.byCategory,
     required this.vouchers,
   });
 
-  /// Lifetime, everyone but the reader, cancelled excluded.
+  /// Lifetime collective spending, cancelled excluded.
   final String total;
   final int count;
 
-  /// Largest first: «من أخذ أكثر» is the question this screen is opened with.
-  final List<AidRecipient> men;
+  /// By occasion, largest first. «على ماذا أُنفق» is the question this screen
+  /// is opened with, and a communal expense has no man to group under — the
+  /// وجه is the only grouping it has.
+  final List<ExpenseByCategory> byCategory;
 
   /// Newest first.
   final List<AidLedgerEntry> vouchers;
@@ -633,10 +611,10 @@ class AidOthers {
   factory AidOthers.fromJson(Map<String, dynamic> json) => AidOthers(
     total: _string(json['total']),
     count: _int(json['count']),
-    men: <AidRecipient>[
+    byCategory: <ExpenseByCategory>[
       for (final dynamic e
-          in (json['men'] as List<dynamic>? ?? const <dynamic>[]))
-        AidRecipient.fromJson((e as Map).cast<String, dynamic>()),
+          in (json['byCategory'] as List<dynamic>? ?? const <dynamic>[]))
+        ExpenseByCategory.fromJson((e as Map).cast<String, dynamic>()),
     ],
     vouchers: <AidLedgerEntry>[
       for (final dynamic e

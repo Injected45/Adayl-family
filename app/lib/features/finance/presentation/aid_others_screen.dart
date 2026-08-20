@@ -12,30 +12,28 @@ import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
-/// «أسلاف للغير» — what the association gave everybody except the reader.
+/// «أسلاف للغير» — الصرف الجماعي: what the association spent on everybody.
 ///
-/// ── THIS SCREEN EXISTS BECAUSE THE ASSOCIATION DECIDED IT SHOULD ────────────
-/// Until PATCH_20260820b a member saw his own aid and nothing else, and the
-/// comment beside `read_own_disbursements` said why: a row here records that a
-/// NAMED man received إعانة — for a bereavement, a birth, an emergency — which
-/// is the most private fact this system holds. The association chose otherwise,
-/// in these words: «كل شيء بالأسماء».
+/// ── WHAT IT SHOWS ───────────────────────────────────────────────────────────
+/// فطور رمضان and its like. A collective voucher is attributed to nobody —
+/// `ck_disb_shape` refuses a payee on one — so this screen names no member and
+/// could not be made to.
 ///
-/// ⚠ AND THE DECISION LIVES IN POSTGRES, NOT HERE. `read_all_disbursements_adeel`
-///   is what admits a member to the rows; `api_aid_others` is SECURITY INVOKER
-///   and reads under his own policies. Drop that one policy and this screen
-///   empties itself with no code change — which is the property that makes the
-///   choice reversible in the only way it can be.
+/// ⚠ AN EARLIER DRAFT LISTED OTHER MEMBERS' AID, BY NAME, and the association
+///   chose otherwise after seeing it. That is the better rule, not merely the
+///   safer one: a row saying a named man was given something for a bereavement
+///   is the most private fact this system holds, while a row saying 400 went on
+///   فطور رمضان answers what a member actually wants to know — «أين يذهب مالي»
+///   — and exposes nobody at all.
 ///
-/// ── WHAT IT DOES NOT SHOW ───────────────────────────────────────────────────
-/// What another man OWES. The register is still scoped to his own row, and the
-/// name on each voucher is the SNAPSHOT on the row rather than a lookup — so
-/// this screen needs no access to the register at all, and gets none.
+/// ── AND THE SCOPE IS IN POSTGRES ────────────────────────────────────────────
+/// `read_collective_disbursements` admits a bound member to exactly the rows
+/// with no payee; `api_aid_others` is SECURITY INVOKER and reads under his own
+/// policies. Drop that one policy and this screen empties itself with no code
+/// change — nothing here decides who may read what.
 ///
-/// Cancelled vouchers are absent, unlike his own ledger where rule 9 keeps them
-/// struck through: his own reversals are his history, another man's are an
-/// administrative correction, and showing them invites the reading that
-/// somebody was given something and had it taken back.
+/// The وجه leads and the vouchers follow, because «على ماذا أُنفق» is the
+/// question, and a communal expense has no man to group under.
 class AidOthersScreen extends ConsumerWidget {
   const AidOthersScreen({required this.adeelId, super.key});
 
@@ -128,16 +126,16 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        // ── Who received, largest first ─────────────────────────────────────
-        // The question this screen is opened with is «من أخذ»، not «متى» — so
-        // the men come before the vouchers, and a list in date order would
-        // answer something nobody asked.
+        // ── By occasion, largest first ──────────────────────────────────────
+        // «على ماذا أُنفق» is the question, not «متى» — so the headings come
+        // before the vouchers, and a list in date order would answer something
+        // nobody asked.
         Text(
           l.aidOthersRecipients,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: AppSpacing.sm),
-        for (final AidRecipient m in aid.men) _RecipientRow(man: m),
+        for (final ExpenseByCategory c in aid.byCategory) _CategoryRow(row: c),
 
         const SizedBox(height: AppSpacing.xl),
         Text(
@@ -152,10 +150,10 @@ class _Body extends StatelessWidget {
   }
 }
 
-class _RecipientRow extends StatelessWidget {
-  const _RecipientRow({required this.man});
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({required this.row});
 
-  final AidRecipient man;
+  final ExpenseByCategory row;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +169,7 @@ class _RecipientRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  man.name,
+                  row.category,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -179,14 +177,14 @@ class _RecipientRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  l.aidVoucherCount(man.count),
+                  l.aidVoucherCount(row.count),
                   style: const TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
               ],
             ),
           ),
           Text(
-            formatMoney(man.total),
+            formatMoney(row.total),
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w900,
@@ -216,8 +214,13 @@ class _VoucherRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
+                // ⚠ THE OCCASION LEADS, because there is no payee to lead with.
+                //   A collective voucher carries no man at all — that is what
+                //   makes it collective — so the وجه is what identifies it, and
+                //   printing an empty payeeName here would leave a blank line
+                //   where a reader expects a name.
                 Text(
-                  entry.voucher.payeeName,
+                  entry.voucher.category,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -225,9 +228,13 @@ class _VoucherRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  // The occasion, then the date. «لماذا» before «متى»: an
-                  // association reads its charity by what it was for.
-                  '${entry.voucher.category} · ${formatDate(entry.voucher.spentAt)}',
+                  // The date, and the note when there is one — «فطور رمضان» says
+                  // what it was for and the note says which one.
+                  entry.voucher.note.isEmpty
+                      ? formatDate(entry.voucher.spentAt)
+                      : '${formatDate(entry.voucher.spentAt)} · ${entry.voucher.note}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
               ],

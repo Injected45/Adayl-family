@@ -581,13 +581,13 @@ class LEn extends L {
   String get aidSearchHint => 'Search';
 
   @override
-  String get aidOthersTitle => 'Aid to others';
+  String get aidOthersTitle => 'Collective spending';
 
   @override
-  String get aidOthersEmpty => 'No aid to others yet';
+  String get aidOthersEmpty => 'No collective spending yet';
 
   @override
-  String get aidOthersRecipients => 'Recipients';
+  String get aidOthersRecipients => 'By occasion';
 
   @override
   String get aidOthersAll => 'All vouchers';

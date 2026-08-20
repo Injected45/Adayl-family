@@ -1,120 +1,119 @@
 import 'package:family_app/features/finance/domain/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// «أسلاف للغير» — what the association gave everybody else.
+/// «أسلاف للغير» — الصرف الجماعي، لا سلف المشتركين الآخرين.
 ///
-/// ── THE DECISION BEHIND IT ──────────────────────────────────────────────────
-/// Until PATCH_20260820b a member saw his own aid and nothing else, because a
-/// row here records that a NAMED man received إعانة for a bereavement, a birth
-/// or an emergency — the most private fact this system holds. The association
-/// chose otherwise, in these words: «كل شيء بالأسماء».
+/// ── THE DECISION, AND THE ONE IT REPLACED ───────────────────────────────────
+/// An earlier draft showed a member what the association had given every OTHER
+/// member, by name, under a policy admitting him to every voucher. The
+/// association looked at it and chose otherwise: the screen carries the
+/// COLLECTIVE spending — فطور رمضان and its like — and nothing about any man.
 ///
-/// ⚠ AND THE DECISION IS A POLICY, NOT A FILTER IN DART. What admits a member
-///   to the rows is `read_all_disbursements_adeel`; `api_aid_others` is SECURITY
-///   INVOKER and reads under his own policies. Dropping that one statement
-///   empties this screen with no code change — which is the only sense in which
-///   a decision like this is reversible at all. Nothing below is a permission
-///   check, and nothing below could be trusted as one.
+/// That is the better rule, not merely the narrower one. A row naming a man who
+/// received إعانة for a bereavement is the most private fact this system holds;
+/// a row saying 400 went on فطور رمضان answers what a member actually wants to
+/// know — «أين يذهب مالي» — and exposes nobody.
+///
+/// ⚠ AND THE SCOPE IS A POLICY, NOT A FILTER IN DART.
+///   `read_collective_disbursements` is `payee_adeel_id IS NULL AND
+///   my_adeel_id() IS NOT NULL`. Nothing below is a permission check, and
+///   nothing below could be trusted as one — but the SHAPE of the answer is
+///   worth pinning, because a screen that grew a payee column again would be
+///   the first sign the policy had been widened underneath it.
 void main() {
-  test('a full answer parses, names and all', () {
+  test('a collective answer parses: totals, occasions, vouchers', () {
     final AidOthers a = AidOthers.fromJson(<String, dynamic>{
-      'total': '2250.00',
+      'total': '1150.00',
       'count': 3,
-      'men': <dynamic>[
+      'byCategory': <dynamic>[
         <String, dynamic>{
-          'adeelId': 3,
-          'name': 'المهدي عبدالله محمد',
-          'total': '1500.00',
+          'category': 'فطور رمضان',
+          'total': '900.00',
           'count': 2,
         },
-        <String, dynamic>{
-          'adeelId': 9,
-          'name': 'سالم صالح الشيخي',
-          'total': '750.00',
-          'count': 1,
-        },
+        <String, dynamic>{'category': 'عزاء', 'total': '250.00', 'count': 1},
       ],
       'vouchers': <dynamic>[
         <String, dynamic>{
           'id': 7,
           'voucherNo': 'EXP-07',
-          'amount': '750.00',
-          'kind': 'لمشترك',
-          'category': 'عزاء',
-          'payeeAdeelId': 9,
-          'payeeName': 'سالم صالح الشيخي',
+          'amount': '450.00',
+          'kind': 'جماعي',
+          'category': 'فطور رمضان',
+          'payeeAdeelId': null,
+          'payeeName': '',
           'payeeCode': '',
+          'note': 'إفطار الجمعة الأخيرة',
           'method': 'نقداً',
           'status': 'معتمد',
           'spentAt': '2026-08-19T13:40:00Z',
-          'runningTotal': '750.00',
+          'runningTotal': '450.00',
         },
       ],
     });
 
-    expect(a.total, '2250.00');
+    expect(a.total, '1150.00');
     expect(a.count, 3);
-    expect(a.men.first.name, 'المهدي عبدالله محمد');
-    expect(a.vouchers.single.voucher.payeeName, 'سالم صالح الشيخي');
+    expect(a.byCategory.first.category, 'فطور رمضان');
+    expect(a.byCategory.first.total, '900.00');
+    expect(a.vouchers.single.voucher.category, 'فطور رمضان');
+  });
+
+  test('⚠ a collective voucher names NOBODY, and that is the whole point', () {
+    // ck_disb_shape refuses a payee on a collective voucher — that is what makes
+    // it collective. So the screen has no name to print and cannot be made to
+    // print one; the occasion is what identifies the row instead.
+    final AidOthers a = AidOthers.fromJson(<String, dynamic>{
+      'total': '450.00',
+      'count': 1,
+      'byCategory': <dynamic>[],
+      'vouchers': <dynamic>[
+        <String, dynamic>{
+          'id': 7,
+          'voucherNo': 'EXP-07',
+          'amount': '450.00',
+          'kind': 'جماعي',
+          'category': 'فطور رمضان',
+          'payeeAdeelId': null,
+          'payeeName': '',
+          'payeeCode': '',
+          'method': 'نقداً',
+          'status': 'معتمد',
+          'spentAt': '2026-08-19T13:40:00Z',
+          'runningTotal': '450.00',
+        },
+      ],
+    });
+
+    expect(a.vouchers.single.voucher.payeeAdeelId, isNull);
+    expect(a.vouchers.single.voucher.payeeName, isEmpty);
+    expect(a.vouchers.single.voucher.category, isNotEmpty);
   });
 
   test('⚠ the totals are STRINGS, never parsed into a double', () {
-    // Money is text end to end in this app: numeric reaches dart:convert as a
-    // floating-point number, and a screen that summed the association's amounts
-    // itself would put its treasury on binary floating point. api_aid_others
-    // does the adding, in Postgres.
+    // Money is text end to end: numeric reaches dart:convert as a floating-point
+    // number, and every sum on this screen is the association's own money.
+    // api_aid_others does the adding, in Postgres.
     final AidOthers a = AidOthers.fromJson(<String, dynamic>{
       'total': '1234.50',
       'count': 1,
-      'men': <dynamic>[],
+      'byCategory': <dynamic>[],
       'vouchers': <dynamic>[],
     });
     expect(a.total, isA<String>());
     expect(a.total, '1234.50');
   });
 
-  test('⚠ the payee CODE is empty for another man, and that is correct', () {
-    // v_disbursements LEFT JOINs `adeels` for the code, and a member's RLS on
-    // that table is still his own row only. The NAME survives because it is
-    // snapshot onto the voucher. So the screen reads a name with no code beside
-    // it — the register stays closed, which is the half of privacy the
-    // association did NOT give up.
-    final AidOthers a = AidOthers.fromJson(<String, dynamic>{
-      'total': '750.00',
-      'count': 1,
-      'men': <dynamic>[],
-      'vouchers': <dynamic>[
-        <String, dynamic>{
-          'id': 7,
-          'voucherNo': 'EXP-07',
-          'amount': '750.00',
-          'kind': 'لمشترك',
-          'category': 'عزاء',
-          'payeeAdeelId': 9,
-          'payeeName': 'سالم صالح الشيخي',
-          'payeeCode': '',
-          'method': 'نقداً',
-          'status': 'معتمد',
-          'spentAt': '2026-08-19T13:40:00Z',
-          'runningTotal': '750.00',
-        },
-      ],
-    });
-
-    expect(a.vouchers.single.voucher.payeeName, isNotEmpty);
-    expect(a.vouchers.single.voucher.payeeCode, isEmpty);
-  });
-
   test('an empty answer is empty, not a crash', () {
-    // What a member gets the moment `read_all_disbursements_adeel` is dropped,
-    // and what he gets on an association that has disbursed nothing. The screen
-    // must have one shape for both.
+    // What a member gets the moment `read_collective_disbursements` is dropped,
+    // and what he gets on an association that has spent nothing collectively.
+    // The screen must have one shape for both.
     final AidOthers a = AidOthers.fromJson(<String, dynamic>{
       'total': '0.00',
       'count': 0,
     });
     expect(a.isEmpty, isTrue);
-    expect(a.men, isEmpty);
+    expect(a.byCategory, isEmpty);
     expect(a.vouchers, isEmpty);
   });
 }

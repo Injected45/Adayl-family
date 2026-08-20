@@ -581,10 +581,10 @@ class LAr extends L {
   String get aidOthersTitle => 'أسلاف للغير';
 
   @override
-  String get aidOthersEmpty => 'لم تُصرف أسلاف لغيرك بعد';
+  String get aidOthersEmpty => 'لا صرف جماعي بعد';
 
   @override
-  String get aidOthersRecipients => 'المستفيدون';
+  String get aidOthersRecipients => 'حسب الوجه';
 
   @override
   String get aidOthersAll => 'كل السندات';

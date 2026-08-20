@@ -260,8 +260,8 @@
   "@aidOthersTitle": {
     "description": "What the association gave every OTHER member, in a member’s portal, beside «أسلافي». The association chose full transparency — «كل شيء بالأسماء» — and the widening is a policy on the table, not a filter in the app: drop read_all_disbursements_adeel and this screen empties itself."
   },
-  "aidOthersEmpty": "لم تُصرف أسلاف لغيرك بعد",
-  "aidOthersRecipients": "المستفيدون",
+  "aidOthersEmpty": "لا صرف جماعي بعد",
+  "aidOthersRecipients": "حسب الوجه",
   "aidOthersAll": "كل السندات",
   "valueTitle": "الجدوى",
   "@valueTitle": { "description": "The heading of the membership-value screen. «الجدوى» and not «الربح»: a mutual fund is not an investment, and the word chosen here is the one the whole screen depends on." },
