@@ -439,6 +439,24 @@ abstract class L {
   /// **'رموز'**
   String get chatEmoji;
 
+  /// No description provided for @chatUnreadCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =1{رسالة جديدة} =2{رسالتان جديدتان} few{{count} رسائل جديدة} other{{count} رسالة جديدة}}'**
+  String chatUnreadCount(int count);
+
+  /// No description provided for @chatUnreadMany.
+  ///
+  /// In ar, this message translates to:
+  /// **'٩٩+'**
+  String get chatUnreadMany;
+
+  /// No description provided for @chatNewMessages.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسائل جديدة'**
+  String get chatNewMessages;
+
   /// No description provided for @emojiFaces.
   ///
   /// In ar, this message translates to:

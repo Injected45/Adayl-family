@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,9 +14,12 @@ import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../data/chat_read_state.dart';
 import '../domain/models.dart';
+import 'chat_flourishes.dart';
 import 'emoji_panel.dart';
 import 'providers.dart';
+import 'unread_bell.dart';
 
 /// مجلس العدايل — the open room, and the private thread beside it.
 ///
@@ -67,8 +72,76 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// somebody out of the inbox, and null is what MAKES it the inbox.
   int? _thread;
 
+  /// The read mark as it stood when this screen OPENED, frozen.
+  ///
+  /// ⚠ FROZEN IS THE WHOLE DESIGN. Read it live and the «رسائل جديدة» line
+  ///   marches down the list as the mark advances, and by the time the eye finds
+  ///   it there is nothing under it — a line that says «you were here» has to go
+  ///   on saying where «here» was for as long as the screen is open.
+  int _unreadFrom = 0;
+
+  /// ⚠ HELD AS OBJECTS, NOT READ THROUGH `ref` WHEN NEEDED.
+  ///
+  ///   The mark has to be written on the way OUT as well as on the way in —
+  ///   messages arrive by poll while a man sits here, and without the second
+  ///   write they are unread the moment he leaves and the bell rings for a
+  ///   conversation he watched happen. But `ref` throws inside dispose(), so
+  ///   the two collaborators are captured while the widget is alive.
+  ///
+  ///   It also keeps this screen from touching chatUnreadProvider at all, which
+  ///   matters more: that provider owns a thirty-second timer, and merely
+  ///   reading it here would start one for every test that opens the room.
+  late final ChatReadState _reads;
+
+  /// The newest id this screen has actually RENDERED.
+  ///
+  /// ⚠ THE MARK IS TAKEN FROM THE LIST, NOT FROM A SECOND REQUEST. Asking the
+  ///   server for its newest id would be a shade more accurate and would drag
+  ///   the Supabase client into this widget's initState — where a test that
+  ///   overrides the message provider has no client to give it, and where the
+  ///   screen would fail to open for a reason that has nothing to do with the
+  ///   room. The room polls every four seconds and fetches newest-first, so
+  ///   this value is the server's newest for every practical purpose.
+  int _newestSeen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _reads = ref.read(chatReadStateProvider);
+
+    // Read the mark, THEN clear it. In that order: the «رسائل جديدة» line needs
+    // the old value and the bell needs the new one, and the other way round
+    // loses the only copy of where he had reached.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final int from = await _reads.lastRead();
+      if (!mounted) return;
+      setState(() => _unreadFrom = from);
+      if (!mounted) return;
+      // Refreshes the bell if one is on screen, and creates nothing if not —
+      // invalidating a provider that was never built is a no-op.
+      ref.invalidate(chatUnreadProvider);
+    });
+  }
+
+  /// Opening the room IS reading it, and so is watching it, and so is leaving.
+  ///
+  /// Called from the list as rows arrive, and once more from dispose — because
+  /// messages land by poll while a man sits here, and without the second write
+  /// they are unread the moment he leaves and the bell rings for a conversation
+  /// he watched happen.
+  void _markRead(int newest) {
+    if (newest <= _newestSeen) return;
+    _newestSeen = newest;
+    // Fire and forget. A failed write leaves the mark where it was, and the
+    // next glance at the room writes it again.
+    unawaited(_reads.markRead(newest).catchError((Object _) {}));
+  }
+
   @override
   void dispose() {
+    // No ref and no setState — the widget is going.
+    _markRead(_newestSeen);
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -222,6 +295,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           : l.chatPrivateEmpty,
                     );
                   }
+                  // ⚠ AFTER the frame, never during build: marking read writes
+                  //   to storage and invalidates a provider, and both are
+                  //   forbidden while a widget tree is being built.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    final int newest = messages.last.id;
+                    if (newest <= _newestSeen) return;
+                    _markRead(newest);
+                    ref.invalidate(chatUnreadProvider);
+                  });
                   return ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsetsDirectional.fromSTEB(
@@ -234,20 +317,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     itemBuilder: (BuildContext context, int i) {
                       final ChatMessage m = messages[i];
                       final ChatMessage? prev = i == 0 ? null : messages[i - 1];
-                      return _Bubble(
-                        message: m,
-                        // The name is printed once per RUN, not once per
-                        // message: four lines from one man read as one turn in
-                        // the conversation rather than four announcements.
-                        showAuthor:
-                            prev == null || prev.authorName != m.authorName,
-                        // And the day once between days, never on a line.
-                        dayBreak:
-                            prev == null ||
-                            formatDate(prev.createdAt) !=
-                                formatDate(m.createdAt),
-                        canDelete: m.mine || isAdmin,
-                        onDelete: () => _delete(l, m),
+                      return ChatEntrance(
+                        key: ValueKey<int>(m.id),
+                        child: _Bubble(
+                          message: m,
+                          // Above the first message newer than the frozen mark.
+                          firstUnread:
+                              _unreadFrom > 0 &&
+                              m.id > _unreadFrom &&
+                              (prev == null || prev.id <= _unreadFrom),
+                          // The name is printed once per RUN, not once per
+                          // message: four lines from one man read as one turn in
+                          // the conversation rather than four announcements.
+                          showAuthor:
+                              prev == null || prev.authorName != m.authorName,
+                          // And the day once between days, never on a line.
+                          dayBreak:
+                              prev == null ||
+                              formatDate(prev.createdAt) !=
+                                  formatDate(m.createdAt),
+                          canDelete: m.mine || isAdmin,
+                          onDelete: () => _delete(l, m),
+                          // ⚠ STAFF ONLY, IN THE OPEN ROOM, AND ONLY FOR A
+                          //   MESSAGE THAT HAS AN عديل BEHIND IT.
+                          //
+                          //   A member has exactly one thread and never chooses
+                          //   it; pointing him at another man's would open a
+                          //   screen read_chat refuses to fill — an empty room
+                          //   with nothing on it saying why. Inside a private
+                          //   thread there is nowhere to go, he is already
+                          //   there. And a message from الإدارة carries no
+                          //   عديل, so there is no thread to open.
+                          //
+                          //   Null in every one of those cases, so no tap
+                          //   target exists rather than one that does nothing.
+                          onOpenThread:
+                              !isMember &&
+                                  _room == _Room.hall &&
+                                  m.authorAdeelId != null
+                              ? () => _openThreadFor(m)
+                              : null,
+                        ),
                       );
                     },
                   );
@@ -271,6 +381,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _thread = thread.adeelId;
     _threadName = thread.adeelName;
   });
+
+  /// From a man's message in المحادثة الجماعية straight into his private one.
+  ///
+  /// ── WHY THIS IS STAFF-ONLY, AND NOT A MATTER OF TASTE ───────────────────
+  /// A private thread has exactly two sides — the man it is about, and
+  /// الإدارة. read_chat enforces that with
+  /// thread_adeel_id = my_adeel_id() OR has_role('viewer'), and the second
+  /// clause is FALSE for a bound portal account because my_role() returns NULL
+  /// while adeel_id is set.
+  ///
+  /// So a member tapping another member here would arrive at a screen the
+  /// SERVER refuses to fill: an empty room with nothing on it saying why,
+  /// which is the worst of the three possible answers. He is given no
+  /// affordance at all instead — see where onOpenThread is passed.
+  ///
+  /// ── AND WHY THE NAME COMES OFF THE MESSAGE ──────────────────────────────
+  /// author_name is SNAPSHOT onto the row precisely so that reading the room
+  /// needs no access to the register. Taking the heading from it keeps that
+  /// true; a lookup would make opening a thread depend on a second request
+  /// that can fail.
+  void _openThreadFor(ChatMessage m) {
+    final int? id = m.authorAdeelId;
+    if (id == null) return;
+    setState(() {
+      _room = _Room.private;
+      _thread = id;
+      _threadName = m.authorName;
+    });
+  }
 }
 
 /// One message.
@@ -283,13 +422,25 @@ class _Bubble extends StatelessWidget {
     required this.message,
     required this.showAuthor,
     required this.dayBreak,
+    required this.firstUnread,
     required this.canDelete,
     required this.onDelete,
+    this.onOpenThread,
   });
 
   final ChatMessage message;
   final bool showAuthor;
   final bool dayBreak;
+
+  /// Whether the «رسائل جديدة» line belongs above this one.
+  final bool firstUnread;
+
+  /// Opens this author's private thread with الإدارة.
+  ///
+  /// Null when there is none to open, and the two cases are different: a
+  /// message from الإدارة has no عديل behind it at all, and a member may not
+  /// read another member's thread — the server would hand him an empty room.
+  final VoidCallback? onOpenThread;
   final bool canDelete;
   final VoidCallback onDelete;
 
@@ -302,60 +453,102 @@ class _Bubble extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (dayBreak) _DayDivider(iso: message.createdAt),
-        Align(
-          alignment: mine
-              ? AlignmentDirectional.centerEnd
-              : AlignmentDirectional.centerStart,
-          child: ConstrainedBox(
-            // A bubble that runs the full width stops reading as a bubble, and
-            // the side it sits on stops carrying any meaning.
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-            ),
-            child: Column(
-              crossAxisAlignment: mine
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: <Widget>[
-                if (showAuthor && !mine) ...<Widget>[
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      start: AppSpacing.sm,
-                      bottom: 2,
-                      top: AppSpacing.xs,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          message.authorName,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.muted,
+        if (firstUnread) const _UnreadDivider(),
+        Row(
+          // ── THE DISC SITS OUTSIDE THE BUBBLE ────────────────────────────
+          // A Row rather than padding inside the Align, so the avatar does not
+          // eat into the 78% the bubble is allowed: put it inside and every
+          // line of every message loses thirty pixels of text to it.
+          mainAxisAlignment: mine
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            if (!mine) ...<Widget>[
+              // ⚠ RESERVED EVEN WHEN NOT DRAWN. Inside a run only the first
+              //   message carries a disc, but every one of them keeps the space
+              //   — otherwise the bubbles under it step sideways and the run
+              //   stops reading as one person speaking.
+              SizedBox(
+                width: 30,
+                child: showAuthor
+                    ? GestureDetector(
+                        // The disc is a target too. A board member reaching for
+                        // a private word takes whichever of the three — disc,
+                        // name, bubble — his thumb is nearest.
+                        onTap: onOpenThread,
+                        child: ChatAvatar(name: message.authorName),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+            ],
+            Flexible(
+              child: ConstrainedBox(
+                // A bubble that runs the full width stops reading as a bubble, and
+                // the side it sits on stops carrying any meaning.
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.72,
+                ),
+                child: Column(
+                  crossAxisAlignment: mine
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (showAuthor && !mine) ...<Widget>[
+                      GestureDetector(
+                        // ⚠ THE NAME IS THE DOOR, and it is null for everyone
+                        //   who may not walk through it — a member looking at
+                        //   another member, and anyone looking at a message from
+                        //   الإدارة, which has no عديل behind it. A tap that
+                        //   opened an empty room would be worse than a tap that
+                        //   does nothing.
+                        onTap: onOpenThread,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(
+                            start: AppSpacing.sm,
+                            bottom: 2,
+                            top: AppSpacing.xs,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                message.authorName,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  // The name in the SPEAKER'S OWN colour, so the
+                                  // disc and the name are one signal rather than
+                                  // two things a reader has to associate.
+                                  color: ChatAvatar.toneFor(message.authorName),
+                                ),
+                              ),
+                              // Who is speaking as the association, rather than as a
+                              // member of it. An announcement about a meeting reads
+                              // differently from a neighbour's opinion of it, and the
+                              // room should not have to guess which it is looking at.
+                              if (message.fromStaff) ...<Widget>[
+                                const SizedBox(width: AppSpacing.xs),
+                                _StaffTag(label: l.chatFromBoard),
+                              ],
+                            ],
                           ),
                         ),
-                        // Who is speaking as the association, rather than as a
-                        // member of it. An announcement about a meeting reads
-                        // differently from a neighbour's opinion of it, and the
-                        // room should not have to guess which it is looking at.
-                        if (message.fromStaff) ...<Widget>[
-                          const SizedBox(width: AppSpacing.xs),
-                          _StaffTag(label: l.chatFromBoard),
-                        ],
-                      ],
+                      ),
+                    ],
+                    _Body(
+                      message: message,
+                      mine: mine,
+                      canDelete: canDelete,
+                      onDelete: onDelete,
+                      onOpenThread: onOpenThread,
                     ),
-                  ),
-                ],
-                _Body(
-                  message: message,
-                  mine: mine,
-                  canDelete: canDelete,
-                  onDelete: onDelete,
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -368,12 +561,17 @@ class _Body extends StatelessWidget {
     required this.mine,
     required this.canDelete,
     required this.onDelete,
+    this.onOpenThread,
   });
 
   final ChatMessage message;
   final bool mine;
   final bool canDelete;
   final VoidCallback onDelete;
+
+  /// Tapping the bubble opens its author's private thread — null when there is
+  /// none to open. See _openThreadFor.
+  final VoidCallback? onOpenThread;
 
   @override
   Widget build(BuildContext context) {
@@ -418,10 +616,45 @@ class _Body extends StatelessWidget {
       );
     }
 
+    // ── A GESTURE, NOT A SENTENCE ────────────────────────────────────────────
+    // «🙏» on its own is not a message with a bubble round it — it is the thing
+    // people say without words, and every chat these members already use renders
+    // it large and bare. The time still shows underneath, because a gesture is
+    // as much a part of the record as a sentence.
+    //
+    // Capped at three glyphs in isEmojiOnly: without the cap forty pasted hearts
+    // render at 40pt each and take a page of the room with them.
+    if (isEmojiOnly(message.body)) {
+      return GestureDetector(
+        onTap: onOpenThread,
+        onLongPress: canDelete ? onDelete : null,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.only(
+            bottom: AppSpacing.xs,
+            top: 2,
+          ),
+          child: Column(
+            crossAxisAlignment: mine
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(message.body, style: const TextStyle(fontSize: 40)),
+              Text(
+                formatTime(message.createdAt),
+                style: const TextStyle(fontSize: 10, color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return GestureDetector(
       // Long press, not a visible button on every bubble: the action is rare and
       // a delete icon beside four hundred messages is four hundred invitations
       // to press the wrong one.
+      onTap: onOpenThread,
       onLongPress: canDelete ? onDelete : null,
       child: Container(
         margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
@@ -855,6 +1088,55 @@ class _ThreadHeader extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «رسائل جديدة» — the line where he stopped reading.
+///
+/// Red rather than muted, and it is the one place in this screen that uses the
+/// alarm colour: everything else here is a conversation, and this is the only
+/// mark that is about the READER rather than about what was said.
+///
+/// It appears once and does not move while the screen is open — see
+/// `_unreadFrom`. A line that advanced as messages were marked read would end up
+/// under the last bubble with nothing beneath it, which is worse than no line.
+class _UnreadDivider extends StatelessWidget {
+  const _UnreadDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        children: <Widget>[
+          const Expanded(child: Divider(color: AppColors.danger, height: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.dangerSoft,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Text(
+                l.chatNewMessages,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.danger,
+                ),
+              ),
+            ),
+          ),
+          const Expanded(child: Divider(color: AppColors.danger, height: 1)),
         ],
       ),
     );

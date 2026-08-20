@@ -56,10 +56,12 @@ ChatMessage _msg({
   bool mine = false,
   bool fromStaff = false,
   bool deleted = false,
+  int? authorAdeelId,
   String at = '2026-08-19T09:00:00Z',
 }) => ChatMessage(
   id: id,
   authorName: author,
+  authorAdeelId: authorAdeelId,
   body: deleted ? '' : body,
   createdAt: at,
   mine: mine,
@@ -91,6 +93,8 @@ class _StubChat extends ChatController {
 }
 
 late Future<void> Function(WidgetTester) _openRoom;
+late Future<void> Function(WidgetTester, List<ChatMessage>, {AppUser user})
+_openAs;
 
 void main() {
   final L l = LAr();
@@ -130,14 +134,20 @@ void main() {
 
   _openRoom = (WidgetTester tester) =>
       open(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
+  _openAs = (
+    WidgetTester tester,
+    List<ChatMessage> messages, {
+    AppUser user = _viewer,
+  }) => open(tester, messages, user: user);
   _emojiTests();
+  _openThreadTests();
 
   testWidgets('the room shows what everyone said, not only what I said', (
     WidgetTester tester,
   ) async {
     // One room. Every other list in this app is scoped to the reader; a chat
     // where each person sees a different subset is not a chat.
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(
         id: 1,
         body: 'اجتماع الجمعية يوم الجمعة',
@@ -158,7 +168,7 @@ void main() {
     // opinion of it, and the room should not have to guess which it is looking
     // at. `fromStaff` is a snapshot taken when the message was sent, so a
     // treasurer later demoted still spoke as staff at the time.
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(id: 1, body: 'اجتماع الجمعية', author: 'المهدي', fromStaff: true),
       _msg(id: 2, body: 'حاضر', author: 'سالم أحمد'),
     ]);
@@ -169,7 +179,7 @@ void main() {
   ) async {
     // Four lines from one man are one turn in a conversation, not four separate
     // announcements.
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(id: 1, body: 'السلام عليكم', author: 'سالم أحمد'),
       _msg(id: 2, body: 'كيف حالكم', author: 'سالم أحمد'),
       _msg(id: 3, body: 'بخير', author: 'عمر علي'),
@@ -183,7 +193,7 @@ void main() {
     // «فلان حذف شيئاً هنا» is information. A message that simply disappears
     // makes everyone who saw it doubt what they read — and the words themselves
     // are already erased in the database, so the tombstone costs no privacy.
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(id: 1, body: 'شيء قيل', author: 'سالم أحمد', deleted: true),
       _msg(id: 2, body: 'ثم كلام بعده', author: 'عمر علي'),
     ]);
@@ -194,7 +204,7 @@ void main() {
   testWidgets('typing and sending goes through the controller, trimmed', (
     WidgetTester tester,
   ) async {
-    await open(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
+    await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
     await tester.enterText(find.byType(TextField), '  وعليكم السلام  ');
     await tester.tap(find.byIcon(Icons.send_rounded));
     await tester.pumpAndSettle();
@@ -203,14 +213,14 @@ void main() {
   testWidgets('an empty box sends nothing', (WidgetTester tester) async {
     // Guarded in the screen as well as in send_chat_message, because the round
     // trip to be told "الرسالة فارغة" is a worse answer than no round trip.
-    await open(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
+    await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
     await tester.enterText(find.byType(TextField), '    ');
     await tester.tap(find.byIcon(Icons.send_rounded));
     await tester.pumpAndSettle();
     expect(chat.sent, isNull);
   });
   testWidgets('a man may delete his OWN message', (WidgetTester tester) async {
-    await open(tester, <ChatMessage>[_msg(id: 7, body: 'كلامي', mine: true)]);
+    await _openAs(tester, <ChatMessage>[_msg(id: 7, body: 'كلامي', mine: true)]);
     await tester.longPress(find.text('كلامي'));
     await tester.pumpAndSettle();
     expect(find.text(l.chatDeleteTitle), findsOneWidget);
@@ -225,7 +235,7 @@ void main() {
     // ids itself. Hiding the action is presentation — delete_chat_message
     // refuses it too — but a control that appears and then fails is a worse
     // screen than one that never offered.
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(id: 8, body: 'كلام غيري', author: 'سالم أحمد'),
     ]);
     await tester.longPress(find.text('كلام غيري'));
@@ -239,7 +249,7 @@ void main() {
     // Deliberately admin and not financeManager: moderating what a member said
     // is not a financial power, and the association put the whole outgoing side
     // of the treasury a rung above finance for the same reason.
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(id: 9, body: 'كلام يحتاج حذفاً', author: 'سالم أحمد'),
     ], user: _admin);
     await tester.longPress(find.text('كلام يحتاج حذفاً'));
@@ -251,7 +261,7 @@ void main() {
   testWidgets('a deleted message offers nothing to delete again', (
     WidgetTester tester,
   ) async {
-    await open(tester, <ChatMessage>[
+    await _openAs(tester, <ChatMessage>[
       _msg(id: 10, body: 'ذهب', mine: true, deleted: true),
     ], user: _admin);
     await tester.longPress(find.text(l.chatDeleted));
@@ -439,7 +449,7 @@ void _privateTests() {
         // The same segment reads differently to the two accounts, and both
         // readings are honest: he writes TO the board, they read FROM everyone.
         expect(find.text(l.chatToBoard), findsOneWidget);
-        expect(find.text(l.chatInbox), findsNothing);
+        expect(find.byIcon(Icons.arrow_forward), findsNothing);
       },
     );
 
@@ -567,5 +577,93 @@ void _emojiTests() {
     await tester.pumpAndSettle();
 
     expect(box.controller!.text.characters.length, 1000);
+  });
+}
+
+/// From a man's message in المحادثة الجماعية into his private one.
+///
+/// The board reads something in the open room and wants a private word about it.
+/// Tapping his name, his disc or his bubble opens the thread — no hunting
+/// through an inbox for a name that is on the screen already.
+///
+/// ⚠ AND IT IS STAFF-ONLY, WHICH IS A PERMISSION AND NOT A COURTESY. A private
+///   thread has exactly two sides, and `read_chat` gives the second side to
+///   `has_role('viewer')` — FALSE for a bound portal account, because my_role()
+///   returns NULL while adeel_id is set. A member tapping another member would
+///   land on a room the SERVER refuses to fill: empty, with nothing on it saying
+///   why. He gets no tap target at all instead, which is the only honest answer
+///   the client can give.
+void _openThreadTests() {
+  final L l = LAr();
+
+  testWidgets('staff tap a name in the open room and land in his thread', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 1, body: 'متى الاجتماع؟', author: 'أيمن صالح', authorAdeelId: 6),
+    ], user: _admin);
+
+    // Still in the open room.
+    expect(find.text(l.chatHall), findsOneWidget);
+
+    await tester.tap(find.text('أيمن صالح'));
+    await tester.pumpAndSettle();
+
+    // The heading is now HIS conversation, taken from the message's own
+    // snapshot name — no register lookup, which is the property that lets the
+    // room be read without access to the register at all.
+    expect(find.text('أيمن صالح'), findsWidgets);
+    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+  });
+
+  testWidgets('...and tapping his BUBBLE does the same', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 1, body: 'متى الاجتماع؟', author: 'أيمن صالح', authorAdeelId: 6),
+    ], user: _admin);
+
+    await tester.tap(find.text('متى الاجتماع؟'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+  });
+
+  testWidgets('⚠ a MEMBER gets no such door, on any of the three targets', (
+    WidgetTester tester,
+  ) async {
+    // The rule, asserted from the side that would be a privacy hole. He taps
+    // another member's name and stays exactly where he was — the segment still
+    // reads المحادثة الجماعية.
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 1, body: 'متى الاجتماع؟', author: 'سالم أحمد', authorAdeelId: 9),
+    ], user: _member);
+
+    await tester.tap(find.text('سالم أحمد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('متى الاجتماع؟'));
+    await tester.pumpAndSettle();
+
+    // Still the open room, and never someone else's thread.
+    expect(find.text(l.chatHall), findsOneWidget);
+    expect(find.text(l.chatToBoard), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_forward), findsNothing);
+  });
+
+  testWidgets('⚠ and a message from الإدارة opens nothing', (
+    WidgetTester tester,
+  ) async {
+    // It carries no عديل, so there is no thread behind it. Without the null
+    // check this would open a thread for id null and show the inbox instead —
+    // which looks like a bug in the tap, not in the data.
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 1, body: 'اجتماع الجمعية', author: 'المهدي', fromStaff: true),
+    ], user: _admin);
+
+    await tester.tap(find.text('اجتماع الجمعية'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.chatHall), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_forward), findsNothing);
   });
 }

@@ -196,6 +196,23 @@ class LEn extends L {
   String get chatEmoji => 'Emoji';
 
   @override
+  String chatUnreadCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new messages',
+      one: '1 new message',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatUnreadMany => '99+';
+
+  @override
+  String get chatNewMessages => 'New messages';
+
+  @override
   String get emojiFaces => 'Faces';
 
   @override

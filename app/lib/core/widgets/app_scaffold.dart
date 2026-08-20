@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/chat/presentation/unread_bell.dart';
 import '../../l10n/app_localizations.dart';
 import '../config/glass.dart';
 import '../config/theme.dart';
@@ -101,6 +102,13 @@ class AppScaffold extends ConsumerWidget {
     // reloads all of it is the difference between trusting the numbers and
     // wondering when they were last fetched.
     final List<Widget> barActions = <Widget>[
+      // ── The bell, ahead of everything ────────────────────────────────────
+      // المحادثات lives behind «المزيد», which is the right weight for the
+      // SCREEN and the wrong place for its badge: a count nobody sees until he
+      // opens the sheet answers the question exactly when it has stopped being
+      // asked. The bar is on every screen, so the answer is where the question
+      // is. It is hidden for anyone the room would refuse anyway.
+      const ChatBell(),
       _RefreshAction(),
       _RestartAction(),
       ...?actions,

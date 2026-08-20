@@ -194,6 +194,25 @@ class LAr extends L {
   String get chatEmoji => 'رموز';
 
   @override
+  String chatUnreadCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count رسالة جديدة',
+      few: '$count رسائل جديدة',
+      two: 'رسالتان جديدتان',
+      one: 'رسالة جديدة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatUnreadMany => '٩٩+';
+
+  @override
+  String get chatNewMessages => 'رسائل جديدة';
+
+  @override
   String get emojiFaces => 'وجوه';
 
   @override

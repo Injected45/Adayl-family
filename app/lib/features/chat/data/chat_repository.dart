@@ -97,3 +97,48 @@ class ChatRepository {
     );
   });
 }
+
+/// How many messages sit above [sinceId], for the badge.
+///
+/// ── WHY IT IS A SEPARATE, TINY REQUEST ──────────────────────────────────────
+/// The badge is wanted on EVERY screen, and the room's own poll only runs while
+/// the room is open. This one selects a single column with a cap and no body
+/// text, so it stays a few hundred bytes however busy the room has been.
+///
+/// ⚠ IT COUNTS BOTH ROOMS, AND THAT IS THE ANSWER THE BELL SHOULD GIVE. RLS
+///   already decides which rows exist for this caller — المجلس for everyone,
+///   plus his own private thread, plus every private thread for staff — so what
+///   comes back is exactly "messages waiting for ME", without the client
+///   deciding anything about who may see what.
+///
+/// ⚠ AND IT CANNOT COUNT HIS OWN. A man who has just written does not have an
+///   unread message; without the filter the bell would ring at him for the
+///   sentence he typed a second ago, which is the fastest way to teach somebody
+///   to ignore a badge.
+extension ChatUnread on ChatRepository {
+  Future<int> unreadSince(int sinceId, {int cap = 99}) =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db
+            .from('v_chat_messages')
+            .select('id')
+            .gt('id', sinceId)
+            .eq('mine', false)
+            .limit(cap);
+        return (rows as List<dynamic>).length;
+      });
+
+  /// The newest id that exists for this caller, or 0 for an empty room.
+  ///
+  /// Used to mark the room read: the badge must clear against what the SERVER
+  /// has, not against the last row the screen happened to render.
+  Future<int> newestId() => SupabaseFailures.guard(() async {
+    final dynamic rows = await _db
+        .from('v_chat_messages')
+        .select('id')
+        .order('id', ascending: false)
+        .limit(1);
+    final List<dynamic> list = rows as List<dynamic>;
+    if (list.isEmpty) return 0;
+    return ((list.first as Map)['id'] as num).toInt();
+  });
+}
