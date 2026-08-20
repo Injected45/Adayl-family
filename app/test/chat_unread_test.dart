@@ -16,6 +16,8 @@ void main() {
 
   setUp(() => FlutterSecureStorage.setMockInitialValues(<String, String>{}));
 
+  _threadMarkTests();
+
   test('a fresh install has read nothing, and that is not the same as all', () {
     // ⚠ ZERO MEANS "EVERYTHING IS NEW". Seeding it to the newest id instead
     //   would silently mark as read a hundred messages nobody has opened — and
@@ -45,5 +47,47 @@ void main() {
     await reads.markRead(0);
     await reads.markRead(-1);
     expect(await reads.lastRead(), 42);
+  });
+}
+
+/// The per-conversation mark, which answers a different question.
+///
+/// The bell says «هل هناك جديد» across the whole association. The inbox says
+/// «من منهم ينتظر». One global number cannot answer the second, so there are two
+/// marks — written at different moments, and neither derivable from the other.
+void _threadMarkTests() {
+  const ChatReadState reads = ChatReadState(FlutterSecureStorage());
+
+  test('nothing read means every conversation is waiting', () async {
+    expect(await reads.threadMarks(), isEmpty);
+  });
+
+  test('each conversation carries its own mark', () async {
+    await reads.markThreadRead(6, 40);
+    await reads.markThreadRead(9, 12);
+
+    final Map<int, int> marks = await reads.threadMarks();
+    expect(marks[6], 40);
+    expect(marks[9], 12);
+  });
+
+  test('⚠ and one NEVER moves backwards, thread by thread', () async {
+    // Written from two places — the thread screen as it renders, and the inbox
+    // as it is opened. An older value arriving late would make a conversation
+    // the board has just read look unanswered again.
+    await reads.markThreadRead(6, 40);
+    await reads.markThreadRead(6, 5);
+    expect((await reads.threadMarks())[6], 40);
+  });
+
+  test('a corrupt map reads as "nothing read", never as a crash', () async {
+    // It shows every conversation as waiting — visibly wrong, self-correcting
+    // the moment each is opened, and it keeps the inbox on screen. Throwing
+    // would take the whole list down over a decoration.
+    await const FlutterSecureStorage().write(
+      key: 'chat_thread_marks',
+      value: 'not json at all',
+    );
+    expect(await reads.threadMarks(), isEmpty);
   });
 }

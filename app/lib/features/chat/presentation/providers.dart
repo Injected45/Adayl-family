@@ -6,9 +6,10 @@ import '../../../core/supabase/supabase_client_provider.dart';
 import '../data/chat_repository.dart';
 import '../domain/models.dart';
 
-final Provider<ChatRepository> chatRepositoryProvider = Provider<ChatRepository>(
-  (Ref ref) => ChatRepository(ref.watch(supabaseClientProvider)),
-);
+final Provider<ChatRepository> chatRepositoryProvider =
+    Provider<ChatRepository>(
+      (Ref ref) => ChatRepository(ref.watch(supabaseClientProvider)),
+    );
 
 /// The room, kept current while somebody is looking at it.
 ///
@@ -29,11 +30,17 @@ final Provider<ChatRepository> chatRepositoryProvider = Provider<ChatRepository>
 /// AUTO-DISPOSED on purpose: the timer lives and dies with the screen, so a
 /// backgrounded app is not holding a four-second heartbeat against the
 /// association's free tier.
-final AutoDisposeAsyncNotifierProviderFamily<ChatController, List<ChatMessage>, int?>
+final AutoDisposeAsyncNotifierProviderFamily<
+  ChatController,
+  List<ChatMessage>,
+  int?
+>
 chatProvider =
-    AutoDisposeAsyncNotifierProviderFamily<ChatController, List<ChatMessage>, int?>(
-      ChatController.new,
-    );
+    AutoDisposeAsyncNotifierProviderFamily<
+      ChatController,
+      List<ChatMessage>,
+      int?
+    >(ChatController.new);
 
 class ChatController
     extends AutoDisposeFamilyAsyncNotifier<List<ChatMessage>, int?> {

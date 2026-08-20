@@ -17,7 +17,9 @@ class ChatRepository {
   final SupabaseClient _db;
 
   static List<ChatMessage> _rows(dynamic value) => (value as List<dynamic>)
-      .map((dynamic e) => ChatMessage.fromJson((e as Map).cast<String, dynamic>()))
+      .map(
+        (dynamic e) => ChatMessage.fromJson((e as Map).cast<String, dynamic>()),
+      )
       .toList();
 
   /// The tail of one conversation, oldest first.
@@ -72,7 +74,8 @@ class ChatRepository {
     final dynamic rows = await _db.from('v_chat_threads').select();
     return (rows as List<dynamic>)
         .map(
-          (dynamic e) => ChatThread.fromJson((e as Map).cast<String, dynamic>()),
+          (dynamic e) =>
+              ChatThread.fromJson((e as Map).cast<String, dynamic>()),
         )
         .toList();
   });
@@ -87,6 +90,7 @@ class ChatRepository {
           },
         );
       });
+
   /// Refused server-side for anyone but the author or an admin. The screen hides
   /// the action in the other cases, which is presentation and counts for
   /// nothing — `delete_chat_message` is where the rule lives.
@@ -141,4 +145,49 @@ extension ChatUnread on ChatRepository {
     if (list.isEmpty) return 0;
     return ((list.first as Map)['id'] as num).toInt();
   });
+}
+
+/// How many messages are waiting in EACH private conversation.
+///
+/// ── ONE REQUEST, NOT ONE PER THREAD ─────────────────────────────────────────
+/// The board's inbox can hold every member who has ever written. Asking per row
+/// would be forty round trips to draw one list — so this asks once for the ids
+/// above the LOWEST mark any thread carries, and counts them per thread here.
+/// Two integer columns, so the payload stays small however many come back.
+///
+/// ⚠ NOT MINE. A thread the board has just replied in is not a thread waiting
+///   for the board, and counting its own answers would leave a number beside
+///   every conversation it had already dealt with — which is the fastest way to
+///   make an inbox unreadable.
+///
+/// The cap is a real limit and is deliberately loud about it: past it the count
+/// is a floor, not a total. A board that is 500 messages behind does not need a
+/// precise number, it needs to open the app.
+extension ChatThreadUnread on ChatRepository {
+  Future<Map<int, int>> unreadByThread(Map<int, int> marks, {int cap = 500}) =>
+      SupabaseFailures.guard(() async {
+        final int floor = marks.isEmpty
+            ? 0
+            : marks.values.reduce((int a, int b) => a < b ? a : b);
+
+        final dynamic rows = await _db
+            .from('v_chat_messages')
+            .select('id, threadAdeelId')
+            .not('threadAdeelId', 'is', null)
+            .gt('id', floor)
+            .eq('mine', false)
+            .limit(cap);
+
+        final Map<int, int> out = <int, int>{};
+        for (final dynamic e in rows as List<dynamic>) {
+          final Map<String, dynamic> row = (e as Map).cast<String, dynamic>();
+          final int thread = (row['threadAdeelId'] as num).toInt();
+          final int id = (row['id'] as num).toInt();
+          // Counted against THAT thread's own mark, not against the floor — the
+          // floor is only how little had to be fetched.
+          if (id <= (marks[thread] ?? 0)) continue;
+          out[thread] = (out[thread] ?? 0) + 1;
+        }
+        return out;
+      });
 }

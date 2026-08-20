@@ -303,7 +303,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     final int newest = messages.last.id;
                     if (newest <= _newestSeen) return;
                     _markRead(newest);
+                    // ⚠ AND THE THREAD-S OWN MARK, when this is a thread. The
+                    //   bell clears from the global mark; the badge beside his
+                    //   name clears only from this one, and a board that read
+                    //   a conversation and still saw «3» beside it would stop
+                    //   trusting the number within a day.
+                    final int? open = _thread;
+                    if (open != null) {
+                      unawaited(
+                        _reads
+                            .markThreadRead(open, newest)
+                            .catchError((Object _) {}),
+                      );
+                    }
                     ref.invalidate(chatUnreadProvider);
+                    ref.invalidate(threadUnreadProvider);
                   });
                   return ListView.builder(
                     controller: _scroll,
@@ -985,6 +999,14 @@ class _Inbox extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
 
+    // ⚠ valueOrNull, so the inbox NEVER waits on the counts. They are an
+    //   annotation on a list that is useful without them; blocking the whole
+    //   screen on a second request would trade the answer for the decoration.
+    //   Absent counts render as no badge, which is also what zero looks like —
+    //   and zero is the honest reading while they are still loading.
+    final Map<int, int> unread =
+        ref.watch(threadUnreadProvider).valueOrNull ?? <int, int>{};
+
     return AsyncView<List<ChatThread>>(
       value: ref.watch(chatThreadsProvider),
       onRetry: () => ref.invalidate(chatThreadsProvider),
@@ -1018,11 +1040,24 @@ class _Inbox extends ConsumerWidget {
                       : Icons.mark_email_read_outlined,
                   color: waiting ? AppColors.brand : AppColors.muted,
                 ),
-                title: Text(
-                  t.adeelName,
-                  style: TextStyle(
-                    fontWeight: waiting ? FontWeight.w900 : FontWeight.w700,
-                  ),
+                title: Row(
+                  children: <Widget>[
+                    Flexible(
+                      child: Text(
+                        t.adeelName,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: waiting
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    // Beside the NAME, not on the trailing edge where the date
+                    // already sits: the question is «كم من هذا الرجل», and the
+                    // answer belongs against the man.
+                    ThreadUnreadBadge(count: unread[t.adeelId] ?? 0),
+                  ],
                 ),
                 subtitle: Text(
                   // The last thing either side said — «هل ردّوا عليّ» and «من

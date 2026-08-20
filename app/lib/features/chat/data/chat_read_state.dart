@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// How far this handset has read the room.
@@ -22,9 +24,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///   and a second place device state can live. The cost of the wrong store here
 ///   is nothing; the cost of a new dependency is permanent.
 class ChatReadState {
-  const ChatReadState(this._store);
+  const ChatReadState(this.store);
 
-  final FlutterSecureStorage _store;
+  /// Not private, because the per-thread marks live in an extension below and
+  /// an extension cannot reach a private field. Same library either way — the
+  /// name is the only thing that changes.
+  final FlutterSecureStorage store;
 
   static const String _key = 'chat_last_read_id';
 
@@ -36,7 +41,7 @@ class ChatReadState {
   ///   The alternative — seeding it to the newest id — would silently mark as
   ///   read a hundred messages he has never opened.
   Future<int> lastRead() async {
-    final String? raw = await _store.read(key: _key);
+    final String? raw = await store.read(key: _key);
     return int.tryParse(raw ?? '') ?? 0;
   }
 
@@ -46,6 +51,59 @@ class ChatReadState {
   Future<void> markRead(int id) async {
     if (id <= 0) return;
     if (id <= await lastRead()) return;
-    await _store.write(key: _key, value: id.toString());
+    await store.write(key: _key, value: id.toString());
+  }
+}
+
+/// The same mark, kept PER CONVERSATION for the board's inbox.
+///
+/// ── WHY A SECOND MARK AND NOT A REPLACEMENT ─────────────────────────────────
+/// The bell answers «هل هناك جديد» across the whole association — one number, on
+/// every screen. The inbox answers a different question: «من منهم ينتظر». One
+/// global mark cannot answer the second, and a per-thread map cannot answer the
+/// first without summing a map that has no entry for المجلس.
+///
+/// So there are two, and they are written at different moments: the global one
+/// whenever any room is read, the per-thread one only when THAT thread is opened.
+extension ChatThreadMarks on ChatReadState {
+  static const String _threadKey = 'chat_thread_marks';
+
+  /// thread عديل id → the highest message id read in it.
+  ///
+  /// Stored as one JSON object rather than a key per thread: secure storage is a
+  /// keychain entry per key on iOS and a preference file on Android, and a
+  /// hundred members would mean a hundred of them.
+  Future<Map<int, int>> threadMarks() async {
+    final String? raw = await store.read(key: _threadKey);
+    if (raw == null || raw.isEmpty) return <int, int>{};
+    try {
+      final Map<String, dynamic> j = (jsonDecode(raw) as Map)
+          .cast<String, dynamic>();
+      return j.map(
+        (String k, dynamic v) =>
+            MapEntry<int, int>(int.parse(k), (v as num).toInt()),
+      );
+    } on Object {
+      // A corrupt map reads as "nothing has been read", which shows every
+      // conversation as waiting — visibly wrong and self-correcting the moment
+      // each is opened. The alternative, throwing, would take the inbox down.
+      return <int, int>{};
+    }
+  }
+
+  /// ⚠ MONOTONIC PER THREAD, for the same reason the global mark is: the inbox
+  ///   and the thread screen both write it, and an older value arriving late
+  ///   would make a conversation the board has just read look unanswered again.
+  Future<void> markThreadRead(int threadId, int messageId) async {
+    if (threadId <= 0 || messageId <= 0) return;
+    final Map<int, int> marks = await threadMarks();
+    if ((marks[threadId] ?? 0) >= messageId) return;
+    marks[threadId] = messageId;
+    await store.write(
+      key: _threadKey,
+      value: jsonEncode(
+        marks.map((int k, int v) => MapEntry<String, int>(k.toString(), v)),
+      ),
+    );
   }
 }

@@ -67,7 +67,9 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
   Future<void> _tick() async {
     try {
       _lastRead = await ref.read(chatReadStateProvider).lastRead();
-      final int n = await ref.read(chatRepositoryProvider).unreadSince(_lastRead);
+      final int n = await ref
+          .read(chatRepositoryProvider)
+          .unreadSince(_lastRead);
       if (_gone) return;
       state = AsyncValue<int>.data(n);
     } on Object {
@@ -155,6 +157,61 @@ class ChatBell extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// How many are waiting in each private conversation, for the board's inbox.
+///
+/// A plain FutureProvider with no clock of its own: the inbox is a screen you
+/// are looking at, and `chatThreadsProvider` beside it is already re-read when
+/// the screen is. A third timer would be a third request for the same answer.
+final FutureProvider<Map<int, int>> threadUnreadProvider =
+    FutureProvider<Map<int, int>>((Ref ref) async {
+      final ChatReadState reads = ref.watch(chatReadStateProvider);
+      return ref
+          .watch(chatRepositoryProvider)
+          .unreadByThread(await reads.threadMarks());
+    });
+
+/// The count beside one conversation.
+///
+/// ⚠ GREEN, AND IT IS THE ONE PLACE IN THIS APP WHERE GREEN IS NOT MONEY.
+///   Everywhere else the palette's success tone means «collected». Here it is
+///   what every messaging app on these handsets uses for the same thing, and a
+///   red count beside a member's name in an inbox would read as a problem with
+///   HIM rather than as a message from him.
+class ThreadUnreadBadge extends StatelessWidget {
+  const ThreadUnreadBadge({required this.count, super.key});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    final L l = L.of(context);
+
+    return Semantics(
+      label: l.chatUnreadCount(count),
+      child: Container(
+        margin: const EdgeInsetsDirectional.only(start: AppSpacing.xs),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        constraints: const BoxConstraints(minWidth: 20),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.success,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
+          count > 99 ? l.chatUnreadMany : '$count',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            color: AppColors.onFill,
+            height: 1.2,
+          ),
+        ),
       ),
     );
   }
