@@ -3,6 +3,7 @@ import 'package:family_app/core/format/formatters.dart';
 import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
+import 'package:family_app/features/chat/presentation/unread_bell.dart';
 import 'package:family_app/features/directory/domain/models.dart';
 import 'package:family_app/features/directory/presentation/adeel_portal_screen.dart';
 import 'package:family_app/features/directory/presentation/providers.dart';
@@ -84,6 +85,7 @@ Map<String, dynamic> _due(String period, String status, String balance) =>
 
 void main() {
   final L l = LAr();
+  _portalUnreadTests();
 
   Widget app(
     AdeelDetail detail, [
@@ -605,5 +607,78 @@ void main() {
     // And the payment line says what it WAS, not the number the bank gave it.
     expect(find.text('تحويل مصرفي'), findsOneWidget);
     expect(find.text('PAY-01'), findsNothing);
+  });
+}
+
+/// A stub for the unread count, so the portal can be shown with a number on it.
+class _StubUnread extends ChatUnread {
+  _StubUnread(this._n);
+  final int _n;
+  @override
+  Future<int> build() async => _n;
+}
+
+/// ⚠ THE MEMBER HAS NO APP BAR, SO HE HAD NO BELL.
+///
+/// The portal is deliberately not an AppScaffold — that widget carries the
+/// navigation bar and a member has one destination. But the bell rides in that
+/// bar, so on the single screen a member ever looks at, the app's only signal
+/// that somebody had written to him was invisible: he had to open المحادثات to
+/// find out there was a reason to open المحادثات.
+///
+/// The count therefore rides on the button. Same provider as the staff bell —
+/// one source, so a member and the board can never be shown different numbers
+/// for the same room.
+void _portalUnreadTests() {
+  final L l = LAr();
+
+  Widget host(int unread) => ProviderScope(
+    overrides: <Override>[
+      authControllerProvider.overrideWith(_StubAuth.new),
+      adeelDetailProvider(1).overrideWith(
+        (Ref ref) async =>
+            _detail(debt: '0.00', receivables: const <Map<String, dynamic>>[]),
+      ),
+      statementProvider(1).overrideWith(
+        (Ref ref) async => const Statement(
+          movements: <StatementMovement>[],
+          closingBalance: '0.00',
+        ),
+      ),
+      chatUnreadProvider.overrideWith(() => _StubUnread(unread)),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('ar'),
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
+      supportedLocales: L.supportedLocales,
+      home: const AdeelPortalScreen(),
+    ),
+  );
+
+  Future<void> open(WidgetTester tester, int unread) async {
+    tester.view.physicalSize = const Size(411, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(unread));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('nothing waiting — the button carries no number', (
+    WidgetTester tester,
+  ) async {
+    await open(tester, 0);
+    expect(find.text(l.navChat), findsOneWidget);
+    expect(find.text('0'), findsNothing);
+  });
+
+  testWidgets('...and three waiting are printed ON the button', (
+    WidgetTester tester,
+  ) async {
+    // A NUMBER and not a dot: «هناك جديد» is half an answer, and the member is
+    // the reader least likely to open a room on a hunch.
+    await open(tester, 3);
+    expect(find.text('3'), findsOneWidget);
   });
 }

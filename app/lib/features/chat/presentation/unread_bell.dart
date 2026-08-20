@@ -26,16 +26,43 @@ final Provider<ChatReadState> chatReadStateProvider = Provider<ChatReadState>(
 /// all of his time — so it needs its own timer, and it must be far cheaper: one
 /// column, capped, no message bodies.
 ///
-/// Thirty seconds because a badge is not a conversation. Nobody watches a bell
-/// waiting for it to change; what matters is that it is right within a minute of
-/// opening the phone, and every tick in between is a request the association
-/// pays for on a free project.
+/// ⚠ TEN SECONDS, AND THE THIRTY IT REPLACED WAS WRONG.
+///
+///   The argument for thirty was that nobody watches a bell waiting for it to
+///   change. People do — it is the first thing anyone does with a new one, and
+///   the association reported exactly that: the count only moved after leaving
+///   the screen and coming back. Leaving REBUILDS the provider, which fetches
+///   at once — so the app looked broken in the one comparison a user can
+///   actually make, and the reasoning had been about cost rather than about
+///   what somebody holding the phone would see.
+///
+///   Ten is still slower than the room itself, which polls at four while it is
+///   open, and this asks for one capped column with no message bodies.
 ///
 /// ⚠ IT IS NOT A NOTIFICATION. Nothing rings while the app is closed — that
 ///   needs a push service, a server key and a Firebase project, none of which
 ///   exist here. This is «هل هناك جديد» answered while the app is open, which is
 ///   the honest thing to promise with what the app has.
+/// Fires when the app returns to the foreground.
+///
+/// A separate object rather than a mixin on the notifier: a Riverpod notifier
+/// is built and disposed on its own schedule, and an observer that outlived one
+/// would go on ticking against a dead state.
+class _OnResume with WidgetsBindingObserver {
+  _OnResume(this.onResume);
+
+  final VoidCallback onResume;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) onResume();
+  }
+}
+
 class ChatUnread extends AutoDisposeAsyncNotifier<int> {
+  /// How often the bell asks. See the note above the class.
+  static const Duration _interval = Duration(seconds: 10);
+
   Timer? _timer;
   int _lastRead = 0;
   bool _gone = false;
@@ -54,11 +81,19 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
     // polling a refusal every thirty seconds for as long as the app is open.
     if (user == null || user.status != AccountStatus.approved) return 0;
 
+    // ⚠ AND ON RETURNING TO THE APP, not only on the clock. A phone that sat
+    //   in a pocket comes back to a stale count with the next tick up to ten
+    //   seconds away — which is the same «I had to leave and come back» the
+    //   interval was already failing at.
+    final _OnResume resume = _OnResume(_tick);
+    WidgetsBinding.instance.addObserver(resume);
+
     ref.onDispose(() {
       _gone = true;
       _timer?.cancel();
+      WidgetsBinding.instance.removeObserver(resume);
     });
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _tick());
+    _timer = Timer.periodic(_interval, (_) => _tick());
 
     _lastRead = await ref.read(chatReadStateProvider).lastRead();
     return ref.read(chatRepositoryProvider).unreadSince(_lastRead);
@@ -169,6 +204,12 @@ class ChatBell extends ConsumerWidget {
 /// the screen is. A third timer would be a third request for the same answer.
 final FutureProvider<Map<int, int>> threadUnreadProvider =
     FutureProvider<Map<int, int>>((Ref ref) async {
+      // ⚠ RE-RUNS WHENEVER THE BELL DOES, and had nothing at all before this.
+      //   The numbers beside each name sat frozen until the screen itself was
+      //   rebuilt — the same complaint as the bell, one screen deeper. Watching
+      //   the bell buys this its cadence for free and costs no second timer,
+      //   and the two can never disagree about when they last looked.
+      ref.watch(chatUnreadProvider);
       final ChatReadState reads = ref.watch(chatReadStateProvider);
       return ref
           .watch(chatRepositoryProvider)

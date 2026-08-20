@@ -13,6 +13,7 @@ import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../chat/presentation/unread_bell.dart';
 import '../../finance/domain/models.dart';
 import '../../finance/presentation/adeel_aid_screen.dart';
 import '../../finance/presentation/providers.dart';
@@ -1542,12 +1543,23 @@ class _DueTile extends StatelessWidget {
 /// Filled rather than outlined because it is the only screen in this app where
 /// an عديل does something rather than reads something — and because a room
 /// nobody notices is a room nobody uses.
-class _ChatButton extends StatelessWidget {
+/// ⚠ THE MEMBER HAS NO APP BAR, SO HE HAS NO BELL.
+///
+/// The portal is deliberately NOT an AppScaffold — that widget carries the
+/// navigation bar, and a member has one destination. The bell rides in that
+/// bar, so on the one screen a member ever looks at, the app's only signal
+/// that somebody has written to him was invisible: he had to open المحادثات to
+/// discover there was a reason to open المحادثات.
+///
+/// The count therefore rides on the BUTTON itself. Same provider, same number
+/// as the staff bell — one source, so the two can never disagree.
+class _ChatButton extends ConsumerWidget {
   const _ChatButton();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
+    final int unread = ref.watch(chatUnreadProvider).valueOrNull ?? 0;
 
     return FilledButton(
       onPressed: () => context.go(AppRoutes.chat),
@@ -1567,6 +1579,38 @@ class _ChatButton extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
+          // ── HOW MANY ARE WAITING, ON THE FACE OF THE BUTTON ────────────
+          // Not a dot: «هناك جديد» is half an answer, and the member is the
+          // reader least likely to open a room on a hunch. The number tells
+          // him whether it is one message or fifteen.
+          //
+          // ⚠ onFill, not the palette accent. This sits on a FILLED button,
+          //   where the success green the inbox uses would be one dark tone on
+          //   another. White with the brand colour inside it is the same badge
+          //   the platform draws on a filled control.
+          if (unread > 0)
+            Container(
+              margin: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 7,
+                vertical: 2,
+              ),
+              constraints: const BoxConstraints(minWidth: 22),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.onFill,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Text(
+                unread > 99 ? l.chatUnreadMany : '$unread',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.brand,
+                  height: 1.2,
+                ),
+              ),
+            ),
           const Icon(Icons.chevron_left, size: 18),
         ],
       ),
