@@ -55,7 +55,7 @@ This dictates the data-access shape — do not deviate from it:
 
 - **Reads** → direct PostgREST against `v_*` views (or `api_*` functions), gated by
   RLS on the caller's role. Never read a base table.
-- **Writes** → only through the fourteen `SECURITY DEFINER` RPC functions below. The
+- **Writes** → only through the sixteen `SECURITY DEFINER` RPC functions below. The
   `authenticated` role holds no INSERT/UPDATE/DELETE on any table and no table has a
   write policy, because a payment is not one row — registering it inserts a payment,
   N allocations, N receivable updates, and a cash movement, all-or-nothing. A
@@ -103,21 +103,41 @@ This dictates the data-access shape — do not deviate from it:
   than one with a flag, and `supabase/tests/70_purge.sql` asserts that in both
   directions.
 
-  - `purge_financial_data` takes the six financial tables (receivables,
-    payments, payment_allocations, cash_movements, `closed_periods` **and
-    audit_log**) and leaves adeels, settings and profiles standing.
-    `closed_periods` has to go with them: leave it and every month is still
-    marked closed while no receivable exists for it, so rule 15a refuses to
-    re-raise any of them and the wiped ledger can never be rebuilt.
-  - `purge_all_data` is a strict SUPERSET: those six plus `adeels`. It cannot
-    be narrower — every receivable and receipt references an عديل
-    `ON DELETE RESTRICT`, so the register cannot go while a receipt survives.
-    Settings and staff profiles still survive; wiping profiles would strand the
-    association outside its own app.
+  - `purge_financial_data` takes the seven financial tables (receivables,
+    payments, payment_allocations, cash_movements, **disbursements**,
+    `closed_periods` **and audit_log**) and leaves adeels, settings and
+    profiles standing. `closed_periods` has to go with them: leave it and every
+    month is still marked closed while no receivable exists for it, so rule 15a
+    refuses to re-raise any of them and the wiped ledger can never be rebuilt.
+    Money OUT has to go too — leave the vouchers and رصيد الجمعية becomes
+    `0 − Σ disbursements`, so every later voucher is refused for a reason
+    nobody was told.
+  - `purge_all_data` is a strict SUPERSET: those seven, plus `chat_messages`
+    and `adeels`. It cannot be narrower — every receivable and receipt
+    references an عديل `ON DELETE RESTRICT`, so the register cannot go while a
+    receipt survives. Settings and staff profiles still survive; wiping staff
+    profiles would strand the association outside its own app.
 
     Order matters inside it: the TRUNCATE runs BEFORE the profile delete,
     because `receivables.created_by` references profiles `ON DELETE SET NULL`
     and that SET NULL is an UPDATE the rule-5 snapshot trigger rejects.
+
+    ⚠ **AND IT BACKFILLS THE PROFILES IT JUST DELETED** — the last thing it
+    does before dropping the register. It did not, and on 2026-08-20 that
+    locked every عديل out of the portal permanently. A profile is created by
+    `trg_auth_user_created`, which fires `AFTER INSERT ON auth.users` and on
+    nothing else; signing in INSERTS NOTHING, because the account has existed
+    since the first time. So the one event that creates a profile had already
+    happened, once, and could never happen again — the member signed in
+    successfully and was told «لا يوجد سجل لهذا الحساب … لن تنجح المحاولة مرة
+    أخرى», which was true. `PATCH_20260823_purge_keeps_signin.sql` re-inserts a
+    blank `viewer`/`pending` row for every `auth.users` account that has none,
+    which is exactly what `20260811090100_profiles.sql` does after a reset and
+    for exactly the same reason.
+
+    ⚠ `assert_signin_intact()` DOES check for accounts with no profile — and
+    only `RAISE WARNING`s, which is why the purge passed its own guards while
+    stranding everyone. A warning in a dashboard is read by nobody.
 
   TRUNCATE rather than DELETE because it fires no `BEFORE DELETE` trigger, so
   the rule-9 guards never have to be disarmed and no code path can leave them
@@ -222,6 +242,80 @@ This dictates the data-access shape — do not deviate from it:
   history, and the panel says how many rows are showing so a jumping balance
   reads as a filter rather than a fault.
 
+  **`api_aid_others(bigint)` — «أسلاف للغير», and it is the COLLECTIVE spending,
+  not other members' aid.** An earlier draft opened every voucher to every
+  member, by name; the association looked at it and chose otherwise, so
+  `read_all_disbursements_adeel` is DROPPED and `read_collective_disbursements`
+  — `payee_adeel_id IS NULL AND my_adeel_id() IS NOT NULL` — replaces it.
+
+  That is the better rule and not merely the narrower one. A row naming a man
+  who was given something for a bereavement is the most private fact this
+  system holds; a row saying 400 went on فطور رمضان names nobody and answers
+  what a member actually asks — «أين يذهب مالي».
+
+  ⚠ The clause is `payee_adeel_id IS NULL`, NOT `kind = 'جماعي'`, and the two
+  are equivalent only because `ck_disb_shape` makes them so. The policy guards
+  against a NAME being read, so it is written against the column that holds the
+  name — which stays correct if a third kind is ever added.
+
+  **`api_member_value(bigint)` — «الجدوى»:** what he paid, what he received,
+  and where the fund stands. SECURITY DEFINER, because an عديل's RLS on
+  `cash_movements` is `adeel_id = my_adeel_id()` — a SECURITY INVOKER version
+  would hand him HIS OWN figures under headings that say «the association's»,
+  which is not a leak but a wrong answer with nothing on screen to doubt. The
+  scoping is therefore written in the first statement of the body: he may ask
+  about himself, staff may ask about anyone, everyone else is refused. It
+  returns no name, no receipt and no row.
+
+  **اشتراكٌ يختلف باختلاف الشهر — «ماعدا».** `association_settings.fee_exceptions`
+  is a jsonb map «`"01"`: `"200"`», and `generate_period` looks the month up
+  before it raises anything: `coalesce(nullif(fee_exceptions ->> substr(period,
+  6, 2), '')::numeric, member_fee)`.
+
+  ⚠ CALENDAR MONTH, NOT PERIOD. «January is 200», not «January 2026 is 200» —
+  so an entry holds every year until it is removed, and the December somebody
+  forgot to set again cannot bill the wrong figure. `substr(period, 6, 2)` is
+  why the key must be `01`..`12`: «1» would never match and the month would
+  quietly bill the standard fee, which for a money rule is the worst failure
+  available. `ck_settings_fee_exceptions` refuses anything else, through the
+  IMMUTABLE helper `fee_exceptions_ok(jsonb)` — a CHECK cannot contain a
+  subquery or walk a jsonb object, so the walk lives in a function.
+
+  ⚠ And the zero-fee shortcut reads the MONTH's fee, not `member_fee`. A month
+  whose exception is 200 is billed even if the standard fee is zero.
+
+  **التاريخ من ساعة الخادم — no client may propose one.** `disb_stamp_time()`
+  and `pay_stamp_time()` are BEFORE INSERT triggers that assign
+  `NEW.spent_at := now()` / `NEW.paid_at := now()`, and refuse any later UPDATE
+  of the column.
+
+  ⚠ A STAMP, NOT A REFUSAL, and the difference is the whole rule. The first
+  version REFUSED a future date, which left a PAST one accepted — a mistyped
+  year, a phone a week behind, or a voucher pushed back into a closed month all
+  still went through. A stamp removes the value from the client's hands
+  entirely: `register_disbursement` still takes `p_spent_at`, and it is now
+  INERT.
+
+  ⚠ `now()` is the Supabase server's clock, which no handset can reach. That is
+  the point: the picker in the voucher form defaulted to the DEVICE clock, and
+  a device clock is a setting — which is how a voucher came to be dated
+  tomorrow, sorted to the bottom of an oldest-first ledger, and was reported as
+  money that had gone missing.
+
+  ⚠ The cost is real and was accepted deliberately: **back-dating is gone, for
+  everyone, including honestly.** A voucher that left the treasury on Tuesday
+  and is entered on Thursday is dated Thursday. The same rule cannot refuse a
+  wrong date and accept a right one it has no way to tell apart.
+
+  ⚠ AND THE DISPLAY SIDE IS HALF OF IT. `formatDate`/`formatDateTime`/
+  `formatTime` render in **Africa/Tripoli**, not `toLocal()` — the device
+  timezone is a setting too, and an instant stamped at 23:30 Tripoli reads as
+  the NEXT day on a phone set to UTC+9. A fixed +02:00 is exact rather than
+  approximate: Libya has observed no daylight saving since 2013. The shift is
+  applied only when the wire carried a zone (`DateTime.isUtc`), because a bare
+  `2026-08-21` from a `date` column parses as LOCAL midnight and shifting it
+  would move the day by one.
+
   **مجلس العدايل — the first table BOTH ways in reach.** `chat_messages` is one
   room and everyone in the association is in it, staff and عدايل alike. Every
   other table in this schema belongs to exactly one audience; this one
@@ -296,6 +390,27 @@ Run both from `app/`; they exit non-zero on violation and are part of the build 
 only file exempt from the Arabic-literal lint. Never inline an Arabic literal
 elsewhere.
 
+**And `test/design_system_test.dart` is a third lint wearing a test's clothes.**
+It scans `lib/features` and fails the build on a gradient or a `boxShadow`, and
+it asserts every colour pairing against WCAG AA rather than trusting the eye.
+Two rules there are easy to trip and worth knowing before you add a screen:
+
+- ⚠ **Every `DropdownButtonFormField` must pass `dropdownColor:`.** A dropdown
+  paints its menu with `dropdownColor ?? Theme.of(context).canvasColor`, and
+  this app sets `canvasColor` fully TRANSPARENT so `AppBackground` shows through
+  every Material surface — right for the app, catastrophic for a menu, which
+  then prints its options on top of the fields beneath it. `GlassColors.menu` is
+  the only fully opaque surface in the theme, and it exists for this. No theme
+  slot fixes it centrally: `DropdownMenuThemeData` governs the M3 `DropdownMenu`
+  widget, not this one.
+- **`AppColors.identityTone(id)`** gives every عديل a colour of his own, from
+  the golden angle on the hue wheel — a fixed palette would repeat by the
+  seventh man, and stepping by `360/n` would make consecutive ids neighbours and
+  therefore indistinguishable, which is the opposite of the point. ⚠ Lightness
+  is fixed at **0.24 and was MEASURED, not chosen**: HSL lightness is not
+  perceptual, so an olive at 0.30 fails AA while a teal at 0.30 passes. The
+  suite proves the ratio for two hundred ids.
+
 ## Code layout (app/lib)
 
 Feature-first. Each feature under `features/<name>/` has `data/` (repository),
@@ -307,12 +422,23 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
 - `features/finance` — payments, cash/treasury, and الصرف (money out).
   `payments_screen.dart` carries both tabs — التحصيل and الصرف, the latter with
   the voucher list and «الإنفاق حسب الوجه» — and `disbursement_sheet.dart` is
-  the voucher form, whose fields switch on the kind. `finance_repository.dart`
-  is the canonical example of the read-via-view / write-via-RPC pattern.
-- `features/oversight` — dashboard, alerts, reports, audit, settings, users.
-- `features/chat` — مجلس العدايل, the one room. `chat_repository.dart` is the
-  read-via-view / write-via-RPC pattern again; `providers.dart` holds the poll
-  and the note on why it is a poll and not Realtime.
+  the voucher form, whose fields switch on the kind and which carries **no date
+  field at all** (see ساعة الخادم above). `adeel_aid_screen.dart` is «أسلافي»,
+  `aid_others_screen.dart` is «أسلاف للغير», `member_value_screen.dart` is
+  «الجدوى». `finance_repository.dart` is the canonical example of the
+  read-via-view / write-via-RPC pattern.
+- `features/oversight` — dashboard, reports, audit, settings, users.
+  Settings carries «ماعدا» under the monthly fee, and منطقة الخطر.
+- `features/chat` — مجلس العدايل. **Two rooms, not one**: `thread_adeel_id`
+  NULL is the general room and an id is that man's private thread.
+  `chat_repository.dart` is the read-via-view / write-via-RPC pattern again;
+  `providers.dart` holds the poll and the note on why it is a poll and not
+  Realtime, and `unread_bell.dart` the per-room unread counts.
+- `core/state` — `refreshAll(ref)` invalidates every provider in the app, and
+  `auto_refresh.dart` calls it on a timer and on resume. ⚠ A provider added
+  without being listed in `refreshAll` will serve stale data after a write and
+  look like a database fault; `test/refresh_coverage_test.dart` is what catches
+  that.
 - `core/supabase` — client init, secure session storage (refresh token → keystore),
   error mapping (`SupabaseFailures.guard`).
 - `core/router` — `go_router` with a single `redirect` guard re-run on every
@@ -431,6 +557,17 @@ than the missing REVOKE, which reads like a defect in the file. Copy the
 `PATCH_20260816_payer_bank_details.sql` §11 does: it recomputes every grant from
 the allow-list, so it fixes the next such function without anyone remembering.
 
+⚠ **AFTER THE LAST `CREATE`, and that is the whole of it.**
+`PATCH_20260820b` put the sweep in the middle and created a TRIGGER function
+below it, so the sweep never saw that function; it took the default EXECUTE to
+PUBLIC, and `assert_function_grants()` rolled the entire patch back naming
+`disb_refuse_future()`. The guard was right and the ORDER was wrong. A trigger
+function is never on the allow-list — Postgres calls it, not a client — so it
+needs the sweep, or an explicit REVOKE, or both.
+
+⚠ And a patch that only does `CREATE OR REPLACE` on functions that already
+exist needs no sweep at all: the ACL is kept.
+
 `supabase/VERIFY_INSTALL.sql` is the one to paste into a project's SQL Editor
 after applying the bundle. Read-only, and it answers the question the apply
 itself cannot: the bundle is one transaction so there is no half-applied state
@@ -451,6 +588,30 @@ in minutes, and on 2026-08-18 it is what revealed the live project sitting on an
 OLDER build of `PATCH_20260817` (device lock in, نظام الصرف missing) rather than
 on nothing at all. Every count in it goes through `query_to_xml()` so that a
 missing table cannot kill the script on one of the states it exists to name.
+
+⚠ **A PROBE MUST NAME THE EXACT OBJECT ITS QUERY NAMES, and `query_to_xml` does
+not excuse it.** Deferring resolution to run time buys the chance to ask first;
+it does not make a missing column stop mattering. `FINAL_CHECK` guarded the
+TABLE `association_settings` and then read the COLUMN `fee_exceptions` out of
+it, and died with 42703 on precisely the one state — «one patch behind» — that
+the row existed to report.
+
+⚠ **And a probe is a VERSION CLAIM, so rewriting a patch leaves it stale.**
+`WHICH_STATE` probed `read_all_disbursements_adeel` after that policy had been
+replaced, and reported a patch that had just landed correctly as `NOT applied`,
+forever. Probe by what the patch INSTALLS, never by what it removes.
+
+`supabase/FINAL_CHECK.sql` asks the question WHICH_STATE cannot: not «did the
+patch land» but «does it WORK». A schema can be complete while the thing it was
+for is broken — a policy present but scoped wrongly, a function present but
+carrying the old body, a trigger present on the wrong event — so it reads the
+POLICY EXPRESSION and the FUNCTION BODY rather than the name. It also asks a
+third question nothing else asks: **is the DATA clean?** A voucher dated in the
+future and an عديل holding two portal profiles are invisible to every schema
+check ever written, and both were found the hard way. `WHO_IS_DUP.sql` names
+the second; `WHICH_DB.sql` answers «which project am I even looking at», which
+is not a silly question — a patch was once run against an empty project and
+reported as applied.
 
 ## Testing model — two layers, both required
 
