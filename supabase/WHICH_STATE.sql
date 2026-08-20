@@ -123,19 +123,19 @@ WITH have AS (
     coalesce((SELECT pg_get_functiondef(p.oid) LIKE '%generate_series%'
                 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                WHERE n.nspname = 'public' AND p.proname = 'api_member_value'),
-             false)                                                AS patch_24,
+             false)                                                AS patch_21,
     -- المسح لا يترك مشتركاً خارج تطبيقه. Probed by the backfill it adds to
     -- purge_all_data, not by the profiles table — that has always been there.
     coalesce((SELECT p.prosrc LIKE '%INSERT INTO public.profiles%'
                 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                WHERE n.nspname = 'public' AND p.proname = 'purge_all_data'),
-             false)                                                AS patch_23,
+             false)                                                AS patch_20e,
     -- التاريخ من ساعة الخادم. Probed by the trigger it INSTALLS rather than
     -- by the one it removes: «the old thing is gone» is also true of a project
     -- that never had either.
     EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
              WHERE c.relname='disbursements'
-               AND t.tgname='trg_disb_stamp_time')                 AS patch_22,
+               AND t.tgname='trg_disb_stamp_time')                 AS patch_20d,
     -- اشتراك يختلف باختلاف الشهر. Probed by the COLUMN it adds.
     --
     -- ⚠ association_settings, NOT settings. There is no public.settings in
@@ -145,7 +145,7 @@ WITH have AS (
     --   it aborted on the first statement; here it said nothing and lied.
     EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_schema='public' AND table_name='association_settings'
-               AND column_name='fee_exceptions')                     AS patch_21,
+               AND column_name='fee_exceptions')                     AS patch_20c,
 
     -- ── ACCESS, which is not schema and is lost independently of it ─────────
     -- The 16/08 reset kept auth.users and dropped public.profiles, so signing in
@@ -212,14 +212,14 @@ SELECT * FROM (
          CASE WHEN aid_by_name
                 THEN '⚠ مكشوفة بالأسماء — PATCH_20260820b يُغلقها'
               ELSE 'مصونة — لا يقرأ مشتركٌ سلف مشتركٍ آخر' END FROM have
-  UNION ALL SELECT 10.3, 'PATCH 21/08 — اشتراك يختلف باختلاف الشهر',
+  UNION ALL SELECT 10.3, 'PATCH 20/08 (c) — اشتراك يختلف باختلاف الشهر',
+         CASE WHEN patch_20c THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.4, 'PATCH 20/08 (d) — التاريخ بساعة الخادم',
+         CASE WHEN patch_20d THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.5, 'PATCH 20/08 (e) — المسح يُبقي الدخول ممكناً',
+         CASE WHEN patch_20e THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.6, 'PATCH 21/08 — حركة المشترك (رسم الجدوى)',
          CASE WHEN patch_21 THEN 'applied' ELSE 'NOT applied' END FROM have
-  UNION ALL SELECT 10.4, 'PATCH 22/08 — التاريخ بساعة الخادم',
-         CASE WHEN patch_22 THEN 'applied' ELSE 'NOT applied' END FROM have
-  UNION ALL SELECT 10.5, 'PATCH 23/08 — المسح يُبقي الدخول ممكناً',
-         CASE WHEN patch_23 THEN 'applied' ELSE 'NOT applied' END FROM have
-  UNION ALL SELECT 10.6, 'PATCH 24/08 — حركة المشترك (رسم الجدوى)',
-         CASE WHEN patch_24 THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -263,19 +263,19 @@ SELECT * FROM (
               WHEN NOT patch_20b OR aid_by_name
                 THEN 'READY — apply supabase/PATCH_20260820b_aid_transparency.sql'
                   || '  ⚠ يعرض الصرف الجماعي للمشترك، ويُغلق كشف أسلاف الآخرين بالأسماء.'
-              WHEN NOT patch_21
+              WHEN NOT patch_20c
                 THEN 'READY — apply supabase/PATCH_20260820c_fee_exceptions.sql'
-              WHEN NOT patch_22
+              WHEN NOT patch_20d
                 THEN 'READY — apply supabase/PATCH_20260820d_server_clock.sql'
                   || '  ⚠ التاريخ يصير من ساعة الخادم، ويسقط الإدخال اليدوي له.'
               -- ⚠ 23/08 BEFORE 24/08 and both after the clock: this one is the
               -- only patch on the chain that un-strands people who are locked
               -- out RIGHT NOW, so it never waits behind a chart.
-              WHEN NOT patch_23
+              WHEN NOT patch_20e
                 THEN 'READY — apply supabase/PATCH_20260820e_purge_keeps_signin.sql'
                   || '  ⚠ يفكّ كل مشترك عَلِق بعد المسح.'
-              WHEN NOT patch_24
+              WHEN NOT patch_21
                 THEN 'READY — apply supabase/PATCH_20260821_member_months.sql'
-              ELSE 'UP TO DATE — every patch through 24/08 is applied.'
+              ELSE 'UP TO DATE — every patch through 21/08 is applied.'
          END FROM have
 ) t ORDER BY ord;

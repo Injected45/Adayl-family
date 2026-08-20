@@ -154,8 +154,56 @@ void main() {
     }
   }
 
+  // ── 7. AND NO FUTURE DATE ANYWHERE IN supabase/, not just in a filename ──
+  //
+  // ⚠ THE FIRST VERSION OF THIS LINT CHECKED FILENAMES ONLY, and the very next
+  //   thing handed over was WHICH_STATE.sql still printing «PATCH 21/08» …
+  //   «PATCH 24/08» in its display rows and its verdict. The files had been
+  //   renamed; the labels INSIDE them had not. A rule that guards the name and
+  //   not the text catches the tidy half of the mistake and reports success.
+  //
+  // Two forms are used in this repo and both are checked: `PATCH_YYYYMMDD`
+  // when a file is named, and `PATCH DD/MM` when a row is labelled.
+  final RegExp longForm = RegExp(r'PATCH_(\d{4})(\d{2})(\d{2})');
+  final RegExp shortForm = RegExp(r'PATCH (\d{2})/(\d{2})');
+  final DateTime cutoff = DateTime(today.year, today.month, today.day);
+
+  for (final File f in dir.listSync().whereType<File>()) {
+    final String name = _name(f);
+    if (!name.endsWith('.sql')) continue;
+    final String src = f.readAsStringSync();
+
+    for (final RegExpMatch r in longForm.allMatches(src)) {
+      final DateTime d = DateTime(
+        int.parse(r.group(1)!),
+        int.parse(r.group(2)!),
+        int.parse(r.group(3)!),
+      );
+      if (d.isAfter(cutoff)) {
+        problems.add(
+          '$name: refers to ${r.group(0)}, a date that has not happened',
+        );
+      }
+    }
+
+    for (final RegExpMatch r in shortForm.allMatches(src)) {
+      // No year on these labels, so the current one is assumed — which is what
+      // a reader assumes too, and is exactly why a stale label misleads.
+      final DateTime d = DateTime(
+        today.year,
+        int.parse(r.group(2)!),
+        int.parse(r.group(1)!),
+      );
+      if (d.isAfter(cutoff)) {
+        problems.add(
+          '$name: prints «${r.group(0)}», a date that has not happened',
+        );
+      }
+    }
+  }
   if (problems.isEmpty) {
-    print('patch_lint: ${patches.length} patches scanned, no problems found.');
+    print('patch_lint: ${patches.length} patches scanned and every .sql date '
+        'checked, no problems found.');
     return;
   }
   for (final String p in problems) {

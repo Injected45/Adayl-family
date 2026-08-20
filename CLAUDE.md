@@ -391,6 +391,15 @@ Run both from `app/`; they exit non-zero on violation and are part of the build 
   exist (`settings` for `association_settings` was written once and would have
   aborted on the first statement); a `DO $` sweep with a `CREATE`
   after it; and a patch that does not call all four `assert_*` guards.
+  It then sweeps EVERY `supabase/*.sql` for a date that has not happened, in
+  both forms this repo writes them — `PATCH_YYYYMMDD` and `PATCH DD/MM`.
+
+  ⚠ **That last sweep is there because the first version had only the
+  filename rule, and the very next file handed over — WHICH_STATE.sql — was
+  still printing «PATCH 22/08 … 24/08» in its rows and its verdict.** The
+  files had been renamed; the labels inside them had not. A rule that guards
+  the name and not the text catches the tidy half of a mistake and then
+  reports success, which is worse than not checking at all.
 
   ⚠ **The date rule is the reason it exists.** Four patches were numbered as a
   SEQUENCE and dressed as dates — 22, 23, 24 — while the calendar said the
