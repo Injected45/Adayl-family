@@ -381,7 +381,11 @@ void _moreSheetTests() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(w);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip(LAr().navMore));
+    // ⚠ BY LABEL, not by tooltip. «المزيد» left the header for the capsule at
+    //   the foot of the screen — the association asked for it there, in the
+    //   same bar the staff app navigates from — and a capsule item is a
+    //   labelled column, not an IconButton with a tooltip.
+    await tester.tap(find.text(LAr().navMore));
     await tester.pumpAndSettle();
   }
 
@@ -401,9 +405,9 @@ void _moreSheetTests() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     expect(find.byTooltip(l.signOut), findsNothing);
-    expect(find.byTooltip(l.navMore), findsOneWidget);
+    expect(find.text(l.navMore), findsOneWidget);
 
-    await tester.tap(find.byTooltip(l.navMore));
+    await tester.tap(find.text(l.navMore));
     await tester.pumpAndSettle();
     expect(find.text(l.signOut), findsOneWidget);
   });

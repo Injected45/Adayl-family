@@ -1,6 +1,7 @@
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
 import 'package:family_app/core/l10n/latin_digit_localizations.dart';
+import 'package:family_app/core/widgets/nav_pill_bar.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
 import 'package:family_app/features/chat/presentation/unread_bell.dart';
@@ -86,6 +87,7 @@ Map<String, dynamic> _due(String period, String status, String balance) =>
 void main() {
   final L l = LAr();
   _portalUnreadTests();
+  _portalCapsuleTests();
 
   Widget app(
     AdeelDetail detail, [
@@ -680,5 +682,84 @@ void _portalUnreadTests() {
     // the reader least likely to open a room on a hunch.
     await open(tester, 3);
     expect(find.text('3'), findsOneWidget);
+  });
+}
+
+/// A member navigates from the SAME capsule the association does.
+///
+/// ── WHAT MOVED, AND WHY ─────────────────────────────────────────────────────
+/// «المزيد» was an icon in the header and المحادثات was a filled button in the
+/// middle of the page. The association asked for both at the FOOT of the screen,
+/// in the bar the staff app already uses — «بنفس المظهر العام».
+///
+/// ⚠ AND IT IS THE SAME WIDGET, NOT A MATCHING ONE. NavPillBar moved out of
+///   AppScaffold into core/widgets for exactly that: two capsules that look
+///   alike today drift apart at the first change to either, and the drift stays
+///   invisible until somebody holds the two phones side by side.
+void _portalCapsuleTests() {
+  final L l = LAr();
+
+  Widget host() => ProviderScope(
+    overrides: <Override>[
+      authControllerProvider.overrideWith(_StubAuth.new),
+      adeelDetailProvider(1).overrideWith(
+        (Ref ref) async =>
+            _detail(debt: '0.00', receivables: const <Map<String, dynamic>>[]),
+      ),
+      statementProvider(1).overrideWith(
+        (Ref ref) async => const Statement(
+          movements: <StatementMovement>[],
+          closingBalance: '0.00',
+        ),
+      ),
+      chatUnreadProvider.overrideWith(() => _StubUnread(0)),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('ar'),
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
+      supportedLocales: L.supportedLocales,
+      home: const AdeelPortalScreen(),
+    ),
+  );
+
+  Future<void> open(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(411, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('his two doors are in the capsule at the foot', (
+    WidgetTester tester,
+  ) async {
+    await open(tester);
+
+    expect(find.byType(NavPillBar), findsOneWidget);
+    expect(find.text(l.navMore), findsOneWidget);
+    expect(find.text(l.navChat), findsOneWidget);
+  });
+
+  testWidgets('⚠ and المحادثات is there ONCE, not also on the page', (
+    WidgetTester tester,
+  ) async {
+    // It was a filled button in the body before the move. Leaving both would
+    // put two doors to one room on one screen, each with its own count beside
+    // it and free to disagree.
+    await open(tester);
+    expect(find.text(l.navChat), findsOneWidget);
+  });
+
+  testWidgets('...and the header carries the two app controls', (
+    WidgetTester tester,
+  ) async {
+    // Refresh and restart — the ones that act on the APP rather than navigate
+    // it, exactly as the staff bar keeps them. The association asked for the
+    // restart button by name.
+    await open(tester);
+    expect(find.byIcon(Icons.restart_alt), findsOneWidget);
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
   });
 }

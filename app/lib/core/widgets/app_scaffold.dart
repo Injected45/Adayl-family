@@ -12,6 +12,7 @@ import '../router/destinations.dart';
 import '../state/refresh.dart';
 import '../state/restart.dart';
 import 'app_background.dart';
+import 'nav_pill_bar.dart';
 import 'stat_card.dart';
 
 /// The navigation shell.
@@ -130,8 +131,8 @@ class AppScaffold extends ConsumerWidget {
       // asked. The bar is on every screen, so the answer is where the question
       // is. It is hidden for anyone the room would refuse anyway.
       const ChatBell(),
-      _RefreshAction(),
-      _RestartAction(),
+      const RefreshAction(),
+      const RestartAction(),
       ...?actions,
     ];
 
@@ -218,7 +219,7 @@ class AppScaffold extends ConsumerWidget {
               //   pill drawn and a member reads his room through a band of
               //   nothing, with the message box floating above the floor.
               bottom:
-                  (portal ? 0.0 : _PillNavBar.totalHeight) +
+                  (portal ? 0.0 : NavPillBar.totalHeight) +
                   (floatingActionButton == null ? 0.0 : _fabBand) +
                   MediaQuery.viewPaddingOf(context).bottom,
             ),
@@ -226,21 +227,32 @@ class AppScaffold extends ConsumerWidget {
           child: Builder(builder: body),
         ),
         floatingActionButton: floatingActionButton,
+        // ── ONE CAPSULE, TWO AUDIENCES ─────────────────────────────────
+        // The bar moved into core/widgets/nav_pill_bar.dart so the عديل
+        // portal can carry the SAME one — the association asked for that in
+        // those words, «بنفس المظهر العام». It takes items rather than
+        // destinations: staff build them from the destination list, a member
+        // builds two by hand, and neither knows how the other is composed.
         bottomNavigationBar: portal
             ? null
-            : _PillNavBar(
-                primary: primary,
-                selectedIndex: selectedIndex >= 0
-                    ? selectedIndex
-                    : primary.length,
-                moreLabel: l.navMore,
-                onSelected: (int index) {
-                  if (index < primary.length) {
-                    context.go(primary[index].route);
-                  } else {
-                    _showMoreSheet(context, l, overflow);
-                  }
-                },
+            : NavPillBar(
+                items: <NavPillItem>[
+                  for (int i = 0; i < primary.length; i++)
+                    NavPillItem(
+                      icon: primary[i].icon,
+                      selectedIcon: primary[i].selectedIcon,
+                      label: (primary[i].shortLabel ?? primary[i].label)(l),
+                      selected: i == selectedIndex,
+                      onTap: () => context.go(primary[i].route),
+                    ),
+                  NavPillItem(
+                    icon: Icons.grid_view_outlined,
+                    selectedIcon: Icons.grid_view,
+                    label: l.navMore,
+                    selected: selectedIndex < 0,
+                    onTap: () => _showMoreSheet(context, l, overflow),
+                  ),
+                ],
               ),
       ),
     );
@@ -321,7 +333,9 @@ class AppScaffold extends ConsumerWidget {
 /// instantly and the actual refetch is whatever the visible screen asks for on
 /// its next build — which already has its own loading state. A second spinner
 /// here would report progress it does not know about.
-class _RefreshAction extends ConsumerWidget {
+class RefreshAction extends ConsumerWidget {
+  const RefreshAction({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
@@ -350,7 +364,9 @@ class _RefreshAction extends ConsumerWidget {
 /// should not be able to do that silently. The dialog also states the one thing
 /// the button cannot do, because "I pressed restart and my change is still not
 /// there" is the misunderstanding it would otherwise invite.
-class _RestartAction extends StatelessWidget {
+class RestartAction extends StatelessWidget {
+  const RestartAction({super.key});
+
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
@@ -514,151 +530,6 @@ class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 /// and clears the safe area at the bottom. Content scrolls behind it.
 ///
 /// This is the second of the three [BackdropFilter]s in the shell.
-class _PillNavBar extends StatelessWidget {
-  const _PillNavBar({
-    required this.primary,
-    required this.selectedIndex,
-    required this.moreLabel,
-    required this.onSelected,
-  });
-
-  final List<AppDestination> primary;
-  final int selectedIndex;
-  final String moreLabel;
-  final ValueChanged<int> onSelected;
-
-  static const double _pillHeight = 66;
-  static const double _bottomGap = 12;
-
-  /// What the pill occupies, published to the body as MediaQuery bottom padding
-  /// so screen content can clear it.
-  static const double totalHeight = _pillHeight + _bottomGap;
-
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-    final List<({IconData icon, IconData selected, String label})> items =
-        <({IconData icon, IconData selected, String label})>[
-          for (final AppDestination d in primary)
-            (
-              icon: d.icon,
-              selected: d.selectedIcon,
-              label: (d.shortLabel ?? d.label)(l),
-            ),
-          (
-            icon: Icons.grid_view_outlined,
-            selected: Icons.grid_view,
-            label: moreLabel,
-          ),
-        ];
-
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        _bottomGap + MediaQuery.viewPaddingOf(context).bottom,
-      ),
-      child: GlassSurface(
-        blurred: true,
-        lifted: true,
-        fill: GlassColors.chrome,
-        // A true pill: radius is half the height, so the ends are semicircles
-        // rather than a rounded rectangle pretending to be one.
-        radius: _pillHeight / 2,
-        child: SizedBox(
-          height: _pillHeight,
-          child: Row(
-            children: <Widget>[
-              for (int i = 0; i < items.length; i++)
-                Expanded(
-                  child: _PillItem(
-                    icon: items[i].icon,
-                    selectedIcon: items[i].selected,
-                    label: items[i].label,
-                    selected: i == selectedIndex,
-                    onTap: () => onSelected(i),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PillItem extends StatelessWidget {
-  const _PillItem({
-    required this.icon,
-    required this.selectedIcon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Reduced motion collapses the capsule transition to zero rather than
-    // skipping it — the end state must still be correct, only instant.
-    final Duration duration = prefersReducedMotion(context)
-        ? Duration.zero
-        : AppMotion.fast;
-
-    return Semantics(
-      // The destination is conveyed by label AND by state, not by colour alone.
-      selected: selected,
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const StadiumBorder(),
-        // Sized to fill the 66px pill, so the whole column is the target rather
-        // than just the icon — comfortably past the 44px minimum.
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            AnimatedContainer(
-              duration: duration,
-              curve: AppMotion.enter,
-              width: 44,
-              height: 28,
-              decoration: BoxDecoration(
-                // Flat: a solid capsule, no gradient, no shadow.
-                color: selected ? AppColors.brand : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                selected ? selectedIcon : icon,
-                size: 20,
-                color: selected ? AppColors.onFill : AppColors.inkMuted,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: 10.5,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: selected ? AppColors.brandDeep : AppColors.inkMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _WideLayout extends StatelessWidget {
   const _WideLayout({
     required this.title,

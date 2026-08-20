@@ -9,7 +9,9 @@ import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_background.dart';
+import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
+import '../../../core/widgets/nav_pill_bar.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
@@ -122,7 +124,37 @@ class AdeelPortalScreen extends ConsumerWidget {
       );
     }
 
+    // ⚠ WHAT THE CAPSULE OCCUPIES, RESERVED BY HAND. AppScaffold publishes
+    //   this through MediaQuery for every staff screen; the portal is not an
+    //   AppScaffold — deliberately, since every staff destination is one the
+    //   router refuses him — so it reserves the space itself. Without it his
+    //   last statement row reads through the bar.
     return Scaffold(
+      bottomNavigationBar: NavPillBar(
+        items: <NavPillItem>[
+          // Everything about HIM that is not a figure: his own details, where
+          // to send a transfer, who to ring, and the way out. Nothing the
+          // association owns — every item is already readable to him under
+          // RLS, through my_adeel_id() and read_settings_adeel.
+          NavPillItem(
+            icon: Icons.grid_view_outlined,
+            selectedIcon: Icons.grid_view,
+            label: l.navMore,
+            onTap: () => _showPortalMore(context, adeelId),
+          ),
+          // ⚠ THE COUNT LIVES HERE AND NOWHERE ELSE FOR HIM. He has no app
+          //   bar, so he has no bell — this capsule is the only place the
+          //   room is named on his screen, and therefore the only place a
+          //   number can reach him.
+          NavPillItem(
+            icon: Icons.forum_outlined,
+            selectedIcon: Icons.forum,
+            label: l.navChat,
+            badge: ref.watch(chatUnreadProvider).valueOrNull ?? 0,
+            onTap: () => context.go(AppRoutes.chat),
+          ),
+        ],
+      ),
       body: AppBackground(
         child: SafeArea(
           child: Column(
@@ -140,23 +172,14 @@ class AdeelPortalScreen extends ConsumerWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    // ── المزيد ──────────────────────────────────────────────
-                    // Everything about HIM that is not a figure: his own
-                    // details, where to send a transfer, who to ring, and the
-                    // way out. Signing out moved inside it — it is the least
-                    // used control on the screen and it was occupying the only
-                    // action slot the header has.
-                    //
-                    // The sheet holds nothing the association owns. Every item
-                    // in it is already readable to him under RLS: his own row
-                    // through my_adeel_id(), and the bank account and officials
-                    // through read_settings_adeel, which exists precisely
-                    // because he is the man being asked to pay.
-                    IconButton(
-                      onPressed: () => _showPortalMore(context, adeelId),
-                      icon: const Icon(Icons.grid_view_rounded),
-                      tooltip: l.navMore,
-                    ),
+                    // ── الأدوات، لا الوجهات ────────────────────────────────
+                    // «المزيد» left this row for the capsule at the foot of
+                    // the screen, where the association asked for it and where
+                    // a thumb already is. What stays up here is what the staff
+                    // bar keeps up here too: the two controls that act on the
+                    // APP rather than navigate it.
+                    RefreshAction(),
+                    RestartAction(),
                   ],
                 ),
               ),
@@ -285,17 +308,12 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        // ── The room, from the portal ────────────────────────────────────────
-        // The عديل's ONLY way in, and the reason it is FILLED rather than
-        // outlined: the aid button above opens a record, this opens the one
-        // screen on which he is not a reader but a participant. It is the only
-        // place in this app where he writes anything.
-        //
-        // `context.go` rather than a Navigator.push, unlike the aid screen: the
-        // room is a real route with its own place in the router, and the guard
-        // was widened by exactly one entry to let him occupy it. A push would
-        // leave the location saying /my-dues while he sat somewhere else.
-        const _ChatButton(),
+        // ── المحادثات MOVED TO THE CAPSULE ───────────────────────────────
+        // It was a filled button here. The association asked for it at the
+        // FOOT of the screen beside «المزيد», in the same capsule the staff
+        // app navigates from — and a door that exists in two places is a
+        // door somebody eventually finds twice with two different counts
+        // beside it. See the bottomNavigationBar above.
         const SizedBox(height: AppSpacing.xl),
 
         SegmentedButton<_PortalTab>(
@@ -1627,64 +1645,3 @@ class _DueTile extends StatelessWidget {
 ///
 /// The count therefore rides on the BUTTON itself. Same provider, same number
 /// as the staff bell — one source, so the two can never disagree.
-class _ChatButton extends ConsumerWidget {
-  const _ChatButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final L l = L.of(context);
-    final int unread = ref.watch(chatUnreadProvider).valueOrNull ?? 0;
-
-    return FilledButton(
-      onPressed: () => context.go(AppRoutes.chat),
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-      ),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.forum_outlined, size: 20),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              l.navChat,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          // ── HOW MANY ARE WAITING, ON THE FACE OF THE BUTTON ────────────
-          // Not a dot: «هناك جديد» is half an answer, and the member is the
-          // reader least likely to open a room on a hunch. The number tells
-          // him whether it is one message or fifteen.
-          //
-          // ⚠ onFill, not the palette accent. This sits on a FILLED button,
-          //   where the success green the inbox uses would be one dark tone on
-          //   another. White with the brand colour inside it is the same badge
-          //   the platform draws on a filled control.
-          if (unread > 0)
-            Container(
-              margin: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              constraints: const BoxConstraints(minWidth: 22),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.onFill,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-              ),
-              child: Text(
-                unread > 99 ? l.chatUnreadMany : '$unread',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.brand,
-                  height: 1.2,
-                ),
-              ),
-            ),
-          const Icon(Icons.chevron_left, size: 18),
-        ],
-      ),
-    );
-  }
-}
