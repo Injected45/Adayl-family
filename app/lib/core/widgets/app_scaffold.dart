@@ -88,11 +88,32 @@ class AppScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
-    final AppRole role =
-        ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
-    final List<AppDestination> visible = appDestinations
-        .where((AppDestination d) => d.isVisibleTo(role))
-        .toList();
+    final AppUser? me = ref.watch(authControllerProvider).user;
+    final AppRole role = me?.role ?? AppRole.viewer;
+
+    // ── A MEMBER GETS NO NAVIGATION AT ALL ─────────────────────────────────
+    //
+    // He reaches exactly one screen through this scaffold — المحادثات — and
+    // the router refuses him every other destination. Filtering by ROLE was
+    // not enough: a bound portal account carries AppRole.viewer, so the pill
+    // offered him the register, the treasury, the receivables and the reports.
+    // Tapping any of them bounced him straight back.
+    //
+    // ⚠ AND THAT IS WORSE THAN AN ERROR. A row of doors that do not open
+    //   tells a member the app is keeping something from him and invites him
+    //   to wonder what — about an association he belongs to. The honest screen
+    //   is the one that never mentions them: he has one destination, so he is
+    //   shown none, and «المزيد» with them hidden inside is not a fix either.
+    //
+    //   The refusal itself stays where it belongs — in the router guard and in
+    //   RLS. This hides an invitation, it does not grant or withhold anything.
+    final bool portal = me?.isAdeelPortal ?? false;
+
+    final List<AppDestination> visible = portal
+        ? const <AppDestination>[]
+        : appDestinations
+              .where((AppDestination d) => d.isVisibleTo(role))
+              .toList();
     final double width = MediaQuery.sizeOf(context).width;
 
     // The refresh action is on EVERY screen, ahead of whatever the screen adds.
@@ -114,7 +135,11 @@ class AppScaffold extends ConsumerWidget {
       ...?actions,
     ];
 
-    if (width >= _railBreakpoint) {
+    // ⚠ AND NEVER THE RAIL FOR HIM. NavigationRail asserts on fewer than two
+    //   destinations, so a member on a tablet would not get a tidy screen —
+    //   he would get a crash. The phone layout is also the right shape for a
+    //   man with one destination, at any width.
+    if (width >= _railBreakpoint && !portal) {
       return AppBackground(
         child: _WideLayout(
           title: title,
@@ -155,7 +180,31 @@ class AppScaffold extends ConsumerWidget {
         // core/config/glass.dart reads it so nothing ends up unreachable.
         extendBody: true,
 
-        appBar: _GlassAppBar(title: title, actions: barActions),
+        appBar: _GlassAppBar(
+          title: title,
+          actions: barActions,
+          // ── HIS WAY HOME ────────────────────────────────────────────────
+          // He arrived here with `context.go`, which REPLACED the location —
+          // so there is nothing on the stack for a back gesture to pop, and
+          // on Android the system button would put him out of the app.
+          // Without this the room is a one-way door.
+          //
+          // Only for him: staff have the pill, and a second way back would be
+          // a control that does what the bar underneath already does.
+          leading: portal
+              ? IconButton(
+                  onPressed: () => context.go(AppRoutes.myDues),
+                  // A HOUSE, not a back arrow. Two reasons, and the second is
+                  // the one that bit: it takes him to his own page rather than
+                  // one step back — and the room already uses arrow_forward to
+                  // leave a private thread for the inbox, so the same glyph in
+                  // the bar above it would be two different journeys drawn
+                  // identically. A widget test found that before a member did.
+                  icon: const Icon(Icons.home_outlined),
+                  tooltip: l.myFamilyTitle,
+                )
+              : null,
+        ),
         // EVERYTHING that floats over the body is added up here, once, and
         // published as one number. A screen asks `bottomInset(context)` and gets
         // the right answer without knowing whether it has a FAB, whether the
@@ -164,8 +213,12 @@ class AppScaffold extends ConsumerWidget {
         body: MediaQuery(
           data: MediaQuery.of(context).copyWith(
             padding: MediaQuery.paddingOf(context).copyWith(
+              // ⚠ AND THE SPACE GOES WITH THE PILL. Screens reserve this by
+              //   asking bottomInset(); leave the pill's height in it with no
+              //   pill drawn and a member reads his room through a band of
+              //   nothing, with the message box floating above the floor.
               bottom:
-                  _PillNavBar.totalHeight +
+                  (portal ? 0.0 : _PillNavBar.totalHeight) +
                   (floatingActionButton == null ? 0.0 : _fabBand) +
                   MediaQuery.viewPaddingOf(context).bottom,
             ),
@@ -173,18 +226,22 @@ class AppScaffold extends ConsumerWidget {
           child: Builder(builder: body),
         ),
         floatingActionButton: floatingActionButton,
-        bottomNavigationBar: _PillNavBar(
-          primary: primary,
-          selectedIndex: selectedIndex >= 0 ? selectedIndex : primary.length,
-          moreLabel: l.navMore,
-          onSelected: (int index) {
-            if (index < primary.length) {
-              context.go(primary[index].route);
-            } else {
-              _showMoreSheet(context, l, overflow);
-            }
-          },
-        ),
+        bottomNavigationBar: portal
+            ? null
+            : _PillNavBar(
+                primary: primary,
+                selectedIndex: selectedIndex >= 0
+                    ? selectedIndex
+                    : primary.length,
+                moreLabel: l.navMore,
+                onSelected: (int index) {
+                  if (index < primary.length) {
+                    context.go(primary[index].route);
+                  } else {
+                    _showMoreSheet(context, l, overflow);
+                  }
+                },
+              ),
       ),
     );
   }
@@ -386,10 +443,17 @@ class _MoreTile extends StatelessWidget {
 
 /// Frosted app bar. One [BackdropFilter] — the topmost chrome layer.
 class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _GlassAppBar({required this.title, required this.actions});
+  const _GlassAppBar({
+    required this.title,
+    required this.actions,
+    this.leading,
+  });
 
   final String title;
   final List<Widget>? actions;
+
+  /// Null everywhere but a member's one screen — see where it is passed.
+  final Widget? leading;
 
   static const double _height = 60;
 
@@ -414,7 +478,12 @@ class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
           padding: EdgeInsetsDirectional.only(top: top),
           child: Row(
             children: <Widget>[
-              const SizedBox(width: AppSpacing.lg),
+              // The back control takes the place of the leading gap when it is
+              // there, so the title starts at the same edge either way.
+              if (leading != null)
+                leading!
+              else
+                const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Text(
                   title,
