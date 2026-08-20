@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/chat/presentation/providers.dart' as chat;
 import '../../features/directory/presentation/providers.dart' as directory;
 import '../../features/finance/presentation/providers.dart' as finance;
 import '../../features/oversight/presentation/providers.dart' as oversight;
@@ -35,10 +36,36 @@ void refreshAll(WidgetRef ref) {
   ref.invalidate(directory.settingsProvider);
   ref.invalidate(directory.officialsProvider);
 
+  // ⚠ AND WHAT THE ASSOCIATION GAVE HIM. This was missing, and it is what
+  //   sent us looking through the database for an afternoon: a voucher was
+  //   recorded for a member, the admin saw it in الصندوق, and the member’s
+  //   «مصروفات للمشترك» stayed empty — through the refresh button, through
+  //   the automatic refresh, and through closing and reopening the screen.
+  //
+  //   adeelAidProvider is a `.family` and NOT autoDispose, so once it had
+  //   answered "no vouchers" it kept answering that for the life of the app.
+  //   Every check we ran against Postgres came back healthy, because Postgres
+  //   was healthy — the stale answer was in the phone.
+  ref.invalidate(finance.adeelAidProvider);
+
   // Finance.
   ref.invalidate(finance.paymentsProvider);
   ref.invalidate(finance.cashSummaryProvider);
   ref.invalidate(finance.cashMovementsProvider);
+  // Money OUT. The voucher list and the spend-by-heading panel move together
+  // with every disbursement and every reversal.
+  ref.invalidate(finance.disbursementsProvider);
+  ref.invalidate(finance.expenseByCategoryProvider);
+  // What the member is shown of the association’s position. Same figures,
+  // different reader — and it went stale the same way.
+  ref.invalidate(directory.associationFinanceProvider);
+  // Which month may be closed next. It changes the moment one is closed, and
+  // a stale answer offers a month that rule 15a will refuse.
+  ref.invalidate(finance.closablePeriodsProvider);
+
+  // The board’s inbox of private conversations. The messages themselves have
+  // their own clock; this is the LIST, which nothing else refreshes.
+  ref.invalidate(chat.chatThreadsProvider);
 
   // Oversight.
   ref.invalidate(oversight.dashboardProvider);
