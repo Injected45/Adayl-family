@@ -253,7 +253,56 @@ BEGIN
   END LOOP;
 END $lockdown$;
 
--- == 3. Confirmation ========================================================
+-- == 3. لا صرف بتاريخ لم يأتِ بعد =========================================
+-- ⚠ THE ASSOCIATION FOUND THIS, and the way it showed itself is worth
+--   recording: a voucher was entered dated TOMORROW, and the member reported
+--   it as missing from his ledger. It was not missing. The ledger is ordered
+--   OLDEST FIRST — that is what makes its running-total column mean anything —
+--   so a voucher dated tomorrow sorts LAST and sits at the bottom of the list,
+--   below everything, where nobody looking at the top of a screen finds it.
+--
+--   The date is also simply wrong. Money cannot leave a treasury on a day
+--   that has not happened, and every figure derived from spent_at — the
+--   yearly breakdown, the running total, the report ranges — inherits the
+--   error quietly.
+--
+-- ⚠ A TRIGGER RATHER THAN A CHECK CONSTRAINT, and not by preference:
+--   Postgres refuses a CHECK that calls now(), because a constraint must be
+--   immutable and «today» is not. A BEFORE trigger is the only form that can
+--   ask what day it is — and it guards EVERY path into the table, not just
+--   register_disbursement.
+--
+-- ⚠ AND THE DAY IS LIBYA’S, NOT UTC. Supabase runs its sessions in UTC, and
+--   Tripoli is two hours ahead — so between 22:00 and midnight local, UTC is
+--   still on yesterday. Comparing against a UTC date would refuse a voucher
+--   dated correctly for TODAY, every night, for two hours. The association
+--   would meet that as «التطبيق يرفض التاريخ الصحيح» and nobody would connect
+--   it to a timezone.
+CREATE OR REPLACE FUNCTION public.disb_refuse_future()
+RETURNS trigger LANGUAGE plpgsql AS $future$
+BEGIN
+  IF (NEW.spent_at AT TIME ZONE 'Africa/Tripoli')::date
+     > (now() AT TIME ZONE 'Africa/Tripoli')::date THEN
+    RAISE EXCEPTION 'لا يمكن تسجيل صرف بتاريخ لم يأتِ بعد'
+      USING ERRCODE = 'RUL17';
+  END IF;
+  RETURN NEW;
+END $future$;
+
+-- INSERT and UPDATE both: a correction that moved the date forward would
+-- otherwise walk straight past a rule that only watched new rows.
+DROP TRIGGER IF EXISTS trg_disb_no_future ON public.disbursements;
+CREATE TRIGGER trg_disb_no_future
+  BEFORE INSERT OR UPDATE OF spent_at ON public.disbursements
+  FOR EACH ROW EXECUTE FUNCTION public.disb_refuse_future();
+
+-- ⚠ ROWS ALREADY ENTERED ARE LEFT ALONE. A trigger judges what is written
+--   from now on; it does not rewrite history, and rule 9 would not want it to.
+--   The association can correct a wrong date by reversing the voucher and
+--   recording it again — which is the same path every other correction takes,
+--   and leaves both halves visible.
+
+-- == 4. Confirmation ========================================================
 -- Read-only. Every row must say true.
 SELECT 'السياسة الجديدة قائمة' AS "الفحص",
        EXISTS (SELECT 1 FROM pg_policies
@@ -288,6 +337,11 @@ UNION ALL SELECT 'وسجل العدايل ما زال مقصوراً على صا
        EXISTS (SELECT 1 FROM pg_policies
                 WHERE schemaname='public' AND tablename='adeels'
                   AND qual LIKE '%my_adeel_id%')
+UNION ALL SELECT 'ولا يُقبل صرف بتاريخ لم يأتِ بعد',
+       EXISTS (SELECT 1 FROM pg_trigger t
+                JOIN pg_class c ON c.oid = t.tgrelid
+               WHERE c.relname = 'disbursements'
+                 AND t.tgname = 'trg_disb_no_future')
 UNION ALL SELECT 'ولم يتغيّر أي رقم مالي',
        (SELECT "total"::numeric = (SELECT coalesce(sum(amount), 0)
                                      FROM public.cash_movements
