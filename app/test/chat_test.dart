@@ -94,7 +94,9 @@ class _StubChat extends ChatController {
 }
 
 late Future<void> Function(WidgetTester) _openRoom;
-late Future<void> Function(WidgetTester, {int hall, int private}) _openWithRooms;
+late String? Function() _lastSent;
+late Future<void> Function(WidgetTester, {int hall, int private})
+_openWithRooms;
 late Future<void> Function(WidgetTester, List<ChatMessage>, {AppUser user})
 _openAs;
 
@@ -114,9 +116,9 @@ void main() {
         authControllerProvider.overrideWith(() => _StubAuth(user)),
         chatProvider.overrideWith(() => chat),
         chatThreadsProvider.overrideWith((Ref ref) async => threads),
-      // The counts are given, not fetched — these tests are about where the
-      // numbers LAND, and the query that produces them has its own file.
-      roomUnreadProvider.overrideWith((Ref ref) async => rooms),
+        // The counts are given, not fetched — these tests are about where the
+        // numbers LAND, and the query that produces them has its own file.
+        roomUnreadProvider.overrideWith((Ref ref) async => rooms),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -144,18 +146,21 @@ void main() {
 
   _openRoom = (WidgetTester tester) =>
       open(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
-  _openAs = (
-    WidgetTester tester,
-    List<ChatMessage> messages, {
-    AppUser user = _viewer,
-  }) => open(tester, messages, user: user);
+  _openAs =
+      (
+        WidgetTester tester,
+        List<ChatMessage> messages, {
+        AppUser user = _viewer,
+      }) => open(tester, messages, user: user);
   _openWithRooms = (WidgetTester tester, {int hall = 0, int private = 0}) =>
       open(
         tester,
         <ChatMessage>[_msg(id: 1, body: 'أهلاً')],
         rooms: (hall: hall, private: private),
       );
+  _lastSent = () => chat.sent;
   _segmentCountTests();
+  _keyboardTests();
   _emojiTests();
   _openThreadTests();
 
@@ -237,7 +242,9 @@ void main() {
     expect(chat.sent, isNull);
   });
   testWidgets('a man may delete his OWN message', (WidgetTester tester) async {
-    await _openAs(tester, <ChatMessage>[_msg(id: 7, body: 'كلامي', mine: true)]);
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 7, body: 'كلامي', mine: true),
+    ]);
     await tester.longPress(find.text('كلامي'));
     await tester.pumpAndSettle();
     expect(find.text(l.chatDeleteTitle), findsOneWidget);
@@ -721,5 +728,59 @@ void _segmentCountTests() {
     // And the labels are still there, which is what says the badges are an
     // annotation rather than a replacement.
     expect(find.text(l.chatHall), findsOneWidget);
+  });
+}
+
+/// The keyboard opens and the conversation STAYS ON SCREEN.
+///
+/// ── THE BUG THIS PINS ───────────────────────────────────────────────────────
+/// «بمجرد الضغط للكتابة ترتفع وتختفي كل واجهة المحادثة.»
+///
+/// Scaffold lifts its whole body above the keyboard already —
+/// `resizeToAvoidBottomInset` is on by default — and the composer ALSO added
+/// `MediaQuery.viewInsets.bottom` to its own padding. The keyboard was counted
+/// twice: the box rose a full keyboard-height above the keyboard, and the
+/// message list, being whatever was left, was squeezed to nothing.
+///
+/// ⚠ WHAT THE COMPOSER MUST STILL RESERVE is the navigation pill, which FLOATS
+///   over the body and which the Scaffold knows nothing about. Removing that one
+///   too would put the send button under the pill — a bug this file has already
+///   caught once, with a tap that missed.
+void _keyboardTests() {
+  testWidgets('with the keyboard up, the messages are still there', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 1, body: 'أهلاً بكم'),
+      _msg(id: 2, body: 'وعليكم السلام', mine: true),
+    ]);
+
+    // A keyboard, as the platform reports one.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 700);
+    addTearDown(() => tester.view.resetViewInsets());
+    await tester.pumpAndSettle();
+
+    expect(find.text('أهلاً بكم'), findsOneWidget);
+    expect(find.text('وعليكم السلام'), findsOneWidget);
+    // And the box is still reachable, which is the other half of usable.
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
+  testWidgets('...and the send button is not swallowed by the keyboard', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'أهلاً')]);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 700);
+    addTearDown(() => tester.view.resetViewInsets());
+    await tester.pumpAndSettle();
+
+    // The tap has to LAND — the assertion that catches a control pushed under
+    // something the user cannot see through.
+    await tester.enterText(find.byType(TextField), 'مرحبا');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pumpAndSettle();
+
+    expect(_lastSent(), 'مرحبا');
   });
 }

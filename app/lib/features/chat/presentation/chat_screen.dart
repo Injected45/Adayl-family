@@ -93,16 +93,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ///   reading it here would start one for every test that opens the room.
   late final ChatReadState _reads;
 
-  /// The newest id this screen has actually RENDERED.
+  /// The newest id this screen has rendered IN EACH ROOM. Keyed by thread:
+  /// null is المجلس, an id is that man's private conversation.
   ///
-  /// ⚠ THE MARK IS TAKEN FROM THE LIST, NOT FROM A SECOND REQUEST. Asking the
-  ///   server for its newest id would be a shade more accurate and would drag
-  ///   the Supabase client into this widget's initState — where a test that
-  ///   overrides the message provider has no client to give it, and where the
-  ///   screen would fail to open for a reason that has nothing to do with the
-  ///   room. The room polls every four seconds and fetches newest-first, so
-  ///   this value is the server's newest for every practical purpose.
-  int _newestSeen = 0;
+  /// ⚠ ONE NUMBER FOR TWO ROOMS WAS A BUG, AND A SILENT ONE. The association
+  ///   found it: «الأرقام تصبح عالقة ولا تختفي إلا عندما يكتب شيئاً». Opening
+  ///   المجلس set the number to its newest id, say 50; switching to the private
+  ///   thread, whose newest was 30, then failed the `30 <= 50` guard and
+  ///   returned before marking anything. The badge stayed until a NEW message
+  ///   pushed an id past 50 — which is exactly what writing one does, and
+  ///   exactly why it looked like it only cleared when you typed.
+  ///
+  /// ⚠ AND THE MARK IS TAKEN FROM THE LIST, NOT FROM A SECOND REQUEST. Asking
+  ///   the server for its newest id would be a shade more accurate and would
+  ///   drag the Supabase client into this widget's initState — where a test
+  ///   that overrides the message provider has no client to give it, and where
+  ///   the screen would fail to open for a reason that has nothing to do with
+  ///   the room. The room polls in seconds and fetches newest-first, so this is
+  ///   the server's newest for every practical purpose.
+  final Map<int?, int> _newestSeen = <int?, int>{};
 
   @override
   void initState() {
@@ -124,24 +133,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  /// Opening the room IS reading it, and so is watching it, and so is leaving.
+  /// OPENING a room is reading it — not writing in it, and not scrolling it.
   ///
-  /// Called from the list as rows arrive, and once more from dispose — because
-  /// messages land by poll while a man sits here, and without the second write
-  /// they are unread the moment he leaves and the bell rings for a conversation
-  /// he watched happen.
-  void _markRead(int newest) {
-    if (newest <= _newestSeen) return;
-    _newestSeen = newest;
-    // Fire and forget. A failed write leaves the mark where it was, and the
-    // next glance at the room writes it again.
+  /// Marks all three places at once, because the three counts answer three
+  /// different questions and each keeps its own mark: the bell across the whole
+  /// association, the segment for THIS room, and the inbox row for this man.
+  ///
+  /// Every write is monotonic in storage, so calling this more often than
+  /// necessary costs nothing and missing a call costs a badge that will not go
+  /// away. It is called on every rendered frame of a room for that reason.
+  void _markRoomRead(int? room, int newest) {
+    if (newest <= 0) return;
+    if (newest <= (_newestSeen[room] ?? 0)) return;
+    _newestSeen[room] = newest;
+
+    // The bell — every room, one number.
     unawaited(_reads.markRead(newest).catchError((Object _) {}));
+
+    if (room != null) {
+      // The inbox row beside his name, and the الخاص segment.
+      unawaited(_reads.markThreadRead(room, newest).catchError((Object _) {}));
+    } else {
+      // ⚠ المجلس HAS ITS OWN MARK. The global one advances when ANY room is
+      //   read and cannot say which, and the per-thread map has no entry for a
+      //   room that belongs to nobody — so without this the المجلس badge would
+      //   never clear.
+      unawaited(_reads.markHallRead(newest).catchError((Object _) {}));
+    }
   }
 
   @override
   void dispose() {
-    // No ref and no setState — the widget is going.
-    _markRead(_newestSeen);
+    // ⚠ AND AGAIN ON THE WAY OUT, for the room he was in. Messages land by
+    //   poll while a man sits here; without this they are unread the moment he
+    //   leaves and the bell rings for a conversation he watched happen.
+    //
+    //   No ref and no setState — the widget is going.
+    final int last = _newestSeen[_thread] ?? 0;
+    if (last > 0) {
+      unawaited(_reads.markRead(last).catchError((Object _) {}));
+      if (_thread != null) {
+        unawaited(
+          _reads.markThreadRead(_thread!, last).catchError((Object _) {}),
+        );
+      } else {
+        unawaited(_reads.markHallRead(last).catchError((Object _) {}));
+      }
+    }
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -350,30 +388,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!mounted) return;
                     final int newest = messages.last.id;
-                    if (newest <= _newestSeen) return;
-                    _markRead(newest);
-                    // ⚠ AND THE THREAD-S OWN MARK, when this is a thread. The
-                    //   bell clears from the global mark; the badge beside his
-                    //   name clears only from this one, and a board that read
-                    //   a conversation and still saw «3» beside it would stop
-                    //   trusting the number within a day.
-                    final int? open = _thread;
-                    if (open != null) {
-                      unawaited(
-                        _reads
-                            .markThreadRead(open, newest)
-                            .catchError((Object _) {}),
-                      );
-                    } else {
-                      // ⚠ AND المجلس HAS ITS OWN MARK. Without it the segment
-                      //   badge on المجلس would never clear — the global mark
-                      //   advances when any room is read and cannot say which,
-                      //   and the per-thread map has no entry for a room that
-                      //   belongs to nobody.
-                      unawaited(
-                        _reads.markHallRead(newest).catchError((Object _) {}),
-                      );
-                    }
+                    final int? room = _thread;
+                    // Nothing new to mark in THIS room. Checked per room, not
+                    // against one shared number — see _newestSeen.
+                    if (newest <= (_newestSeen[room] ?? 0)) return;
+                    _markRoomRead(room, newest);
+                    // The three counts, told at once. Invalidating a provider
+                    // that was never built is a no-op, so this costs nothing on
+                    // a screen where the bell or the inbox is not showing.
                     ref.invalidate(chatUnreadProvider);
                     ref.invalidate(threadUnreadProvider);
                     ref.invalidate(roomUnreadProvider);
@@ -957,9 +979,17 @@ class _ComposerState extends State<_Composer> {
             //   Exactly the bug the paragraph above describes, one widget
             //   further down, and caught the same way: by a test whose tap
             //   missed.
-            AppSpacing.md +
-                (_emoji ? 0 : bottomInset(context)) +
-                MediaQuery.viewInsetsOf(context).bottom,
+            // ⚠ AND NOT THE KEYBOARD. Scaffold already lifts the whole body
+            //   above it — resizeToAvoidBottomInset is on by default — so
+            //   adding viewInsets here counted the keyboard TWICE: the composer
+            //   rose a full keyboard-height above the keyboard and the message
+            //   list, being what was left, was squeezed to nothing.
+            //
+            //   The association described it exactly: «بمجرد الضغط للكتابة
+            //   ترتفع وتختفي كل واجهة المحادثة». What is reserved here is only
+            //   what FLOATS over the body — the navigation pill — which the
+            //   Scaffold knows nothing about.
+            AppSpacing.md + (_emoji ? 0 : bottomInset(context)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
