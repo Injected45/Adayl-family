@@ -249,3 +249,19 @@ class FinanceRepository {
         );
       });
 }
+
+/// What the association gave everybody except one man.
+///
+/// ⚠ SECURITY INVOKER, so `read_all_disbursements_adeel` decides what comes
+///   back. A member gets every voucher because the association chose «كل شيء
+///   بالأسماء»; drop that policy and this returns an empty answer with no code
+///   change at all.
+extension AidOthersRead on FinanceRepository {
+  Future<AidOthers> aidOthers(int adeelId) => SupabaseFailures.guard(() async {
+    final dynamic payload = await _db.rpc<dynamic>(
+      'api_aid_others',
+      params: <String, dynamic>{'p_adeel_id': adeelId},
+    );
+    return AidOthers.fromJson(FinanceRepository._obj(payload));
+  });
+}

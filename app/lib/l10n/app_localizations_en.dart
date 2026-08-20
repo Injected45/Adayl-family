@@ -575,10 +575,22 @@ class LEn extends L {
   String get aidTitle => 'Member expenses';
 
   @override
-  String get myAidTitle => 'What was paid to you';
+  String get myAidTitle => 'My aid';
 
   @override
   String get aidSearchHint => 'Search';
+
+  @override
+  String get aidOthersTitle => 'Aid to others';
+
+  @override
+  String get aidOthersEmpty => 'No aid to others yet';
+
+  @override
+  String get aidOthersRecipients => 'Recipients';
+
+  @override
+  String get aidOthersAll => 'All vouchers';
 
   @override
   String get aidColDate => 'Date';

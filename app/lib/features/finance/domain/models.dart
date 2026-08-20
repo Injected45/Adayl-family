@@ -563,3 +563,85 @@ class AdeelAid {
     ],
   );
 }
+
+/// One man's share of what the association gave OTHERS, for «أسلاف للغير».
+///
+/// The name is the SNAPSHOT on the voucher, never a lookup: a member reading
+/// this screen has no access to the register beyond his own row, so a joined
+/// name would come back empty for everybody but himself — the same failure the
+/// chat room avoids by snapshotting its author.
+class AidRecipient {
+  const AidRecipient({
+    required this.adeelId,
+    required this.name,
+    required this.total,
+    required this.count,
+  });
+
+  final int adeelId;
+  final String name;
+
+  /// Summed by Postgres. Never in Dart — see `api_aid_others`.
+  final String total;
+  final int count;
+
+  factory AidRecipient.fromJson(Map<String, dynamic> json) => AidRecipient(
+    adeelId: _int(json['adeelId']),
+    name: _string(json['name']),
+    total: _string(json['total']),
+    count: _int(json['count']),
+  );
+}
+
+/// What the association gave everybody EXCEPT the man reading it.
+///
+/// ── WHY THIS EXISTS, AND WHAT IT COSTS ──────────────────────────────────────
+/// The association chose full transparency, in these words: «كل شيء بالأسماء».
+/// Until that decision a member saw his own aid and nothing else, because a row
+/// here records that a NAMED man received إعانة — for a bereavement, a birth, an
+/// emergency — which is the most private fact this system holds.
+///
+/// The widening is a POLICY on the table, not a filter here:
+/// `read_all_disbursements_adeel` in PATCH_20260820b. Drop that one statement
+/// and this screen empties itself; nothing in Dart is deciding who may read
+/// what, and nothing in Dart could be trusted to.
+///
+/// ⚠ CANCELLED VOUCHERS ARE ABSENT, unlike a man's own ledger where rule 9 keeps
+///   them listed and struck through. His own reversals are his history; another
+///   man's are an administrative correction, and showing them invites the
+///   reading that somebody was given something and had it taken back.
+class AidOthers {
+  const AidOthers({
+    required this.total,
+    required this.count,
+    required this.men,
+    required this.vouchers,
+  });
+
+  /// Lifetime, everyone but the reader, cancelled excluded.
+  final String total;
+  final int count;
+
+  /// Largest first: «من أخذ أكثر» is the question this screen is opened with.
+  final List<AidRecipient> men;
+
+  /// Newest first.
+  final List<AidLedgerEntry> vouchers;
+
+  bool get isEmpty => count == 0;
+
+  factory AidOthers.fromJson(Map<String, dynamic> json) => AidOthers(
+    total: _string(json['total']),
+    count: _int(json['count']),
+    men: <AidRecipient>[
+      for (final dynamic e
+          in (json['men'] as List<dynamic>? ?? const <dynamic>[]))
+        AidRecipient.fromJson((e as Map).cast<String, dynamic>()),
+    ],
+    vouchers: <AidLedgerEntry>[
+      for (final dynamic e
+          in (json['vouchers'] as List<dynamic>? ?? const <dynamic>[]))
+        AidLedgerEntry.fromJson((e as Map).cast<String, dynamic>()),
+    ],
+  );
+}

@@ -90,6 +90,17 @@ WITH have AS (
     -- function this patch touches already existed under some name, and a table
     -- comes into existence exactly once.
     to_regclass('public.chat_messages') IS NOT NULL                  AS patch_19,
+    -- ⚠ AND THE COLUMN THAT MAKES IT TWO ROOMS. The table alone was the probe
+    --   once, and a project holding the FIRST shape passed it while the portal
+    --   showed 42703. A table name is not a version.
+    EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='chat_messages'
+               AND column_name='thread_adeel_id')                     AS patch_20,
+    -- Full transparency on aid: the POLICY, not the function, because the
+    --   function is what a member calls and the policy is what answers him.
+    EXISTS (SELECT 1 FROM pg_policies
+             WHERE schemaname='public' AND tablename='disbursements'
+               AND policyname='read_all_disbursements_adeel')         AS patch_20b,
 
     -- ── ACCESS, which is not schema and is lost independently of it ─────────
     -- The 16/08 reset kept auth.users and dropped public.profiles, so signing in
@@ -148,6 +159,10 @@ SELECT * FROM (
          CASE WHEN patch_18c THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 10, 'PATCH 19/08 — مجلس العدايل (الدردشة)',
          CASE WHEN patch_19 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.1, 'PATCH 20/08 — الغرفتان (المحادثة الخاصة)',
+         CASE WHEN patch_20 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.2, 'PATCH 20/08 (b) — أسلاف مكشوفة بالأسماء',
+         CASE WHEN patch_20b THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -184,6 +199,11 @@ SELECT * FROM (
                   || '  ⚠ رصيد الجمعية سينخفض بمقدار عهد المشتركين — وهو تصحيح لا خلل.'
               WHEN NOT patch_19
                 THEN 'READY — apply supabase/PATCH_20260819_chat.sql'
-              ELSE 'UP TO DATE — every patch through 19/08 is applied.'
+              WHEN NOT patch_20
+                THEN 'READY — apply supabase/PATCH_20260820_chat_threads.sql'
+              WHEN NOT patch_20b
+                THEN 'READY — apply supabase/PATCH_20260820b_aid_transparency.sql'
+                  || '  ⚠ يفتح أسلاف كل مشترك لكل المشتركين بالأسماء — قرار الجمعية.'
+              ELSE 'UP TO DATE — every patch through 20/08 is applied.'
          END FROM have
 ) t ORDER BY ord;

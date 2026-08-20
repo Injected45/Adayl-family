@@ -47,6 +47,8 @@ void refreshAll(WidgetRef ref) {
   //   Every check we ran against Postgres came back healthy, because Postgres
   //   was healthy — the stale answer was in the phone.
   ref.invalidate(finance.adeelAidProvider);
+  // And what it gave everyone else — the same screen, the other direction.
+  ref.invalidate(finance.aidOthersProvider);
 
   // Finance.
   ref.invalidate(finance.paymentsProvider);

@@ -251,11 +251,18 @@
   "@aidTitle": {
     "description": "Staff heading, third person: the association looking at one man's aid history."
   },
-  "myAidTitle": "ما صُرف لك",
+  "myAidTitle": "أسلافي",
   "@myAidTitle": {
     "description": "The same page in the member's own voice, inside his portal. The association's own wording."
   },
   "aidSearchHint": "بحث",
+  "aidOthersTitle": "أسلاف للغير",
+  "@aidOthersTitle": {
+    "description": "What the association gave every OTHER member, in a member’s portal, beside «أسلافي». The association chose full transparency — «كل شيء بالأسماء» — and the widening is a policy on the table, not a filter in the app: drop read_all_disbursements_adeel and this screen empties itself."
+  },
+  "aidOthersEmpty": "لم تُصرف أسلاف لغيرك بعد",
+  "aidOthersRecipients": "المستفيدون",
+  "aidOthersAll": "كل السندات",
   "aidColDate": "التاريخ",
   "aidColSerial": "#",
   "@aidColSerial": {

@@ -1144,7 +1144,7 @@ abstract class L {
   /// The same page in the member's own voice, inside his portal. The association's own wording.
   ///
   /// In ar, this message translates to:
-  /// **'ما صُرف لك'**
+  /// **'أسلافي'**
   String get myAidTitle;
 
   /// No description provided for @aidSearchHint.
@@ -1152,6 +1152,30 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'بحث'**
   String get aidSearchHint;
+
+  /// What the association gave every OTHER member, in a member’s portal, beside «أسلافي». The association chose full transparency — «كل شيء بالأسماء» — and the widening is a policy on the table, not a filter in the app: drop read_all_disbursements_adeel and this screen empties itself.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسلاف للغير'**
+  String get aidOthersTitle;
+
+  /// No description provided for @aidOthersEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تُصرف أسلاف لغيرك بعد'**
+  String get aidOthersEmpty;
+
+  /// No description provided for @aidOthersRecipients.
+  ///
+  /// In ar, this message translates to:
+  /// **'المستفيدون'**
+  String get aidOthersRecipients;
+
+  /// No description provided for @aidOthersAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل السندات'**
+  String get aidOthersAll;
 
   /// No description provided for @aidColDate.
   ///

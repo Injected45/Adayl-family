@@ -572,10 +572,22 @@ class LAr extends L {
   String get aidTitle => 'مصروفات للمشترك';
 
   @override
-  String get myAidTitle => 'ما صُرف لك';
+  String get myAidTitle => 'أسلافي';
 
   @override
   String get aidSearchHint => 'بحث';
+
+  @override
+  String get aidOthersTitle => 'أسلاف للغير';
+
+  @override
+  String get aidOthersEmpty => 'لم تُصرف أسلاف لغيرك بعد';
+
+  @override
+  String get aidOthersRecipients => 'المستفيدون';
+
+  @override
+  String get aidOthersAll => 'كل السندات';
 
   @override
   String get aidColDate => 'التاريخ';

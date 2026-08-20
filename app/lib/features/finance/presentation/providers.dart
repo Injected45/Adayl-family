@@ -57,3 +57,17 @@ final FutureProviderFamily<AdeelAid, int> adeelAidProvider =
       (Ref ref, int adeelId) =>
           ref.watch(financeRepositoryProvider).adeelAid(adeelId),
     );
+
+/// What the association gave everybody except this man.
+///
+/// A `.family` like the aid ledger beside it, and — like it — listed in
+/// `refreshAll`. That is not a detail: `adeelAidProvider` was NOT listed, and it
+/// showed a member an aid ledger from before a voucher existed for hours,
+/// through the refresh button and through the automatic sweep. The test in
+/// `test/refresh_coverage_test.dart` now fails the build if a new provider is
+/// left out the same way.
+final FutureProviderFamily<AidOthers, int> aidOthersProvider =
+    FutureProvider.family<AidOthers, int>(
+      (Ref ref, int adeelId) =>
+          ref.watch(financeRepositoryProvider).aidOthers(adeelId),
+    );

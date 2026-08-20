@@ -17,6 +17,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../chat/presentation/unread_bell.dart';
 import '../../finance/domain/models.dart';
 import '../../finance/presentation/adeel_aid_screen.dart';
+import '../../finance/presentation/aid_others_screen.dart';
 import '../../finance/presentation/providers.dart';
 import '../domain/models.dart';
 import 'portal_sections.dart';
@@ -266,7 +267,23 @@ class _PortalBodyState extends ConsumerState<_PortalBody> {
         // «ما صُرف لك» underneath it in the same scroll invites the eye to
         // subtract one from the other. الجمعية خيرية — aid is never deducted
         // from a subscription, and the two figures must not share a column.
-        _MyAidButton(adeelId: widget.adeelId),
+        // ── HIS OWN, AND EVERYONE ELSE’S, SIDE BY SIDE ────────────────────
+        // The association chose full transparency — «كل شيء بالأسماء» — and
+        // the two belong on one line because they are the same question asked
+        // twice: what did the جمعية give, and to whom. Stacked, the second
+        // would read as an afterthought under the first.
+        //
+        // ⚠ WHAT MAKES THE SECOND ONE LEGAL IS A POLICY, NOT THIS ROW.
+        //   `read_all_disbursements_adeel` admits a bound member to every
+        //   voucher; drop it and the screen behind this button empties itself
+        //   with no code change. Nothing here decides who may read what.
+        Row(
+          children: <Widget>[
+            Expanded(child: _MyAidButton(adeelId: widget.adeelId)),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: _OthersAidButton(adeelId: widget.adeelId)),
+          ],
+        ),
         const SizedBox(height: AppSpacing.sm),
         // ── The room, from the portal ────────────────────────────────────────
         // The عديل's ONLY way in, and the reason it is FILLED rather than
@@ -375,6 +392,60 @@ void _showPortalMore(BuildContext context, int adeelId) {
 /// route guard, and an imperative push does not change the location, so the
 /// guard has nothing to redirect. That is presentation either way — RLS scopes
 /// the rows to him whatever screen he reaches.
+/// What the association gave everyone ELSE.
+///
+/// Deliberately the quieter of the two: an outlined button in the muted tone
+/// beside his own, which carries the accent. His own record is why he opens
+/// the portal; the association’s charity to others is why he trusts it, and
+/// the two are not the same weight on his own page.
+class _OthersAidButton extends ConsumerWidget {
+  const _OthersAidButton({required this.adeelId});
+
+  final int adeelId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AsyncValue<AidOthers> aid = ref.watch(aidOthersProvider(adeelId));
+
+    return OutlinedButton(
+      onPressed: () => Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => AidOthersScreen(adeelId: adeelId),
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            l.aidOthersTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+          const SizedBox(height: 2),
+          // Silent while it loads or fails, exactly as his own button is: a
+          // spinner on a label makes an aside look like the point.
+          Text(
+            formatMoney(aid.valueOrNull?.total ?? '0.00'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColors.muted,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MyAidButton extends ConsumerWidget {
   const _MyAidButton({required this.adeelId});
 
@@ -397,16 +468,16 @@ class _MyAidButton extends ConsumerWidget {
           vertical: AppSpacing.md,
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.volunteer_activism_outlined, size: 20),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              l.myAidTitle,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
+          Text(
+            l.myAidTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           ),
+          const SizedBox(height: 2),
           // Silent while it loads or fails: the button's job is to open the
           // screen, and a spinner or an error string on a label would make an
           // aside look like the point.
@@ -415,10 +486,9 @@ class _MyAidButton extends ConsumerWidget {
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               color: AppColors.danger,
+              fontSize: 13,
             ),
           ),
-          const SizedBox(width: AppSpacing.xs),
-          const Icon(Icons.chevron_left, size: 18),
         ],
       ),
     );
