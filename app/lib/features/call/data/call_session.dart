@@ -16,6 +16,48 @@ import 'call_repository.dart';
 ///   failure look like a network fault.
 enum CallPhase { connecting, ringing, talking, ended, failed, micDenied }
 
+/// من أعرض عليه؟
+///
+/// ⚠ ARITHMETIC, NOT NEGOTIATION, and this one function is the whole of it.
+///   The man who joined LATER — the larger participant id — offers to every
+///   seat that was taken before his. Both sides compute the same answer from
+///   the same two numbers, so there is no round of «you go first» to lose on a
+///   bad connection, and no glare: two peers can never both offer, because one
+///   id is always the larger.
+///
+/// ⚠ AND IT MUST NEVER RETURN MY OWN SEAT. A handset that offered to itself
+///   would set its own SDP as its own remote description — which fails in a
+///   way that looks exactly like the other side never answering.
+///
+/// Extracted from the session because it is the piece worth a test: the rest
+/// of a call needs a microphone, a peer connection and another phone.
+List<CallParticipant> peersToOfferTo(
+  List<CallParticipant> everyone,
+  int mySeat,
+) => everyone
+    .where((CallParticipant p) => !p.mine && p.id < mySeat)
+    .toList();
+
+/// هل هذه الإشارة لي؟
+///
+/// Two refusals, and they are different failures:
+///
+/// ⚠ MINE — both sides read the SAME rows, because the policy is «may you see
+///   this call», not «is it addressed to you». Without this a handset feeds
+///   its own offer back into its own peer connection.
+///
+/// ⚠ ADDRESSED TO SOMEBODY ELSE — with two people every signal belongs to the
+///   other one, so stage 1 needed no such test. With four, an offer from A to
+///   B is read by C and D as well, each sets it as ITS remote description, and
+///   the call collapses in a way that looks like a bad network.
+///
+/// An empty [CallSignal.toUserId] is a broadcast, which every stage-1 row is.
+bool signalIsForMe(CallSignal s, String myUserId) {
+  if (s.mine) return false;
+  if (s.toUserId.isEmpty) return true;
+  return s.toUserId == myUserId;
+}
+
 /// الجلسة: شبكة متداخلة تربط WebRTC بجدول الإشارة.
 ///
 /// ── لماذا شبكة متداخلة ولا خادم وسائط ──────────────────────────────────────
@@ -139,9 +181,9 @@ class CallSession {
       }
 
       // ── Offer to everyone who was here before me ────────────────────────
-      for (final CallParticipant p in now) {
-        if (p.mine || _peers.containsKey(p.userId)) continue;
-        if (p.id < _myId) await _offerTo(p.userId);
+      for (final CallParticipant p in peersToOfferTo(now, _myId)) {
+        if (_peers.containsKey(p.userId)) continue;
+        await _offerTo(p.userId);
       }
 
       // ── And drop anyone who has gone ────────────────────────────────────
@@ -217,12 +259,8 @@ class CallSession {
     final List<CallSignal> rows = await _repo.signalsAfter(callId, _seen);
     for (final CallSignal s in rows) {
       _seen = s.id;
-      // ⚠ SKIP MY OWN, AND SKIP WHAT IS ADDRESSED TO SOMEBODY ELSE. Both are
-      //   necessary and they are different: the first stops a handset feeding
-      //   its own offer back into itself, the second stops it consuming the
-      //   offer that belongs to a third man on the same call.
-      if (s.mine) continue;
-      if (s.toUserId.isNotEmpty && s.toUserId != _me) continue;
+      // Two refusals, and they are different failures — see signalIsForMe.
+      if (!signalIsForMe(s, _me)) continue;
       await _apply(s);
     }
   }

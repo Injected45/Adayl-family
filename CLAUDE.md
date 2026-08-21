@@ -565,6 +565,50 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
   `chat_repository.dart` is the read-via-view / write-via-RPC pattern again;
   `providers.dart` holds the poll and the note on why it is a poll and not
   Realtime, and `unread_bell.dart` the per-room unread counts.
+- `features/call` — **الاتصال الصوتي**, in both chat rooms. WebRTC audio
+  peer-to-peer, no media server and no third-party account: the whole
+  handshake goes through `calls` / `call_signals` / `call_participants` and
+  the poll the chat already runs.
+
+  ⚠ **A MESH, AND THE ARITHMETIC IS WHY IT IS ALLOWED TO BE ONE.** Opus voice
+  is ≈32 kbps, so five on a call is 128 kbps up — a phone carries that.
+  Video is ~20× and is where «a group call needs an SFU» comes from;
+  `docs/VOICE_CALLS.md` made that claim without separating the two and is
+  marked superseded at the top. The cap lives in
+  `association_settings.call_max_participants` (6), so tuning it is one
+  UPDATE rather than a release.
+
+  ⚠ **Who offers whom is arithmetic, not negotiation.** The larger
+  participant id — the man who joined later — offers to every earlier seat.
+  `peersToOfferTo` and `signalIsForMe` are lifted out of `CallSession` for
+  exactly one reason: they are the two places a group call fails SILENTLY,
+  and both failures look like a bad network. `test/call_mesh_test.dart` pins
+  the property that matters — for any pair, exactly one offers.
+
+  ⚠ **The signal carries a recipient, and it is NULLABLE.** With two people
+  every signal on a call belongs to the other one; with four, C reading the
+  offer A sent to B sets it as ITS remote description and the call collapses.
+  NULL is a broadcast, which is what every stage-1 row is.
+
+  ⚠ **Two expiries live in the VIEWS, so nothing has to RUN for them to be
+  true.** `v_calls` reports a «ترن» older than 60s as «فائتة»;
+  `v_call_participants` drops a seat unheard from for 20s. A handset that
+  died mid-call cannot leave another one ringing, and cannot linger in
+  anyone's participant list.
+
+  ⚠ **Leaving is not ending.** `leave_call` ends the CALL only when the last
+  seat empties — not when whoever pressed red first does.
+
+  ⚠ **STUN/TURN live in `association_settings.ice_servers`, never in the**
+  **APK.** The day a public TURN host stops answering, calls fail on mobile
+  data and work on wifi — and the fix is one UPDATE, not a new APK on every
+  handset. `permission_handler` was added and removed: it does not build
+  against this project's Gradle and bought nothing, since `getUserMedia`
+  raises the same dialog and a denial arrives as `CallPhase.micDenied`.
+
+  ⚠ **Nothing rings while the app is CLOSED**, here or in the chat. That
+  needs a push service and a server, and this project has neither.
+
 - `core/state` — `refreshAll(ref)` invalidates every provider in the app, and
   `auto_refresh.dart` calls it on a timer and on resume. ⚠ A provider added
   without being listed in `refreshAll` will serve stale data after a write and

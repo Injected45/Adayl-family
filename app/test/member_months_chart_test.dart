@@ -18,10 +18,28 @@ import 'package:flutter_test/flutter_test.dart';
 ///   the most tempting place in the whole app to break «money is text» — «I only
 ///   need a number to scale a bar» — and the temptation grows every time
 ///   somebody adds a total, an average or a year-to-date line to it.
-List<MemberMonth> _series(List<(String, String, String)> rows) => <MemberMonth>[
-  for (final (String p, String paid, String got) in rows)
-    MemberMonth(period: p, paid: paid, received: got),
-];
+/// ⚠ THE RUNNING TOTALS ARE BUILT HERE, IN THE FIXTURE, and that is the point
+///   rather than a convenience: they stand in for what a window function in
+///   api_member_value sends. A test that let the WIDGET accumulate them would
+///   be testing the thing this file exists to forbid.
+List<MemberMonth> _series(List<(String, String, String)> rows) {
+  double a = 0;
+  double b = 0;
+  return <MemberMonth>[
+    for (final (String p, String paid, String got) in rows)
+      () {
+        a += double.parse(paid);
+        b += double.parse(got);
+        return MemberMonth(
+          period: p,
+          paid: paid,
+          received: got,
+          paidTotal: a.toStringAsFixed(2),
+          receivedTotal: b.toStringAsFixed(2),
+        );
+      }(),
+  ];
+}
 
 /// A full year, mostly quiet, with one payment and one voucher.
 List<MemberMonth> _year() => _series(<(String, String, String)>[

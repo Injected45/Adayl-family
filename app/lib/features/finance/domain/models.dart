@@ -722,6 +722,8 @@ class MemberMonth {
     required this.period,
     required this.paid,
     required this.received,
+    required this.paidTotal,
+    required this.receivedTotal,
   });
 
   /// «YYYY-MM», the same shape a receivable's period has.
@@ -729,9 +731,27 @@ class MemberMonth {
   final String paid;
   final String received;
 
+  /// التراكم إلى هذا الشهر — **من الخادم**.
+  ///
+  /// ⚠ NOT ACCUMULATED HERE, AND A TEST ENFORCES THAT BY READING THE SOURCE.
+  ///   The chart draws two cumulative lines and the reader takes his answer
+  ///   from the GAP between them — which needs a running total per month. A
+  ///   Dart loop adding a year of receipts is the app doing arithmetic on
+  ///   money, which is the one thing the text-money rule forbids, so
+  ///   api_member_value computes it with a window function exactly as
+  ///   api_adeel_aid does for its ledger column.
+  final String paidTotal;
+  final String receivedTotal;
+
   factory MemberMonth.fromJson(Map<String, dynamic> json) => MemberMonth(
     period: _string(json['period']),
     paid: _stringOr(json['paid'], '0.00'),
     received: _stringOr(json['received'], '0.00'),
+    // ⚠ DEFAULTED, NOT REQUIRED, for the reason `months` itself is: a
+    //   database that predates PATCH_20260821f sends neither key, and the
+    //   screen should draw a flat chart rather than fail to parse the whole
+    //   of «الجدوى» over a graphic at the foot of it.
+    paidTotal: _stringOr(json['paidTotal'], '0.00'),
+    receivedTotal: _stringOr(json['receivedTotal'], '0.00'),
   );
 }

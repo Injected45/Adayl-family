@@ -1,14 +1,36 @@
 # نظام الاتصال الصوتي — design
 
-Voice calls started from inside مجلس العدايل and from inside a private thread,
-without leaving the app. Group and one-to-one.
-
-This document is the design and the reasoning. Nothing here is built yet, and
-**one thing is needed from the association before it can be** — see
-[What is needed](#what-is-needed-from-the-association) at the end.
+> ## ⚠ SUPERSEDED IN ITS CENTRAL CLAIM — read this box first
+>
+> This document argued that the association needed a **LiveKit account** and
+> a **Supabase Edge Function**, and that a group call was impossible without
+> an SFU. Both stages were then built without either, because the association
+> set a constraint this document had not been written under: **nothing may be
+> asked of it except running a SQL file.**
+>
+> What is actually shipped, in `PATCH_20260821d` and `PATCH_20260821e`:
+>
+> | this document says | what was built |
+> |---|---|
+> | LiveKit Cloud (SFU + TURN) | **peer-to-peer mesh**, no account |
+> | an Edge Function to mint tokens | **nothing** — there is no token |
+> | a group call needs an SFU | **a capped mesh**, `call_max_participants` = 6 |
+> | ICE servers configured per environment | `association_settings.ice_servers`, editable by SQL |
+>
+> ⚠ **AND THE SFU CLAIM WAS WRONG ABOUT VOICE, not merely inconvenient.**
+> Opus is ≈32 kbps, so five in a mesh is 128 kbps up — a phone carries that.
+> Video is roughly twenty times those figures, and that is where the argument
+> for an SFU actually comes from. This document did not separate the two.
+>
+> ⚠ **What remains TRUE below** and is worth keeping: why Realtime cannot
+> carry the signalling (`x-device-id` is a request header and a websocket
+> carries none), why TURN matters on Libyan carrier NAT, and why a call log
+> does not belong in the audit trail. The LiveKit design is kept as the
+> **upgrade path**: if the mesh breaks up at six, this is the shape to move
+> to — and the one thing it would then need from the association is the
+> account named at the end.
 
 ---
-
 ## 1. What a voice call actually needs
 
 Three separate problems, and they are usually confused with each other:
