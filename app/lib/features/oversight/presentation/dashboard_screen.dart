@@ -313,11 +313,17 @@ class _PeriodPickerDialog extends ConsumerWidget {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       enabled: p.selectable,
+                      // ⚠ BLUE ONLY WHILE IT IS THE MONTH THAT CAN BE
+                      //   CLOSED. Grey is what says «not this one» on this
+                      //   list, and a month is not exempt from it: paint
+                      //   every row blue and rule 15b stops being visible.
                       title: Text(
                         p.label,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: p.selectable ? AppColors.ink : AppColors.muted,
+                          color: p.selectable
+                              ? AppColors.month
+                              : AppColors.muted,
                         ),
                       ),
                       subtitle: Text(

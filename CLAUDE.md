@@ -427,6 +427,35 @@ Two rules there are easy to trip and worth knowing before you add a screen:
   the only fully opaque surface in the theme, and it exists for this. No theme
   slot fixes it centrally: `DropdownMenuThemeData` governs the M3 `DropdownMenu`
   widget, not this one.
+- **`AppColors.month` — a month is blue, on every screen.** «تعمم عرض اللون
+  الازرق على الاشهر اينما كانت وفي اي شاشه». It is an ALIAS of `info`, not a
+  seventh accent: `info` is already contrast-proved against every surface, and
+  one more hue would compete with الدين and المدفوع on the same card.
+
+  ⚠ **`test/month_colour_test.dart` enforces it by reading the source**, the
+  way the RTL and base-table lints do — it scans `lib/features/**/presentation`
+  for `formatPeriodMonth(`, `monthName(` and `periodLabel`, and fails naming
+  the file and line unless `AppColors.month` sits within twenty lines. Painting
+  the months that exist today is an afternoon that decays the moment a tenth
+  screen prints one — and it decays SILENTLY, because a month in the wrong
+  colour still looks like a month.
+
+  ⚠ Two exceptions, both written into the rule rather than around it: the
+  «الجدوى» chart axis (`formatMonthShort`) stays muted because `info` is
+  ALREADY the «دفعتَ» series there and a blue axis would read as belonging to
+  that series; and the closing picker is blue only on the row that is
+  `selectable`, because grey is what says «not this one» and painting every
+  row blue would make rule 15b invisible. `domain/` and `data/` are out of
+  scope: a model declaring `final String periodLabel` carries a month, it does
+  not print one.
+
+  Alongside it, `LabelledValue` gained `centred` — OPT-IN, because
+  `officials_screen` and the payment sheet print NAMES through the same widget
+  and a column of centred Libyan names is a list nobody can scan. It is on in
+  the الاشتراكات tile only, where three short figures sit under three short
+  headings; that tile also dropped the «د.ل» suffix, which rode on one value in
+  three. **The unit is named once under the summary — that is why no figure
+  carries it.**
 - **`AppColors.identityTone(id)`** gives every عديل a colour of his own, from
   the golden angle on the hue wheel — a fixed palette would repeat by the
   seventh man, and stepping by `360/n` would make consecutive ids neighbours and

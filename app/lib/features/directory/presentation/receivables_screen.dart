@@ -296,8 +296,23 @@ class _ReceivableCard extends StatelessWidget {
                         item.adeelName,
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                      Text(
-                        '${item.adeelCode} • ${item.periodLabel}',
+                      // ⚠ THE MONTH ALONE TAKES THE COLOUR, not the whole
+                      //   line. The code beside it is an identity and the
+                      //   bullet is punctuation; painting all three blue
+                      //   would say they are the same kind of thing.
+                      Text.rich(
+                        TextSpan(
+                          children: <InlineSpan>[
+                            TextSpan(text: '${item.adeelCode} • '),
+                            TextSpan(
+                              text: item.periodLabel,
+                              style: const TextStyle(
+                                color: AppColors.month,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.muted,

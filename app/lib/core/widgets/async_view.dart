@@ -210,20 +210,42 @@ class _SearchFieldState extends State<SearchField> {
 
 /// A label above a value, used throughout the detail screens.
 class LabelledValue extends StatelessWidget {
-  const LabelledValue({required this.label, required this.value, super.key});
+  const LabelledValue({
+    required this.label,
+    required this.value,
+    this.centred = false,
+    super.key,
+  });
 
   final String label;
   final String value;
 
+  /// Set the figure under the MIDDLE of its own heading.
+  ///
+  /// ⚠ OPT-IN, NOT THE DEFAULT, and that is not timidity. Centring is right
+  ///   for a ROW OF FIGURES — المستحق / المدفوع / الدين, each a short number
+  ///   under a short word, where a ragged edge is the only thing the eye
+  ///   notices. It is wrong for a name or a phone number, which are read
+  ///   from their first character: officials_screen and the payment sheet
+  ///   use this widget too, and a column of centred Libyan names is a list
+  ///   nobody can scan.
+  final bool centred;
+
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          centred ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        Text(
+          label,
+          textAlign: centred ? TextAlign.center : TextAlign.start,
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
         const SizedBox(height: 2),
         Text(
           value.isEmpty ? '—' : value,
+          textAlign: centred ? TextAlign.center : TextAlign.start,
           style: const TextStyle(
             fontFamily: AppFonts.body,
             fontSize: 14,

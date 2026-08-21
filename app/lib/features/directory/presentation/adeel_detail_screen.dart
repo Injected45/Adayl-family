@@ -300,7 +300,7 @@ class AdeelDetailScreen extends ConsumerWidget {
                 child: Column(
                   children: <Widget>[
                     for (final ReceivableItem item in detail.receivables)
-                      _DueTile(item: item, currency: currency),
+                      _DueTile(item: item),
                   ],
                 ),
               ),
@@ -708,10 +708,9 @@ class _FoldingSection extends StatelessWidget {
 }
 
 class _DueTile extends StatelessWidget {
-  const _DueTile({required this.item, required this.currency});
+  const _DueTile({required this.item});
 
   final ReceivableItem item;
-  final String currency;
 
   @override
   Widget build(BuildContext context) {
@@ -727,7 +726,11 @@ class _DueTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.periodLabel,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  // The colour a month wears everywhere — AppColors.month.
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.month,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               StatusBadge(
@@ -741,16 +744,38 @@ class _DueTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xl,
-            runSpacing: AppSpacing.md,
+          // ── Three figures, each centred under its own heading ─────────
+          // ⚠ EQUAL THIRDS, not a Wrap. Wrap packs the columns against
+          //   their own widths, so «المدفوع» sat in a different place on
+          //   every card and the section never lined up down the page.
+          //
+          // ⚠ AND NO «د.ل» ON THE FIGURE. It rode on this one value alone,
+          //   so one number in three read differently from its neighbours.
+          //   The unit is named ONCE under the summary above — which is
+          //   exactly why no individual figure has to carry it.
+          Row(
             children: <Widget>[
-              LabelledValue(
-                label: l.totalDue,
-                value: '${formatMoney(item.total)} $currency',
+              Expanded(
+                child: LabelledValue(
+                  label: l.totalDue,
+                  value: formatMoney(item.total),
+                  centred: true,
+                ),
               ),
-              LabelledValue(label: l.totalPaid, value: formatMoney(item.paid)),
-              LabelledValue(label: l.debt, value: formatMoney(item.balance)),
+              Expanded(
+                child: LabelledValue(
+                  label: l.totalPaid,
+                  value: formatMoney(item.paid),
+                  centred: true,
+                ),
+              ),
+              Expanded(
+                child: LabelledValue(
+                  label: l.debt,
+                  value: formatMoney(item.balance),
+                  centred: true,
+                ),
+              ),
             ],
           ),
         ],

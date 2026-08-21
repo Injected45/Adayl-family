@@ -590,7 +590,13 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Text(formatPeriodMonth(allocation.period)),
+                  Text(
+                    formatPeriodMonth(allocation.period),
+                    style: const TextStyle(
+                      color: AppColors.month,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   Text(
                     formatMoney(allocation.amount),
                     style: const TextStyle(fontWeight: FontWeight.w800),

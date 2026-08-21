@@ -1604,7 +1604,11 @@ class _DueTile extends StatelessWidget {
               children: <Widget>[
                 Text(
                   item.periodLabel,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  // Same blue as the treasurer sees — AppColors.month.
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.month,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 // The status label is the value the database stores, so what he

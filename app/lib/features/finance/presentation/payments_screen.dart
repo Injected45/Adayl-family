@@ -264,14 +264,48 @@ class _PaymentCard extends ConsumerWidget {
               // and «2026-01: 100.00» three times over is the same year printed
               // three times on a phone. See formatPeriodMonth: the year comes
               // back the moment the month is not in the current one.
-              LabelledValue(
-                label: l.allocation,
-                value: payment.allocations
-                    .map(
-                      (PaymentAllocationView a) =>
-                          '${formatPeriodMonth(a.period)} ${formatMoney(a.amount)}',
-                    )
-                    .join(ArabicPunctuation.listSeparator),
+              // ⚠ RICH TEXT, not a joined string, for one reason: the month
+              //   is blue and the amount beside it is not, and a single
+              //   String has no way to say that. The text it produces is
+              //   character-for-character what the join produced.
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    l.allocation,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  const SizedBox(height: 2),
+                  Text.rich(
+                    TextSpan(
+                      children: <InlineSpan>[
+                        for (int i = 0; i < payment.allocations.length; i++)
+                          ...<InlineSpan>[
+                            if (i > 0)
+                              const TextSpan(
+                                text: ArabicPunctuation.listSeparator,
+                              ),
+                            TextSpan(
+                              text: formatPeriodMonth(
+                                payment.allocations[i].period,
+                              ),
+                              style: const TextStyle(color: AppColors.month),
+                            ),
+                            TextSpan(
+                              text:
+                                  ' ${formatMoney(payment.allocations[i].amount)}',
+                            ),
+                          ],
+                      ],
+                    ),
+                    style: const TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ],
               ),
             ],
             if (!cancelled && role.atLeast(AppRole.financeManager)) ...<Widget>[

@@ -68,6 +68,24 @@ abstract final class AppColors {
   static const Color warning = Color(0xFF92400E);
   static const Color warningSoft = Color(0xFFFEF3C7);
   static const Color info = Color(0xFF4338CA);
+
+  /// A month, wherever one is written — «يناير», «يناير 2026», «01».
+  ///
+  /// ⚠ ONE NAME FOR ONE IDEA, at the association's request: «تعمم عرض
+  ///   اللون الازرق على الاشهر اينما كانت وفي اي شاشه». The month is the
+  ///   spine of this system — every receivable is one, every closing is
+  ///   one — and a colour lets the eye find the period in a row of figures
+  ///   without reading any of them.
+  ///
+  /// ⚠ AN ALIAS OF [info] rather than a new hue: info is already
+  ///   contrast-proved against every surface by design_system_test, and a
+  ///   seventh accent would be one more colour competing with الدين and
+  ///   المدفوع on the same card.
+  ///
+  /// ⚠ THE ONE PLACE IT IS NOT USED is the «الجدوى» chart axis, where info
+  ///   is already the «دفعتَ» series — a blue axis there would read as
+  ///   belonging to that series rather than to both.
+  static const Color month = info;
   static const Color infoSoft = Color(0xFFE0E7FF);
   static const Color accent = Color(0xFFB45309);
 

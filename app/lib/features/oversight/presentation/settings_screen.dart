@@ -959,7 +959,13 @@ class _ExceptionRow extends StatelessWidget {
                       m.toString().padLeft(2, '0') == month)
                     DropdownMenuItem<String>(
                       value: m.toString().padLeft(2, '0'),
-                      child: Text(monthName(m)),
+                      child: Text(
+                        monthName(m),
+                        style: const TextStyle(
+                          color: AppColors.month,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
               ],
               onChanged: (String? v) {
