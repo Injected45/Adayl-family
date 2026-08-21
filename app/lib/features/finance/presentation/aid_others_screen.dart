@@ -10,6 +10,7 @@ import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
+import 'aid_ledger.dart';
 import 'providers.dart';
 
 /// «أسلاف للغير» — الصرف الجماعي: what the association spent on everybody.
@@ -26,14 +27,20 @@ import 'providers.dart';
 ///   فطور رمضان answers what a member actually wants to know — «أين يذهب مالي»
 ///   — and exposes nobody at all.
 ///
+/// ── AND IT IS THE SAME LEDGER AS «أسلافي», NOT A LOOK-ALIKE ─────────────────
+/// The association asked for it in those words — «انسخ الكود ونفذه على أسلاف
+/// للغير بالكامل». So the table is [AidLedger], the one widget both screens
+/// build: «#، البند، القيمة، الإجمالي», one row open at a time, the ordinal
+/// belonging to the voucher rather than to the loop.
+///
+/// ⚠ COPIED INSTEAD, THE TWO WOULD DRIFT — and every rule inside that table was
+///   argued once and is easy to lose the second time.
+///
 /// ── AND THE SCOPE IS IN POSTGRES ────────────────────────────────────────────
 /// `read_collective_disbursements` admits a bound member to exactly the rows
 /// with no payee; `api_aid_others` is SECURITY INVOKER and reads under his own
 /// policies. Drop that one policy and this screen empties itself with no code
 /// change — nothing here decides who may read what.
-///
-/// The وجه leads and the vouchers follow, because «على ماذا أُنفق» is the
-/// question, and a communal expense has no man to group under.
 class AidOthersScreen extends ConsumerWidget {
   const AidOthersScreen({required this.adeelId, super.key});
 
@@ -127,9 +134,10 @@ class _Body extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl),
 
         // ── By occasion, largest first ──────────────────────────────────────
-        // «على ماذا أُنفق» is the question, not «متى» — so the headings come
-        // before the vouchers, and a list in date order would answer something
-        // nobody asked.
+        // «على ماذا أُنفق» is the question this screen is opened with, and a
+        // communal expense has no man to group under — the وجه is the only
+        // grouping it HAS, and the one the association chose an enum for so
+        // that عزاء and مصاريف عزاء could not become two answers to it.
         Text(
           l.aidOthersRecipients,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
@@ -138,18 +146,34 @@ class _Body extends StatelessWidget {
         for (final ExpenseByCategory c in aid.byCategory) _CategoryRow(row: c),
 
         const SizedBox(height: AppSpacing.xl),
-        Text(
-          l.aidOthersAll,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+
+        // ── The ledger ──────────────────────────────────────────────────────
+        // ⚠ THE SAME WIDGET «أسلافي» DRAWS, at the association's request. Not a
+        //   second implementation that looks like it: the ordinal belongs to
+        //   the voucher, the running total is the server's, a reversed line
+        //   keeps its balance, and one detail block is open at a time. Each of
+        //   those is a decision that took an argument, and a copy is a second
+        //   place to lose it silently.
+        //
+        // `all` and `rows` are the same list here: this screen carries no
+        // search box, so nothing narrows the table and the ordinal is simply
+        // the position.
+        GlassPanel(
+          title: l.aidOthersAll,
+          icon: Icons.receipt_long_outlined,
+          child: AidLedger(all: aid.vouchers, rows: aid.vouchers),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        for (final AidLedgerEntry v in aid.vouchers) _VoucherRow(entry: v),
         const SizedBox(height: AppSpacing.xl),
       ],
     );
   }
 }
 
+/// One وجه and what went on it.
+///
+/// ⚠ ONLY THE HEADINGS ACTUALLY SPENT ON, unlike v_expense_by_category, which
+///   lists the empty ones too. «صُرف صفر على فرح» is an answer a treasurer
+///   wants and a member does not.
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({required this.row});
 
@@ -188,63 +212,6 @@ class _CategoryRow extends StatelessWidget {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w900,
-              color: AppColors.danger,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VoucherRow extends StatelessWidget {
-  const _VoucherRow({required this.entry});
-
-  final AidLedgerEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                // ⚠ THE OCCASION LEADS, because there is no payee to lead with.
-                //   A collective voucher carries no man at all — that is what
-                //   makes it collective — so the وجه is what identifies it, and
-                //   printing an empty payeeName here would leave a blank line
-                //   where a reader expects a name.
-                Text(
-                  entry.voucher.category,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  // The date, and the note when there is one — «فطور رمضان» says
-                  // what it was for and the note says which one.
-                  entry.voucher.note.isEmpty
-                      ? formatDate(entry.voucher.spentAt)
-                      : '${formatDate(entry.voucher.spentAt)} · ${entry.voucher.note}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            formatMoney(entry.voucher.amount),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
               color: AppColors.danger,
             ),
           ),

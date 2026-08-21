@@ -117,6 +117,18 @@ WITH have AS (
     EXISTS (SELECT 1 FROM pg_policies
              WHERE schemaname='public' AND tablename='disbursements'
                AND policyname='read_all_disbursements_adeel')         AS aid_by_name,
+    -- «ماعدا» على العرض العام + الحارس يرفض. Probed by the column the view
+    -- gained, not by the guard — a body check would pass on a project that
+    -- never had the warning either.
+    EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='v_settings'
+               AND column_name='feeExceptions')                    AS patch_21b,
+    -- دفتر أسلاف للغير. Probed by the running total the ledger needs, which
+    -- nothing else in that function has any reason to contain.
+    coalesce((SELECT pg_get_functiondef(p.oid) LIKE '%runningTotal%'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'api_aid_others'),
+             false)                                                AS patch_21c,
     -- حركة المشترك على اثني عشر شهراً. Probed by generate_series in the body of
     -- api_member_value — the month spine, which nothing else in that function
     -- has any reason to contain.
@@ -220,6 +232,10 @@ SELECT * FROM (
          CASE WHEN patch_20e THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 10.6, 'PATCH 21/08 — حركة المشترك (رسم الجدوى)',
          CASE WHEN patch_21 THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.7, 'PATCH 21/08 (b) — «ماعدا» عاماً، والحارس يرفض',
+         CASE WHEN patch_21b THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.8, 'PATCH 21/08 (c) — دفتر أسلاف للغير',
+         CASE WHEN patch_21c THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -276,6 +292,10 @@ SELECT * FROM (
                   || '  ⚠ يفكّ كل مشترك عَلِق بعد المسح.'
               WHEN NOT patch_21
                 THEN 'READY — apply supabase/PATCH_20260821_member_months.sql'
-              ELSE 'UP TO DATE — every patch through 21/08 is applied.'
+              WHEN NOT patch_21b
+                THEN 'READY — apply supabase/PATCH_20260821b_fee_note_and_signin_guard.sql'
+              WHEN NOT patch_21c
+                THEN 'READY — apply supabase/PATCH_20260821c_aid_others_ledger.sql'
+              ELSE 'UP TO DATE — every patch through 21/08 (c) is applied.'
          END FROM have
 ) t ORDER BY ord;
