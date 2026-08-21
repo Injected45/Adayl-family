@@ -162,6 +162,34 @@ void main() {
     expect(find.text('EXP-02'), findsNothing);
   });
 
+  // ── لا «حسب الوجه» فوق الجدول ─────────────────────────────────────────────
+  //
+  // «يوجد عنوان باسم حسب الوجه وتحته حقول الصرف لا اريدها تظهر / اجعل حاوية
+  // كل السندات فقط كما هي الان».
+  //
+  // ⚠ THE FIXTURE STILL CARRIES byCategory, and that is the point of the test.
+  //   The server still sends the breakdown — api_aid_others is unchanged, and
+  //   payments_screen still draws it for staff. What must not come back is this
+  //   SCREEN drawing it: the وجه of every voucher is already in the البند
+  //   column below, so the cards were a second answer to a question the table
+  //   answers. A summary that duplicates the rows beneath it is the kind of
+  //   thing that gets re-added by someone who sees the field in the JSON and
+  //   assumes it was forgotten.
+  testWidgets('⚠ the breakdown above the table does not come back', (
+    WidgetTester tester,
+  ) async {
+    final L l = await _open(tester);
+
+    expect(find.text(l.aidOthersRecipients), findsNothing);
+
+    // «عزاء» survives ONCE — in the البند cell of its own voucher. Twice would
+    // mean the card is back above it.
+    expect(find.text('عزاء'), findsOneWidget);
+    expect(find.text('فطور رمضان'), findsOneWidget);
+
+    // And the container the association asked to keep is untouched.
+    expect(find.text(l.aidOthersAll), findsOneWidget);
+  });
   // ⚠ A COLLECTIVE VOUCHER NAMES NOBODY, and the detail must not print an empty
   //   «المستلم». A blank where a name belongs reads as data that failed to load
   //   rather than as a fact about the voucher — and this screen exists

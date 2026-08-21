@@ -209,11 +209,39 @@ void main() {
     // opinion of it, and the room should not have to guess which it is looking
     // at. `fromStaff` is a snapshot taken when the message was sent, so a
     // treasurer later demoted still spoke as staff at the time.
+    //
+    // ⚠ THE MARK IS THE PILL, AND THE NAME LIVES INSIDE IT. It used to be a
+    //   pill reading «الإدارة» BESIDE the account name, which named one
+    //   speaker twice on one line; the association asked for the name alone,
+    //   in the badge. So the assertion is about the WIDGET, not about a word:
+    //   a staff name sits in a _StaffTag and a member name does not.
     await _openAs(tester, <ChatMessage>[
       _msg(id: 1, body: 'اجتماع الجمعية', author: 'المهدي', fromStaff: true),
       _msg(id: 2, body: 'حاضر', author: 'سالم أحمد'),
     ]);
-    expect(find.text(l.chatFromBoard), findsOneWidget);
+
+    // The badge is a pill filled with brandSoft — the one surface in this
+    // room that says «الجمعية تتكلّم». Asserted by the FILL rather than by the
+    // widget type, because the type is private to the screen and the fill is
+    // what the reader actually sees.
+    bool badged(String name) => tester
+        .widgetList<Container>(
+          find.ancestor(of: find.text(name), matching: find.byType(Container)),
+        )
+        .any(
+          (Container c) =>
+              c.decoration is BoxDecoration &&
+              (c.decoration! as BoxDecoration).color == AppColors.brandSoft,
+        );
+
+    expect(badged('المهدي'), isTrue);
+    // The word itself is gone: the pill no longer needs to say what the pill is.
+    expect(find.text(l.chatFromBoard), findsNothing);
+
+    // ⚠ AND THE MEMBER IS NOT WEARING ONE. Without this the test would pass on
+    //   a room that badged everybody, which marks nobody.
+    expect(find.text('سالم أحمد'), findsOneWidget);
+    expect(badged('سالم أحمد'), isFalse);
   });
   testWidgets('the sender name is printed once per RUN, not once per message', (
     WidgetTester tester,

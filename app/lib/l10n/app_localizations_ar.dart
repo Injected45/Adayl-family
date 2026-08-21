@@ -231,6 +231,9 @@ class LAr extends L {
   String get chatEmpty => 'لا رسائل بعد — كن أول من يتحدث';
 
   @override
+  String get chatYesterday => 'أمس';
+
+  @override
   String get chatDeleted => 'حُذفت الرسالة';
 
   @override
@@ -308,7 +311,62 @@ class LAr extends L {
   String get comingSoonBody => 'سيتم بناء هذه الشاشة في مرحلة لاحقة.';
 
   @override
+  String get callTitle => 'مكالمة صوتية';
+
+  @override
+  String get callStart => 'اتصال صوتي';
+
+  @override
+  String callIncoming(String name) {
+    return '$name يتصل';
+  }
+
+  @override
+  String get callAnswer => 'ردّ';
+
+  @override
+  String get callDecline => 'رفض';
+
+  @override
+  String get callHangUp => 'إنهاء';
+
+  @override
+  String get callConnecting => 'جارٍ الاتصال…';
+
+  @override
+  String get callRinging => 'يرنّ…';
+
+  @override
+  String get callTalking => 'متصل';
+
+  @override
+  String get callEnded => 'انتهت المكالمة';
+
+  @override
+  String get callFailed => 'تعذّر الاتصال';
+
+  @override
+  String get callMute => 'كتم';
+
+  @override
+  String get callUnmute => 'إلغاء الكتم';
+
+  @override
+  String get callSpeaker => 'مكبر الصوت';
+
+  @override
+  String get callMicDenied => 'لا يمكن الاتصال بدون إذن الميكروفون';
+
+  @override
   String get noSearchResults => 'لا توجد نتائج لبحثك';
+
+  @override
+  String get receivableSearchHint => 'ابحث باسم أو كود أو شهر أو حالة';
+
+  @override
+  String receivableSearchCount(int shown, int total) {
+    return 'يعرض $shown من $total';
+  }
 
   @override
   String debtBadge(String amount) {

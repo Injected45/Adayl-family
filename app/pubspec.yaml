@@ -43,14 +43,26 @@ dependencies:
   supabase_flutter: ^2.17.1
   device_info_plus: ^13.2.0
   crypto: ^3.0.7
+  audioplayers: ^6.7.1
+  flutter_webrtc: ^1.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Drives ChatController's Timer without waiting real seconds — see
+  # test/chat_poll_test.dart. Ships with flutter_test transitively; named here
+  # so the analyzer stops calling it an undeclared dependency.
+  fake_async: ^1.3.1
   flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+
+  assets:
+    # The chime a new message makes while the app is open and the room is
+    # not. Synthesised in this repo rather than taken from Messenger — see
+    # lib/features/chat/data/chat_chime.dart for why.
+    - assets/sounds/
   # Generates AppLocalizations from lib/l10n/*.arb (see l10n.yaml).
   generate: true
 

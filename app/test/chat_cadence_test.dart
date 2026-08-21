@@ -15,12 +15,19 @@ import 'package:flutter_test/flutter_test.dart';
 ///   costs about ninety extra requests, and the twenty-five idle minutes around
 ///   it save two hundred and fifty.
 void main() {
-  test('the live clock is one second and the idle clock is six', () {
+  test('the live clock is one second and the idle clock is three', () {
     // Pinned so neither can drift without somebody reading the reasoning beside
-    // them. One second is the tier a reply lands on; six is what a room left
+    // them. One second is the tier a reply lands on; three is what a room left
     // open on a desk costs.
+    //
+    // ⚠ THREE REPLACED SIX, AND SIX HAD NEVER ACTUALLY RUN. The demotion was
+    //   unreachable — the commonest tick returned before counting the silence
+    //   — so every open room sat on the one-second tier and the figure here
+    //   was pinning a number nothing used. Now that it bites it is a delay a
+    //   man waiting on a reply can feel, and the association asked for speed:
+    //   «اريدها بسرعه». See chat_poll_test for the demotion itself.
     expect(ChatController.live, const Duration(seconds: 1));
-    expect(ChatController.idle, const Duration(seconds: 6));
+    expect(ChatController.idle, const Duration(seconds: 3));
     expect(
       ChatController.live.inMilliseconds,
       lessThan(ChatController.idle.inMilliseconds),

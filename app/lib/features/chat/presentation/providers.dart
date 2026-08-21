@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../data/chat_repository.dart';
 import '../domain/models.dart';
+import 'unread_bell.dart';
 
 final Provider<ChatRepository> chatRepositoryProvider =
     Provider<ChatRepository>(
@@ -72,7 +73,14 @@ class ChatController
   //   A five-minute exchange costs about ninety extra requests; the twenty-five
   //   idle minutes around it save two hundred and fifty.
   static const Duration live = Duration(seconds: 1);
-  static const Duration idle = Duration(seconds: 6);
+
+  /// ⚠ THREE, NOT SIX. Six was chosen while the demotion did not work, so
+  ///   nothing had ever run on it — the room was always on the one-second
+  ///   tier and the figure was theoretical. Now that it bites, it is what a
+  ///   man waiting on a reply actually feels, and «بسرعة» is what the
+  ///   association asked for. Three still cuts an idle screen to a third of
+  ///   its traffic.
+  static const Duration idle = Duration(seconds: 3);
 
   /// How long a room stays on the fast clock after the last thing happened in
   /// it. Long enough to cover the pause while the other man is typing his
@@ -104,8 +112,13 @@ class ChatController
   Future<List<ChatMessage>> build(int? threadAdeelId) async {
     // Opening a room IS activity: the first seconds after it appears are when
     // somebody is most likely to be answering what he came to answer.
+    // ⚠ STOP FIRST. On a rebuild this notifier is the SAME object, still
+    //   holding the previous build's clock — and _restartAt would decline
+    //   to replace a timer that is already the right length. See _stop.
+    _stop();
+    _quietTicks = 0;
     _restartAt(live);
-    ref.onDispose(() => _timer?.cancel());
+    ref.onDispose(_stop);
     return ref.read(chatRepositoryProvider).messages(threadAdeelId: arg);
   }
 
@@ -114,11 +127,26 @@ class ChatController
   /// Cancelling and recreating a Timer on every tick would restart the
   /// countdown each time and, at the one-second tier, could starve the poll
   /// entirely on a slow connection.
+  ///
+  /// ⚠ THE GUARD IS `_timer == null`, AND IT ONLY WORKS BECAUSE DISPOSE
+  ///   NULLS IT. Riverpod re-runs `build()` on the SAME notifier instance
+  ///   after an invalidate, calling the previous build's onDispose first.
+  ///   That cancelled the Timer and left the FIELD pointing at the dead
+  ///   object — so this guard saw «a timer already exists», returned, and
+  ///   the room stopped polling for as long as it stayed open. Leaving the
+  ///   screen and coming back was the only cure, which is exactly what the
+  ///   association reported: «تستوجب خروج ودخول ليتم التحديث».
   void _restartAt(Duration d) {
     if (_timer != null && _current == d) return;
     _current = d;
-    _timer?.cancel();
+    _stop();
     _timer = Timer.periodic(d, (_) => _poll());
+  }
+
+  /// Cancel AND forget. Never one without the other — see [_restartAt].
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
   }
 
   /// Called whenever the room moved — a message arrived, or one was sent.
@@ -156,7 +184,15 @@ class ChatController
         from,
         threadAdeelId: arg,
       );
-      if (tail.isEmpty) return;
+      // ⚠ AN EMPTY ANSWER IS THE COMMONEST TICK, AND IT USED TO RETURN
+      //   HERE WITHOUT COUNTING — so `_quietTicks` almost never advanced,
+      //   the room never fell back to the slow clock, and every open screen
+      //   sat on the one-second tier all day. The adaptive cadence was
+      //   written, documented, and then never actually reached.
+      if (tail.isEmpty) {
+        _goneQuiet();
+        return;
+      }
 
       // ⚠ TWO SHAPES, ONE MERGE. On a sweep, `from` is inside the list and the
       //   window REPLACES the tail — that is how a deletion propagates. On an
@@ -171,12 +207,9 @@ class ChatController
       // talking should not rebuild the screen fifteen times a minute — it costs
       // battery and it fights the scroll position.
       if (_sameAs(current, merged)) {
-        // Nothing moved. Count the silence, and drop to the slow clock once
-        // the room has been quiet for liveFor.
-        _quietTicks++;
-        if (_quietTicks * _current.inMilliseconds >= liveFor.inMilliseconds) {
-          _restartAt(idle);
-        }
+        // A sweep re-read the window and found it unchanged: the same
+        // silence, arriving by the other route.
+        _goneQuiet();
         return;
       }
       // Something arrived: back to the fast clock, because a message is almost
@@ -188,6 +221,15 @@ class ChatController
       // messages it has and tries again in four seconds; replacing a readable
       // conversation with an error card because one request timed out on a
       // Libyan mobile connection would be the worse behaviour by far.
+    }
+  }
+
+  /// One more tick with nothing in it — and the slow clock once the room
+  /// has been silent for [liveFor].
+  void _goneQuiet() {
+    _quietTicks++;
+    if (_quietTicks * _current.inMilliseconds >= liveFor.inMilliseconds) {
+      _restartAt(idle);
     }
   }
 
@@ -241,10 +283,22 @@ class ChatController
 /// its own: a member reading this gets his own conversation and never a list of
 /// who else has written.
 ///
-/// Not polled. An inbox is read, acted on and left; the four-second heartbeat
-/// belongs to the conversation you are actually looking at, and running one here
-/// as well would double the traffic for a list nobody watches.
+/// ⚠ IT HAD NO CLOCK AT ALL, AND THAT WAS THE BUG THE ASSOCIATION REPORTED.
+///   «الرسائل الجديدة في المحادثات لا تظهر بسرعة … وأحياناً تستوجب خروج
+///   ودخول». The room polls and the badge counts poll, but the LIST did
+///   not: a member writing for the FIRST time creates a conversation that is
+///   not on screen yet, and no badge can appear beside a row that does not
+///   exist. Until `refreshAll` came round at forty-five seconds — or the
+///   screen was left and reopened — his message had simply not arrived.
+///
+/// ⚠ IT RIDES THE BELL RATHER THAN STARTING A FOURTH TIMER. `threadUnread`
+///   and `roomUnread` already do, and the reason is the same: four clocks
+///   asking one question can disagree about when they last looked, and a
+///   count that does not match the list beside it is the kind of wrongness
+///   nobody can debug from a screenshot. One clock, four answers, always
+///   consistent with each other.
 final AutoDisposeFutureProvider<List<ChatThread>> chatThreadsProvider =
-    AutoDisposeFutureProvider<List<ChatThread>>(
-      (Ref ref) => ref.watch(chatRepositoryProvider).threads(),
-    );
+    AutoDisposeFutureProvider<List<ChatThread>>((Ref ref) {
+      ref.watch(chatUnreadProvider);
+      return ref.watch(chatRepositoryProvider).threads();
+    });

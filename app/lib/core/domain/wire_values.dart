@@ -151,3 +151,35 @@ abstract final class ArabicPunctuation {
   /// Arabic text and is what the prototype uses throughout.
   static const String listSeparator = '، ';
 }
+
+/// حالات المكالمة، كما تكتبها `ck_call_status` وتقرأها `v_calls`.
+///
+/// ⚠ WIRE VALUES, NOT CAPTIONS, and the difference decides a real behaviour:
+///   `CallRepository.liveIn` compares [ringing] and [active] against what the
+///   view returned to decide whether a phone should be ringing at all. A
+///   translated word here would silently make every call look ended.
+///
+/// ⚠ AND [missed] IS COMPUTED BY THE VIEW, never written by a client. A «ترن»
+///   older than sixty seconds IS missed, whatever the row says — so a handset
+///   that died between the invite and the answer cannot leave another one
+///   ringing forever. Nothing in Dart recomputes that; a second expiry rule
+///   would be free to disagree with the one the database applies.
+abstract final class CallStatusWire {
+  static const String ringing = 'ترن';
+  static const String active = 'جارية';
+  static const String ended = 'انتهت';
+  static const String declined = 'مرفوضة';
+  static const String missed = 'فائتة';
+}
+
+/// The three kinds of line in a WebRTC handshake — `ck_signal_kind`.
+///
+/// ASCII on purpose, unlike every other wire value in this file: these are not
+/// words the association reads, they are the names WebRTC itself uses for an
+/// SDP offer, an SDP answer and an ICE candidate. Translating them would put a
+/// layer of our own vocabulary between two things that already agree.
+abstract final class CallSignalWire {
+  static const String offer = 'offer';
+  static const String answer = 'answer';
+  static const String ice = 'ice';
+}

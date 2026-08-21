@@ -53,6 +53,29 @@ void main() {
     'roomUnreadProvider': 'rides the bell it watches',
     'chatReadStateProvider': 'device storage, not a read',
 
+    // ⚠ NEITHER OF THESE HOLDS AN ANSWER, and throwing them away would do
+    //   real harm rather than nothing. chatChimeProvider owns the audio player
+    //   AND the baseline count the chime compares against — reset it every
+    //   forty-five seconds and the next tick reads as «first count», so a
+    //   message arriving right after a sweep rings nothing at all.
+    //   chatScreenOpenProvider is «is he looking at the room this second»,
+    //   written by the screen itself; a sweep clearing it would ring the bell
+    //   for a message he is watching land.
+    'chatChimeProvider': 'a player and a baseline, not data',
+    'chatScreenOpenProvider': 'written by the screen, not fetched',
+
+    // ── نظام الاتصال الصوتي ──────────────────────────────────────────
+    // ⚠ ALL THREE WOULD BE ACTIVELY HARMFUL TO SWEEP, not merely pointless.
+    //   incomingCall owns a three-second timer of its own — the bell cannot
+    //   carry it, because a call changes no unread count and a provider
+    //   watching the bell would be built once and never asked again.
+    //   activeCall holds the LIVE SESSION: the microphone, the peer
+    //   connection and the signalling poll. Throwing that away every
+    //   forty-five seconds would hang up on a call in progress.
+    'callRepositoryProvider': 'a client, not data',
+    'incomingCallProvider': 'polls itself, and owns its own timer',
+    'activeCallProvider': 'the live call — sweeping it would hang up',
+
     // ⚠ THE SESSION ITSELF. Throwing this away would re-read who is signed in
     //   on every sweep — and it is the provider the router guard watches, so a
     //   moment of «not signed in yet» every forty-five seconds would bounce a

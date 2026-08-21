@@ -493,6 +493,12 @@ abstract class L {
   /// **'لا رسائل بعد — كن أول من يتحدث'**
   String get chatEmpty;
 
+  /// The inbox stamp for a conversation whose last message was yesterday. Today shows the clock instead, and anything older shows the date — the rule every messaging app on these handsets already uses.
+  ///
+  /// In ar, this message translates to:
+  /// **'أمس'**
+  String get chatYesterday;
+
   /// The tombstone left where a message was. The row survives so a gap in a conversation is visible rather than silent; the words themselves are erased in the database.
   ///
   /// In ar, this message translates to:
@@ -643,11 +649,113 @@ abstract class L {
   /// **'سيتم بناء هذه الشاشة في مرحلة لاحقة.'**
   String get comingSoonBody;
 
+  /// No description provided for @callTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكالمة صوتية'**
+  String get callTitle;
+
+  /// No description provided for @callStart.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتصال صوتي'**
+  String get callStart;
+
+  /// No description provided for @callIncoming.
+  ///
+  /// In ar, this message translates to:
+  /// **'{name} يتصل'**
+  String callIncoming(String name);
+
+  /// No description provided for @callAnswer.
+  ///
+  /// In ar, this message translates to:
+  /// **'ردّ'**
+  String get callAnswer;
+
+  /// No description provided for @callDecline.
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض'**
+  String get callDecline;
+
+  /// No description provided for @callHangUp.
+  ///
+  /// In ar, this message translates to:
+  /// **'إنهاء'**
+  String get callHangUp;
+
+  /// No description provided for @callConnecting.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ الاتصال…'**
+  String get callConnecting;
+
+  /// No description provided for @callRinging.
+  ///
+  /// In ar, this message translates to:
+  /// **'يرنّ…'**
+  String get callRinging;
+
+  /// No description provided for @callTalking.
+  ///
+  /// In ar, this message translates to:
+  /// **'متصل'**
+  String get callTalking;
+
+  /// No description provided for @callEnded.
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت المكالمة'**
+  String get callEnded;
+
+  /// Shown when the media path never came up. Almost always TURN: the two handsets are behind carrier NAT and no relay answered. The fix is association_settings.ice_servers, not the app — see PATCH_20260821d.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الاتصال'**
+  String get callFailed;
+
+  /// No description provided for @callMute.
+  ///
+  /// In ar, this message translates to:
+  /// **'كتم'**
+  String get callMute;
+
+  /// No description provided for @callUnmute.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء الكتم'**
+  String get callUnmute;
+
+  /// No description provided for @callSpeaker.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكبر الصوت'**
+  String get callSpeaker;
+
+  /// No description provided for @callMicDenied.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يمكن الاتصال بدون إذن الميكروفون'**
+  String get callMicDenied;
+
   /// No description provided for @noSearchResults.
   ///
   /// In ar, this message translates to:
   /// **'لا توجد نتائج لبحثك'**
   String get noSearchResults;
+
+  /// The dues search box. It names the four things it matches, because a bare «بحث» leaves the user guessing whether a code or a month will work — and this box exists precisely because they do.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث باسم أو كود أو شهر أو حالة'**
+  String get receivableSearchHint;
+
+  /// Shown only while a search narrows the list. ⚠ The three totals above it do NOT change — they are the server's figures for the whole period — so without this line a filtered list under an unfiltered total reads as a fault.
+  ///
+  /// In ar, this message translates to:
+  /// **'يعرض {shown} من {total}'**
+  String receivableSearchCount(int shown, int total);
 
   /// No description provided for @debtBadge.
   ///

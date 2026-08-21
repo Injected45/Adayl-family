@@ -132,6 +132,38 @@ String formatDateTime(String? iso) {
 /// already show.
 final DateFormat _timeOnlyFormat = DateFormat.Hm('ar');
 
+/// The stamp beside a conversation in the inbox: the CLOCK if the last word
+/// was today, «أمس» if it was yesterday, the date if it was older.
+///
+/// ⚠ THE RULE EVERY MESSAGING APP ON THESE HANDSETS ALREADY USES, which is the
+///   argument for it: the inbox was printing a full date on every row, so
+///   «today» and «three weeks ago» took the same effort to tell apart and the
+///   most recent conversation — the one anybody opens the screen for — was the
+///   hardest thing on it to find.
+///
+/// ⚠ TODAY IS TRIPOLI'S TODAY, not the handset's. The device timezone is a
+///   setting, and a phone on UTC+9 would call a message sent at 23:30 last
+///   night «today» while the sender's screen says «أمس». Both days are taken
+///   through [_tripoli] so the two ends of a conversation agree.
+///
+/// [yesterday] is passed in rather than written here: this file holds no
+/// Arabic, the ARB does.
+String formatDayStamp(String? iso, {required String yesterday}) {
+  if (iso == null || iso.isEmpty) return '';
+  final DateTime? parsed = DateTime.tryParse(iso);
+  if (parsed == null) return iso;
+
+  final DateTime then = _tripoli(parsed);
+  final DateTime now = _tripoli(DateTime.now().toUtc());
+  final int days = DateTime(now.year, now.month, now.day)
+      .difference(DateTime(then.year, then.month, then.day))
+      .inDays;
+
+  if (days == 0) return formatTime(iso);
+  if (days == 1) return yesterday;
+  return formatDate(iso);
+}
+
 String formatTime(String? iso) {
   if (iso == null || iso.isEmpty) return '';
   final DateTime? parsed = DateTime.tryParse(iso);

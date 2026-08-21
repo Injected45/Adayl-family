@@ -133,19 +133,18 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        // ── By occasion, largest first ──────────────────────────────────────
-        // «على ماذا أُنفق» is the question this screen is opened with, and a
-        // communal expense has no man to group under — the وجه is the only
-        // grouping it HAS, and the one the association chose an enum for so
-        // that عزاء and مصاريف عزاء could not become two answers to it.
-        Text(
-          l.aidOthersRecipients,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        for (final ExpenseByCategory c in aid.byCategory) _CategoryRow(row: c),
-
-        const SizedBox(height: AppSpacing.xl),
+        // ⚠ NO «حسب الوجه» BREAKDOWN HERE ANY MORE, at the association's
+        //   request: «يوجد عنوان باسم حسب الوجه وتحته حقول الصرف لا اريدها
+        //   تظهر». It was a heading and a card per occasion above the table,
+        //   and it said the same thing the table already says — every voucher
+        //   below carries its وجه in the البند column, so the breakdown was a
+        //   second summary of rows the reader can see. Two answers to one
+        //   question is what makes a screen feel long.
+        //
+        //   `api_aid_others` still RETURNS byCategory and the model still
+        //   parses it — the server contract is unchanged and the staff-side
+        //   «الإنفاق حسب الوجه» in payments_screen still uses it. Only this
+        //   screen stops drawing it.
 
         // ── The ledger ──────────────────────────────────────────────────────
         // ⚠ THE SAME WIDGET «أسلافي» DRAWS, at the association's request. Not a
@@ -165,58 +164,6 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
       ],
-    );
-  }
-}
-
-/// One وجه and what went on it.
-///
-/// ⚠ ONLY THE HEADINGS ACTUALLY SPENT ON, unlike v_expense_by_category, which
-///   lists the empty ones too. «صُرف صفر على فرح» is an answer a treasurer
-///   wants and a member does not.
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({required this.row});
-
-  final ExpenseByCategory row;
-
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-
-    return GlassCard(
-      margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  row.category,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l.aidVoucherCount(row.count),
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            formatMoney(row.total),
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: AppColors.danger,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

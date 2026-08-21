@@ -340,6 +340,84 @@ This dictates the data-access shape — do not deviate from it:
   beside his messages and NULL beside everyone else's. With the name on the row,
   reading the room needs no access to the register or the staff list at all.
 
+  ⚠ **الجرس — a sound on arrival, and the three rules that keep it worth
+  having.** `ChatChime` (`features/chat/data/chat_chime.dart`) plays
+  `assets/sounds/message_pop.wav` when the unread count RISES. It rides the
+  count rather than the messages, so the sound can never disagree with the
+  red badge beside it — «يظهر الصوت مع الايقونه الحمره وعدد الارقام».
+
+  - **The first count never rings.** The bell's opening question is «how many
+    were waiting before the app opened», which is almost never zero; ringing
+    on it greets every launch with yesterday's messages and teaches the user
+    the sound means nothing. `_seen` starts null and the first call only arms.
+  - **Nothing rings while `chatScreenOpenProvider` is true** — WhatsApp's
+    rule and the association's: «اذا فاتح الرسائل فتصل الرسائل بدون جرس». It
+    is an EXPLICIT flag written by `ChatScreen`, not «is the count zero»: a
+    message arriving while the room is open DOES raise the count for the
+    instant before the screen marks it read, and inferring silence from the
+    number would ring in exactly that window.
+  - **A jump of three is one ring.** The poll returns a count, not arrivals.
+
+  ⚠ **The flag is cleared in `dispose()` through a CAPTURED notifier**, never
+  through `ref` — `ConsumerStatefulElement.read` asserts not-disposed, and
+  reaching for it there throws, which aborts the rest of `dispose` and leaks
+  every timer below it. Same reason `_reads` is captured.
+
+  ⚠ **The WAV is OURS, synthesised, not Meta's.** The association asked for
+  «نغمة مسنجر الفيسبوك»; that file is Meta's property and this repository is
+  public, so shipping it would be redistributing it. The asset is built to the
+  same shape — fast attack, upward pitch glide, short exponential tail, 200 ms.
+
+  ⚠ **AND IT IS STILL NOT A NOTIFICATION.** Nothing rings while the app is
+  closed, and nothing in Dart changes that: a background alert needs a push
+  service and a server, and this app has neither. What exists is «the app is
+  open, a message arrived, and you were told without watching the right
+  screen».
+
+  `ChatChime.play()` is `@visibleForTesting` rather than private, because
+  playing needs a platform channel no test binding provides — so
+  `test/chat_chime_test.dart` pins the DECISION, every branch that reaches the
+  sound and every branch that must not.
+  ⚠ **ONE SPEAKER, ONE LABEL.** A staff message used to print the account name
+  in the speaker's colour AND a pill reading «الإدارة» beside it — the same
+  speaker named twice on one line. The account name now sits INSIDE the pill
+  and «الإدارة» is gone: the pill is what says «the association is speaking
+  rather than a neighbour», so it answers both questions at once. A member's
+  name stays plain text in his own colour, which is what makes the pill mean
+  anything. `chat_test.dart` asserts it by the pill's FILL (`brandSoft`) and
+  asserts the member is NOT wearing one — badge everybody and you have marked
+  nobody.
+
+  The inbox stamp is `formatDayStamp`: the clock for today, «أمس», then the
+  date — Tripoli's day on both ends, because a handset on UTC+9 would call
+  23:30 last night «today» while the sender's screen says «أمس».
+
+  ⚠ **THE POLL COULD DIE WHILE THE SCREEN STAYED OPEN, and that is what
+  «تستوجب خروج ودخول» meant.** Riverpod re-runs `build()` on the SAME notifier
+  after an invalidate, calling the previous build's `onDispose` first — which
+  cancelled the Timer and left the FIELD holding the dead one, so `_restartAt`
+  saw a timer of the right length and declined to make another. Everything
+  else went on working (the bell counted, sending called `_reload()`
+  directly), so only messages ARRIVING stopped, which reads as «slow» rather
+  than as broken. `_stop()` cancels AND nulls; `build()` calls it first.
+
+  ⚠ **And the adaptive cadence had never once run.** The commonest tick
+  returns an empty tail and that path returned before counting the silence, so
+  `_quietTicks` never advanced and every open room sat on the one-second tier
+  all day. Now the demotion bites, and `idle` is **3s** rather than the 6s
+  that was only ever theoretical. `test/chat_poll_test.dart` drives the REAL
+  controller — every other chat test overrides `chatProvider` wholesale, which
+  is why nothing had ever exercised its timer.
+
+  ⚠ **`chatThreadsProvider` had no clock at all** — the room polled and the
+  badges polled, but the INBOX LIST did not, so a member writing for the FIRST
+  time created a conversation that was not on screen, and no badge can appear
+  beside a row that does not exist. It now rides the bell, like
+  `threadUnread` and `roomUnread`: **one clock, four answers**, which is also
+  why they can never disagree about when they last looked. The bell went
+  10s → **4s**, because it is no longer answering «is there a badge» but «هل
+  وصلتني رسالة». Keep its query one capped column with no bodies — that is
+  what makes 4s affordable.
   ⚠ **It polls; it is NOT Realtime, and that is not laziness.**
   `my_adeel_id()` reads the `x-device-id` REQUEST HEADER and a websocket carries
   no headers, so a `postgres_changes` subscription evaluated for a portal member

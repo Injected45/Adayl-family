@@ -231,6 +231,9 @@ class LEn extends L {
   String get chatEmpty => 'No messages yet — be the first to speak';
 
   @override
+  String get chatYesterday => 'Yesterday';
+
+  @override
   String get chatDeleted => 'Message deleted';
 
   @override
@@ -308,7 +311,62 @@ class LEn extends L {
   String get comingSoonBody => 'This screen will be built in a later phase.';
 
   @override
+  String get callTitle => 'Voice call';
+
+  @override
+  String get callStart => 'Voice call';
+
+  @override
+  String callIncoming(String name) {
+    return '$name is calling';
+  }
+
+  @override
+  String get callAnswer => 'Answer';
+
+  @override
+  String get callDecline => 'Decline';
+
+  @override
+  String get callHangUp => 'End';
+
+  @override
+  String get callConnecting => 'Connecting…';
+
+  @override
+  String get callRinging => 'Ringing…';
+
+  @override
+  String get callTalking => 'Connected';
+
+  @override
+  String get callEnded => 'Call ended';
+
+  @override
+  String get callFailed => 'Could not connect';
+
+  @override
+  String get callMute => 'Mute';
+
+  @override
+  String get callUnmute => 'Unmute';
+
+  @override
+  String get callSpeaker => 'Speaker';
+
+  @override
+  String get callMicDenied => 'A call needs microphone permission';
+
+  @override
   String get noSearchResults => 'No results for your search';
+
+  @override
+  String get receivableSearchHint => 'Search by name, code, month or status';
+
+  @override
+  String receivableSearchCount(int shown, int total) {
+    return 'Showing $shown of $total';
+  }
 
   @override
   String debtBadge(String amount) {

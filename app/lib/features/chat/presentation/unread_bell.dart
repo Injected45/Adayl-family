@@ -10,12 +10,40 @@ import '../../../core/router/destinations.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../data/chat_chime.dart';
 import '../data/chat_read_state.dart';
 import '../data/chat_repository.dart';
 import 'providers.dart';
 
 final Provider<ChatReadState> chatReadStateProvider = Provider<ChatReadState>(
   (Ref ref) => const ChatReadState(FlutterSecureStorage()),
+);
+
+/// The player, alive for as long as the app is.
+///
+/// A provider rather than a global so a test can hand in a silent one —
+/// and so it is disposed with the container instead of outliving it.
+final Provider<ChatChime> chatChimeProvider = Provider<ChatChime>((Ref ref) {
+  final ChatChime chime = ChatChime();
+  ref.onDispose(chime.dispose);
+  return chime;
+});
+
+/// Whether المحادثات is the screen in front of him at this moment.
+///
+/// ⚠ WHATSAPP'S RULE, AND THE ASSOCIATION ASKED FOR IT IN THOSE WORDS:
+///   «صوت الجرس لما يكون غير فاتح الرسائل، اما اذا فاتح الرسائل فتصل
+///   الرسائل بدون جرس». A sound that fires while you are watching the
+///   message land tells you nothing you did not just see, and on a burst of
+///   replies it becomes noise you want to mute — which is how a chime ends
+///   up switched off for the one case it was built for.
+///
+/// ⚠ AN EXPLICIT FLAG, NOT «is the count zero». A message arriving while the
+///   room is open DOES raise the count for the instant before the screen
+///   marks it read, and inferring silence from the number would ring in
+///   exactly that window — the one this rule exists to keep quiet.
+final StateProvider<bool> chatScreenOpenProvider = StateProvider<bool>(
+  (Ref ref) => false,
 );
 
 /// How many messages are waiting, refreshed on its own slow clock.
@@ -60,8 +88,19 @@ class _OnResume with WidgetsBindingObserver {
 }
 
 class ChatUnread extends AutoDisposeAsyncNotifier<int> {
-  /// How often the bell asks. See the note above the class.
-  static const Duration _interval = Duration(seconds: 10);
+  /// How often the bell asks.
+  ///
+  /// ⚠ FOUR SECONDS, AND IT IS NOW FOUR ANSWERS RATHER THAN ONE. The
+  ///   thread counts, the per-room counts and — since the association
+  ///   reported messages arriving only after leaving and re-entering — the
+  ///   INBOX LIST itself all ride this tick. Ten seconds was a judgement
+  ///   about a badge; it is the wrong one for «هل وصلتني رسالة», which is
+  ///   what the same tick now answers.
+  ///
+  ///   The request is one capped column with no message bodies, which is
+  ///   what makes a four-second heartbeat affordable on a mobile
+  ///   connection. Keep it that shape.
+  static const Duration _interval = Duration(seconds: 4);
 
   Timer? _timer;
   int _lastRead = 0;
@@ -96,7 +135,14 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
     _timer = Timer.periodic(_interval, (_) => _tick());
 
     _lastRead = await ref.read(chatReadStateProvider).lastRead();
-    return ref.read(chatRepositoryProvider).unreadSince(_lastRead);
+    final int first = await ref
+        .read(chatRepositoryProvider)
+        .unreadSince(_lastRead);
+    // Arms the chime WITHOUT ringing: the first reading is «how many were
+    // waiting before the app opened», and a sound for those would greet
+    // every launch with yesterday's messages. See ChatChime._seen.
+    ref.read(chatChimeProvider).onCount(first, suppressed: true);
+    return first;
   }
 
   Future<void> _tick() async {
@@ -106,6 +152,14 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
           .read(chatRepositoryProvider)
           .unreadSince(_lastRead);
       if (_gone) return;
+      // ⚠ THE CHIME RIDES THE COUNT, NOT THE MESSAGES. It rings exactly when
+      //   the red badge changes, which is what the association asked for —
+      //   «يظهر الصوت مع الايقونه الحمره وعدد الارقام» — and it means the
+      //   sound can never disagree with what is on screen. A second poll
+      //   watching for messages would eventually do both.
+      ref
+          .read(chatChimeProvider)
+          .onCount(n, suppressed: ref.read(chatScreenOpenProvider));
       state = AsyncValue<int>.data(n);
     } on Object {
       // A failed poll leaves the previous count standing. A bell that flickers

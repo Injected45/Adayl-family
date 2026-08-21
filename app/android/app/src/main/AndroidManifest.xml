@@ -6,6 +6,20 @@
          Supabase over HTTPS, so a RELEASE build without this has no network at
          all — the app installs, opens, and fails every call. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- ── نظام الاتصال الصوتي ────────────────────────────────────────── -->
+    <!-- RECORD_AUDIO is the one the user is ASKED for, at the moment he
+         presses the handset and never at launch: a permission dialog on a
+         screen that is not asking for anything is the one people refuse. The
+         other three are granted at install and are what WebRTC needs to route
+         audio to the earpiece, hold the connection while the screen is off,
+         and see whether the phone is on wifi or mobile data. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
         android:label="جمعية العدايل"
         android:name="${applicationName}"

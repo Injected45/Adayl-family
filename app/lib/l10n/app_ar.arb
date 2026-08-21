@@ -96,6 +96,10 @@
   "emojiOccasions": "مناسبات",
   "emojiBackspace": "حذف حرف",
   "chatEmpty": "لا رسائل بعد — كن أول من يتحدث",
+  "chatYesterday": "أمس",
+  "@chatYesterday": {
+    "description": "The inbox stamp for a conversation whose last message was yesterday. Today shows the clock instead, and anything older shows the date — the rule every messaging app on these handsets already uses."
+  },
   "chatDeleted": "حُذفت الرسالة",
   "@chatDeleted": {
     "description": "The tombstone left where a message was. The row survives so a gap in a conversation is visible rather than silent; the words themselves are erased in the database."
@@ -133,7 +137,35 @@
   "comingSoon": "قيد الإنشاء",
   "comingSoonBody": "سيتم بناء هذه الشاشة في مرحلة لاحقة.",
 
+  "callTitle": "مكالمة صوتية",
+  "callStart": "اتصال صوتي",
+  "callIncoming": "{name} يتصل",
+  "@callIncoming": { "placeholders": { "name": { "type": "String" } } },
+  "callAnswer": "ردّ",
+  "callDecline": "رفض",
+  "callHangUp": "إنهاء",
+  "callConnecting": "جارٍ الاتصال…",
+  "callRinging": "يرنّ…",
+  "callTalking": "متصل",
+  "callEnded": "انتهت المكالمة",
+  "callFailed": "تعذّر الاتصال",
+  "@callFailed": {
+    "description": "Shown when the media path never came up. Almost always TURN: the two handsets are behind carrier NAT and no relay answered. The fix is association_settings.ice_servers, not the app — see PATCH_20260821d."
+  },
+  "callMute": "كتم",
+  "callUnmute": "إلغاء الكتم",
+  "callSpeaker": "مكبر الصوت",
+  "callMicDenied": "لا يمكن الاتصال بدون إذن الميكروفون",
   "noSearchResults": "لا توجد نتائج لبحثك",
+  "receivableSearchHint": "ابحث باسم أو كود أو شهر أو حالة",
+  "@receivableSearchHint": {
+    "description": "The dues search box. It names the four things it matches, because a bare «بحث» leaves the user guessing whether a code or a month will work — and this box exists precisely because they do."
+  },
+  "receivableSearchCount": "يعرض {shown} من {total}",
+  "@receivableSearchCount": {
+    "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } },
+    "description": "Shown only while a search narrows the list. ⚠ The three totals above it do NOT change — they are the server's figures for the whole period — so without this line a filtered list under an unfiltered total reads as a fault."
+  },
 
   "debtBadge": "مديونية {amount}",
   "@debtBadge": { "placeholders": { "amount": { "type": "String" } } },

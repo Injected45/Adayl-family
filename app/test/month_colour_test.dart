@@ -96,6 +96,24 @@ void main() {
           final String near = lines.sublist(from, to + 1).join('\n');
           if (near.contains('AppColors.month')) continue;
 
+          // ⚠ A MONTH HANDED TO A MATCHER IS NOT A MONTH ON SCREEN. The dues
+          //   search feeds `periodLabel` into matchesSearch as one of the
+          //   fields a query is compared against — nothing is painted there, so
+          //   there is no colour to give it. The month that screen actually
+          //   PRINTS is a hundred lines below, and it carries AppColors.month.
+          //
+          //   Narrow on purpose: six lines, and only for a matchesSearch call.
+          //   A blanket «skip anything that looks like data» would be the end of
+          //   the rule, because every rendering begins life as a field.
+          final int nearFrom = (i - 6) < 0 ? 0 : i - 6;
+          final int nearTo = (i + 6) >= lines.length ? lines.length - 1 : i + 6;
+          if (lines
+              .sublist(nearFrom, nearTo + 1)
+              .join('\n')
+              .contains('matchesSearch(')) {
+            continue;
+          }
+
           offences.add('${f.path}:${i + 1}  ${line.trim()}');
         }
       }

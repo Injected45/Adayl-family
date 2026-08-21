@@ -15,6 +15,7 @@ import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../call/presentation/call_ui.dart';
 import '../data/chat_read_state.dart';
 import '../domain/models.dart';
 import 'chat_flourishes.dart';
@@ -94,6 +95,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ///   reading it here would start one for every test that opens the room.
   late final ChatReadState _reads;
 
+  /// «هل هو فاتح الرسائل الآن» — the flag the chime reads before it rings.
+  ///
+  /// ⚠ HELD AS THE NOTIFIER, for the same reason [_reads] is held as an object:
+  ///   it must be cleared on the way OUT, and `ref` REFUSES a read inside
+  ///   dispose() — «Cannot use ref after the widget was disposed». Reaching for
+  ///   it there throws, which aborts the rest of dispose and leaks everything
+  ///   below it. The notifier itself belongs to the container and outlives this
+  ///   widget, so holding it is safe.
+  late final StateController<bool> _screenOpen;
+
   /// The newest id this screen has rendered IN EACH ROOM. Keyed by thread:
   /// null is المجلس, an id is that man's private conversation.
   ///
@@ -118,6 +129,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _reads = ref.read(chatReadStateProvider);
+
+    // ── لا جرس وهو ينظر إلى الغرفة ──────────────────────────────────────────
+    // ⚠ SET HERE AND CLEARED IN dispose, so it follows the SCREEN rather than
+    //   the route: a dialog over the room, a rebuild, a segment switch — none
+    //   of those unmount this widget, and none of them should start the chime.
+    //   Read/write through the notifier because a StateProvider cannot be
+    //   assigned during build; a post-frame callback is where it is safe.
+    _screenOpen = ref.read(chatScreenOpenProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _screenOpen.state = true;
+    });
 
     // Read the mark, THEN clear it. In that order: the «رسائل جديدة» line needs
     // the old value and the bell needs the new one, and the other way round
@@ -186,6 +209,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         unawaited(_reads.markHallRead(last).catchError((Object _) {}));
       }
     }
+    // He has left the room, so the chime is armed again.
+    _screenOpen.state = false;
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -313,6 +338,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         icon: const Icon(Icons.arrow_forward_ios, size: 18),
         tooltip: l.backAction,
       ),
+
+      // ── سمّاعة الاتصال ──────────────────────────────────────────────
+      // ⚠ IN BOTH ROOMS NOW. المجلس is a group call — a mesh, capped by
+      //   association_settings.call_max_participants — and the private thread
+      //   is the same mesh with two people in it. One button, one code path.
+      //
+      // ⚠ EXCEPT ON THE STAFF INBOX, and that is the one exclusion. There
+      //   `_key` is null while `_room` is private, which would raise a call in
+      //   المجلس from a screen that says «الخاص» — the association would be
+      //   rung by a button that looked like it dialled one man.
+      actions: <Widget>[
+        if (_room == _Room.hall || _key != null)
+          IconButton(
+            onPressed: () => unawaited(startCall(context, ref, _key)),
+            icon: const Icon(Icons.call),
+            tooltip: l.callStart,
+          ),
+      ],
       body: (BuildContext context) => Column(
         children: <Widget>[
           Padding(
@@ -590,7 +633,6 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final L l = L.of(context);
     final bool mine = message.mine;
 
     return Column(
@@ -654,30 +696,35 @@ class _Bubble extends StatelessWidget {
                             bottom: 2,
                             top: AppSpacing.xs,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Text(
-                                message.authorName,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  // The name in the SPEAKER'S OWN colour, so the
-                                  // disc and the name are one signal rather than
-                                  // two things a reader has to associate.
-                                  color: ChatAvatar.toneFor(message.authorName),
+                          // ── من يتكلّم، مرّةً واحدة ───────────────────────
+                          // ⚠ THE BOARD USED TO BE NAMED TWICE ON ONE LINE —
+                          //   «admin» in the speaker's colour and «الإدارة» in
+                          //   a pill beside it — and the association asked for
+                          //   one: «ابقِ كلمة admin فقط وبداخل ايقونه واخفِ
+                          //   كلمة الادارة».
+                          //
+                          //   The pill is what SAYS this is the association
+                          //   speaking rather than a neighbour, so the pill is
+                          //   what stays — and the account's own name goes
+                          //   inside it. One badge answers both questions at
+                          //   once: that it is the board, and which of them.
+                          //   Two labels for one speaker is the reader doing
+                          //   work the layout should have done.
+                          child: message.fromStaff
+                              ? _StaffTag(label: message.authorName)
+                              : Text(
+                                  message.authorName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    // A member's name in his OWN colour, so the
+                                    // disc and the name are one signal rather
+                                    // than two a reader has to associate.
+                                    color: ChatAvatar.toneFor(
+                                      message.authorName,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              // Who is speaking as the association, rather than as a
-                              // member of it. An announcement about a meeting reads
-                              // differently from a neighbour's opinion of it, and the
-                              // room should not have to guess which it is looking at.
-                              if (message.fromStaff) ...<Widget>[
-                                const SizedBox(width: AppSpacing.xs),
-                                _StaffTag(label: l.chatFromBoard),
-                              ],
-                            ],
-                          ),
                         ),
                       ),
                     ],
@@ -1239,9 +1286,18 @@ class _Inbox extends ConsumerWidget {
                         : FontStyle.normal,
                   ),
                 ),
+                // ⚠ THE CLOCK FOR TODAY, «أمس» FOR YESTERDAY, THE DATE BEYOND
+                //   — see formatDayStamp. A full date on every row made the
+                //   most recent conversation the hardest thing on the screen
+                //   to pick out, which is the opposite of what an inbox is.
                 trailing: Text(
-                  formatDate(t.lastAt),
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  formatDayStamp(t.lastAt, yesterday: l.chatYesterday),
+                  style: TextStyle(
+                    fontSize: 11,
+                    // Waiting on a reply reads as current, not archived.
+                    fontWeight: waiting ? FontWeight.w800 : FontWeight.w400,
+                    color: waiting ? AppColors.brand : AppColors.muted,
+                  ),
                 ),
               ),
             );

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/call/presentation/call_ui.dart';
 import '../../features/chat/presentation/unread_bell.dart';
 import '../../l10n/app_localizations.dart';
 import '../config/glass.dart';
@@ -234,7 +235,21 @@ class AppScaffold extends ConsumerWidget {
                   MediaQuery.viewPaddingOf(context).bottom,
             ),
           ),
-          child: Builder(builder: body),
+          // ── «فلان يتصل» ─────────────────────────────────────────────
+          // ⚠ ABOVE THE BODY OF EVERY SCREEN, AND NOT A DIALOG. A dialog
+          //   would seize whatever the man is in the middle of — a payment
+          //   half entered, a voucher half written — and a call is an
+          //   invitation, not something that overrides an unsaved form. This
+          //   is impossible to miss and costs nothing to ignore.
+          //
+          //   It draws nothing at all unless a call is actually ringing, so
+          //   every screen carries it for the price of one SizedBox.shrink.
+          child: Column(
+            children: <Widget>[
+              const IncomingCallBanner(),
+              Expanded(child: Builder(builder: body)),
+            ],
+          ),
         ),
         floatingActionButton: floatingActionButton,
         // ── ONE CAPSULE, TWO AUDIENCES ─────────────────────────────────

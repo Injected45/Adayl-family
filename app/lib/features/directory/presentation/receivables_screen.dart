@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
+import '../../../core/format/arabic_search.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/destinations.dart';
@@ -111,11 +112,26 @@ Color receivableTone(String status) => switch (status) {
   _ => AppColors.muted,
 };
 
-class ReceivablesScreen extends ConsumerWidget {
+class ReceivablesScreen extends ConsumerStatefulWidget {
   const ReceivablesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReceivablesScreen> createState() =>
+      _ReceivablesScreenState();
+}
+
+class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
+  /// ⚠ SCREEN STATE, NOT A PROVIDER, and deliberately so. A search is the
+  ///   one thing on this screen that belongs to the person holding the
+  ///   phone rather than to the association — refreshAll sweeps every
+  ///   provider in this app on a timer, and a box that emptied itself
+  ///   mid-word every forty-five seconds would be unusable. It also means
+  ///   the query dies with the screen, which is what leaving a search should
+  ///   do.
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final L l = L.of(context);
     final String period = ref.watch(receivablePeriodProvider);
     final AsyncValue<ReceivablesPage> page = ref.watch(
@@ -160,6 +176,27 @@ class ReceivablesScreen extends ConsumerWidget {
           final List<String> periods = <String>{
             ...data.items.map((ReceivableItem r) => r.period),
           }.toList()..sort((String a, String b) => b.compareTo(a));
+
+          // ⚠ THE FILTER RUNS OVER THE PAGE ALREADY IN HAND. No second
+          //   request, no server round trip per keystroke — and no chance
+          //   of the totals above coming from one query while the rows come
+          //   from another.
+          //
+          //   Four fields, because those are the four ways a treasurer
+          //   actually looks for a row: the man, his code, the month — in
+          //   both the «2026-01» form and the «يناير 2026» one — and the
+          //   state it is in.
+          final List<ReceivableItem> shown = data.items
+              .where(
+                (ReceivableItem r) => matchesSearch(_query, <String?>[
+                  r.adeelName,
+                  r.adeelCode,
+                  r.period,
+                  r.periodLabel,
+                  r.status,
+                ]),
+              )
+              .toList();
 
           return ListView(
             padding: screenPadding(context),
@@ -218,14 +255,56 @@ class ReceivablesScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
 
+              // ── البحث الذكي، فوق أول اسم مباشرةً ────────────────────
+              // ⚠ HERE AND NOT IN THE APP BAR. The association asked for it
+              //   «فوق اول اسم من الاعلي», and that is the right place: it
+              //   sits directly against the thing it filters, so the list
+              //   shortening under it is visibly the box's doing. A search
+              //   icon in the bar hides both the query and the fact that
+              //   one is active, which is how a filtered screen gets
+              //   mistaken for missing data.
+              //
+              // ⚠ AND BELOW THE THREE TOTALS, NOT ABOVE THEM. Those figures
+              //   are the SERVER's for the whole period and do not move when
+              //   the list is narrowed — money is never summed in Dart. A
+              //   box above them would read as filtering them too.
+              if (data.items.isNotEmpty) ...<Widget>[
+                SearchField(
+                  hintText: l.receivableSearchHint,
+                  initialValue: _query,
+                  onChanged: (String q) {
+                    if (mounted) setState(() => _query = q);
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+
               if (data.items.isEmpty)
                 EmptyStateView(
                   icon: Icons.receipt_long_outlined,
                   title: l.noReceivables,
                 )
-              else
-                for (final ReceivableItem item in data.items)
-                  _ReceivableCard(item: item),
+              else ...<Widget>[
+                // Only while it is narrowing something — see the ARB note.
+                if (_query.trim().isNotEmpty) ...<Widget>[
+                  Text(
+                    l.receivableSearchCount(shown.length, data.items.length),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                if (shown.isEmpty)
+                  EmptyStateView(
+                    icon: Icons.search_off_outlined,
+                    title: l.noSearchResults,
+                  )
+                else
+                  for (final ReceivableItem item in shown)
+                    _ReceivableCard(item: item),
+              ],
             ],
           );
         },
