@@ -26,13 +26,33 @@ import '../domain/models.dart';
 /// while a search is narrowing the table, and the difference is load-bearing:
 /// the serial number is read from [all], so filtering cannot renumber history.
 class AidLedger extends StatefulWidget {
-  const AidLedger({required this.all, required this.rows, super.key});
+  const AidLedger({
+    required this.all,
+    required this.rows,
+    this.tone = AppColors.danger,
+    super.key,
+  });
 
   /// Every entry, oldest first — the source of the ordinal.
   final List<AidLedgerEntry> all;
 
   /// What to draw. The same list unless a search is narrowing it.
   final List<AidLedgerEntry> rows;
+
+  /// The colour the two money columns are set in.
+  ///
+  /// ⚠ THE SAME TABLE ANSWERS TWO DIFFERENT QUESTIONS, and the colour is the
+  ///   one place they part. On «أسلافي» the figures are what the association
+  ///   GAVE this man — his, and green at his own request. On «أسلاف للغير»
+  ///   they are what left the treasury, which is red on every other screen in
+  ///   this app and red on that one too, headline and headings included.
+  ///
+  ///   A parameter, not a second widget: the LAYOUT is what the association
+  ///   asked to be identical — «نفس طريقة العرض» — and layout is the part
+  ///   that drifts when it is copied. A colour does not drift. It is one word
+  ///   at each call site, and it keeps each screen consistent with its own
+  ///   headline instead of with the other screen's.
+  final Color tone;
 
   @override
   State<AidLedger> createState() => _AidLedgerState();
@@ -135,6 +155,7 @@ class _AidLedgerState extends State<AidLedger> {
                         key: ValueKey<int>(e.voucher.id),
                         entry: e,
                         metrics: metrics,
+                        tone: widget.tone,
                         serial: widget.all.indexOf(e) + 1,
                         open: _openId == e.voucher.id,
                         onToggle: () => setState(
@@ -343,6 +364,7 @@ class _LedgerLine extends StatelessWidget {
   const _LedgerLine({
     required this.entry,
     required this.metrics,
+    required this.tone,
     required this.serial,
     required this.open,
     required this.onToggle,
@@ -351,6 +373,9 @@ class _LedgerLine extends StatelessWidget {
 
   final AidLedgerEntry entry;
   final _LedgerMetrics metrics;
+
+  /// Both money columns, from the screen above — see AidLedger.tone.
+  final Color tone;
 
   /// His position in the FULL ledger, oldest as 1 — not in the filtered list.
   /// The number belongs to the voucher, exactly as the running total does, so a
@@ -437,20 +462,22 @@ class _LedgerLine extends StatelessWidget {
                   ),
                   SizedBox(
                     width: metrics.amount,
-                    // ── EACH DISBURSEMENT IS RED; THE TOTAL BESIDE IT IS NOT ──
-                    // The association's choice, and it holds together: القيمة is
-                    // ONE act of spending — money leaving the treasury, which is
-                    // red on every screen in this app — while الإجمالي is what
-                    // the man has received over his life with the association,
-                    // which is his and is green.
+                    // ── BOTH COLUMNS TAKE THE SCREEN'S TONE ─────────────
+                    // ⚠ AND THE COMMENT THAT USED TO SIT HERE WAS WRONG. It
+                    //   said القيمة was red while الإجمالي «is his and is
+                    //   green» — and both cells were painted danger. A note
+                    //   describing an intention the code never carried out is
+                    //   worse than no note: the next reader trusts it and
+                    //   goes looking for a bug in the wrong place.
                     //
-                    // The two columns therefore say different things about the
-                    // same figures, which is exactly what they are for.
+                    //   What is true now: the screen decides, both columns
+                    //   agree, and «أسلافي» is green because what a man was
+                    //   given is not a loss to him.
                     child: _Cell(
                       formatMoney(v.amount),
                       style: base.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: cancelled ? AppColors.muted : AppColors.danger,
+                        color: cancelled ? AppColors.muted : tone,
                       ),
                     ),
                   ),
@@ -462,10 +489,10 @@ class _LedgerLine extends StatelessWidget {
                     // which is what a reversal looks like in a running total.
                     child: _Cell(
                       formatMoney(entry.runningTotal),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: kAidLedgerSize,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.danger,
+                        color: tone,
                       ),
                     ),
                   ),

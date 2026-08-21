@@ -386,7 +386,7 @@ class _AidTotalBlock extends StatelessWidget {
             //   «ما صُرف», one kind of money throughout, and it should not need
             //   two colours to say so. Red is what an outgoing amount carries
             //   on every other screen in the app.
-            color: AppColors.danger,
+            color: AppColors.success,
           ),
         ),
       ],
@@ -505,7 +505,7 @@ class _AidRowState extends State<_AidRow> {
                     fontWeight: FontWeight.w800,
                     // Red like every other figure here: one kind of money on
                     // one page needs one colour. See _AidTotalBlock.
-                    color: AppColors.danger,
+                    color: AppColors.success,
                   ),
                 ),
               ],
@@ -571,7 +571,7 @@ class _AidVoucherBrief extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.danger,
+                  color: AppColors.success,
                 ),
               ),
             ],
@@ -647,7 +647,17 @@ class _AidPanelState extends State<_AidPanel> {
           //   the loop, a reversal that keeps its balance, one open row at a
           //   time — and a second copy would be a second place for each of
           //   them to be quietly undone, with nothing failing when it was.
-          AidLedger(all: widget.aid.ledger, rows: widget.rows),
+          // ⚠ GREEN, at the association's request: «اريد ان يكون لون القيم
+          //   في شاشة اسلافي جميعها باللون الاخضر». And it is the right way
+          //   round — this is what the association GAVE him. Red is the
+          //   colour of money leaving the treasury, which is true from the
+          //   fund's side and false from his: nothing on this page is a debt
+          //   of his, and الجمعية خيرية so none of it is owed back.
+          AidLedger(
+            all: widget.aid.ledger,
+            rows: widget.rows,
+            tone: AppColors.success,
+          ),
         ],
       ),
     );

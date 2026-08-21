@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:family_app/core/config/glass.dart';
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
@@ -168,6 +170,7 @@ AdeelAid _aid({
 );
 
 void main() {
+  _aidToneTests();
   final L l = LAr();
 
   Widget host(AdeelAid aid, {bool mine = false}) => ProviderScope(
@@ -847,13 +850,13 @@ void _headlineTests() {
     // Nor the count that used to sit beside it.
     expect(find.text(l.aidVoucherCount(2)), findsNothing);
 
-    // The figure the page exists for is still there, and still green.
+    // The figure the page exists for is still there, and green.
     // .first: the closing running total in the ledger carries the same string,
     // which is the point of that column — it ends at the headline figure.
     final Text total = tester.widget<Text>(
       find.text(formatMoney('600.00')).first,
     );
-    expect(total.style?.color, AppColors.danger);
+    expect(total.style?.color, AppColors.success);
   });
 }
 
@@ -1285,12 +1288,25 @@ void _columnStyleTests() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('every figure on the page is RED', (WidgetTester tester) async {
-    // It was briefly split — القيمة red, الإجمالي green — on the reasoning that
-    // one is money leaving the treasury and the other is what the man has
-    // received. The association chose one colour, and it is the more consistent
-    // reading: this page is «ما صُرف» throughout, and a page about one kind of
-    // money should not need two colours to say so.
+  testWidgets('every figure on the page is GREEN', (WidgetTester tester) async {
+    // ── The colour changed twice, and the reasons are worth keeping ───────
+    // It was briefly SPLIT — القيمة red, الإجمالي green — on the reasoning
+    // that one is money leaving the treasury and the other is what the man
+    // has received. That was replaced by one colour for the page, red, on the
+    // reasoning that «ما صُرف» is one kind of money and needs one colour.
+    //
+    // ⚠ THE SECOND STEP KEPT THE CONSISTENCY AND CHOSE THE WRONG COLOUR, and
+    //   the association said so: «اريد ايضا ان يكون لون القيم في شاشة اسلافي
+    //   جميعها باللون الاخضر». Red is money leaving the TREASURY — true from
+    //   the fund's side and false from his. Nothing on this page is a debt of
+    //   his, and الجمعية خيرية so none of it is owed back; a red column
+    //   invited exactly the subtraction this whole screen was built to stop.
+    //
+    // ⚠ «أسلاف للغير» KEEPS RED, sharing the same widget through a `tone`.
+    //   Not an inconsistency between them: one table, two questions. That
+    //   screen is what the association SPENT, and its headline and وجه rows
+    //   are red — a green ledger under a red headline would be an
+    //   inconsistency INSIDE one screen, which is the kind a reader notices.
     await pump(tester);
 
     final Text amount = tester.widget<Text>(find.text(formatMoney('100.00')));
@@ -1298,13 +1314,13 @@ void _columnStyleTests() {
       find.text(formatMoney('250.00')).last,
     );
 
-    expect(amount.style?.color, AppColors.danger);
-    expect(running.style?.color, AppColors.danger);
-    // Nothing green survives on it.
+    expect(amount.style?.color, AppColors.success);
+    expect(running.style?.color, AppColors.success);
+    // And nothing red survives on it.
     expect(
       tester
           .widgetList<Text>(find.byType(Text))
-          .where((Text t) => t.style?.color == AppColors.success),
+          .where((Text t) => t.style?.color == AppColors.danger),
       isEmpty,
     );
   });
@@ -1760,5 +1776,41 @@ void _twoColumnTests() {
         reason: '«$other» must not share the note\'s line',
       );
     }
+  });
+}
+
+/// ── قيم «أسلافي» خضراء ───────────────────────────────────────────────────────
+///
+/// «اريد ايضا ان يكون لون القيم في شاشة اسلافي جميعها باللون الاخضر بدل من
+/// اللون الاحمر الموجود الان».
+///
+/// ⚠ AND IT IS THE RIGHT WAY ROUND, not merely what was asked for. Red is the
+///   colour of money leaving the treasury — true from the fund's side and false
+///   from his. Nothing on this page is a debt of his, and الجمعية خيرية so none
+///   of it is owed back; a red column invited exactly the subtraction the whole
+///   screen was built to prevent.
+///
+/// ⚠ «أسلاف للغير» STAYS RED, and that is not an inconsistency between them:
+///   they are one table answering two questions. That screen shows what the
+///   association SPENT, and its headline and وجه rows are red — a green ledger
+///   under a red headline would be an inconsistency INSIDE one screen, which is
+///   the kind a reader actually notices.
+void _aidToneTests() {
+  test('no red survives anywhere on «أسلافي»', () {
+    // A source scan, because the figures are spread over a headline block, a
+    // brief and two ledger columns — and a widget test that checked one of them
+    // would pass while another stayed red.
+    final String src = File(
+      'lib/features/finance/presentation/adeel_aid_screen.dart',
+    ).readAsStringSync();
+
+    expect(
+      src.contains('AppColors.danger'),
+      isFalse,
+      reason:
+          'What the association GAVE a man is not a loss to him. Red is for '
+          'money leaving the treasury, which is the other screen.',
+    );
+    expect(src, contains('tone: AppColors.success'));
   });
 }

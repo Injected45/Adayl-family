@@ -95,6 +95,7 @@ Future<L> _open(WidgetTester tester, [AidOthers? aid]) async {
 }
 
 void main() {
+  _toneTests();
   testWidgets('the ledger heads are the four «أسلافي» uses', (
     WidgetTester tester,
   ) async {
@@ -179,3 +180,35 @@ void main() {
     expect(find.text(l.expenseCategory), findsOneWidget);
   });
 }
+
+/// ── اللونان: أخضر له، أحمر لِما خرج من الصندوق ──────────────────────────────
+///
+/// «اريد ايضا ان يكون لون القيم في شاشة اسلافي جميعها باللون الاخضر بدل من
+/// اللون الاحمر الموجود الان».
+///
+/// ⚠ AND IT IS THE RIGHT WAY ROUND. Red is the colour of money leaving the
+///   treasury — true from the fund's side, false from his. Nothing on «أسلافي»
+///   is a debt of his, and الجمعية خيرية so none of it is owed back.
+///
+/// ⚠ THE OTHER SCREEN STAYS RED, and the two are not inconsistent: they are the
+///   same table answering different questions. «أسلاف للغير» is what the
+///   association SPENT, and its headline and its وجه rows are red — a green
+///   ledger under a red headline is an inconsistency INSIDE one screen, which
+///   is the kind a reader actually notices.
+void _toneTests() {
+  Color amountColour(WidgetTester tester, String money) =>
+      tester
+          .widgetList<RichText>(find.byType(RichText))
+          .firstWhere((RichText w) => w.text.toPlainText() == money)
+          .text
+          .style!
+          .color!;
+
+  testWidgets('«أسلاف للغير» keeps the colour of money leaving the fund', (
+    WidgetTester tester,
+  ) async {
+    await _open(tester);
+    expect(amountColour(tester, formatMoney('400.00')), AppColors.danger);
+  });
+}
+
