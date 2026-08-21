@@ -3,6 +3,7 @@ import 'package:family_app/core/l10n/latin_digit_localizations.dart';
 import 'package:family_app/core/router/destinations.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
+import 'package:family_app/features/chat/data/chat_read_state.dart';
 import 'package:family_app/features/chat/domain/models.dart';
 import 'package:family_app/features/chat/presentation/chat_screen.dart';
 import 'package:family_app/features/chat/presentation/emoji_panel.dart';
@@ -12,6 +13,7 @@ import 'package:family_app/l10n/app_localizations.dart';
 import 'package:family_app/l10n/app_localizations_ar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// مجلس العدايل — the first screen BOTH kinds of account reach.
@@ -102,6 +104,7 @@ _openAs;
 
 void main() {
   _barBackTests();
+  _markOnOpenTests();
   final L l = LAr();
   late _StubChat chat;
   final List<ChatThread> threads = <ChatThread>[];
@@ -829,5 +832,67 @@ void _barBackTests() {
     // leaves المحادثة, and a reader has to be able to tell them apart.
     expect(find.byIcon(Icons.arrow_forward_ios), findsOneWidget);
     expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+  });
+}
+
+/// ── الإشعار يختفي بمجرّد فتح المحادثة ────────────────────────────────────────
+///
+/// Reported plainly: «الرسائل الغير مقروءه والايقونه الحمراء بالعدد لا تختفي
+/// بعد فتح المحادثه … لا تختفي الا بعد ان يكتب المشترك ويرد عليه الطرف الاخر».
+///
+/// ⚠ THE CAUSE WAS ONE IDENTIFIER. The mark was written against `_thread`, and
+///   for a MEMBER `_thread` is pinned to his own id at the top of build() and
+///   STAYS pinned while he reads المجلس. So every hall message he opened was
+///   credited to his private thread and markHallRead was never called once —
+///   the badge could only move when a new message pushed an id past the stale
+///   mark, which is precisely what writing one does, and precisely why it
+///   looked as though typing was the thing that cleared it.
+///
+/// ⚠ AND THE FIX IS A RULE, NOT A PATCH: mark the room you are SHOWING. `_key`
+///   is what chatProvider was watched with; anything else is another room.
+void _markOnOpenTests() {
+  const ChatReadState reads = ChatReadState(FlutterSecureStorage());
+
+  setUp(() => FlutterSecureStorage.setMockInitialValues(<String, String>{}));
+
+  testWidgets('a MEMBER opening المجلس clears المجلس, not his own thread', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 77, body: 'إعلان من الإدارة'),
+    ], user: _member);
+    await tester.pumpAndSettle();
+
+    // The room he was looking at is the room that got marked.
+    expect(await reads.hallRead(), 77);
+
+    // ⚠ AND HIS PRIVATE THREAD IS UNTOUCHED. Crediting the hall's newest id to
+    //   it would ALSO mark as read a conversation he never opened — the same
+    //   bug pointing the other way, and the more dangerous half.
+    expect((await reads.threadMarks())[_member.adeelId], isNull);
+  });
+
+  testWidgets('and staff opening المجلس clear المجلس too', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 12, body: 'أهلاً'),
+    ], user: _admin);
+    await tester.pumpAndSettle();
+
+    expect(await reads.hallRead(), 12);
+  });
+
+  testWidgets('⚠ and the bell moves on OPENING, before anything is typed', (
+    WidgetTester tester,
+  ) async {
+    // The global mark is the one behind the red number. It has to advance from
+    // the act of opening alone — that is the whole report.
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 99, body: 'إعلان'),
+    ], user: _member);
+    await tester.pumpAndSettle();
+
+    expect(await reads.lastRead(), 99);
   });
 }

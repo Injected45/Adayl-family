@@ -170,12 +170,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     //   leaves and the bell rings for a conversation he watched happen.
     //
     //   No ref and no setState — the widget is going.
-    final int last = _newestSeen[_thread] ?? 0;
+    // ⚠ _key here too, and for the same reason as in the builder above: a
+    //   member leaving المجلس would otherwise write his hall position onto
+    //   his private thread, which both loses the hall mark and falsely
+    //   advances a conversation he never opened.
+    final int? room = _key;
+    final int last = _newestSeen[room] ?? 0;
     if (last > 0) {
       unawaited(_reads.markRead(last).catchError((Object _) {}));
-      if (_thread != null) {
+      if (room != null) {
         unawaited(
-          _reads.markThreadRead(_thread!, last).catchError((Object _) {}),
+          _reads.markThreadRead(room, last).catchError((Object _) {}),
         );
       } else {
         unawaited(_reads.markHallRead(last).catchError((Object _) {}));
@@ -416,7 +421,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!mounted) return;
                     final int newest = messages.last.id;
-                    final int? room = _thread;
+                    // ⚠ _key, NEVER _thread. They are the same for staff and
+                    //   they are NOT for a member: his _thread is pinned to
+                    //   his own id the moment he opens the screen — see the
+                    //   top of build() — and it stays pinned while he reads
+                    //   المجلس. So marking by _thread credited every hall
+                    //   message to his PRIVATE thread and never once called
+                    //   markHallRead, and the المجلس badge sat there for ever.
+                    //
+                    //   That is exactly what the association reported: the
+                    //   number would not clear on opening, only later, «after
+                    //   he writes and the other side replies» — because a new
+                    //   message eventually pushed an id past the stale mark.
+                    //
+                    //   The rule, stated once: mark the room you are SHOWING.
+                    //   `_key` is what chatProvider was watched with three
+                    //   lines above; anything else is a different room.
+                    final int? room = _key;
                     // Nothing new to mark in THIS room. Checked per room, not
                     // against one shared number — see _newestSeen.
                     if (newest <= (_newestSeen[room] ?? 0)) return;
