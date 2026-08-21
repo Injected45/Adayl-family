@@ -649,6 +649,60 @@ abstract class L {
   /// **'سيتم بناء هذه الشاشة في مرحلة لاحقة.'**
   String get comingSoonBody;
 
+  /// Runs on ONE phone and answers the question that otherwise needs two: will a call connect to somebody on a different network. It gathers ICE candidates and reports which kinds came back.
+  ///
+  /// In ar, this message translates to:
+  /// **'فحص مسار الاتصال'**
+  String get iceCheck;
+
+  /// No description provided for @iceRunning.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ الفحص… قد يستغرق ١٢ ثانية'**
+  String get iceRunning;
+
+  /// No description provided for @iceHost.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشبكة المحلية'**
+  String get iceHost;
+
+  /// No description provided for @iceStun.
+  ///
+  /// In ar, this message translates to:
+  /// **'عنوانك العام (STUN)'**
+  String get iceStun;
+
+  /// No description provided for @iceRelay.
+  ///
+  /// In ar, this message translates to:
+  /// **'خادم التحويل (TURN)'**
+  String get iceRelay;
+
+  /// No description provided for @iceGood.
+  ///
+  /// In ar, this message translates to:
+  /// **'المكالمات تعمل بين شبكتين مختلفتين'**
+  String get iceGood;
+
+  /// No relay candidate came back. Two phones on different mobile networks will not connect. The fix is association_settings.ice_servers — a paid TURN — not a change to the app.
+  ///
+  /// In ar, this message translates to:
+  /// **'المكالمات ستعمل على نفس الشبكة فقط'**
+  String get iceWifiOnly;
+
+  /// No description provided for @iceNone.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد اتصال بالشبكة'**
+  String get iceNone;
+
+  /// No description provided for @iceRelayNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'إن لم يظهر خادم التحويل، الإصلاح في إعدادات قاعدة البيانات لا في التطبيق'**
+  String get iceRelayNote;
+
   /// No description provided for @callTitle.
   ///
   /// In ar, this message translates to:
@@ -666,6 +720,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'{name} يتصل'**
   String callIncoming(String name);
+
+  /// No description provided for @callOngoing.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكالمة جارية — {name}'**
+  String callOngoing(String name);
 
   /// No description provided for @callAnswer.
   ///

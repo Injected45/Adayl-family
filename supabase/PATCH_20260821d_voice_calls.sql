@@ -697,33 +697,63 @@ $$;
 --   that looked innocent. call_stamp_time() above is exactly such a trigger
 --   function — Postgres calls it, never a client, so it is not on the
 --   allow-list and it needs this sweep.
-DO $lockdown$
-DECLARE
-  r        record;
-  v_sig    text;
-  v_allow  text[] := public.client_callable_functions();
-BEGIN
-  FOR r IN
-    SELECT p.oid,
-           p.proname,
-           pg_get_function_identity_arguments(p.oid) AS args
-      FROM pg_proc p
-      JOIN pg_namespace n ON n.oid = p.pronamespace
-     WHERE n.nspname = 'public'
-  LOOP
-    v_sig := r.proname || '(' || r.args || ')';
-    EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon',
-                   r.proname, r.args);
-    IF v_sig = ANY (v_allow) THEN
-      EXECUTE format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated',
-                     r.proname, r.args);
-    ELSE
-      EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM authenticated',
-                     r.proname, r.args);
-    END IF;
-  END LOOP;
-END
-$lockdown$;
+-- ⚠ THIS SWEEP IS LIFTED VERBATIM FROM
+--   supabase/migrations/20260811091200_function_lockdown.sql, and the reason
+--   is written in its own comment below: a hand-written version using
+--   pg_get_function_identity_arguments() matches NOTHING except the
+--   zero-argument functions, because that form carries PARAMETER NAMES
+--   («p_period character») while the allow-list is written in the type-only
+--   form regprocedure renders («generate_period(character)»).
+--
+--   That bug was found once, fixed, and documented there — and then written
+--   again from memory into this patch, which is how it reached the
+--   association: assert_function_grants() named thirty functions as
+--   ungranted and rolled the whole patch back. The guard was right.
+--
+--   The rule this cost is now in the memory file and in
+--   docs/MEMBER_TO_MEMBER_CALLS.md: lift SQL from its source, never retype
+--   it. There is no compiler here to catch the difference.
+DO $lockdown$
+DECLARE
+  r        record;
+  v_allow  text[] := public.client_callable_functions();
+  v_sig    text;
+BEGIN
+  FOR r IN
+    -- regprocedure, NOT pg_get_function_identity_arguments(): the latter includes
+    -- PARAMETER NAMES ("p_period character"), while regprocedure renders the
+    -- type-only form the allow-list is written in ("generate_period(character)").
+    -- Comparing against identity arguments silently matched nothing except the
+    -- zero-argument functions, so fourteen were left ungranted.
+    SELECT p.oid,
+           p.oid::regprocedure::text AS full_sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       -- Extension functions are not ours. A project with pgcrypto or uuid-ossp
+       -- in `public` would otherwise lose gen_random_uuid() and friends.
+       AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                        WHERE d.objid = p.oid
+                          AND d.classid = 'pg_proc'::regclass
+                          AND d.deptype = 'e')
+  LOOP
+    -- PUBLIC *and* the named roles. Supabase's default privileges grant to the
+    -- names, so a PUBLIC-only revoke is a no-op on a real project.
+    EXECUTE format(
+      'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role',
+      r.full_sig);
+
+    -- Normalise: strip spaces, and drop a leading `public.` in case the role's
+    -- search_path does not include public and regprocedure qualifies the name.
+    v_sig := replace(ltrim(replace(r.full_sig, 'public.', ''), ' '), ' ', '');
+    IF v_sig = ANY (SELECT replace(a, ' ', '') FROM unnest(v_allow) a) THEN
+      -- service_role too: it is a trusted server-side context, and the phase-4
+      -- legacy import needs the write functions.
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role',
+                     r.full_sig);
+    END IF;
+  END LOOP;
+END $lockdown$;
 
 
 -- ── §11. الحُرّاس ───────────────────────────────────────────────────────────

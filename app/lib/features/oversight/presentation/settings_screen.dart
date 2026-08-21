@@ -118,18 +118,31 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     bankName: _text('bankName'),
     bankAccountNo: _text('bankAccountNo'),
     bankAccountName: _text('bankAccountName'),
-    // Only the id travels. The server reads the name and phone off the chosen
-    // عديل's own row, so sending the old snapshot back would just give it a
-    // chance to disagree with the register.
+    // ── المنصب فارغ يعني الاسم فارغ ───────────────────────────────────────
+    // ⚠ THE COMMENT THAT USED TO SIT HERE SAID «only the id travels», AND THE
+    //   CODE SENT THE NAME TOO — from widget.initial, the snapshot the screen
+    //   loaded with. This screen has no name field at all: the name is derived
+    //   from the chosen عديل. So clearing the post left the id null and posted
+    //   the OLD name straight back, update_settings kept it
+    //   (coalesce keeps a non-null), and v_officials went on offering a man
+    //   who no longer holds the post — through a purge and beyond, because the
+    //   purges deliberately leave settings standing.
+    //
+    //   The association found it: «يظهر اسم المدير المالي الذي كان موجوداً قبل
+    //   المسح … أريد ما هو موجود في لوحة الإعدادات هو ما يظهر في التحصيل».
+    //
+    // ⚠ SO A VACANT POST SENDS EMPTY, EXPLICITLY. Not omitted — the server
+    //   reads an absent key as «leave it alone», which is the same bug wearing
+    //   a different hat. An empty string is a value, and it clears.
     treasurer: OfficialInput(
       adeelId: _treasurerId,
-      name: widget.initial.treasurer.name,
-      phone: widget.initial.treasurer.phone,
+      name: _treasurerId == null ? '' : widget.initial.treasurer.name,
+      phone: _treasurerId == null ? '' : widget.initial.treasurer.phone,
     ),
     financeManager: OfficialInput(
       adeelId: _financeId,
-      name: widget.initial.financeManager.name,
-      phone: widget.initial.financeManager.phone,
+      name: _financeId == null ? '' : widget.initial.financeManager.name,
+      phone: _financeId == null ? '' : widget.initial.financeManager.phone,
     ),
   );
 

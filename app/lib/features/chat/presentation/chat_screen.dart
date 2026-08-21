@@ -16,6 +16,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../call/presentation/call_ui.dart';
+import '../../call/presentation/ice_check_sheet.dart';
 import '../data/chat_read_state.dart';
 import '../domain/models.dart';
 import 'chat_flourishes.dart';
@@ -355,6 +356,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             icon: const Icon(Icons.call),
             tooltip: l.callStart,
           ),
+        // ── فحص مسار الاتصال ────────────────────────────────────────────
+        // ⚠ BESIDE THE HANDSET, because this is where the question is asked.
+        //   «هل تنجح المكالمة مع شخص على شبكة أخرى» is not answerable by
+        //   reading anything — it depends on two carriers and on whether a
+        //   borrowed public relay is alive — and it normally needs two phones
+        //   and two people. This answers it on one, in ten seconds, before
+        //   anybody is called and made to wait.
+        IconButton(
+          onPressed: () => unawaited(showIceCheck(context, ref)),
+          icon: const Icon(Icons.network_check),
+          tooltip: l.iceCheck,
+        ),
       ],
       body: (BuildContext context) => Column(
         children: <Widget>[

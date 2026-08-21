@@ -311,6 +311,34 @@ class LEn extends L {
   String get comingSoonBody => 'This screen will be built in a later phase.';
 
   @override
+  String get iceCheck => 'Check the call path';
+
+  @override
+  String get iceRunning => 'Checking… up to 12 seconds';
+
+  @override
+  String get iceHost => 'Local network';
+
+  @override
+  String get iceStun => 'Your public address (STUN)';
+
+  @override
+  String get iceRelay => 'Relay server (TURN)';
+
+  @override
+  String get iceGood => 'Calls will work between different networks';
+
+  @override
+  String get iceWifiOnly => 'Calls will only work on the same network';
+
+  @override
+  String get iceNone => 'No network connection';
+
+  @override
+  String get iceRelayNote =>
+      'If the relay is missing, the fix is in the database settings, not the app';
+
+  @override
   String get callTitle => 'Voice call';
 
   @override
@@ -319,6 +347,11 @@ class LEn extends L {
   @override
   String callIncoming(String name) {
     return '$name is calling';
+  }
+
+  @override
+  String callOngoing(String name) {
+    return 'Call in progress — $name';
   }
 
   @override

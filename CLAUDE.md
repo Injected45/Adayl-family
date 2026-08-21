@@ -534,6 +534,53 @@ Two rules there are easy to trip and worth knowing before you add a screen:
   headings; that tile also dropped the «د.ل» suffix, which rode on one value in
   three. **The unit is named once under the summary — that is why no figure
   carries it.**
+- ⚠ **A FILLED BUTTON IS FULL WIDTH IN THIS THEME, so one inside a `Row`
+  ASSERTS.** `filledButtonTheme` and `outlinedButtonTheme` both set
+  `minimumSize: Size.fromHeight(52)`, which is `Size(double.infinity, 52)` —
+  right for the column of actions every form ends with, fatal in a row.
+
+  ⚠ It reached the association-facing build once, in the incoming-call banner
+  — and that banner lives in `AppScaffold`, so the assert would have taken
+  down **whatever screen the user was on** the instant the first call rang.
+  Nothing in the suite would have caught it: no screen renders a call until
+  one arrives. `test/call_ui_smoke_test.dart` is what caught it, by building
+  the banner at a real phone width (411), and it is the reason that test
+  exists at all.
+
+  In a row, use `IconButton` (finite `minimumSize`) or wrap in `Expanded` —
+  `ice_check_sheet` does the second, the banner does the first.
+
+- **«فحص مسار الاتصال»** (`features/call/data/ice_probe.dart`) answers on ONE
+  phone the question that otherwise needs two: will a call reach somebody on
+  a different network. It gathers ICE candidates against
+  `association_settings.ice_servers` and reports host / srflx / relay.
+
+  ⚠ **`relay` is the one that decides it.** Libyan carriers run
+  carrier-grade NAT, so two subscribers on mobile data usually cannot reach
+  each other whatever STUN says — the audio must travel through a TURN relay.
+  No relay candidate means calls work on wifi and fail on mobile, which is
+  the exact symptom that is otherwise impossible to name from inside the app.
+
+  ⚠ It needs a **data channel** before gathering: a peer connection with no
+  track and no channel has nothing to negotiate and produces NO candidates,
+  so the probe would report total failure on a perfectly good network. A
+  channel also needs no microphone permission, so the check runs before
+  anyone has granted one.
+
+- ⚠ **A VACANT OFFICIAL POST MUST SEND AN EMPTY NAME, EXPLICITLY.** The two
+  officials in settings are a picker, not a text field — the name is a
+  SNAPSHOT of the chosen عديل. Clearing the post used to send `adeelId: null`
+  with the old name still attached (from `widget.initial`), and
+  `update_settings` did `coalesce(p_patch ->> 'financeName', …)`, so the name
+  of a man who held no post was written back on every save and `v_officials`
+  went on offering him on the collection sheet — **through a full purge**,
+  because both purges deliberately leave `association_settings` standing.
+
+  Fixed on both sides (`PATCH_20260821h`): the client sends `''` for a vacant
+  post, and the server no longer inherits a name it was not sent. An ABSENT
+  key still means «leave it alone», which is why empty must be sent rather
+  than omitted. `test/officials_vacancy_test.dart` pins it.
+
 - **`AppColors.identityTone(id)`** gives every عديل a colour of his own, from
   the golden angle on the hue wheel — a fixed palette would repeat by the
   seventh man, and stepping by `360/n` would make consecutive ids neighbours and
@@ -589,6 +636,37 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
   every signal on a call belongs to the other one; with four, C reading the
   offer A sent to B sets it as ITS remote description and the call collapses.
   NULL is a broadcast, which is what every stage-1 row is.
+
+  ⚠ **THE FIRST REAL TWO-HANDSET CALL FOUND TWO BUGS, AND NEITHER WAS IN THE
+  AUDIO.** Both were in what the database calls «live», and both are the same
+  mistake read from two ends:
+
+  - **`join_call` flipped «ترن» → «جارية» on ANY join** — including the
+    caller's own, which happens the instant he raises the call because that
+    is how he gets his seat id. So the call stopped ringing about a second
+    after it was made, before the other handset's three-second poll had ever
+    seen it, and the banner (which asks for a RINGING call) never appeared.
+    **Answering is joining, and the caller is not answering himself** —
+    `AND caller_user_id <> auth.uid()`.
+  - **Nothing ever ended a «جارية» call whose people vanished.**
+    `leave_call` closes one when the last man leaves PROPERLY; a handset that
+    crashed or lost signal never calls it. And `start_call` RETURNS an
+    existing live call rather than raising a new one — so ONE failed attempt
+    poisoned the thread permanently: every later call joined a corpse and
+    rang nobody. That is why it presented as «it never works» rather than
+    «it sometimes fails».
+
+  Both fixed in `PATCH_20260821i` with the twenty-second rule
+  `v_call_participants` already used, applied in THREE places that must agree
+  — the view, `start_call`'s liveness test, and the participant list. ⚠ And
+  `start_call` reads the TABLE, not the view, so the patch also has to close
+  the corpses already there; a fix that only changes future behaviour leaves
+  a thread that can never place a call again.
+
+  ⚠ **The banner now offers «جارية» as well as «ترن»**, so a man can join a
+  group call five minutes in — المجلس is otherwise a call you can only catch
+  in its first sixty seconds. That is safe ONLY because the view now ends an
+  abandoned call; before, it would have offered a dead one for ever.
 
   ⚠ **Two expiries live in the VIEWS, so nothing has to RUN for them to be
   true.** `v_calls` reports a «ترن» older than 60s as «فائتة»;
@@ -654,6 +732,40 @@ It is **not a MAC address** — Android has returned `02:00:00:00:00:00` to ever
 app since API 23 and randomises it per network since 10, and iOS never exposed
 one. And a header is client-set, so this stops SHARING, not forgery; the code
 remains the authorisation.
+
+⚠ **«المفتاح الجديد يبطل القديم ويغلق التطبيق فوراً» — the association asked
+for this as a constitution, and it was ALREADY the rule; what was missing was
+the app saying so.** Three things enforce it and none of them is a screen:
+`adeel_access_codes` holds ONE row per عديل so a new code OVERWRITES the old;
+`issue_adeel_code` clears `profiles.device_id` in the same act; and
+`my_adeel_id()` returns NULL unless the device matches — a REFUSAL, so every
+عديل-scoped policy hands the old handset nothing, with no app update and no
+cooperation from the client.
+
+The app now (a) routes a `deviceLocked` portal account to `/pending` — the
+code box — **and the check sits ABOVE the portal pin**, because that pin
+admits `/my-dues` and `/chat` and a revoked key must reach neither; and (b)
+re-reads `api_me()` on the auto-refresh tick, since `refreshAll` deliberately
+never touches the session and without it the old phone kept showing his dues
+until the app was restarted. ⚠ It is NOT a sign-out: `redeem_adeel_code`
+needs him signed in — it reads `auth.uid()` — so signing him out would send
+him back through Google to reach a box he could already type into.
+`test/revoked_key_test.dart` pins the ordering.
+
+`revoke_all_adeel_access(text)` (`PATCH_20260821j`) is the same act for
+everyone at once, behind its own phrase «مسح دخول المشتركين» — distinct from
+both purge phrases, compared with `<>`, so a wrong phrase in the wrong box is
+refused. ⚠ It deletes the codes rather than regenerating them (a new code
+lets in whoever still holds the old slip; an ABSENT code cannot be redeemed)
+and it leaves `adeel_id` alone, for the escalation reason below.
+
+⚠ **THE SQL EDITOR RUNS AS `postgres`, NOT AS AN ADMIN, so `auth.uid()` is
+NULL there and any `require_role()`-gated RPC fails with RUL00.** That is
+correct — those functions are for the app — but it means a maintenance task
+cannot be done by calling one from the dashboard. Do what
+`supabase/RUN_PURGE_ALL.sql` does: run the equivalent statements directly,
+which the editor is entitled to. This is also why the app's own purge button
+and the editor behave differently.
 
 `issue_adeel_code(bigint)` is admin-only and overwrites (one row each, so
 regenerating revokes the old code without signing out anyone already bound). It

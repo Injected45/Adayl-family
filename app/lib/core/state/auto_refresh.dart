@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/auth/presentation/auth_controller.dart';
 import 'refresh.dart';
 
 /// Keeps every figure in the app current, without anyone pressing anything.
@@ -83,6 +84,22 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   void _tick() {
     if (!_foreground || !mounted) return;
     refreshAll(ref);
+
+    // ── ومعها: هل ما زال مفتاحي صالحاً؟ ──────────────────────────────────
+    // ⚠ refreshAll DELIBERATELY DOES NOT TOUCH THE SESSION — the router guard
+    //   watches authControllerProvider, and a moment of «not signed in yet»
+    //   every forty-five seconds would bounce a man off the screen he was
+    //   reading. So it is exempt, and it must stay exempt.
+    //
+    // ⚠ BUT api_me() IS ALSO WHERE `deviceLocked` LIVES, and the association
+    //   asked that a reissued key close the app «فوراً». Without this the old
+    //   handset goes on showing his dues until he restarts, and the man given
+    //   a new key is not the only one holding one.
+    //
+    //   refreshProfile() re-reads api_me and re-derives the stage from it. It
+    //   never signs anybody out and never clears the session, so it is safe on
+    //   a timer in a way that invalidating the provider would not be.
+    unawaited(ref.read(authControllerProvider.notifier).refreshProfile());
   }
 
   @override

@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
+import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../data/call_repository.dart';
 import '../data/call_session.dart';
@@ -30,14 +31,35 @@ import 'providers.dart';
 
 
 
+/// ⚠ A CALL THAT CANNOT START MUST SAY SO. Both entry points below post to
+///   the server before any screen appears — start_call refuses anyone the
+///   thread does not admit, and answer_call refuses the SECOND person to
+///   press ردّ, which is a normal race rather than a fault. Without this the
+///   failure was silent: the button was pressed, nothing opened, and nothing
+///   said why.
+void _report(ScaffoldMessengerState messenger, L l, Object error) {
+  messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, error))));
+}
+
 /// Raise a call in [threadAdeelId] and open the in-call screen.
 Future<void> startCall(
   BuildContext context,
   WidgetRef ref,
   int? threadAdeelId,
 ) async {
+  final L l = L.of(context);
+  // Captured BEFORE the await: after it the widget may be gone and the
+  // context unusable — the same rule _generate() follows in receivables.
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final CallRepository repo = ref.read(callRepositoryProvider);
-  final int id = await repo.start(threadAdeelId);
+
+  final int id;
+  try {
+    id = await repo.start(threadAdeelId);
+  } on Object catch (e) {
+    _report(messenger, l, e);
+    return;
+  }
   if (!context.mounted) return;
 
   // ⚠ NO «caller» FLAG ANY MORE. Who offers whom is arithmetic: the man with
@@ -53,11 +75,26 @@ Future<void> answerCall(
   WidgetRef ref,
   CallView call,
 ) async {
+  final L l = L.of(context);
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final CallRepository repo = ref.read(callRepositoryProvider);
+
   // ⚠ ANSWERING IS JOINING. A two-person call is a mesh of two, so there is
   //   one verb for taking a seat and the group case is the general one — two
   //   verbs would be two code paths for the same act. join_call also turns
   //   «ترن» into «جارية» on the first seat taken.
+  //
+  // ⚠ AND IT CAN BE REFUSED FOR A GOOD REASON: the call ended while the
+  //   banner was on screen, or the room is full. Both are ordinary, and both
+  //   have to be said out loud rather than swallowed.
+  try {
+    await repo.join(call.id);
+  } on Object catch (e) {
+    _report(messenger, l, e);
+    await ref.read(incomingCallProvider.notifier).refresh();
+    return;
+  }
+  if (!context.mounted) return;
 
 
   await _open(
@@ -115,10 +152,17 @@ class _CallSheetState extends State<_CallSheet> {
           child: ValueListenableBuilder<CallPhase>(
             valueListenable: widget.session.phase,
             builder: (BuildContext context, CallPhase phase, _) {
-              // ⚠ THE SHEET CLOSES ITSELF ONLY ON A FAILURE, never on «ended».
-              //   A call that the other side hung up leaves «انتهت المكالمة» on
-              //   screen until it is dismissed: a sheet that vanished on its own
-              //   would leave the man unsure whether he hung up or lost signal.
+              // ⚠ THE SHEET NEVER CLOSES ITSELF — not on «انتهت», not on a
+              //   failure. A call the other side hung up leaves the words on
+              //   screen until the man dismisses them: a sheet that vanished
+              //   on its own would leave him unsure whether he hung up, was
+              //   hung up on, or lost signal — three different things that
+              //   want three different next moves.
+              //
+              //   (An earlier note here claimed it closed itself on failure.
+              //   It never did. A comment describing an intention the code
+              //   does not carry out is worse than none: the next reader
+              //   trusts it and hunts the bug somewhere else.)
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -271,12 +315,23 @@ class IncomingCallBanner extends ConsumerWidget {
     final CallView? call = ref.watch(incomingCallProvider).valueOrNull;
     final CallSession? active = ref.watch(activeCallProvider);
 
-    // Not ringing, mine, or already on it — three separate ways there is
-    // nothing to show, and each of them is a real state.
+    // Three separate ways there is nothing to show, and each is a real state:
+    // no call at all, one I raised myself, or one I am already sitting in.
+    //
+    // ⚠ AND «جارية» IS OFFERED TOO, NOT ONLY «ترن». A group call in المجلس is
+    //   live for as long as people are on it — a man who opens the app five
+    //   minutes in must still be able to join, and a banner that only ever
+    //   showed the first sixty seconds would make المجلس a call you can only
+    //   catch at the start.
+    //
+    //   Safe now that v_calls ENDS a «جارية» call whose seats are all empty
+    //   (PATCH_20260821i). Before that, an abandoned call stayed live forever
+    //   and this would have offered it for ever after.
     if (call == null ||
         active != null ||
         call.mine ||
-        call.status != CallStatusWire.ringing) {
+        (call.status != CallStatusWire.ringing &&
+            call.status != CallStatusWire.active)) {
       return const SizedBox.shrink();
     }
 
@@ -293,25 +348,49 @@ class IncomingCallBanner extends ConsumerWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                l.callIncoming(call.callerName),
+                call.status == CallStatusWire.ringing
+                    ? l.callIncoming(call.callerName)
+                    : l.callOngoing(call.callerName),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-            TextButton(
+            // ⚠ ICON BUTTONS, AND THIS IS NOT A STYLE CHOICE. A FilledButton
+            //   in this app is FULL WIDTH by theme — minimumSize is
+            //   Size.fromHeight(52), which is Size(double.infinity, 52) — so
+            //   putting one in a Row forces an infinite width and the layout
+            //   ASSERTS. This banner lives in AppScaffold, which every screen
+            //   builds, so that assert would have taken the whole app down the
+            //   instant the first call rang. A widget test found it; nothing
+            //   else would have, because no screen renders a call until one
+            //   arrives.
+            //
+            //   IconButtons carry their own finite minimumSize and are what a
+            //   call banner looks like anyway.
+            IconButton.filled(
               onPressed: () async {
                 await ref
                     .read(callRepositoryProvider)
                     .end(call.id, declined: true);
                 await ref.read(incomingCallProvider.notifier).refresh();
               },
-              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-              child: Text(l.callDecline),
+              tooltip: l.callDecline,
+              icon: const Icon(Icons.call_end),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: AppColors.onFill,
+              ),
             ),
-            FilledButton(
+            const SizedBox(width: AppSpacing.xs),
+            IconButton.filled(
               onPressed: () => answerCall(context, ref, call),
-              child: Text(l.callAnswer),
+              tooltip: l.callAnswer,
+              icon: const Icon(Icons.call),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: AppColors.onFill,
+              ),
             ),
           ],
         ),

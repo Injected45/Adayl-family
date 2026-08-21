@@ -213,6 +213,37 @@ String? _guard(Ref ref, GoRouterState state) {
   // This is presentation, as always. The database refuses him the same rows
   // whether or not this branch exists — supabase/tests/45_adeel_portal.sql and
   // 46_chat.sql are where that is actually proved.
+  // ── المفتاح الجديد يُبطل القديم، والتطبيق يُغلق فوراً ─────────────────────
+  //
+  // ⚠ THIS IS THE CONSTITUTION THE ASSOCIATION ASKED FOR, in its own words:
+  //   «عندما أُصدر مفتاحاً جديداً لمشترك يبطل القديم ويغلق التطبيق فوراً ولن
+  //   يفتح من جديد إلا بالمفتاح الجديد الذي يستلمه من الأدمن».
+  //
+  //   `deviceLocked` is api_me() answering «this account is bound to an عديل
+  //   and this handset is not the one holding it». It becomes true the
+  //   instant an admin reissues the code, because issue_adeel_code clears
+  //   profiles.device_id — so the old key is void and the old phone is out,
+  //   in one act.
+  //
+  // ⚠ ABOVE THE PORTAL PIN, NOT INSIDE IT, and that ordering is the whole
+  //   rule. The pin below allows /my-dues and /chat; a man whose key was
+  //   revoked must reach NEITHER. He goes to the one screen that can let him
+  //   back in — the code box — and nothing else in the app is reachable from
+  //   there.
+  //
+  // ⚠ AND IT IS NOT A SIGN-OUT. Signing him out would make him do Google
+  //   again to reach a box he could have typed into straight away, and
+  //   redeem_adeel_code needs him SIGNED IN — it reads auth.uid(). The
+  //   account stays; only its binding is gone.
+  //
+  //   Presentation, as always: with device_id cleared, my_adeel_id() already
+  //   returns NULL and every عديل-scoped policy hands him nothing. This turns
+  //   that emptiness into a sentence and a way out.
+  if ((auth.user?.isAdeelPortal ?? false) &&
+      (auth.user?.deviceLocked ?? false)) {
+    return location == AppRoutes.pending ? null : AppRoutes.pending;
+  }
+
   if (auth.user?.isAdeelPortal ?? false) {
     return portalMayOpen(location) ? null : AppRoutes.myDues;
   }

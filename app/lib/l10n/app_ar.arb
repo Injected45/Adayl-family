@@ -137,9 +137,26 @@
   "comingSoon": "قيد الإنشاء",
   "comingSoonBody": "سيتم بناء هذه الشاشة في مرحلة لاحقة.",
 
+  "iceCheck": "فحص مسار الاتصال",
+  "@iceCheck": {
+    "description": "Runs on ONE phone and answers the question that otherwise needs two: will a call connect to somebody on a different network. It gathers ICE candidates and reports which kinds came back."
+  },
+  "iceRunning": "جارٍ الفحص… قد يستغرق ١٢ ثانية",
+  "iceHost": "الشبكة المحلية",
+  "iceStun": "عنوانك العام (STUN)",
+  "iceRelay": "خادم التحويل (TURN)",
+  "iceGood": "المكالمات تعمل بين شبكتين مختلفتين",
+  "iceWifiOnly": "المكالمات ستعمل على نفس الشبكة فقط",
+  "@iceWifiOnly": {
+    "description": "No relay candidate came back. Two phones on different mobile networks will not connect. The fix is association_settings.ice_servers — a paid TURN — not a change to the app."
+  },
+  "iceNone": "لا يوجد اتصال بالشبكة",
+  "iceRelayNote": "إن لم يظهر خادم التحويل، الإصلاح في إعدادات قاعدة البيانات لا في التطبيق",
   "callTitle": "مكالمة صوتية",
   "callStart": "اتصال صوتي",
   "callIncoming": "{name} يتصل",
+  "callOngoing": "مكالمة جارية — {name}",
+  "@callOngoing": { "placeholders": { "name": { "type": "String" } } },
   "@callIncoming": { "placeholders": { "name": { "type": "String" } } },
   "callAnswer": "ردّ",
   "callDecline": "رفض",

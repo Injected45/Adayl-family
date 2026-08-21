@@ -311,6 +311,34 @@ class LAr extends L {
   String get comingSoonBody => 'سيتم بناء هذه الشاشة في مرحلة لاحقة.';
 
   @override
+  String get iceCheck => 'فحص مسار الاتصال';
+
+  @override
+  String get iceRunning => 'جارٍ الفحص… قد يستغرق ١٢ ثانية';
+
+  @override
+  String get iceHost => 'الشبكة المحلية';
+
+  @override
+  String get iceStun => 'عنوانك العام (STUN)';
+
+  @override
+  String get iceRelay => 'خادم التحويل (TURN)';
+
+  @override
+  String get iceGood => 'المكالمات تعمل بين شبكتين مختلفتين';
+
+  @override
+  String get iceWifiOnly => 'المكالمات ستعمل على نفس الشبكة فقط';
+
+  @override
+  String get iceNone => 'لا يوجد اتصال بالشبكة';
+
+  @override
+  String get iceRelayNote =>
+      'إن لم يظهر خادم التحويل، الإصلاح في إعدادات قاعدة البيانات لا في التطبيق';
+
+  @override
   String get callTitle => 'مكالمة صوتية';
 
   @override
@@ -319,6 +347,11 @@ class LAr extends L {
   @override
   String callIncoming(String name) {
     return '$name يتصل';
+  }
+
+  @override
+  String callOngoing(String name) {
+    return 'مكالمة جارية — $name';
   }
 
   @override
