@@ -818,29 +818,56 @@ class _Body extends StatelessWidget {
             color: mine ? AppColors.brand : GlassColors.stroke,
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              message.body,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: mine ? AppColors.onFill : AppColors.ink,
+        // ── الوقت في ذيل آخر سطر، لا في سطرٍ لنفسه ──────────────────────
+        //
+        // ⚠ ONE PARAGRAPH, NOT A COLUMN OF TWO. As a sibling Text the clock
+        //   claimed a whole line of its own under «تمام», and a room of short
+        //   replies became a column of half-empty bubbles twice as tall as
+        //   the words in them.
+        //
+        //   A WidgetSpan makes it the last thing IN the sentence, so it sits
+        //   at the tail of the final line when there is room and drops to its
+        //   own line only when there is not — which is what WhatsApp does and
+        //   what the association asked for.
+        //
+        // ⚠ PlaceholderAlignment.bottom, not baseline. Bottom sets the small
+        //   text on the line's floor, a couple of pixels under the body's
+        //   baseline — «أسفل منها بمليمترات». On the baseline the two would
+        //   read as one sentence and the clock would stop looking like a
+        //   timestamp.
+        //
+        // ⚠ AND THE GAP IS DIRECTIONAL. The span lands at the END of the last
+        //   line, which in this right-to-left room is its left edge — so the
+        //   space goes on `start`, and a physical `left` would put it on the
+        //   wrong side of the clock.
+        child: Text.rich(
+          TextSpan(
+            children: <InlineSpan>[
+              TextSpan(text: message.body),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.bottom,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: AppSpacing.sm,
+                  ),
+                  child: Text(
+                    formatTime(message.createdAt),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: mine
+                          ? AppColors.onFill.withValues(alpha: 0.75)
+                          : AppColors.muted,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              formatTime(message.createdAt),
-              style: TextStyle(
-                fontSize: 10,
-                color: mine
-                    ? AppColors.onFill.withValues(alpha: 0.75)
-                    : AppColors.muted,
-              ),
-            ),
-          ],
+            ],
+          ),
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: mine ? AppColors.onFill : AppColors.ink,
+          ),
         ),
       ),
     );

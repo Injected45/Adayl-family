@@ -102,9 +102,24 @@ _openWithRooms;
 late Future<void> Function(WidgetTester, List<ChatMessage>, {AppUser user})
 _openAs;
 
+/// A message BODY on screen.
+///
+/// ⚠ NOT find.text. The bubble puts the clock in the same paragraph as the
+///   words — a WidgetSpan at the tail of the last line, which is what makes a
+///   four-letter reply one line tall instead of two. That paragraph is a
+///   Text.rich, so its `data` is null and an exact find.text matches nothing;
+///   and its plain text carries the span placeholder, so even
+///   `findRichText: true` cannot match it exactly.
+///
+///   textContaining is the finder that survives both, and it is the more
+///   honest one anyway: these tests care that the words are on screen, never
+///   that they are the entire contents of a widget.
+Finder _body(String text) => find.textContaining(text, findRichText: true);
+
 void main() {
   _barBackTests();
   _markOnOpenTests();
+  _timeInlineTests();
   final L l = LAr();
   late _StubChat chat;
   final List<ChatThread> threads = <ChatThread>[];
@@ -183,9 +198,9 @@ void main() {
       _msg(id: 2, body: 'إن شاء الله نحضر', mine: true),
       _msg(id: 3, body: 'وأنا كذلك', author: 'سالم أحمد'),
     ]);
-    expect(find.text('اجتماع الجمعية يوم الجمعة'), findsOneWidget);
-    expect(find.text('إن شاء الله نحضر'), findsOneWidget);
-    expect(find.text('وأنا كذلك'), findsOneWidget);
+    expect(_body('اجتماع الجمعية يوم الجمعة'), findsOneWidget);
+    expect(_body('إن شاء الله نحضر'), findsOneWidget);
+    expect(_body('وأنا كذلك'), findsOneWidget);
   });
   testWidgets('a message from the board is marked as such', (
     WidgetTester tester,
@@ -224,8 +239,8 @@ void main() {
       _msg(id: 2, body: 'ثم كلام بعده', author: 'عمر علي'),
     ]);
     expect(find.text(l.chatDeleted), findsOneWidget);
-    expect(find.text('شيء قيل'), findsNothing);
-    expect(find.text('ثم كلام بعده'), findsOneWidget);
+    expect(_body('شيء قيل'), findsNothing);
+    expect(_body('ثم كلام بعده'), findsOneWidget);
   });
   testWidgets('typing and sending goes through the controller, trimmed', (
     WidgetTester tester,
@@ -249,7 +264,7 @@ void main() {
     await _openAs(tester, <ChatMessage>[
       _msg(id: 7, body: 'كلامي', mine: true),
     ]);
-    await tester.longPress(find.text('كلامي'));
+    await tester.longPress(_body('كلامي'));
     await tester.pumpAndSettle();
     expect(find.text(l.chatDeleteTitle), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, l.delete));
@@ -266,7 +281,7 @@ void main() {
     await _openAs(tester, <ChatMessage>[
       _msg(id: 8, body: 'كلام غيري', author: 'سالم أحمد'),
     ]);
-    await tester.longPress(find.text('كلام غيري'));
+    await tester.longPress(_body('كلام غيري'));
     await tester.pumpAndSettle();
     expect(find.text(l.chatDeleteTitle), findsNothing);
     expect(chat.deleted, 0);
@@ -280,7 +295,7 @@ void main() {
     await _openAs(tester, <ChatMessage>[
       _msg(id: 9, body: 'كلام يحتاج حذفاً', author: 'سالم أحمد'),
     ], user: _admin);
-    await tester.longPress(find.text('كلام يحتاج حذفاً'));
+    await tester.longPress(_body('كلام يحتاج حذفاً'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, l.delete));
     await tester.pumpAndSettle();
@@ -651,7 +666,7 @@ void _openThreadTests() {
       _msg(id: 1, body: 'متى الاجتماع؟', author: 'أيمن صالح', authorAdeelId: 6),
     ], user: _admin);
 
-    await tester.tap(find.text('متى الاجتماع؟'));
+    await tester.tap(_body('متى الاجتماع؟'));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
@@ -669,7 +684,7 @@ void _openThreadTests() {
 
     await tester.tap(find.text('سالم أحمد'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('متى الاجتماع؟'));
+    await tester.tap(_body('متى الاجتماع؟'));
     await tester.pumpAndSettle();
 
     // Still the open room, and never someone else's thread.
@@ -688,7 +703,7 @@ void _openThreadTests() {
       _msg(id: 1, body: 'اجتماع الجمعية', author: 'المهدي', fromStaff: true),
     ], user: _admin);
 
-    await tester.tap(find.text('اجتماع الجمعية'));
+    await tester.tap(_body('اجتماع الجمعية'));
     await tester.pumpAndSettle();
 
     expect(find.text(l.chatHall), findsOneWidget);
@@ -764,8 +779,8 @@ void _keyboardTests() {
     addTearDown(() => tester.view.resetViewInsets());
     await tester.pumpAndSettle();
 
-    expect(find.text('أهلاً بكم'), findsOneWidget);
-    expect(find.text('وعليكم السلام'), findsOneWidget);
+    expect(_body('أهلاً بكم'), findsOneWidget);
+    expect(_body('وعليكم السلام'), findsOneWidget);
     // And the box is still reachable, which is the other half of usable.
     expect(find.byType(TextField), findsOneWidget);
   });
@@ -825,7 +840,7 @@ void _barBackTests() {
       _msg(id: 1, body: 'متى الاجتماع؟', author: 'أيمن صالح', authorAdeelId: 6),
     ], user: _admin);
 
-    await tester.tap(find.text('متى الاجتماع؟'));
+    await tester.tap(_body('متى الاجتماع؟'));
     await tester.pumpAndSettle();
 
     // One of each, never two of one: the bar leaves الشاشة and the header
@@ -894,5 +909,87 @@ void _markOnOpenTests() {
     await tester.pumpAndSettle();
 
     expect(await reads.lastRead(), 99);
+  });
+}
+
+/// ── الوقت في ذيل السطر، لا في سطرٍ لنفسه ─────────────────────────────────────
+///
+/// «يظهر الكتابه في سطر والساعه في سطر تحتها … اريد الساعه اسفل منها بمليمترات
+/// من اخر سطر محادثة، مثل ماهو متبع في الواتساب».
+///
+/// ⚠ AS A SIBLING Text THE CLOCK CLAIMED A WHOLE LINE. «تمام» is four letters
+///   and its bubble was two lines tall — a room of short replies became a
+///   column of half-empty boxes. A WidgetSpan makes the clock the last thing IN
+///   the sentence: tail of the final line when there is room, its own line only
+///   when there is not.
+void _timeInlineTests() {
+  /// The bubble's paragraph, found by its CONTENT.
+  ///
+  /// ⚠ RichText, not Text, and not an ancestor of a find.text. The words and
+  ///   the clock are one paragraph now, so there is no inner Text to climb out
+  ///   of — and RichText is what a Text actually builds, so this reads the
+  ///   thing that was rendered rather than the widget that described it.
+  InlineSpan spanOf(WidgetTester tester, String body) => tester
+      .widgetList<RichText>(find.byType(RichText))
+      .firstWhere((RichText w) => w.text.toPlainText().contains(body))
+      .text;
+
+  /// Every leaf of a paragraph, in order.
+  ///
+  /// ⚠ FLATTENED RATHER THAN INDEXED. Text.rich wraps whatever it is given in
+  ///   a span carrying the effective style, so the pieces sit one level deeper
+  ///   than they were written — and a test that reached for `children[1]`
+  ///   would be asserting Flutter's nesting, not this bubble's layout.
+  List<InlineSpan> leaves(InlineSpan root) {
+    final List<InlineSpan> out = <InlineSpan>[];
+    void walk(InlineSpan s) {
+      if (s is TextSpan) {
+        if (s.text != null) out.add(s);
+        for (final InlineSpan c in s.children ?? const <InlineSpan>[]) {
+          walk(c);
+        }
+      } else {
+        out.add(s);
+      }
+    }
+
+    walk(root);
+    return out;
+  }
+
+  testWidgets('the clock rides the sentence rather than sitting under it', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'تمام')]);
+
+    final List<InlineSpan> parts = leaves(spanOf(tester, 'تمام'));
+
+    // Two pieces in ONE paragraph: the words, then the clock.
+    expect(parts.length, 2);
+    expect((parts.first as TextSpan).text, 'تمام');
+    expect(parts.last, isA<WidgetSpan>());
+  });
+
+  testWidgets('⚠ and it sits on the line floor, not on the baseline', (
+    WidgetTester tester,
+  ) async {
+    // Baseline would set the two flush and the clock would read as part of the
+    // sentence. Bottom drops it a couple of pixels — «أسفل منها بمليمترات».
+    await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'تمام')]);
+
+    final WidgetSpan clock =
+        leaves(spanOf(tester, 'تمام')).last as WidgetSpan;
+    expect(clock.alignment, PlaceholderAlignment.bottom);
+  });
+
+  testWidgets('and a short reply is no taller than its own words', (
+    WidgetTester tester,
+  ) async {
+    // The whole point, measured: one line of text plus padding, not two.
+    await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'تمام')]);
+
+    final Size bubble = tester.getSize(_body('تمام').first);
+    // 14px at height 1.5 is 21; two lines could not fit under 34.
+    expect(bubble.height, lessThan(34));
   });
 }
