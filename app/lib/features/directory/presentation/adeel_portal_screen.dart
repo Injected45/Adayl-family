@@ -678,64 +678,71 @@ class _BalanceHero extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Row(
                 children: <Widget>[
+                  // ── الكود في المربّع، والاسم بجانبه ───────────────────
+                  // ⚠ THE CODE, NOT AN INITIAL. A first letter is decoration:
+                  //   it identifies nobody, and on a page that shows one man
+                  //   his own record it identifies him least of all. «A-04» is
+                  //   what the association calls him on every receipt and
+                  //   every voucher, and it is what he is asked for on the
+                  //   phone — so it belongs in the one place the eye goes
+                  //   first, not in a caption under his name.
                   Container(
                     width: 42,
                     height: 42,
                     alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: AppColors.brandSoft,
                       borderRadius: BorderRadius.circular(AppRadius.chip),
                     ),
-                    child: Text(
-                      adeel.fullName.characters.take(1).toString(),
-                      style: const TextStyle(
-                        fontFamily: AppFonts.display,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.brandDeep,
+                    // ⚠ SCALED DOWN, NEVER CLIPPED. «A-04» fits at 14; the
+                    //   day the register passes ninety-nine it becomes «A-100»
+                    //   and a fixed size would crop the last digit — which on
+                    //   a code is not a cosmetic loss but a wrong identity.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        adeel.adeelCode,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.display,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.brandDeep,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
                       children: <Widget>[
-                        Text(
-                          adeel.fullName,
-                          // Two lines then ellipsis: a long Libyan name on a
-                          // 360dp phone must not push the status badge off the
-                          // card, and must not be silently truncated at one
-                          // line either.
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            height: 1.25,
-                            fontWeight: FontWeight.w800,
+                        // ⚠ Flexible, so a long Libyan name shortens itself
+                        //   rather than pushing the affordance — and then the
+                        //   status badge — off the edge of the card.
+                        Flexible(
+                          child: Text(
+                            adeel.fullName,
+                            // One line now that the code has left the column.
+                            // Two would leave the square hanging beside a
+                            // block of text instead of a line.
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              height: 1.25,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Text(
-                              adeel.adeelCode,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // The affordance. A name that opens something and
-                            // does not say so is a feature nobody finds, and
-                            // this one is now the ONLY way to his details.
-                            const Icon(
-                              Icons.info_outline,
-                              size: 13,
-                              color: AppColors.muted,
-                            ),
-                          ],
+                        const SizedBox(width: 4),
+                        // The affordance. A name that opens something and does
+                        // not say so is a feature nobody finds, and this is
+                        // still the ONLY way to his details.
+                        const Icon(
+                          Icons.info_outline,
+                          size: 13,
+                          color: AppColors.muted,
                         ),
                       ],
                     ),

@@ -88,6 +88,7 @@ void main() {
   final L l = LAr();
   _portalUnreadTests();
   _portalCapsuleTests();
+  _portalHeaderTests();
 
   Widget app(
     AdeelDetail detail, [
@@ -761,5 +762,89 @@ void _portalCapsuleTests() {
     await open(tester);
     expect(find.byIcon(Icons.restart_alt), findsOneWidget);
     expect(find.byIcon(Icons.refresh), findsOneWidget);
+  });
+}
+
+/// ── الكود في المربّع، والاسم بجانبه في سطر واحد ─────────────────────────────
+///
+/// «مربع به حرف ثم الاسم واسفل من الاسم تجد الكود A-04 … اريد الكود في المربع
+/// الذي يسبق اسم المشترك ويبقى سطر واحد».
+///
+/// ⚠ A FIRST LETTER IDENTIFIES NOBODY, and on the one page that shows a man his
+///   own record it identifies him least of all. «A-01» is what the association
+///   calls him on every receipt and every voucher, and what he is asked for on
+///   the phone — so it belongs where the eye lands first, not in a caption.
+void _portalHeaderTests() {
+  Widget host() => ProviderScope(
+    overrides: <Override>[
+      authControllerProvider.overrideWith(_StubAuth.new),
+      adeelDetailProvider(1).overrideWith(
+        (Ref ref) async =>
+            _detail(debt: '0.00', receivables: const <Map<String, dynamic>>[]),
+      ),
+      statementProvider(1).overrideWith(
+        (Ref ref) async => const Statement(
+          movements: <StatementMovement>[],
+          closingBalance: '0.00',
+        ),
+      ),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('ar'),
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
+      supportedLocales: L.supportedLocales,
+      home: const AdeelPortalScreen(),
+    ),
+  );
+
+  Future<void> open(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(411, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('the code is in the square and the initial is gone', (
+    WidgetTester tester,
+  ) async {
+    await open(tester);
+
+    expect(find.text('A-01'), findsWidgets);
+    // ⚠ The initial must be GONE, not merely joined by the code. Both would be
+    //   two identifiers for one man on one row, and the weaker one is louder.
+    expect(find.text('ا'), findsNothing);
+  });
+
+  testWidgets('...and the code sits BEFORE the name, level with it', (
+    WidgetTester tester,
+  ) async {
+    await open(tester);
+
+    final Offset code = tester.getCenter(find.text('A-01').first);
+    final Offset name = tester.getCenter(find.text('المهدي العدولي'));
+
+    // ⚠ LEVEL, not stacked — that is the whole request. Compared by centre and
+    //   not by top, because the two are different sizes and their tops differ
+    //   by a pixel or two while sitting on the same row.
+    expect((code.dy - name.dy).abs(), lessThan(4));
+
+    // And BEFORE it, which in this right-to-left screen is further right.
+    expect(code.dx, greaterThan(name.dx));
+  });
+
+  testWidgets('a very long name shortens itself and never pushes the code out', (
+    WidgetTester tester,
+  ) async {
+    await open(tester);
+
+    // The square keeps its whole width whatever the name does — a code clipped
+    // to «A-0» is not a shorter code, it is a different man.
+    final Size square = tester.getSize(
+      find.ancestor(of: find.text('A-01').first, matching: find.byType(Container)).first,
+    );
+    expect(square.width, 42);
   });
 }
