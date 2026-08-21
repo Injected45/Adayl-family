@@ -144,15 +144,12 @@ BEGIN
     RAISE EXCEPTION
       'SIGN-IN: % account(s) exist with no profiles row. They can sign in and '
       'are then told «لا يوجد سجل لهذا الحساب», which nothing they do will '
-      'fix. Nothing has been committed. Run this first, then re-run: '
-      'INSERT INTO public.profiles (id, email, display_name, picture_url) '
-      'SELECT u.id, coalesce(u.email, \'\'), '
-      'coalesce(u.raw_user_meta_data ->> \'full_name\', '
-      'u.raw_user_meta_data ->> \'name\', '
-      'split_part(coalesce(u.email, \'\'), \'@\', 1)), '
-      'u.raw_user_meta_data ->> \'avatar_url\' FROM auth.users u '
-      'WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id) '
-      'ON CONFLICT DO NOTHING;', v_orphans USING ERRCODE = 'RUL01';
+      'fix — trg_auth_user_created fires on INSERT into auth.users, and '
+      'signing in inserts nothing. Nothing has been committed. Apply '
+      'supabase/PATCH_20260820e_purge_keeps_signin.sql, whose first '
+      'statement backfills exactly these accounts, then re-run this.',
+      v_orphans
+      USING ERRCODE = 'RUL01';
   END IF;
 END $$;
 
