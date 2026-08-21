@@ -432,6 +432,14 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) => GlassCard(child: child);
 }
 
+/// The months that cost something other than the standard fee.
+///
+/// Empty on a database that predates the column, so the row simply does not
+/// render rather than showing an orphan «ماعدا».
+Map<String, String> _exceptions(WidgetRef ref) =>
+    ref.watch(settingsProvider).valueOrNull?.feeExceptions ??
+    const <String, String>{};
+
 class _DetailsBody extends ConsumerWidget {
   const _DetailsBody({required this.adeelId});
 
@@ -465,6 +473,17 @@ class _DetailsBody extends ConsumerWidget {
                   label: l.monthlyFeeLabel,
                   value: formatMoney(d.monthlyExpected),
                 ),
+                // ── ماعدا ──────────────────────────────────────────────
+                // ⚠ THE FEE ABOVE IS INCOMPLETE WITHOUT THIS the moment the
+                //   association prices a month differently, and incomplete is
+                //   worse than missing: nothing about «100» invites the second
+                //   look that would correct it. He is the one who pays it, so
+                //   he is the one who must not be surprised in يناير.
+                if (_exceptions(ref).isNotEmpty)
+                  SectionRow(
+                    label: l.feeExceptionLabel,
+                    value: formatFeeExceptions(_exceptions(ref), ''),
+                  ),
               ],
             ),
           ),

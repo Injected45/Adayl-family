@@ -193,6 +193,32 @@ class ArabicDigitsFormatter extends TextInputFormatter {
 /// homes in this project and a formatter is neither of them.
 String monthName(int month) => _monthOnlyFormat.format(DateTime(2000, month));
 
+/// «ماعدا يناير 200 · يونيو 200» — the months that cost something else.
+///
+/// ⚠ WHY IT EXISTS AT ALL. «الاشتراك الشهري: 100» is a complete answer only
+///   while every month costs 100. The association set يناير and يونيو to a
+///   different figure, and from that moment the card was NOT WRONG BUT
+///   INCOMPLETE — the worst kind of screen, because nothing on it invites a
+///   second look. generate_period bills the month's own rate; this is the
+///   same fact, said where a man reads his fee.
+///
+/// ⚠ Sorted by month, never by insertion. A jsonb object keeps whatever
+///   order it was written in, so without this the line reorders itself every
+///   time an admin edits the settings.
+///
+/// Empty when there are no exceptions, so the caller renders nothing rather
+/// than an orphan «ماعدا».
+String formatFeeExceptions(Map<String, String> exceptions, String label) {
+  if (exceptions.isEmpty) return '';
+  final List<String> keys = exceptions.keys.toList()..sort();
+  final Iterable<String> parts = keys.map((String k) {
+    final int? m = int.tryParse(k);
+    final String name = (m == null || m < 1 || m > 12) ? k : monthName(m);
+    return '$name ${formatMoney(exceptions[k])}';
+  });
+  return '$label ${parts.join(' · ')}';
+}
+
 /// «YYYY-MM» → the month name alone, for a chart axis.
 ///
 /// ⚠ NO YEAR, unlike formatPeriodMonth. That one prints «ديسمبر 2025» when

@@ -916,6 +916,9 @@ class LAr extends L {
   String get feeExceptionLabel => 'ماعدا';
 
   @override
+  String get backAction => 'رجوع';
+
+  @override
   String get feeExceptionAdd => 'إضافة شهر مستثنى';
 
   @override

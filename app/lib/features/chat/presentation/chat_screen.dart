@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
@@ -280,6 +281,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return AppScaffold(
       title: l.navChat,
       currentRoute: AppRoutes.chat,
+      // ── سهم الرجوع ──────────────────────────────────────────────────
+      // ⚠ THIS ROOM IS REACHED WITH context.go, WHICH REPLACES THE
+      //   LOCATION — so there is nothing on the stack for a back gesture to
+      //   pop, and on Android the system button puts the reader out of the
+      //   app entirely. Without a control here the room is a one-way door,
+      //   which is what the association reported.
+      //
+      // ⚠ AND IT LEAVES THE SCREEN, never the thread. The thread already has
+      //   its own arrow, inside _ThreadHeader, one row lower. Two controls
+      //   that both mean «back» are only confusing when they mean the SAME
+      //   back: the bar leaves الشاشة, the header leaves المحادثة, and they
+      //   sit at the two levels a reader already distinguishes.
+      //
+      // ⚠ A CHEVRON, AND arrow_forward IS DELIBERATELY LEFT TO THE THREAD.
+      //   Both point right, because the app is right-to-left and «back»
+      //   points right — but two IDENTICAL glyphs on one screen meaning two
+      //   different journeys is the thing the old note here warned about, and
+      //   the widget tests proved it: they use arrow_forward as the marker
+      //   for «I am inside a private thread», and a second copy in the bar
+      //   made that finder ambiguous. Different weight, different level: the
+      //   chevron leaves the screen, the solid arrow leaves the thread.
+      leading: IconButton(
+        onPressed: () =>
+            context.go(isMember ? AppRoutes.myDues : AppRoutes.home),
+        icon: const Icon(Icons.arrow_forward_ios, size: 18),
+        tooltip: l.backAction,
+      ),
       body: (BuildContext context) => Column(
         children: <Widget>[
           Padding(

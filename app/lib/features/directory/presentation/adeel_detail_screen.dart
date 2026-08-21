@@ -107,6 +107,11 @@ class AdeelDetailScreen extends ConsumerWidget {
     );
     final String currency =
         ref.watch(settingsProvider).valueOrNull?.currency ?? '';
+    // Read from the same settings row the fee itself comes from, so the two
+    // can never describe different configurations.
+    final Map<String, String> exceptions =
+        ref.watch(settingsProvider).valueOrNull?.feeExceptions ??
+        const <String, String>{};
 
     final AppRole role =
         ref.watch(authControllerProvider).user?.role ?? AppRole.viewer;
@@ -240,7 +245,11 @@ class AdeelDetailScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.lg),
               ],
 
-              _SummaryCard(detail: detail, currency: currency),
+              _SummaryCard(
+                detail: detail,
+                currency: currency,
+                exceptions: exceptions,
+              ),
               const SizedBox(height: AppSpacing.lg),
 
               // ── What the association GAVE him ───────────────────────────
@@ -380,10 +389,20 @@ void _showPersonalData(BuildContext context, AdeelView adeel) {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.detail, required this.currency});
+  const _SummaryCard({
+    required this.detail,
+    required this.currency,
+    required this.exceptions,
+  });
 
   final AdeelDetail detail;
   final String currency;
+
+  /// «ماعدا» — passed in rather than watched here, for the same reason the
+  /// currency is: this card is a StatelessWidget and the screen above it
+  /// already holds the settings. Two watchers of one provider is two places
+  /// to forget an invalidation.
+  final Map<String, String> exceptions;
 
   @override
   Widget build(BuildContext context) {
@@ -504,6 +523,22 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ],
             ),
+            // ── ماعدا ─────────────────────────────────────────────────
+            // ⚠ «الاشتراك الشهري: 100» stopped being the whole answer the
+            //   day the association priced يناير differently. The card was
+            //   not wrong, it was INCOMPLETE — and an incomplete figure is
+            //   worse than a missing one, because nothing about it invites
+            //   the second look that would correct it.
+            //
+            //   One line, only when there are exceptions, directly under the
+            //   fee it qualifies.
+            if (exceptions.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                formatFeeExceptions(exceptions, l.feeExceptionLabel),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ],
             if (currency.isNotEmpty) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
               Text(currency, style: Theme.of(context).textTheme.labelSmall),

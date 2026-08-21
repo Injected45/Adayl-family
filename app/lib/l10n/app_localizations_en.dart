@@ -917,6 +917,9 @@ class LEn extends L {
   String get feeExceptionLabel => 'Except';
 
   @override
+  String get backAction => 'Back';
+
+  @override
   String get feeExceptionAdd => 'Add an excepted month';
 
   @override

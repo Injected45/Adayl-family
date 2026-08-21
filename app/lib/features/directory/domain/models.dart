@@ -26,6 +26,7 @@ class AssociationSettingsView {
     required this.bankName,
     required this.bankAccountNo,
     required this.bankAccountName,
+    this.feeExceptions = const <String, String>{},
   });
 
   final String associationName;
@@ -42,6 +43,18 @@ class AssociationSettingsView {
   final String bankAccountNo;
   final String bankAccountName;
 
+  /// «ماعدا» — the calendar months that cost something other than [memberFee].
+  ///
+  /// ⚠ ON THE WIDELY READABLE VIEW, deliberately, and not only on the
+  ///   admin-only settings shape. An عديل reads v_settings too, and the fee is
+  ///   printed on HIS page as well — «الاشتراك الشهري: 100» is not wrong when
+  ///   يناير costs 200, it is INCOMPLETE, and an incomplete figure invites no
+  ///   second look. Same reasoning that put the bank account here.
+  ///
+  /// ⚠ AND IT DEFAULTS TO EMPTY rather than being required, so a database that
+  ///   predates the column renders no line instead of failing to parse.
+  final Map<String, String> feeExceptions;
+
   bool get hasBankAccount => bankAccountNo.trim().isNotEmpty;
 
   factory AssociationSettingsView.fromJson(Map<String, dynamic> json) =>
@@ -55,6 +68,13 @@ class AssociationSettingsView {
         bankName: _string(json['bankName']),
         bankAccountNo: _string(json['bankAccountNo']),
         bankAccountName: _string(json['bankAccountName']),
+        feeExceptions: <String, String>{
+          for (final MapEntry<String, dynamic> e in (json['feeExceptions']
+                      as Map<String, dynamic>? ??
+                  const <String, dynamic>{})
+              .entries)
+            e.key: _string(e.value),
+        },
       );
 }
 

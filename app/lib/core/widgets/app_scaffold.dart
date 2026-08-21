@@ -39,6 +39,7 @@ class AppScaffold extends ConsumerWidget {
     required this.currentRoute,
     this.actions,
     this.floatingActionButton,
+    this.leading,
     super.key,
   });
 
@@ -66,6 +67,14 @@ class AppScaffold extends ConsumerWidget {
   final String currentRoute;
   final List<Widget>? actions;
   final Widget? floatingActionButton;
+
+  /// A control for the far side of the bar, when a screen has somewhere
+  /// specific to send the reader.
+  ///
+  /// ⚠ IT OVERRIDES THE PORTAL HOUSE BELOW, and that is the point: a screen
+  ///   that knows its own way out says so, and one that does not gets the
+  ///   default. Two rules for one slot, with the screen winning.
+  final Widget? leading;
 
   static const double _railBreakpoint = 600;
   static const double _drawerBreakpoint = 1024;
@@ -192,7 +201,8 @@ class AppScaffold extends ConsumerWidget {
           //
           // Only for him: staff have the pill, and a second way back would be
           // a control that does what the bar underneath already does.
-          leading: portal
+          leading: leading ??
+              (portal
               ? IconButton(
                   onPressed: () => context.go(AppRoutes.myDues),
                   // A HOUSE, not a back arrow. Two reasons, and the second is
@@ -204,7 +214,7 @@ class AppScaffold extends ConsumerWidget {
                   icon: const Icon(Icons.home_outlined),
                   tooltip: l.myFamilyTitle,
                 )
-              : null,
+              : null),
         ),
         // EVERYTHING that floats over the body is added up here, once, and
         // published as one number. A screen asks `bottomInset(context)` and gets

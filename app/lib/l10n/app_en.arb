@@ -299,6 +299,7 @@
   "currencyField": "Currency",
   "memberFeeField": "Monthly member fee",
   "feeExceptionLabel": "Except",
+  "backAction": "Back",
   "feeExceptionAdd": "Add an excepted month",
   "systemStartField": "System start date",
   "fullNameField": "Name",

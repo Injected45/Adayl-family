@@ -101,6 +101,7 @@ late Future<void> Function(WidgetTester, List<ChatMessage>, {AppUser user})
 _openAs;
 
 void main() {
+  _barBackTests();
   final L l = LAr();
   late _StubChat chat;
   final List<ChatThread> threads = <ChatThread>[];
@@ -782,5 +783,51 @@ void _keyboardTests() {
     await tester.pumpAndSettle();
 
     expect(_lastSent(), 'مرحبا');
+  });
+}
+
+/// ── سهم الرجوع في الشريط ────────────────────────────────────────────────────
+///
+/// The room is reached with `context.go`, which REPLACES the location — so
+/// there is nothing on the stack to pop and Android's system button leaves the
+/// app. Without a control in the bar the room is a one-way door, which is how
+/// the association found it.
+///
+/// ⚠ AND IT MUST NOT BE THE SAME GLYPH AS THE THREAD'S. Both point right,
+///   because «back» points right in a right-to-left app — but the first attempt
+///   used arrow_forward for both, and the tests above went ambiguous instantly:
+///   they use that icon as the marker for «I am inside a private thread». The
+///   bar wears a chevron; the thread keeps the solid arrow.
+void _barBackTests() {
+  testWidgets('the bar carries a way out of the room, at every moment', (
+    WidgetTester tester,
+  ) async {
+    await _pumpChat(tester, _admin);
+    expect(find.byIcon(Icons.arrow_forward_ios), findsOneWidget);
+    // …and the thread marker is NOT showing, because no thread is open.
+    expect(find.byIcon(Icons.arrow_forward), findsNothing);
+  });
+
+  testWidgets('...and a member has one too — his portal is not a dead end', (
+    WidgetTester tester,
+  ) async {
+    await _pumpChat(tester, _member);
+    expect(find.byIcon(Icons.arrow_forward_ios), findsOneWidget);
+  });
+
+  testWidgets('⚠ and the two arrows stay distinguishable inside a thread', (
+    WidgetTester tester,
+  ) async {
+    await _openAs(tester, <ChatMessage>[
+      _msg(id: 1, body: 'متى الاجتماع؟', author: 'أيمن صالح', authorAdeelId: 6),
+    ], user: _admin);
+
+    await tester.tap(find.text('متى الاجتماع؟'));
+    await tester.pumpAndSettle();
+
+    // One of each, never two of one: the bar leaves الشاشة and the header
+    // leaves المحادثة, and a reader has to be able to tell them apart.
+    expect(find.byIcon(Icons.arrow_forward_ios), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
   });
 }

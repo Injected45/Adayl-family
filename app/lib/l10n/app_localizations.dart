@@ -1729,6 +1729,12 @@ abstract class L {
   /// **'ماعدا'**
   String get feeExceptionLabel;
 
+  /// No description provided for @backAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'رجوع'**
+  String get backAction;
+
   /// No description provided for @feeExceptionAdd.
   ///
   /// In ar, this message translates to:
