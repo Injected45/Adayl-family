@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/realtime/doorbell.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../data/chat_repository.dart';
 import '../domain/models.dart';
@@ -72,20 +74,35 @@ class ChatController
   //   consolation: real conversations are short bursts inside long silences.
   //   A five-minute exchange costs about ninety extra requests; the twenty-five
   //   idle minutes around it save two hundred and fifty.
-  static const Duration live = Duration(seconds: 1);
+  /// ⚠ 600 ms, MEASURED AGAINST WHAT THE TICK ACTUALLY COSTS. Four ticks in
+  ///   five ask only for ids above the newest — a few bytes on an empty
+  ///   answer — so the fast tier was never the expense; the sweep is, and
+  ///   [sweepEvery] holds that constant. Worst-case wait for a reply drops
+  ///   from a second plus the round trip to six-tenths plus it.
+  static const Duration live = Duration(milliseconds: 600);
 
-  /// ⚠ THREE, NOT SIX. Six was chosen while the demotion did not work, so
-  ///   nothing had ever run on it — the room was always on the one-second
-  ///   tier and the figure was theoretical. Now that it bites, it is what a
-  ///   man waiting on a reply actually feels, and «بسرعة» is what the
-  ///   association asked for. Three still cuts an idle screen to a third of
-  ///   its traffic.
-  static const Duration idle = Duration(seconds: 3);
+  /// ⚠ 1.5 s, AND THE OLD THREE WAS PENALISING EXACTLY THE WRONG MESSAGE. The
+  ///   demotion fires after a silence — so the message it delays is the FIRST
+  ///   ONE AFTER A PAUSE, which is precisely the one somebody is waiting for.
+  ///   A conversation is not slow because its fifth reply took a second; it is
+  ///   slow because the first one took three.
+  ///
+  /// ⚠ AND THE SAVING WAS NEVER REAL WHILE THE ROOM IS OPEN. This screen only
+  ///   exists while somebody is looking at it, which means the DISPLAY is lit —
+  ///   and a lit phone display draws orders of magnitude more than one small
+  ///   request a second. Demoting for battery here optimised the cheap half.
+  ///   What genuinely matters is the app in a POCKET, and that is the
+  ///   background heartbeat's ten seconds, not this.
+  static const Duration idle = Duration(milliseconds: 1500);
 
   /// How long a room stays on the fast clock after the last thing happened in
-  /// it. Long enough to cover the pause while the other man is typing his
-  /// answer, short enough that a room left open on a desk goes quiet by itself.
-  static const Duration liveFor = Duration(seconds: 40);
+  /// it.
+  ///
+  /// ⚠ NINETY SECONDS, NOT FORTY. Forty is shorter than an ordinary pause in a
+  ///   conversation — a man reading, thinking, typing a long answer — so the
+  ///   room kept falling to the slow clock in the middle of an exchange rather
+  ///   than at the end of one.
+  static const Duration liveFor = Duration(seconds: 90);
 
   /// Ticks since anything changed. Counted rather than timed so it needs no
   /// clock of its own and cannot drift.
@@ -105,7 +122,17 @@ class ChatController
   ///   therefore reaches the other handsets within five seconds instead of one,
   ///   which is the right thing to make slower: nobody is waiting on a
   ///   tombstone the way they wait on a reply.
-  static const int sweepEvery = 5;
+  /// ⚠ EIGHT, NOT FIVE, AND THE NUMBER MOVED WITH [live]. This counts TICKS,
+  ///   not seconds — so speeding the clock from 1000 ms to 600 ms would have
+  ///   made the expensive sweep fire every three seconds instead of every five,
+  ///   quietly raising the one cost this whole scheme exists to control. Eight
+  ///   ticks at 600 ms is 4.8 s, which is what five at 1000 ms was.
+  ///
+  ///   Keep the product `sweepEvery × live` near five seconds if either moves.
+  ///   A tombstone reaching the other handsets in five seconds is right; a
+  ///   reply taking five seconds is not, and they are deliberately not the same
+  ///   number.
+  static const int sweepEvery = 8;
   int _tick = 0;
 
   @override
@@ -118,6 +145,19 @@ class ChatController
     _stop();
     _quietTicks = 0;
     _restartAt(live);
+
+    // ── والجرس، فوق الساعة ──────────────────────────────────────────────
+    // ⚠ IT DOES NOT REPLACE THE CLOCK, it interrupts it. The poll above is
+    //   what makes the room correct; this is what makes it fast. If the
+    //   websocket never connects — a carrier that blocks them, Realtime not
+    //   enabled — the room behaves exactly as it did before this line.
+    final VoidCallback deafen = ref.read(doorbellProvider).listen((Ring r) {
+      if (r != Ring.chat) return;
+      _wakeUp();
+      unawaited(_reload());
+    });
+
+    ref.onDispose(deafen);
     ref.onDispose(_stop);
     return ref.read(chatRepositoryProvider).messages(threadAdeelId: arg);
   }
@@ -260,6 +300,13 @@ class ChatController
   /// the one person who must never wonder whether it went.
   Future<void> send(String body) async {
     await ref.read(chatRepositoryProvider).send(body, threadAdeelId: arg);
+    // ── ثم دُقّ الجرس ───────────────────────────────────────────────────────
+    // ⚠ AFTER THE WRITE, NEVER BEFORE IT, AND NEVER AWAITED. The ring announces
+    //   something that has already happened; ringing first would wake every
+    //   handset to read a message that might yet fail to save. And the send
+    //   button must not wait on a websocket — the message is saved, which is
+    //   the part he needs to be sure of.
+    ref.read(doorbellProvider).ring(Ring.chat);
     // ⚠ SENDING PUTS THE ROOM BACK ON THE FAST CLOCK, and this is the half the
     //   sender actually feels: he has just spoken, so an answer is more likely
     //   in the next twenty seconds than at any other moment. Without it a room
@@ -270,6 +317,9 @@ class ChatController
 
   Future<void> remove(int id) async {
     await ref.read(chatRepositoryProvider).delete(id);
+    // A deletion changes a row already on the other man's screen, and only the
+    // five-second sweep would otherwise find it.
+    ref.read(doorbellProvider).ring(Ring.chat);
     _wakeUp();
     await _reload();
   }

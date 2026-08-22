@@ -1,20 +1,37 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/domain/wire_values.dart';
 import '../../../core/notify/notifier.dart';
 import '../../../core/notify/notify_text.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/call_repository.dart';
+import '../data/call_ringtone.dart';
 import '../data/call_session.dart';
 import '../domain/models.dart';
 
 final Provider<CallRepository> callRepositoryProvider = Provider<CallRepository>(
   (Ref ref) => CallRepository(ref.watch(supabaseClientProvider)),
 );
+
+/// نغمة الرنين — واحدة للتطبيق كلّه.
+///
+/// ⚠ NOT AUTO-DISPOSED, and that is the point. A tone that loops has to be
+///   stoppable by whoever notices the call ended, and the object holding the
+///   platform player must outlive the banner that started it — a disposed
+///   provider would drop the only reference to a player still sounding.
+final Provider<CallRingtone> callRingtoneProvider = Provider<CallRingtone>((
+  Ref ref,
+) {
+  final CallRingtone tone = CallRingtone();
+  ref.onDispose(tone.dispose);
+  return tone;
+});
 
 /// المكالمة الواردة — watched from every screen in the app.
 ///
@@ -37,7 +54,18 @@ incomingCallProvider =
     AutoDisposeAsyncNotifierProvider<IncomingCall, CallView?>(IncomingCall.new);
 
 class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
-  static const Duration interval = Duration(seconds: 3);
+  /// ⚠ TWO SECONDS, AND THE REAL FIX FOR «تأخير كثير جدا في ظهور المتصل» WAS
+  ///   NOT THIS NUMBER. The banner lived inside AppScaffold, and the عديل
+  ///   portal is deliberately not an AppScaffold — so on the one screen a
+  ///   member actually sits on, this provider had no watcher, was disposed, and
+  ///   POLLED NOTHING AT ALL. A call to him appeared only if he wandered into
+  ///   المجلس. See app.dart, where the banner now sits above the whole app.
+  ///
+  ///   Two rather than three is the smaller half of the same complaint: the
+  ///   query is one capped row and the server has already excluded every stale
+  ///   «ترن», so the cost of asking more often is close to nothing, and
+  ///   missing a call is the one failure this feature cannot have.
+  static const Duration interval = Duration(seconds: 2);
 
   Timer? _timer;
   bool _gone = false;
@@ -57,6 +85,17 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
       _timer = null;
     });
     _timer = Timer.periodic(interval, (_) => unawaited(_tick()));
+
+    // ── والجرس ────────────────────────────────────────────────────────
+    // ⚠ A RING HAS SIXTY SECONDS TO BE NOTICED AND THE FIRST FIVE ARE THE
+    //   ONES THAT MATTER — a man who looks at his phone two seconds after it
+    //   started is the ordinary case, not the lucky one. The clock above is
+    //   the guarantee; this is the difference between «it rang» and «it rang
+    //   the moment he called».
+    final VoidCallback deafenCall = ref.read(doorbellProvider).listen((Ring r) {
+      if (r == Ring.call) unawaited(_tick());
+    });
+    ref.onDispose(deafenCall);
 
     return ref.read(callRepositoryProvider).liveAny();
   }
@@ -98,13 +137,46 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
         _ringing = null;
         unawaited(AppNotifier.clearCall());
       }
+      // ⚠ STOPPED UNCONDITIONALLY, outside the `_ringing != null` guard. That
+      //   flag tracks the NOTIFICATION, and the tone can be sounding when it is
+      //   null — answering sets it null through [answered] while the call is
+      //   still live and still returned by the poll. Tying the stop to the
+      //   notification would leave the phone ringing through the conversation.
+      unawaited(ref.read(callRingtoneProvider).stop());
       return;
     }
+
+    // ── والصوت ─────────────────────────────────────────────────────────────
+    // ⚠ THE NOTIFICATION IS NOT A RINGTONE, and that is what «تري رنين فقط لا
+    //   تسمع اي صوت» was. A posted notification plays its channel's sound
+    //   once — a fifth of a second — and Android may drop even that when the
+    //   notification carries a full-screen intent, because it expects the
+    //   screen it takes over to do the ringing. Nothing was doing it.
+    //
+    // ⚠ AND NOT WHILE HE IS ALREADY ON A CALL. The poll returns a «جارية» call
+    //   the moment he joins one, so ringing on `live` alone would sound the
+    //   tone into his own conversation for as long as it lasted.
+    if (ref.read(activeCallProvider) == null) {
+      unawaited(ref.read(callRingtoneProvider).start());
+    }
+
     if (_ringing == call.id) return;
     _ringing = call.id;
     unawaited(
       AppNotifier.ringing(call.callerName, NotifyText.incomingCall),
     );
+  }
+
+  /// ردّ، أو رفض، أو أغلق — فيسكت الرنين فوراً.
+  ///
+  /// ⚠ CALLED BY THE UI RATHER THAN INFERRED HERE, because the poll cannot see
+  ///   the decision: the call stays «جارية» and stays returned for as long as
+  ///   anybody is on it. Waiting for the row to change would ring through the
+  ///   first seconds of every answered call.
+  void answered() {
+    _ringing = null;
+    unawaited(ref.read(callRingtoneProvider).stop());
+    unawaited(AppNotifier.clearCall());
   }
 
   /// Ask again now — after answering, declining or hanging up, so the banner

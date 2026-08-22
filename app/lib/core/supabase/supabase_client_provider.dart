@@ -41,7 +41,21 @@ Future<bool> initialiseSupabase() async {
     // Realtime is not used. The screens are pull-to-refresh and provider
     // invalidation, and an open websocket per client would be cost and battery
     // for a treasury app that is consulted a few times a day.
-    realtimeClientOptions: const RealtimeClientOptions(eventsPerSecond: 1),
+    // ── جرس الباب، ولا خانق له ─────────────────────────────────────────────
+    // ⚠ `eventsPerSecond: 1` USED TO SIT HERE AND IT WAS REMOVED, NOT RAISED.
+    //   It reads like a rate limit and is not one: in this client the field is
+    //   declared on the options class and READ BY NOTHING — the analyzer marks
+    //   it deprecated with «client side rate limit has been removed, this
+    //   option will be ignored», and grepping the package confirms it.
+    //
+    // ⚠ I RAISED IT TO 10 FIRST, AND WROTE A PARAGRAPH EXPLAINING THAT 1 WOULD
+    //   HAVE CAPPED THE DOORBELL AT ONE RING A SECOND. That was wrong, and it
+    //   is recorded rather than quietly deleted: an inert setting with a
+    //   confident comment beside it is worse than no setting, because the next
+    //   person to hunt a dropped ring starts here and loses an evening.
+    //
+    //   Whatever limits the bell, it is not this. If rings are ever dropped,
+    //   look at the SERVER-side Realtime quota on the project, not here.
     debug: SupabaseConfig.verbose,
   );
   return true;

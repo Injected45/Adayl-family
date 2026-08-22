@@ -415,17 +415,70 @@ This dictates the data-access shape — do not deviate from it:
   beside a row that does not exist. It now rides the bell, like
   `threadUnread` and `roomUnread`: **one clock, four answers**, which is also
   why they can never disagree about when they last looked. The bell went
-  10s → **4s**, because it is no longer answering «is there a badge» but «هل
-  وصلتني رسالة». Keep its query one capped column with no bodies — that is
-  what makes 4s affordable.
-  ⚠ **It polls; it is NOT Realtime, and that is not laziness.**
-  `my_adeel_id()` reads the `x-device-id` REQUEST HEADER and a websocket carries
-  no headers, so a `postgres_changes` subscription evaluated for a portal member
-  matches no policy and delivers him nothing. Staff would see messages appear
-  live while every عديل sat on a screen that never moved — invisible to anyone
-  testing with a staff account. The client asks `id > lastSeen` every four
-  seconds while the screen is open, which needs no dashboard configuration and
-  behaves identically for both kinds of account.
+  10s → 4s → **2s**, because it is no longer answering «is there a badge» but
+  «هل وصلتني رسالة» — and the red badge was reported slow in its own right.
+  Keep its query one capped column with no bodies: that is the only reason 2s
+  is affordable, and the moment it fetches rows the number is wrong.
+
+  ⚠ **AND THE ROOM'S CADENCE WAS RETUNED AGAINST WHAT THE TICK COSTS, not by
+  turning a dial.** Four ticks in five ask only for ids above the newest — a few
+  bytes — and the fifth re-reads forty rows WITH bodies to catch a deletion. So
+  the fast tier was never the expense. `live` 1s → **600 ms**, `idle` 3s →
+  **1.5 s**, `liveFor` 40s → **90 s**, and `sweepEvery` 5 → **8** so the sweep
+  still fires about every five seconds rather than every three.
+
+  ⚠ **`sweepEvery` COUNTS TICKS, so speeding the clock speeds the sweep with
+  it** — the one cost the whole scheme exists to control, raised with nothing in
+  the diff to show it. `chat_cadence_test.dart` now pins the PRODUCT
+  (`sweepEvery × live` ≈ 5 s) rather than the count; the old test multiplied by
+  `inSeconds`, which is **0** for a 600 ms duration, so it would have passed the
+  regression while appearing to guard against it.
+
+  ⚠ **And the demotion was penalising exactly the wrong message.** It fires
+  after a silence, so the message it delayed was the FIRST ONE AFTER A PAUSE —
+  precisely the one somebody is waiting for. A conversation is not slow because
+  its fifth reply took a second; it is slow because the first took three. The
+  battery saving was also unreal: this screen only exists while somebody is
+  LOOKING at it, so the display is lit, and a lit display dwarfs one small
+  request per second. The pocket is where battery is decided, and there the
+  background heartbeat's ten seconds is what runs.
+  ⚠ **It polls, and `postgres_changes` is still forbidden.** `my_adeel_id()`
+  reads the `x-device-id` REQUEST HEADER and a websocket carries no headers, so
+  a row-level subscription evaluated for a portal member matches no policy and
+  delivers him nothing. Staff would see messages appear live while every عديل
+  sat on a screen that never moved — invisible to anyone testing with a staff
+  account. Every read stays `id > lastSeen` over PostgREST, which behaves
+  identically for both kinds of account.
+
+  ⚠ **BUT THERE IS NOW A DOORBELL, AND IT IS NOT THE SAME THING.**
+  `core/realtime/doorbell.dart` broadcasts the word «something happened» —
+  `Ring.chat` or `Ring.call`, and **nothing else**: no text, no sender, no id.
+  Whoever hears it runs the same authenticated REST read he would have run
+  anyway, just sooner, so **RLS decides everything exactly as before and not one
+  table policy changed**. Polling stays underneath: worst case is the app is as
+  fast as it was, which is why nothing retries, reports, or blocks on it.
+
+  ⚠ **THE CHANNEL IS PRIVATE, AND THAT IS ONLY POSSIBLE BECAUSE OF WHAT IT DOES
+  NOT CARRY.** The device lock answers «which handset?» — worth asking of a
+  man's dues. A doorbell hands over nothing that deserves it, so its policy
+  (`PATCH_20260822g`) asks only «is this account in the association?», which is
+  answerable from `auth.uid()` alone: approved, and admin **or** bound to an
+  عديل. Deliberately NOT `in_association()` — that calls `my_adeel_id()`, needs
+  the header, and would shut out every عديل while staff heard the bell.
+
+  ⚠ **AND IT MUST NEVER BE A DEPENDENCY, WHICH IS A CODE RULE NOT A SENTIMENT.**
+  `Doorbell` takes a `SupabaseClient Function()`, not a client: taking the
+  client made CONSTRUCTING it need a configured Supabase, so
+  `ref.read(doorbellProvider)` inside `ChatController.build()` threw «Supabase
+  is not configured» and took the whole room down. `doorbell_test.dart` pins
+  every entry point against a client that throws.
+
+  ⚠ **`eventsPerSecond` IS INERT — do not put it back.** It was 1, it was raised
+  to 10 «so a burst is never dropped», and that reasoning was wrong: this client
+  declares the field and reads it nowhere, and the analyzer deprecates it with
+  «this option will be ignored». It is now absent, and a test keeps it absent —
+  an inert setting with a confident comment beside it costs the next person an
+  evening.
 
   Deletion EMPTIES the text rather than flagging it: no policy would ever return
   it, so keeping it protects nobody. The ROW survives as a tombstone, and the
@@ -674,8 +727,31 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
   died mid-call cannot leave another one ringing, and cannot linger in
   anyone's participant list.
 
-  ⚠ **Leaving is not ending.** `leave_call` ends the CALL only when the last
-  seat empties — not when whoever pressed red first does.
+  ⚠ **المكالمة تحتاج اثنين — من أغلق، أغلق للجميع.** `leave_call` used to end
+  the call only when the LAST seat emptied, which in a call of two is never the
+  man who hangs up first: he pressed red, one seat remained, the call stayed
+  «جارية», and the other handset showed a live call with nobody in it until he
+  hung up too. Reported from a three-handset test in exactly those words —
+  «تضل المكالمه مستمرة … ولا تختفي إلا بعد اغلاق الطرف الاخر».
+
+  `PATCH_20260822f` ends a «جارية» call the moment **fewer than two** live seats
+  remain. ⚠ It is a COUNT, not «whoever leaves ends it»: a group of four must
+  keep going when two leave — المجلس is a room, not a pair — and the same clause
+  answers both. ⚠ And «ترن» is excluded, because a ringing call has exactly one
+  seat by definition; applying the rule there would hang up on every call the
+  instant it was placed. `end_stale_calls()` closes a «جارية» whose seats have
+  all gone quiet for the same twenty seconds, called from `start_call` rather
+  than scheduled — the one moment it matters whether an old call is really alive
+  is when somebody tries to place a new one.
+
+  ⚠ **AND THE OTHER HALF WAS IN DART: nothing ever asked whether the call had
+  ended.** `CallSession._tick` heartbeats, reads the participants and drains
+  signals — and `phase` was set to `ended` in exactly one place, `close()`,
+  which is the man who hangs up. For the other side the peer connection simply
+  died while the sheet went on saying «جارية» **with a live microphone under
+  it**. It now closes when the live seats drop below two, using the same count
+  the server uses so the two can never disagree — and only after company has
+  actually arrived, since a ringing caller is alone by definition.
 
   ⚠ **STUN/TURN live in `association_settings.ice_servers`, never in the**
   **APK.** The day a public TURN host stops answering, calls fail on mobile
@@ -686,6 +762,65 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
 
   ⚠ **Nothing rings while the app is CLOSED**, here or in the chat. That
   needs a push service and a server, and this project has neither.
+
+  ⚠ **AND A RINGING CALL MADE NO SOUND AT ALL, for a reason worth keeping.**
+  The banner appeared, a notification was posted, and the notification WAS the
+  silence: a posted notification plays its channel sound once, for a fraction
+  of a second, and Android may drop even that when it carries a
+  `fullScreenIntent` — it expects the screen it takes over to do the ringing,
+  and nothing was. «تري رنين فقط لا تسمع اي صوت». **A call is not an alert; it
+  repeats until somebody answers.**
+
+  `features/call/data/call_ringtone.dart` is what rings — `ringtone.wav` on
+  `ReleaseMode.loop`, started from the same edge in `IncomingCall._notify` that
+  posts the notification, and synthesised here for the same reason
+  `message_pop.wav` is: this repo is public and the tone must be ours.
+  ⚠ It **begins and ends at digital silence**, because a non-zero edge puts a
+  click at the start of every repeat — `call_ringtone_test.dart` asserts that
+  against the BYTES, and measures the tone by RMS over a window, never by one
+  sample (a sine crosses zero twice per cycle, and the naive check reported a
+  perfectly good file as silent). ⚠ `start()` is **idempotent**: the poll sees
+  the same ringing call every three seconds, and restarting the loop each tick
+  is a stutter rather than a ring. ⚠ And it takes `notificationRingtone` +
+  `AndroidAudioFocus.gain`, unlike the chime — the ring volume is the slider a
+  man raises when he wants to hear his phone, and a ring under music at equal
+  level is a ring nobody hears.
+
+  ⚠ It is silenced by `IncomingCall.answered()`, called by the answer and
+  decline buttons BEFORE their round trip — never inferred from the poll. The
+  call stays «جارية» and stays returned for as long as anybody is on it, so
+  waiting for the row to change would ring through the conversation.
+
+  ⚠ **AND THE BACKGROUND NOTIFICATIONS HAD NEVER RUN — «مره يصل اشعار مره بتاخر
+  وغير منتظم».** The cause was one missing line of XML.
+  `flutter_foreground_task` declares **no `<service>` element in its own
+  manifest**, only permissions. The app had both `FOREGROUND_SERVICE`
+  permissions, the start call, a `TaskHandler` and a channel — and no service
+  declaration. `startService()` failed on every call into a catch that only
+  `debugPrint`s, so the service never ran once, and everything fell back to
+  Dart `Timer`s in a **backgrounded Flutter engine**, which Android batches and
+  delays. That is exactly «sometimes on time, sometimes minutes late».
+
+  ⚠ **A caught exception with nowhere to be seen is a bug that reports itself
+  as «sometimes slow».** `BackgroundService.running` now records whether the
+  service actually started — asked again after `startService`, because it can
+  return without throwing and leave nothing running. And
+  `call_ringtone_test.dart` reads the manifest and fails without the
+  declaration: a missing service is invisible to the analyzer, to a widget test
+  and to the screen, and shows up only on a handset, only in the background,
+  and only as «sometimes».
+
+  ⚠ **The service now BEATS rather than idling.** `eventAction` was `nothing()`
+  on the reasoning that holding the process open was enough for the main
+  isolate's timers. Holding the process is real; a paused engine dispatching
+  timers on schedule is not. `ForegroundTaskEventAction.repeat` is a **Kotlin
+  coroutine inside the service** — a thread Android does go on scheduling — and
+  it does no Supabase work at all: it sends a bare word to the main isolate
+  through `sendDataToMain`, and `AutoRefresh._beat` pokes the two polls with the
+  client and session that already exist. A second Supabase client in that
+  isolate would mean two writers to the same refresh token in the keystore, and
+  the loser is signed out with nothing to explain it. Ten seconds: six chances
+  at a sixty-second ring, against a battery that would pay for five.
 
 - `core/state` — `refreshAll(ref)` invalidates every provider in the app, and
   `auto_refresh.dart` calls it on a timer and on resume. ⚠ A provider added

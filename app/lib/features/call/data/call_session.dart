@@ -101,13 +101,35 @@ class CallSession {
   final ValueNotifier<List<CallParticipant>> people =
       ValueNotifier<List<CallParticipant>>(<CallParticipant>[]);
 
+  /// النبض المعتاد: أنا هنا، ومن معي، وماذا قالوا.
+  static const Duration steady = Duration(seconds: 1);
+
+  /// ⚠ 300 ms WHILE THE CALL IS BEING SET UP, AND ONLY UNTIL IT IS. Each leg of
+  ///   the handshake waits a whole poll, and there are three or four legs — so
+  ///   the interval IS the connect time. Once audio is flowing nothing is
+  ///   blocking on a signal, and the fast clock stops on its own.
+  static const Duration setup = Duration(milliseconds: 300);
+
   MediaStream? _local;
   List<Map<String, dynamic>> _ice = <Map<String, dynamic>>[];
   Timer? _poll;
+
+  /// The fast clock, alive only while connecting. See [setup].
+  Timer? _handshake;
+
+  /// ⚠ ONE DRAIN AT A TIME. At 300 ms a slow request would let a second drain
+  ///   start before the first finished, and both would read the same rows and
+  ///   set the same remote description twice — which fails in a way that looks
+  ///   exactly like the other side never answering.
+  bool _draining = false;
   int _seen = 0;
   int _myId = 0;
   String _me = '';
   bool _closed = false;
+
+  /// ⚠ WHETHER ANYBODY EVER JOINED. Without it the «fewer than two seats»
+  ///   rule would fire on the ringing caller, who is alone by definition.
+  bool _hadCompany = false;
 
   /// One peer connection per other participant, keyed by his user id.
   final Map<String, RTCPeerConnection> _peers = <String, RTCPeerConnection>{};
@@ -147,10 +169,21 @@ class CallSession {
       _myId = await _repo.join(callId);
       phase.value = CallPhase.ringing;
 
-      _poll = Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => unawaited(_tick()),
-      );
+      _poll = Timer.periodic(steady, (_) => unawaited(_tick()));
+
+      // ── والمصافحة على ساعةٍ أسرع ────────────────────────────────────────
+      // ⚠ CONNECTING A CALL WAS SLOW FOR A REASON THAT HAD NOTHING TO DO WITH
+      //   THE NETWORK. A WebRTC handshake is a conversation: B offers, A reads
+      //   it and answers, B reads the answer, and ICE candidates trickle both
+      //   ways after that. EVERY ONE of those hops waited for the next poll —
+      //   so at one second the floor on «hello» was three to five seconds of
+      //   pure waiting, and it looked exactly like a bad connection.
+      //
+      // ⚠ AND IT DRAINS SIGNALS ONLY. The heartbeat has twenty seconds to be
+      //   heard and the participant list barely moves, so putting all three on
+      //   a 300 ms clock would have tripled the traffic to speed up one of
+      //   them. This asks the one question that is actually blocking.
+      _handshake = Timer.periodic(setup, (_) => unawaited(_drainOnly()));
       unawaited(_tick());
     } on Object catch (e) {
       debugPrint('call open: $e');
@@ -178,6 +211,35 @@ class CallSession {
           _me = p.userId;
           break;
         }
+      }
+
+      // ── وهل بقي أحد؟ ────────────────────────────────────────────────────
+      // ⚠ NOTHING HERE EVER ASKED WHETHER THE CALL HAD ENDED, and that is the
+      //   other half of «تضل المكالمه مستمرة ولا تنتهي بسرعه». `phase` was set
+      //   to ended in exactly one place — close() — which is the man who hangs
+      //   up. For the OTHER side the peer connection simply died and the sheet
+      //   went on saying «جارية» with a live microphone under it, until he
+      //   pressed red himself. From his seat that reads as a call that will not
+      //   end.
+      //
+      // ⚠ IT IS THE SAME COUNT THE SERVER USES — fewer than two live seats is
+      //   not a call — so the two cannot disagree about when a call is over.
+      //   And it needs no extra request: the participant list is already read
+      //   on every beat for the mesh.
+      //
+      // ⚠ AND ONLY AFTER COMPANY HAS ACTUALLY ARRIVED. While a call is ringing
+      //   the caller holds the only seat, which is the normal state and not an
+      //   ended call — closing on it would hang up on every call the instant it
+      //   was placed.
+      if (now.length >= 2) _hadCompany = true;
+      if (_hadCompany && now.length < 2) {
+        // close() stops the microphone, tears down the peers, sets the phase
+        // and is guarded against running twice. The sheet stays open showing
+        // «انتهت» on purpose — see _CallSheet: a screen that vanished on its
+        // own would leave him unsure whether he hung up, was hung up on, or
+        // lost signal.
+        await close();
+        return;
       }
 
       // ── Offer to everyone who was here before me ────────────────────────
@@ -253,6 +315,31 @@ class CallSession {
       'sdp': offer.sdp,
       'type': offer.type,
     }, to: user);
+  }
+
+  /// The handshake clock's beat: signals and nothing else.
+  ///
+  /// ⚠ IT STOPS ITSELF THE MOMENT AUDIO IS FLOWING. Leaving a 300 ms poll
+  ///   running for the length of a call would be three times the traffic of the
+  ///   whole rest of the session, to answer a question nobody is waiting on any
+  ///   more.
+  Future<void> _drainOnly() async {
+    if (_closed) return;
+    if (phase.value == CallPhase.talking) {
+      _handshake?.cancel();
+      _handshake = null;
+      return;
+    }
+    if (_draining) return;
+    _draining = true;
+    try {
+      await _drain();
+    } on Object catch (e) {
+      // Same reasoning as the main tick: a failed beat is a beat.
+      debugPrint('call handshake: $e');
+    } finally {
+      _draining = false;
+    }
   }
 
   Future<void> _drain() async {
@@ -352,6 +439,8 @@ class CallSession {
 
     _poll?.cancel();
     _poll = null;
+    _handshake?.cancel();
+    _handshake = null;
 
     for (final MediaStreamTrack t in _local?.getTracks() ?? const []) {
       await t.stop();

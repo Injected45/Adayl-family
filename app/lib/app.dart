@@ -6,6 +6,7 @@ import 'core/config/theme.dart';
 import 'core/l10n/latin_digit_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/state/auto_refresh.dart';
+import 'features/call/presentation/call_ui.dart';
 import 'l10n/app_localizations.dart';
 
 class FamilyApp extends ConsumerWidget {
@@ -44,8 +45,31 @@ class FamilyApp extends ConsumerWidget {
       // for the association, so navigating does not restart it and a screen
       // left open does not stop it. The refresh costs a request only for the
       // providers actually being watched — see core/state/auto_refresh.dart.
-      builder: (BuildContext context, Widget? child) =>
-          AutoRefresh(child: child ?? const SizedBox.shrink()),
+      //
+      // ── و«فلان يتصل»، فوق كل شاشة بلا استثناء ───────────────────────────
+      // ⚠ IT LIVED IN AppScaffold AND THAT WAS A REAL BUG, not a tidy-up. Only
+      //   screens built from AppScaffold carried it — and the عديل portal is
+      //   deliberately not one, so the member sitting on his own screen had no
+      //   banner and, because the provider is auto-disposed and nothing was
+      //   watching it, NO CALL POLL AT ALL. Ringing him did nothing until he
+      //   wandered into المجلس.
+      //
+      // ⚠ AND IT MUST BE INSIDE AutoRefresh, not beside it: the banner watches
+      //   incomingCallProvider, and the heartbeat that pokes that provider in
+      //   the background is registered by AutoRefresh. Two roots would be two
+      //   answers to «is anybody calling».
+      //
+      //   It draws nothing unless a call is actually live, so every screen —
+      //   including /login and /pending, where the provider returns null before
+      //   ever starting a timer — carries it for the price of a SizedBox.
+      builder: (BuildContext context, Widget? child) => AutoRefresh(
+        child: Column(
+          children: <Widget>[
+            const IncomingCallBanner(),
+            Expanded(child: child ?? const SizedBox.shrink()),
+          ],
+        ),
+      ),
     );
   }
 }

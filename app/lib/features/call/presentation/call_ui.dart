@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../data/call_repository.dart';
@@ -64,6 +65,15 @@ Future<void> startCall(
     _report(messenger, l, e);
     return;
   }
+
+  // ── ثم دُقّ الجرس ─────────────────────────────────────────────────────────
+  // ⚠ THE FIRST FIVE SECONDS OF A SIXTY-SECOND RING ARE THE ONES THAT DECIDE
+  //   whether he catches it, and the poll's two seconds are spent before the
+  //   banner even appears. The ring carries no id and no name — it only says
+  //   «ask now» — so every handset in the association runs the same
+  //   authenticated read it would have run anyway, two seconds sooner.
+  ref.read(doorbellProvider).ring(Ring.call);
+
   if (!context.mounted) return;
 
   // ⚠ NO «caller» FLAG ANY MORE. Who offers whom is arithmetic: the man with
@@ -91,6 +101,13 @@ Future<void> answerCall(
   // ⚠ AND IT CAN BE REFUSED FOR A GOOD REASON: the call ended while the
   //   banner was on screen, or the room is full. Both are ordinary, and both
   //   have to be said out loud rather than swallowed.
+  // ⚠ THE TONE STOPS BEFORE THE REQUEST, not after it. join_call is a round
+  //   trip, and on a Libyan mobile connection that is a second or two of the
+  //   phone still ringing in his hand after he has answered it — which reads
+  //   as a tap that did nothing. If the join then fails, the poll is three
+  //   seconds away and starts it again.
+  ref.read(incomingCallProvider.notifier).answered();
+
   try {
     await repo.join(call.id);
   } on Object catch (e) {
@@ -374,6 +391,9 @@ class IncomingCallBanner extends ConsumerWidget {
             //   call banner looks like anyway.
             IconButton.filled(
               onPressed: () async {
+                // Silence first, for the same reason as answering: the refusal
+                // is a round trip and he has already decided.
+                ref.read(incomingCallProvider.notifier).answered();
                 await ref
                     .read(callRepositoryProvider)
                     .end(call.id, declined: true);

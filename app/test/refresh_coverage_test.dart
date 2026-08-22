@@ -72,15 +72,48 @@ void main() {
     //   activeCall holds the LIVE SESSION: the microphone, the peer
     //   connection and the signalling poll. Throwing that away every
     //   forty-five seconds would hang up on a call in progress.
+    //   And callRingtone owns the platform AudioPlayer that is LOOPING while a
+    //   call rings. A sweep disposes it — so a call arriving forty-five seconds
+    //   before one would ring for a moment and then fall silent with the banner
+    //   still on screen, which is the very symptom this feature was built to
+    //   end: «تري رنين فقط لا تسمع اي صوت».
     'callRepositoryProvider': 'a client, not data',
     'incomingCallProvider': 'polls itself, and owns its own timer',
     'activeCallProvider': 'the live call — sweeping it would hang up',
+    'callRingtoneProvider': 'a looping player — sweeping it would go silent',
+
+    // ⚠ THE DOORBELL OWNS A WEBSOCKET AND A LISTENER SET. Sweeping it would
+    //   tear down the channel and every subscription on it every forty-five
+    //   seconds — and the room, the bell and the call poll each hold one. The
+    //   app would go on working, on the polls alone, and the speed this exists
+    //   for would vanish with nothing on screen to show it had.
+    'doorbellProvider': 'a websocket, not an answer',
 
     // ⚠ THE SESSION ITSELF. Throwing this away would re-read who is signed in
     //   on every sweep — and it is the provider the router guard watches, so a
     //   moment of «not signed in yet» every forty-five seconds would bounce a
     //   man off the screen he was reading. It has its own listener on GoTrue.
     'authControllerProvider': 'the session, watched live by the router',
+
+    // ── ما تحت التطبيق كلّه ────────────────────────────────────────────────
+    // ⚠ THESE FIVE WERE NEVER CHECKED BY ANYTHING. The scan below used to read
+    //   `lib/features` only, so every provider declared in `lib/core` — the
+    //   client, the router, the session plumbing — escaped this guard
+    //   entirely. That is precisely the blind spot the «مصروفات للمشترك» bug
+    //   lived in, moved one directory over: a provider that caches and is
+    //   mentioned nowhere.
+    //
+    //   Widening the scan to `lib` surfaced them, and every one is a genuine
+    //   exemption — but they are written down now rather than unseen, and the
+    //   NEXT provider added under core will be asked the question.
+    'supabaseClientProvider': 'the client itself, not an answer',
+    'supabaseConfiguredProvider': 'a boot fact, decided once',
+    'authRepositoryProvider': 'a client, not data',
+    'googleAuthServiceProvider': 'a client, not data',
+    // ⚠ AND SWEEPING THIS ONE WOULD REBUILD NAVIGATION MID-TAP. GoRouter holds
+    //   the current location and the redirect guard; a new instance every
+    //   forty-five seconds would drop whatever screen the man was on.
+    'routerProvider': 'the router — sweeping it would restart navigation',
   };
 
   _pullRefreshTests();
@@ -93,7 +126,7 @@ void main() {
     final List<String> missing = <String>[];
 
     for (final FileSystemEntity e in Directory(
-      'lib/features',
+      'lib',
     ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
 
@@ -123,7 +156,7 @@ void main() {
     // read — and the next provider to take that name inherits the excuse.
     final Set<String> declared = <String>{};
     for (final FileSystemEntity e in Directory(
-      'lib/features',
+      'lib',
     ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
       for (final RegExpMatch m in RegExp(
@@ -163,7 +196,7 @@ void _pullRefreshTests() {
     final List<String> narrow = <String>[];
 
     for (final FileSystemEntity e in Directory(
-      'lib/features',
+      'lib',
     ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
       final String src = e.readAsStringSync();

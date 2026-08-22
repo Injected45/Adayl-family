@@ -204,6 +204,21 @@ WITH have AS (
       WHERE n.nspname = 'public'
         AND p.proname = 'redeem_adeel_code')                            AS n_redeem,
 
+    -- من أغلق أغلق للجميع. Probed by the companion function it installs,
+    -- not by leave_call — whose NAME is unchanged and whose BODY any later
+    -- patch may touch.
+    EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE n.nspname='public'
+               AND p.proname='end_stale_calls')                         AS patch_22f,
+
+    -- جرس الباب. Two answers, not one: Realtime may simply never have been
+    -- enabled on a project, which is not the same state as «the patch was
+    -- never run» and wants a different sentence.
+    to_regclass('realtime.messages') IS NOT NULL                        AS has_realtime,
+    (SELECT count(*) FROM pg_policies
+      WHERE schemaname = 'realtime' AND tablename = 'messages'
+        AND policyname IN ('doorbell_listen', 'doorbell_ring'))         AS n_doorbell,
+
     -- ⚠ AND THE DATA QUESTION NOTHING ELSE ASKS: IS ANYBODY STANDING INSIDE
     --   WHO WAS NEVER LET IN? Six such accounts are what let a member open the
     --   association app under his own name. A schema check cannot see them —
@@ -340,6 +355,15 @@ SELECT * FROM (
               WHEN patch_22e THEN 'PARTIAL ⚠ نسختان من redeem_adeel_code'
               ELSE 'NOT applied' END FROM have
 
+  UNION ALL SELECT 10.994, 'PATCH 22/08 (f) — من أغلق أغلق للجميع',
+         CASE WHEN patch_22f THEN 'applied' ELSE 'NOT applied' END FROM have
+
+  UNION ALL SELECT 10.996, 'PATCH 22/08 (g) — جرس الباب (Realtime)',
+         CASE WHEN NOT has_realtime
+                THEN 'Realtime غير مفعّل — التطبيق يعمل بالاستطلاع وحده'
+              WHEN n_doorbell = 2 THEN 'applied'
+              ELSE 'NOT applied' END FROM have
+
   UNION ALL SELECT 10.995, 'غرباء في الداخل (معتمد، بلا عديل، وليس أدمن)',
          CASE WHEN strangers_inside IS NULL THEN 'unknown'
               WHEN strangers_inside = 0 THEN '0 — لا أحد'
@@ -440,6 +464,18 @@ SELECT * FROM (
               WHEN NOT patch_22e OR n_redeem <> 1
                 THEN 'READY — apply supabase/PATCH_20260822e_key_lifetime.sql'
                   || '  المفاتيح القائمة تبقى صالحة سبعة أيام من إصدارها.'
-              ELSE 'UP TO DATE — every patch through 22/08 (e) is applied.'
+              WHEN NOT patch_22f
+                THEN 'READY — apply supabase/PATCH_20260822f_call_hangup.sql'
+                  || '  المكالمة تنتهي بإغلاق أي طرف، ولا تنتظر الآخر.'
+              -- ⚠ NOT A BLOCKER, AND SAID SO. The doorbell is an accelerator;
+              --   a project without it is correct and merely slower. So this
+              --   branch never says STOP and never hides a real gap behind
+              --   an optional one.
+              WHEN has_realtime AND n_doorbell <> 2
+                THEN 'READY (اختياري) — apply supabase/PATCH_20260822g_doorbell.sql'
+                  || '  يُسرّع الرسائل والمكالمات، ولا يُغيّر أي صلاحية.'
+              WHEN NOT has_realtime
+                THEN 'UP TO DATE — every patch through 22/08 (f). جرس الباب يحتاج تفعيل Realtime.'
+              ELSE 'UP TO DATE — every patch through 22/08 (g) is applied.'
          END FROM have
 ) t ORDER BY ord;

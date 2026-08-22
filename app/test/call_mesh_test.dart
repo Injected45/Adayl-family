@@ -120,4 +120,35 @@ void main() {
       expect(signalIsForMe(_s(from: 'a'), 'me'), isTrue);
     });
   });
+
+  // ── كم يستغرق أن يسمع أحدٌ أحداً ──────────────────────────────────────────
+  //
+  // ⚠ THE HANDSHAKE INTERVAL *IS* THE CONNECT TIME, and that is the whole
+  //   reason these two constants are pinned. A WebRTC call is a conversation —
+  //   offer, answer, then candidates — and every leg of it waits for the next
+  //   poll. At one second the FLOOR on «hello» was three to five seconds of
+  //   pure waiting, on a perfect network, and it presented as a bad line.
+  group('how long before anybody hears anybody', () {
+    test('the handshake clock is well under the steady one', () {
+      expect(CallSession.setup.inMilliseconds, lessThanOrEqualTo(400));
+      expect(
+        CallSession.setup.inMilliseconds,
+        lessThan(CallSession.steady.inMilliseconds),
+        reason: 'the handshake clock must be the faster of the two',
+      );
+    });
+
+    // ⚠ AND A FLOOR. Faster than the round trip to the database buys nothing
+    //   and stacks overlapping requests on a Libyan mobile connection — which
+    //   is why _drainOnly holds a one-at-a-time guard as well.
+    test('but not faster than a round trip', () {
+      expect(CallSession.setup.inMilliseconds, greaterThanOrEqualTo(200));
+    });
+
+    // Three or four legs at 300 ms is under a second and a half of polling
+    // latency; at one second it was three to four.
+    test('four legs of handshake cost under a second and a half', () {
+      expect(CallSession.setup.inMilliseconds * 4, lessThan(1500));
+    });
+  });
 }

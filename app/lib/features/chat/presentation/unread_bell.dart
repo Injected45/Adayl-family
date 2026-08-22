@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/theme.dart';
 import '../../../core/notify/notifier.dart';
 import '../../../core/notify/notify_text.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../../../core/router/destinations.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
@@ -110,7 +112,20 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
   ///   The request is one capped column with no message bodies, which is
   ///   what makes a four-second heartbeat affordable on a mobile
   ///   connection. Keep it that shape.
-  static const Duration _interval = Duration(seconds: 4);
+  /// ⚠ TWO SECONDS, DOWN FROM FOUR, BECAUSE THIS IS THE RED BADGE ITSELF.
+  ///   «اريد سرعة وصول علامة حمراء تشير لرساله غير مقروءه لانها الان تتاخر».
+  ///   Four seconds is not slow for a count; it is slow for the only signal a
+  ///   man on any other screen has that somebody wrote to him.
+  ///
+  /// ⚠ AND IT IS AFFORDABLE ONLY BECAUSE OF THE QUERY'S SHAPE — one capped
+  ///   column, no message bodies. Keep it that way: the moment this fetches
+  ///   rows, two seconds becomes the wrong number and the bell becomes the
+  ///   most expensive thing in the app.
+  ///
+  /// ⚠ THIS IS THE FOREGROUND CLOCK. In a pocket it is the background
+  ///   heartbeat that drives it, at ten seconds — the display is off there and
+  ///   the battery arithmetic is the opposite way round.
+  static const Duration _interval = Duration(seconds: 2);
 
   Timer? _timer;
   int _lastRead = 0;
@@ -146,6 +161,20 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
       WidgetsBinding.instance.removeObserver(resume);
     });
     _timer = Timer.periodic(_interval, (_) => _tick());
+
+    // ── والجرس ────────────────────────────────────────────────────────
+    // ⚠ THE RED BADGE IS WHAT THE ASSOCIATION MEASURED — «اريد سرعة وصول
+    //   علامة حمراء تشير لرساله غير مقروءه لانها الان تتاخر» — and it is the
+    //   one signal a man on any OTHER screen has. The clock above already
+    //   answers in two seconds; this answers in the time a websocket takes.
+    //
+    // ⚠ AND THE COUNT IS WHAT RINGS THE CHIME AND PAINTS THE BADGE, so this
+    //   one line makes the sound, the number and the notification all arrive
+    //   together. They ride one tick by design — see _tick.
+    final VoidCallback deafen = ref.read(doorbellProvider).listen((Ring r) {
+      if (r == Ring.chat) _tick();
+    });
+    ref.onDispose(deafen);
 
     _lastRead = await ref.read(chatReadStateProvider).lastRead();
     final int first = await ref
@@ -198,6 +227,16 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
       // stale — the whole point of it is that it can be trusted at a glance.
     }
   }
+
+  /// اسأل الآن — من نبضة الخدمة الأماميّة وهو في الخلفية.
+  ///
+  /// ⚠ NOT `ref.invalidate`, WHICH WOULD BE THE OBVIOUS THING AND WOULD SILENCE
+  ///   THE CHIME. Invalidating rebuilds the notifier, and `build()` deliberately
+  ///   arms the chime with `suppressed: true` — «the first count never rings»,
+  ///   so a launch is not greeted with yesterday's messages. Driving the
+  ///   background from an invalidate would make every background reading a
+  ///   first reading, and the sound would never come.
+  Future<void> refresh() => _tick();
 
   /// Called when the room has been read to the bottom.
   ///

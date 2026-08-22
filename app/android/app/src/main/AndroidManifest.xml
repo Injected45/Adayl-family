@@ -78,6 +78,37 @@
                       android:host="login-callback"/>
             </intent-filter>
         </activity>
+        <!-- ⚠ THE FOREGROUND SERVICE, AND ITS ABSENCE IS WHY NOTIFICATIONS
+             ARRIVED «مره بتاخر ومره غير منتظم» FOR AS LONG AS THEY EXISTED.
+
+             flutter_foreground_task declares NO <service> in its own manifest —
+             only permissions — so this element is the app's to write, and it
+             was never written. The two FOREGROUND_SERVICE permissions above
+             were added and the declaration they exist for was not, which reads
+             in review as though the feature is present.
+
+             What that cost: startService() failed on every call,
+             BackgroundService.start() catches and debugPrints it, and so the
+             service never once ran. Everything fell back to Dart Timers in a
+             backgrounded Flutter engine — which Android batches and delays, and
+             which is precisely «sometimes on time, sometimes minutes late».
+             Nothing on screen ever said the service had failed to start.
+
+             ⚠ AND THE TYPE IS NOT OPTIONAL ON ANDROID 14+. A foreground service
+             started without a declared type throws at runtime and takes the app
+             down with it. `dataSync` is the honest one: this service exists to
+             keep a poll alive.
+
+             ⚠ ANDROID 15 CAPS dataSync AT ROUGHLY SIX HOURS A DAY and then
+             stops it. That is a real limit and there is no better type for a
+             poller — `phoneCall` needs a call already in progress. Beyond it,
+             only a push service would help, and that needs Firebase, a key and
+             a server this project does not have. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

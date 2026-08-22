@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/call/presentation/providers.dart';
+import '../../features/chat/presentation/unread_bell.dart';
 import '../../l10n/app_localizations.dart';
+import '../notify/background_service.dart';
 import '../notify/notify_text.dart';
 import 'refresh.dart';
 
@@ -59,19 +62,55 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
     with WidgetsBindingObserver {
   Timer? _timer;
   bool _foreground = true;
+  VoidCallback? _unlisten;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(AutoRefresh.interval, (_) => _tick());
+    _unlisten = BackgroundService.listen(_beat);
   }
 
   @override
   void dispose() {
+    // ⚠ THE UNREGISTER FIRST, and it must not be forgotten: the callback closes
+    //   over `ref`, and reading a ref after dispose throws — which in this app
+    //   once aborted the rest of dispose() and leaked every timer below it.
+    _unlisten?.call();
+    _unlisten = null;
     _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// ── النبضة، وهو في الخلفية ────────────────────────────────────────────────
+  ///
+  /// ⚠ THIS IS WHAT «مره يصل اشعار مره بتاخر وغير منتظم» WAS. The chat bell and
+  ///   the call poll each hold a Dart `Timer`, and a Flutter engine whose app is
+  ///   backgrounded stops dispatching those on schedule — they are batched,
+  ///   delayed, and sometimes not run at all until the app is opened again. The
+  ///   foreground service's repeat event is a Kotlin coroutine inside the
+  ///   service, which Android does go on scheduling, so it is the clock that can
+  ///   be trusted while the phone is in a pocket.
+  ///
+  /// ⚠ IT POKES THE TWO POLLS, IT DOES NOT REPLACE THEM. In the foreground their
+  ///   own timers are faster (three and four seconds) and this is redundant —
+  ///   deliberately, because a second clock that only runs in the background
+  ///   would need a rule for when to hand over, and a wrong handover is a
+  ///   silence nobody can reproduce.
+  ///
+  /// ⚠ AND IT DOES NOT CALL refreshAll(). Every figure in the app can wait for
+  ///   the man to look at it; a ringing phone and an arriving message cannot.
+  ///   Invalidating fourteen providers on a ten-second background clock is the
+  ///   battery cost this app has refused all along.
+  void _beat() {
+    if (!mounted) return;
+    // Both are AUTO-DISPOSED and both are held alive by the app bar, which
+    // exists for as long as the widget tree does — so this reads the live
+    // instances rather than creating one and throwing it away.
+    unawaited(ref.read(chatUnreadProvider.notifier).refresh());
+    unawaited(ref.read(incomingCallProvider.notifier).refresh());
   }
 
   @override

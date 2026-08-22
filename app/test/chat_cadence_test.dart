@@ -15,49 +15,57 @@ import 'package:flutter_test/flutter_test.dart';
 ///   costs about ninety extra requests, and the twenty-five idle minutes around
 ///   it save two hundred and fifty.
 void main() {
-  test('the live clock is one second and the idle clock is three', () {
-    // Pinned so neither can drift without somebody reading the reasoning beside
-    // them. One second is the tier a reply lands on; three is what a room left
-    // open on a desk costs.
-    //
-    // ⚠ THREE REPLACED SIX, AND SIX HAD NEVER ACTUALLY RUN. The demotion was
-    //   unreachable — the commonest tick returned before counting the silence
-    //   — so every open room sat on the one-second tier and the figure here
-    //   was pinning a number nothing used. Now that it bites it is a delay a
-    //   man waiting on a reply can feel, and the association asked for speed:
-    //   «اريدها بسرعه». See chat_poll_test for the demotion itself.
-    expect(ChatController.live, const Duration(seconds: 1));
-    expect(ChatController.idle, const Duration(seconds: 3));
+  // ⚠ THIS FILE USED TO PIN THE BARE NUMBERS — «live is one second, idle is
+  //   three» — and that made it a tripwire rather than a rule: it failed on a
+  //   deliberate change and said nothing about whether the change was WRONG.
+  //   What matters is the arithmetic between them, so that is what is pinned
+  //   now, with one bound on each so they cannot drift to nonsense.
+  test('a reply is never more than a second and a half away', () {
+    // «مافيه تاخير لحظي للرساله، يفترض تكون اسرع بأجزاء من الثانيه». The idle
+    // tier is the WORST case any message can hit, so it is the number that
+    // decides how fast the room feels — not the live tier, which only applies
+    // to a room that has just moved.
+    expect(ChatController.idle.inMilliseconds, lessThanOrEqualTo(1500));
+    expect(ChatController.live.inMilliseconds, lessThanOrEqualTo(700));
     expect(
       ChatController.live.inMilliseconds,
       lessThan(ChatController.idle.inMilliseconds),
+      reason: 'the busy tier must be the faster one',
     );
+    // And a floor, because a poll faster than the round trip to Tripoli buys
+    // nothing and stacks requests on a slow connection.
+    expect(ChatController.live.inMilliseconds, greaterThanOrEqualTo(400));
   });
 
-  test('a room stays live for forty seconds after it last moved', () {
-    // Long enough to cover the pause while the other man types his answer,
-    // short enough that a forgotten screen goes quiet by itself.
-    expect(ChatController.liveFor, const Duration(seconds: 40));
+  test('a room stays live across an ordinary pause, not just a short one', () {
+    // ⚠ FORTY SECONDS WAS SHORTER THAN A MAN THINKING. The room fell to the
+    //   slow clock in the MIDDLE of an exchange, which meant the message the
+    //   demotion delayed was the first one after a pause — precisely the one
+    //   somebody is waiting for.
+    expect(ChatController.liveFor.inSeconds, greaterThanOrEqualTo(60));
     expect(
       ChatController.liveFor.inMilliseconds,
       greaterThan(ChatController.live.inMilliseconds),
     );
   });
 
-  test('⚠ the deletion sweep is rarer than the poll, on purpose', () {
-    // Every poll used to re-read forty messages WITH their bodies, because a
-    // deletion changes a row already on screen and an id cursor cannot see it.
-    // At one second that is four times the traffic — so the window is swept
-    // every fifth tick and the rest ask only for what is newer, which in a quiet
-    // second is an empty response.
-    //
-    // The cost is that a tombstone reaches other handsets in about five seconds
-    // rather than one. That is the right thing to make slower: nobody waits on a
-    // deletion the way they wait on a reply.
-    expect(ChatController.sweepEvery, 5);
+  // ⚠ THE PRODUCT, NOT THE COUNT, AND THIS IS THE ONE THAT WOULD HAVE BEEN
+  //   MISSED. `sweepEvery` counts TICKS, so speeding the clock silently speeds
+  //   the sweep with it — raising the single expense this whole scheme exists
+  //   to control, with nothing in the diff to show it. Pinning the count alone
+  //   would have passed a change that made the sweep fire twice as often.
+  test('⚠ the deletion sweep stays about five seconds apart, whatever the clock', () {
+    final int sweepMs = ChatController.sweepEvery * ChatController.live.inMilliseconds;
     expect(
-      ChatController.sweepEvery * ChatController.live.inSeconds,
-      lessThanOrEqualTo(ChatController.liveFor.inSeconds),
+      sweepMs,
+      inInclusiveRange(4000, 6500),
+      reason:
+          'sweepEvery counts ticks — it must move whenever `live` does, or the '
+          'window re-read (forty rows WITH bodies) quietly gets more frequent',
+    );
+    expect(
+      sweepMs,
+      lessThanOrEqualTo(ChatController.liveFor.inMilliseconds),
       reason: 'a live room must sweep at least once before it goes idle',
     );
   });
