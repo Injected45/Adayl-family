@@ -603,6 +603,29 @@ Two rules there are easy to trip and worth knowing before you add a screen:
   In a row, use `IconButton` (finite `minimumSize`) or wrap in `Expanded` —
   `ice_check_sheet` does the second, the banner does the first.
 
+- ⚠ **AND THE BANNER NOW LIVES ABOVE THE NAVIGATOR, so `Overlay` and `Scaffold`
+  are NOT above it.** `IncomingCallBanner` moved out of `AppScaffold` into
+  `MaterialApp.builder`, because the عديل portal is deliberately not an
+  `AppScaffold` — so on the one screen a member sits on there was no banner and,
+  the provider being auto-disposed with nothing watching it, **no call poll at
+  all**. Ringing him did nothing until he wandered into المجلس.
+
+  ⚠ **The move cost its buttons their `tooltip:`.** `Tooltip` requires an
+  `Overlay` ancestor and the Overlay lives inside the Navigator — BELOW the
+  builder. A tooltip there throws «No Overlay widget found» the instant a call
+  rings, on whatever screen the man is on, and takes the app down with it. They
+  carry `Semantics(label:)` instead, which reaches TalkBack and needs nothing
+  above it. `test/call_banner_root_test.dart` mounts the REAL root shape —
+  banner over Navigator, no Scaffold — and is what caught it; the older
+  `call_ui_smoke_test` puts the banner inside a `Scaffold`, so it passed
+  throughout.
+
+  ⚠ **Anything added to that banner inherits the constraint**: no `Tooltip`, no
+  `showDialog` from build, nothing that resolves an `Overlay` or a `Material`
+  ancestor. And it must occupy zero height when silent — it sits above `/login`
+  and `/pending` too, and a few reserved pixels would push every screen down
+  for ever.
+
 - **«فحص مسار الاتصال»** (`features/call/data/ice_probe.dart`) answers on ONE
   phone the question that otherwise needs two: will a call reach somebody on
   a different network. It gathers ICE candidates against
@@ -786,10 +809,26 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
   man raises when he wants to hear his phone, and a ring under music at equal
   level is a ring nobody hears.
 
-  ⚠ It is silenced by `IncomingCall.answered()`, called by the answer and
+  ⚠ It is silenced by `IncomingCall.decided(callId)`, called by the answer and
   decline buttons BEFORE their round trip — never inferred from the poll. The
   call stays «جارية» and stays returned for as long as anybody is on it, so
   waiting for the row to change would ring through the conversation.
+
+  ⚠ **AND SILENCING ALONE WAS NOT ENOUGH — THE POLL UNDID IT.** Pressing ردّ
+  runs: silence the tone → `await join_call()` (a round trip, one or two
+  seconds on a Libyan connection) → `_open()` sets `activeCallProvider`. A tick
+  landing in that gap sees a call that is still live and an `activeCallProvider`
+  that is still null — the two conditions the tone waits for — so it started
+  ringing again, on a call he had already answered, and re-posted the
+  notification with it. On wifi the gap is short enough to miss; on mobile data
+  it is the ordinary case.
+
+  So `decided` takes the **call id** and `_notify` refuses to ring for it.
+  ⚠ An id rather than a flag, because a handset-wide «he answered» would
+  silence the NEXT call too — a phone that rings once and never again, worse
+  than the bug it fixed. `call_answer_gap_test.dart` reproduces the window, and
+  separately covers the reset in the `!live` branch, which the obvious test
+  passes with or without.
 
   ⚠ **AND THE BACKGROUND NOTIFICATIONS HAD NEVER RUN — «مره يصل اشعار مره بتاخر
   وغير منتظم».** The cause was one missing line of XML.

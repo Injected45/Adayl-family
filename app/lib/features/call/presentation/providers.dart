@@ -125,6 +125,21 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
   ///   announced, so a call is announced once and cleared once.
   int? _ringing;
 
+  /// المكالمة التي قرّر فيها — ردّاً أو رفضاً.
+  ///
+  /// ⚠ WITHOUT THIS THE POLL UNDOES THE ANSWER, and the pre-emptive silence in
+  ///   [decided] defeats itself. Pressing ردّ runs: silence the tone → `await
+  ///   join()` (a round trip, one or two seconds on a Libyan connection) →
+  ///   `_open()` sets activeCallProvider. A tick landing in that gap sees a
+  ///   call that is still live and an activeCallProvider that is still null —
+  ///   so it STARTS THE TONE AGAIN and re-posts the notification, on a call the
+  ///   man has already answered. He hears his own phone ring into the
+  ///   conversation.
+  ///
+  ///   The id is remembered rather than a bare flag, so the NEXT call still
+  ///   rings: a decision belongs to one call, not to the handset.
+  int? _decided;
+
   void _notify(CallView? call) {
     final bool live =
         call != null &&
@@ -137,6 +152,8 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
         _ringing = null;
         unawaited(AppNotifier.clearCall());
       }
+      // The decision dies with the call it was about.
+      _decided = null;
       // ⚠ STOPPED UNCONDITIONALLY, outside the `_ringing != null` guard. That
       //   flag tracks the NOTIFICATION, and the tone can be sounding when it is
       //   null — answering sets it null through [answered] while the call is
@@ -156,6 +173,10 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
     // ⚠ AND NOT WHILE HE IS ALREADY ON A CALL. The poll returns a «جارية» call
     //   the moment he joins one, so ringing on `live` alone would sound the
     //   tone into his own conversation for as long as it lasted.
+    // ⚠ AND NOT ON A CALL HE HAS ALREADY DECIDED. See [_decided]: the answer
+    //   and the seat are two round trips apart, and the poll runs between them.
+    if (_decided == call.id) return;
+
     if (ref.read(activeCallProvider) == null) {
       unawaited(ref.read(callRingtoneProvider).start());
     }
@@ -167,17 +188,28 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
     );
   }
 
-  /// ردّ، أو رفض، أو أغلق — فيسكت الرنين فوراً.
+  /// ردّ، أو رفض — فيسكت الرنين فوراً ولا يعود.
   ///
   /// ⚠ CALLED BY THE UI RATHER THAN INFERRED HERE, because the poll cannot see
   ///   the decision: the call stays «جارية» and stays returned for as long as
   ///   anybody is on it. Waiting for the row to change would ring through the
   ///   first seconds of every answered call.
-  void answered() {
+  ///
+  /// ⚠ AND IT TAKES THE ID, because silencing alone was not enough — the next
+  ///   tick simply started the tone again. See [_decided].
+  void decided(int callId) {
+    _decided = callId;
     _ringing = null;
     unawaited(ref.read(callRingtoneProvider).stop());
     unawaited(AppNotifier.clearCall());
   }
+
+  /// ⚠ VISIBLE, AND CALLED BY THE TESTS, for the same reason ChatChime.play
+  ///   is: the DECISION is what is worth pinning and the poll around it needs
+  ///   a network. call_answer_gap_test drives this directly to reproduce the
+  ///   window between «ردّ» and the seat being taken.
+  @visibleForTesting
+  void notifyForTest(CallView? call) => _notify(call);
 
   /// Ask again now — after answering, declining or hanging up, so the banner
   /// goes without waiting out the interval.

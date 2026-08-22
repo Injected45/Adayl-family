@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/notify/background_service.dart';
 import '../../../core/providers.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../domain/app_user.dart';
 
 enum AuthStage {
@@ -160,6 +161,23 @@ class AuthController extends Notifier<AuthState> {
     if (_serviceOn == wanted) return;
     _serviceOn = wanted;
     unawaited(wanted ? BackgroundService.start() : BackgroundService.stop());
+
+    // ── والجرس معها ────────────────────────────────────────────────────────
+    // ⚠ Doorbell.stop() WAS DOCUMENTED AS «STOPPED ON SIGN-OUT» AND CALLED BY
+    //   NOBODY. The channel carries the SESSION'S TOKEN and is private — its
+    //   policy was evaluated for the man who opened it — so leaving it up
+    //   across a sign-out means a socket authenticated as somebody who has
+    //   left. Nothing leaks (a ring carries no data), but the file claimed a
+    //   guarantee the code did not keep, which this project has already paid
+    //   for once: «a comment describing an intention the code does not carry
+    //   out is worse than none — the next reader trusts it and hunts the bug
+    //   somewhere else».
+    //
+    // ⚠ AND IT IS NOT STARTED HERE. The bell connects lazily, the first time
+    //   something asks to listen — the room, the badge or the call poll — so
+    //   starting it on sign-in would open a socket for an account that may
+    //   never open a screen that needs one.
+    if (!wanted) unawaited(ref.read(doorbellProvider).stop());
   }
 
   /// Starts an interactive sign-in. A no-op on web, where the flow can only be

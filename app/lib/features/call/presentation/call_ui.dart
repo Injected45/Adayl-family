@@ -106,7 +106,7 @@ Future<void> answerCall(
   //   phone still ringing in his hand after he has answered it — which reads
   //   as a tap that did nothing. If the join then fails, the poll is three
   //   seconds away and starts it again.
-  ref.read(incomingCallProvider.notifier).answered();
+  ref.read(incomingCallProvider.notifier).decided(call.id);
 
   try {
     await repo.join(call.id);
@@ -389,31 +389,48 @@ class IncomingCallBanner extends ConsumerWidget {
             //
             //   IconButtons carry their own finite minimumSize and are what a
             //   call banner looks like anyway.
-            IconButton.filled(
-              onPressed: () async {
-                // Silence first, for the same reason as answering: the refusal
-                // is a round trip and he has already decided.
-                ref.read(incomingCallProvider.notifier).answered();
-                await ref
-                    .read(callRepositoryProvider)
-                    .end(call.id, declined: true);
-                await ref.read(incomingCallProvider.notifier).refresh();
-              },
-              tooltip: l.callDecline,
-              icon: const Icon(Icons.call_end),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.danger,
-                foregroundColor: AppColors.onFill,
+            // ── ⚠ SEMANTICS, NOT tooltip, AND THE REASON IS STRUCTURAL ──────
+            //
+            // `Tooltip` requires an `Overlay` ancestor, and the Overlay lives
+            // inside the Navigator — which is BELOW this banner now that it
+            // sits at the app root rather than inside AppScaffold. A tooltip
+            // here throws «No Overlay widget found» the instant a call rings,
+            // on whatever screen the man is on, and takes the app with it.
+            //
+            // Nothing was lost: a tooltip needs a long press on a phone and is
+            // almost never seen, while `Semantics` reaches TalkBack — which is
+            // the audience the label was for. See call_banner_root_test.
+            Semantics(
+              button: true,
+              label: l.callDecline,
+              child: IconButton.filled(
+                onPressed: () async {
+                  // Silence first, for the same reason as answering: the
+                  // refusal is a round trip and he has already decided.
+                  ref.read(incomingCallProvider.notifier).decided(call.id);
+                  await ref
+                      .read(callRepositoryProvider)
+                      .end(call.id, declined: true);
+                  await ref.read(incomingCallProvider.notifier).refresh();
+                },
+                icon: const Icon(Icons.call_end),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  foregroundColor: AppColors.onFill,
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            IconButton.filled(
-              onPressed: () => answerCall(context, ref, call),
-              tooltip: l.callAnswer,
-              icon: const Icon(Icons.call),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.success,
-                foregroundColor: AppColors.onFill,
+            Semantics(
+              button: true,
+              label: l.callAnswer,
+              child: IconButton.filled(
+                onPressed: () => answerCall(context, ref, call),
+                icon: const Icon(Icons.call),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: AppColors.onFill,
+                ),
               ),
             ),
           ],
