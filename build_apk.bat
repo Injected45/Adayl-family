@@ -46,11 +46,28 @@ if errorlevel 1 (
 set "SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co"
 set "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk"
 
-REM Development sign-in: an ordinary email/password account with NO special
-REM privilege of its own - its role still comes from public.profiles. It exists
-REM so the app is usable before the Google provider is switched on.
-set "DEV_LOGIN_EMAIL=admin@adayl.test"
-set "DEV_LOGIN_PASSWORD=Adayl-Dev-7Kq2mXe4Rt"
+REM Development sign-in: DELETED, and the account behind it is disabled.
+REM
+REM WARNING: it was admin@adayl.test WITH ITS PASSWORD, IN A PUBLIC REPOSITORY, AND ON
+REM   2026-08-22 that account was found to be the association's ONLY administrator.
+REM   The anon key above is public by design, so anyone who read this file could
+REM   sign in to the live project AS THAT ADMIN through GoTrue - no app, no
+REM   device, no access code. The password is still in the git history and must
+REM   be treated as compromised for ever.
+REM
+REM   It was closed in the database, not here: password scrambled, banned_until
+REM   set to infinity, profile suspended. It was NOT deleted - receivables it
+REM   authored reference it ON DELETE SET NULL, and rule 5 refuses that UPDATE.
+REM
+REM The app no longer has the door at all. devLoginEnabled is
+REM   NOT-kReleaseMode AND bool.fromEnvironment(DEV_LOGIN), so no release
+REM   carries a password field whatever is passed on this command line - a
+REM   --dart-define is set by whoever runs the build, which makes it
+REM   configuration, not a guard. test/two_doors_test.dart pins that.
+REM
+REM   Leave these empty. Sign in with Google.
+set "DEV_LOGIN_EMAIL="
+set "DEV_LOGIN_PASSWORD="
 
 REM ---- Google sign-in --------------------------------------------------------
 REM Fill GOOGLE_SERVER_CLIENT_ID with the WEB client ID from Google Cloud - the

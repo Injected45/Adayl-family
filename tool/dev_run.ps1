@@ -42,9 +42,9 @@ if (Test-Path $log) { Remove-Item $log -Force }
 $defines = @(
   '--dart-define=SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co',
   '--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk',
-  '--dart-define=DEV_LOGIN=true',
-  '--dart-define=DEV_LOGIN_EMAIL=admin@adayl.test',
-  '--dart-define=DEV_LOGIN_PASSWORD=Adayl-Dev-7Kq2mXe4Rt',
+  # DEV_LOGIN removed on 2026-08-22 - see .vscode/launch.json. The account it
+  # named was the only admin and its password was public in this repository.
+  # Sign in with Google.
   '--dart-define=GOOGLE_SERVER_CLIENT_ID=891008495666-6bl9gctfge1rku7fd79421auqjikor12.apps.googleusercontent.com'
 )
 

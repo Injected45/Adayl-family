@@ -190,6 +190,20 @@ WITH have AS (
              WHERE n.nspname='public'
                AND p.proname='assert_two_doors_only')                   AS patch_22d,
 
+    -- عمر المفتاح — probed by the column, and the DROP of the one-argument
+    -- overload is checked separately below because it is the half that fails
+    -- silently: a client sending only p_code reaches the old function, binds
+    -- nobody to any handset, and nothing on screen says so.
+    EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public'
+               AND table_name='adeel_access_codes'
+               AND column_name='expires_at')                            AS patch_22e,
+
+    (SELECT count(*) FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'redeem_adeel_code')                            AS n_redeem,
+
     -- ⚠ AND THE DATA QUESTION NOTHING ELSE ASKS: IS ANYBODY STANDING INSIDE
     --   WHO WAS NEVER LET IN? Six such accounts are what let a member open the
     --   association app under his own name. A schema check cannot see them —
@@ -321,6 +335,11 @@ SELECT * FROM (
 
   -- ⚠ THE ROW THAT MATTERS MOST, AND IT IS DATA RATHER THAN SCHEMA. Every
   --   schema check passed on the day a member opened the association app.
+  UNION ALL SELECT 10.993, 'PATCH 22/08 (e) — عمر المفتاح والجهاز من الترويسة',
+         CASE WHEN patch_22e AND n_redeem = 1 THEN 'applied'
+              WHEN patch_22e THEN 'PARTIAL ⚠ نسختان من redeem_adeel_code'
+              ELSE 'NOT applied' END FROM have
+
   UNION ALL SELECT 10.995, 'غرباء في الداخل (معتمد، بلا عديل، وليس أدمن)',
          CASE WHEN strangers_inside IS NULL THEN 'unknown'
               WHEN strangers_inside = 0 THEN '0 — لا أحد'
@@ -414,6 +433,13 @@ SELECT * FROM (
               WHEN NOT patch_22d OR coalesce(strangers_inside, 0) > 0
                 THEN 'READY — apply supabase/PATCH_20260822d_two_doors.sql'
                   || '  ⚠ يمسح كل مفاتيح الدخول ويفكّ ارتباط كل جهاز.'
-              ELSE 'UP TO DATE — every patch through 22/08 (d) is applied.'
+
+              -- ⚠ OR, not just NOT: two overloads of redeem_adeel_code is a
+              --   state this patch exists to end, and a project can reach it
+              --   without ever having been one patch behind.
+              WHEN NOT patch_22e OR n_redeem <> 1
+                THEN 'READY — apply supabase/PATCH_20260822e_key_lifetime.sql'
+                  || '  المفاتيح القائمة تبقى صالحة سبعة أيام من إصدارها.'
+              ELSE 'UP TO DATE — every patch through 22/08 (e) is applied.'
          END FROM have
 ) t ORDER BY ord;

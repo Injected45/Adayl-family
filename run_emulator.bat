@@ -55,11 +55,28 @@ if errorlevel 1 (
 set "SUPABASE_URL=https://wvryyidbjvvomurvfhpw.supabase.co"
 set "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2cnl5aWRianZ2b211cnZmaHB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MjgzMzgsImV4cCI6MjEwMjMwNDMzOH0.ZvppQmbFK_mU-XWocTFqc9zIUW0CTb9lctD_9yuZ8nk"
 
-REM Development sign-in: an ordinary email/password account with NO special
-REM privilege. Its role still comes from public.profiles like everyone else's. It
-REM exists so the app is testable before the Google provider is switched on.
-set "DEV_LOGIN_EMAIL=admin@adayl.test"
-set "DEV_LOGIN_PASSWORD=Adayl-Dev-7Kq2mXe4Rt"
+REM Development sign-in: DELETED, and the account behind it is disabled.
+REM
+REM WARNING: it was admin@adayl.test WITH ITS PASSWORD, IN A PUBLIC REPOSITORY, AND ON
+REM   2026-08-22 that account was found to be the association's ONLY administrator.
+REM   The anon key above is public by design, so anyone who read this file could
+REM   sign in to the live project AS THAT ADMIN through GoTrue - no app, no
+REM   device, no access code. The password is still in the git history and must
+REM   be treated as compromised for ever.
+REM
+REM   It was closed in the database, not here: password scrambled, banned_until
+REM   set to infinity, profile suspended. It was NOT deleted - receivables it
+REM   authored reference it ON DELETE SET NULL, and rule 5 refuses that UPDATE.
+REM
+REM The app no longer has the door at all. devLoginEnabled is
+REM   NOT-kReleaseMode AND bool.fromEnvironment(DEV_LOGIN), so no release
+REM   carries a password field whatever is passed on this command line - a
+REM   --dart-define is set by whoever runs the build, which makes it
+REM   configuration, not a guard. test/two_doors_test.dart pins that.
+REM
+REM   Leave these empty. Sign in with Google.
+set "DEV_LOGIN_EMAIL="
+set "DEV_LOGIN_PASSWORD="
 
 REM ---------------------------------------------------------------------------
 REM  Google sign-in. Paste the WEB client ID here - the web one on Android too.
@@ -244,7 +261,7 @@ REM while it streams and optimises. Below ~500 MB free the install fails with an
 REM IOException that mentions neither the emulator nor the partition, so say it
 REM plainly here instead.
 REM
-REM ⚠ `df /data` IS NOT USED, AND THAT IS THE FIX FOR A REAL BUG.
+REM !!! `df /data` IS NOT USED, AND THAT IS THE FIX FOR A REAL BUG.
 REM On API 36 `df /data` prints the header and NO DATA ROW, so `skip=1 tokens=4`
 REM matched nothing, FREEKB stayed empty... except the old code then treated the
 REM empty value as 0 and reported "Only 0 MB free" on an emulator with 5 GB. The
@@ -254,7 +271,7 @@ set "FREEKB="
 "%ADB%" -s !DEVICE! shell df > "%TMPD%\df.txt" 2>nul
 for /f "tokens=4" %%K in ('findstr /r /c:" /data$" "%TMPD%\df.txt"') do if not defined FREEKB set "FREEKB=%%K"
 REM No reading is NOT a reading of zero. If the row cannot be found on some future
-REM image, say so and carry on rather than blocking an install that would work —
+REM image, say so and carry on rather than blocking an install that would work !!!
 REM a false refusal costs more than a genuine INSTALL_FAILED, which at least names
 REM itself.
 if not defined FREEKB echo   Could not read free space - continuing anyway.
