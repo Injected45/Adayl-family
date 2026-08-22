@@ -350,6 +350,39 @@ class LEn extends L {
   }
 
   @override
+  String get notifyServiceTitle => 'Adayl Association';
+
+  @override
+  String get notifyServiceBody => 'Listening for calls and messages';
+
+  @override
+  String get notifyServiceChannel => 'Background activity';
+
+  @override
+  String get notifyCallChannel => 'Calls';
+
+  @override
+  String get notifyCallChannelDesc => 'Incoming call ringing';
+
+  @override
+  String get notifyChatChannel => 'Messages';
+
+  @override
+  String get notifyChatChannelDesc => 'Council and private messages';
+
+  @override
+  String get callDirectoryTitle => 'Call a member';
+
+  @override
+  String get callDirectoryEmpty => 'No member has activated the app yet';
+
+  @override
+  String get callIncomingBody => 'Incoming call — tap to answer';
+
+  @override
+  String get chatNewMessagesBody => 'You have new messages';
+
+  @override
   String callOngoing(String name) {
     return 'Call in progress — $name';
   }

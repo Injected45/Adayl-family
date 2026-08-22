@@ -721,6 +721,72 @@ abstract class L {
   /// **'{name} يتصل'**
   String callIncoming(String name);
 
+  /// Title of the permanent notification Android REQUIRES while the foreground service runs. It cannot be hidden, so it is written to be useful: it says the association is listening.
+  ///
+  /// In ar, this message translates to:
+  /// **'جمعية العدايل'**
+  String get notifyServiceTitle;
+
+  /// No description provided for @notifyServiceBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'التطبيق يستقبل المكالمات والرسائل'**
+  String get notifyServiceBody;
+
+  /// No description provided for @notifyServiceChannel.
+  ///
+  /// In ar, this message translates to:
+  /// **'عمل التطبيق في الخلفية'**
+  String get notifyServiceChannel;
+
+  /// No description provided for @notifyCallChannel.
+  ///
+  /// In ar, this message translates to:
+  /// **'المكالمات'**
+  String get notifyCallChannel;
+
+  /// No description provided for @notifyCallChannelDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'رنين المكالمات الواردة'**
+  String get notifyCallChannelDesc;
+
+  /// No description provided for @notifyChatChannel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرسائل'**
+  String get notifyChatChannel;
+
+  /// No description provided for @notifyChatChannelDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسائل مجلس العدايل والمحادثات الخاصة'**
+  String get notifyChatChannelDesc;
+
+  /// No description provided for @callDirectoryTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتصال بمشترك'**
+  String get callDirectoryTitle;
+
+  /// An empty directory almost always means the other members have not redeemed their access keys yet — something the admin can act on. Saying so beats a bare «لا يوجد».
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد مشترك فعّل تطبيقه بعد'**
+  String get callDirectoryEmpty;
+
+  /// No description provided for @callIncomingBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكالمة واردة — اضغط للردّ'**
+  String get callIncomingBody;
+
+  /// No description provided for @chatNewMessagesBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'لديك رسائل جديدة في مجلس العدايل'**
+  String get chatNewMessagesBody;
+
   /// No description provided for @callOngoing.
   ///
   /// In ar, this message translates to:

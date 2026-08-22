@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/call/presentation/providers.dart' as call;
 import '../../features/chat/presentation/providers.dart' as chat;
 import '../../features/directory/presentation/providers.dart' as directory;
 import '../../features/finance/presentation/providers.dart' as finance;
@@ -70,6 +71,14 @@ void refreshAll(WidgetRef ref) {
   // The board’s inbox of private conversations. The messages themselves have
   // their own clock; this is the LIST, which nothing else refreshes.
   ref.invalidate(chat.chatThreadsProvider);
+
+  // ⚠ WHO MAY BE CALLED CHANGES WITHOUT ANYBODY ON THIS PHONE DOING
+  //   ANYTHING. api_call_directory lists only men whose app is bound to a
+  //   handset, so a member appears in it the moment he redeems his key —
+  //   somewhere else, on another phone. Left cached, the man who was told
+  //   «لا يوجد مشترك فعّل تطبيقه» would go on being told it after the whole
+  //   association had joined.
+  ref.invalidate(call.callDirectoryProvider);
 
   // Oversight.
   ref.invalidate(oversight.dashboardProvider);

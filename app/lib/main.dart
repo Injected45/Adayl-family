@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/notify/notify_text.dart';
 import 'core/state/restart.dart';
 import 'core/supabase/supabase_client_provider.dart';
+import 'l10n/app_localizations_ar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +14,17 @@ Future<void> main() async {
   // --dart-define values are missing: the sign-in screen then says what is wrong,
   // which is more use to whoever built the binary than a startup crash.
   await initialiseSupabase();
+
+  // ── كلمات الإشعارات، قبل أول إطار ──────────────────────────────────────
+  // ⚠ BEFORE runApp, not from a widget. The foreground service can start
+  //   from the auth controller before anything has built, and an Android
+  //   notification CHANNEL keeps the name it was created with — re-creating
+  //   it with a better one does nothing. An empty channel name in the
+  //   phone's settings would be permanent.
+  //
+  //   LAr directly, because this app forces the `ar` locale — there is no
+  //   other answer to ask for, and the strings are still the ARB's.
+  NotifyText.fill(LAr());
 
   // RestartWidget OWNS the ProviderScope rather than sitting inside one, which
   // is what lets the in-app restart button dispose every provider and mount a

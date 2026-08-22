@@ -99,12 +99,31 @@ class CallRepository {
             .toList();
       });
 
-  Future<int> start(int? threadAdeelId) => SupabaseFailures.guard(() async {
-    final dynamic id = await _db.rpc<dynamic>(
-      'start_call',
-      params: <String, dynamic>{'p_thread_adeel_id': threadAdeelId},
-    );
-    return (id as num).toInt();
+  /// Raise a call. Exactly one of [threadAdeelId] and [peerAdeelId] may be
+  /// set; both null is المجلس.
+  ///
+  /// ⚠ THE SERVER REFUSES BOTH AT ONCE rather than picking one, and
+  ///   `ck_call_shape` refuses the row underneath it. A call that is in a
+  ///   thread AND between two men is a call two policies would read
+  ///   differently.
+  Future<int> start({int? threadAdeelId, int? peerAdeelId}) =>
+      SupabaseFailures.guard(() async {
+        final dynamic id = await _db.rpc<dynamic>(
+          'start_call',
+          params: <String, dynamic>{
+            'p_thread_adeel_id': threadAdeelId,
+            'p_peer_adeel_id': peerAdeelId,
+          },
+        );
+        return (id as num).toInt();
+      });
+
+  /// Who this man may ring.
+  Future<List<CallPeer>> directory() => SupabaseFailures.guard(() async {
+    final dynamic rows = await _db.rpc<dynamic>('api_call_directory');
+    return (rows as List<dynamic>)
+        .map((dynamic e) => CallPeer.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
   });
 
   /// من على المكالمة الآن — live seats only; the view drops anyone not heard

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/notify/background_service.dart';
 import '../../../core/providers.dart';
 import '../domain/app_user.dart';
 
@@ -114,9 +115,11 @@ class AuthController extends Notifier<AuthState> {
   Future<void> refreshProfile() async {
     final AppUser? user = await ref.read(authRepositoryProvider).restore();
     if (user == null) {
+      _followSession(null);
       state = const AuthState(stage: AuthStage.signedOut);
       return;
     }
+    _followSession(user);
     state = switch (user.status) {
       AccountStatus.approved => AuthState(
         stage: AuthStage.signedIn,
@@ -132,6 +135,31 @@ class AuthController extends Notifier<AuthState> {
         user: user,
       ),
     };
+  }
+
+  /// ── الخدمة الخلفية تتبع الجلسة ───────────────────────────────────────
+  ///
+  /// ⚠ THE SESSION DRIVES IT, and this is the only place that knows. A
+  ///   foreground service is what keeps the call poll alive while the phone
+  ///   is in a pocket — and a permanent notification saying the association
+  ///   is listening, on a handset nobody is signed in on, is a lie the user
+  ///   cannot dismiss: Android will not let him swipe away a running
+  ///   service's notification.
+  ///
+  /// ⚠ APPROVED ONLY. A pending applicant and a suspended account are told
+  ///   to wait; listening on their behalf would be listening to nothing,
+  ///   because every policy refuses them anyway.
+  ///
+  /// ⚠ ON THE EDGE, so a re-read of api_me every forty-five seconds does not
+  ///   restart the service forty-five seconds apart forever.
+  bool? _serviceOn;
+
+  void _followSession(AppUser? user) {
+    final bool wanted =
+        user != null && user.status == AccountStatus.approved;
+    if (_serviceOn == wanted) return;
+    _serviceOn = wanted;
+    unawaited(wanted ? BackgroundService.start() : BackgroundService.stop());
   }
 
   /// Starts an interactive sign-in. A no-op on web, where the flow can only be

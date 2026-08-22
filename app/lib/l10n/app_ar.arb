@@ -155,6 +155,23 @@
   "callTitle": "مكالمة صوتية",
   "callStart": "اتصال صوتي",
   "callIncoming": "{name} يتصل",
+  "notifyServiceTitle": "جمعية العدايل",
+  "@notifyServiceTitle": {
+    "description": "Title of the permanent notification Android REQUIRES while the foreground service runs. It cannot be hidden, so it is written to be useful: it says the association is listening."
+  },
+  "notifyServiceBody": "التطبيق يستقبل المكالمات والرسائل",
+  "notifyServiceChannel": "عمل التطبيق في الخلفية",
+  "notifyCallChannel": "المكالمات",
+  "notifyCallChannelDesc": "رنين المكالمات الواردة",
+  "notifyChatChannel": "الرسائل",
+  "notifyChatChannelDesc": "رسائل مجلس العدايل والمحادثات الخاصة",
+  "callDirectoryTitle": "اتصال بمشترك",
+  "callDirectoryEmpty": "لا يوجد مشترك فعّل تطبيقه بعد",
+  "@callDirectoryEmpty": {
+    "description": "An empty directory almost always means the other members have not redeemed their access keys yet — something the admin can act on. Saying so beats a bare «لا يوجد»."
+  },
+  "callIncomingBody": "مكالمة واردة — اضغط للردّ",
+  "chatNewMessagesBody": "لديك رسائل جديدة في مجلس العدايل",
   "callOngoing": "مكالمة جارية — {name}",
   "@callOngoing": { "placeholders": { "name": { "type": "String" } } },
   "@callIncoming": { "placeholders": { "name": { "type": "String" } } },

@@ -265,6 +265,28 @@ class AdeelDetailScreen extends ConsumerWidget {
                 icon: const Icon(Icons.volunteer_activism_outlined, size: 18),
                 label: Text(l.openAid),
               ),
+              const SizedBox(height: AppSpacing.sm),
+
+              // ── «الجدوى»: ما دفعه مقابل ما استلمه ───────────────────
+              // ⚠ A SECOND LINK, NOT A SECOND PANEL, and for the reason the
+              //   first one is a link: this page is «ما عليه» throughout,
+              //   and «الجدوى» sets what he PAID beside what he RECEIVED.
+              //   Put among the dues it would invite the same subtraction —
+              //   الجمعية خيرية, and what a man is given is never deducted
+              //   from what he owes. The screen states that rule at its top;
+              //   a figure in this column could not.
+              //
+              // ⚠ AND IT IS THE MEMBER'S OWN SCREEN, unchanged. The
+              //   association asked to see «الجدوى لكل مشترك», and what an
+              //   admin should see is exactly what the member sees — not an
+              //   admin rendering of it, which is how two views of one
+              //   figure start disagreeing.
+              OutlinedButton.icon(
+                onPressed: () =>
+                    context.go('${AppRoutes.adeels}/$adeelId/value'),
+                icon: const Icon(Icons.insights_outlined, size: 18),
+                label: Text(l.valueTitle),
+              ),
               const SizedBox(height: AppSpacing.lg),
 
               // «البيانات الشخصية» stood here as a panel of three facts. It

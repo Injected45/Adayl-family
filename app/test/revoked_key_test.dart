@@ -53,6 +53,22 @@ void main() {
   //   BEFORE the portal pin. Written as the router's own decision so the test
   //   fails if the two branches are ever swapped — which would silently leave a
   //   revoked member inside المجلس.
+  // ── «الجدوى» من جانب الإدارة ────────────────────────────────────────────
+  //
+  // ⚠ THE ADMIN OPENS IT BY URL; THE MEMBER MUST NOT. Staff reach any man's
+  //   «الجدوى» at /adeels/:id/value — the association asked for that. A portal
+  //   account reaching the same URL would be shown a screen about SOMEBODY
+  //   ELSE, and api_member_value would refuse it — leaving him staring at an
+  //   error where a page should be. portalMayOpen is what keeps that door shut,
+  //   and it must stay shut even though the screen itself is now routed.
+  //
+  //   The member still reaches his own «الجدوى» — by an imperative push from
+  //   his portal, which changes no location for the guard to judge.
+  test('⚠ the admin route to الجدوى is closed to a portal account', () {
+    expect(portalMayOpen('/adeels/4/value'), isFalse);
+    expect(portalMayOpen('/adeels/4/aid'), isFalse);
+  });
+
   group('and what it may open once the key is revoked', () {
     String? destination(AppUser user, String location) {
       if (user.isAdeelPortal && user.deviceLocked) {

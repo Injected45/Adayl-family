@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../l10n/app_localizations.dart';
+import '../notify/notify_text.dart';
 import 'refresh.dart';
 
 /// Keeps every figure in the app current, without anyone pressing anything.
@@ -81,6 +83,7 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
     _foreground = front;
   }
 
+
   void _tick() {
     if (!_foreground || !mounted) return;
     refreshAll(ref);
@@ -103,5 +106,34 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // ── الكلمات تسافر إلى المزوّد، لا العكس ────────────────────────────────
+    // A notification is raised from a three-second poll with no widget and no
+    // BuildContext, and Arabic literals are refused outside the ARB. This is
+    // the one place that has both a context and the whole app under it.
+    // ⚠ maybeOf, NOT of. This widget wraps the WHOLE app, and L.of throws on a
+    //   null — so requiring localisations here makes AutoRefresh unusable
+    //   anywhere they are not already installed above it. A test caught that;
+    //   in the app it would have been a white screen with a null-check error.
+    //
+    //   Missing them costs an empty notification BODY for one build. The title
+    //   — the callers name, the count — carries the meaning either way.
+    final L? l = Localizations.of<L>(context, L);
+    if (l != null) {
+      NotifyText.incomingCall = l.callIncomingBody;
+      NotifyText.newMessages = l.chatNewMessagesBody;
+    }
+
+    // ⚠ THE BACKGROUND SERVICE IS NOT STARTED HERE, and it was, briefly.
+    //   Watching the session from this widget makes the auth controller
+    //   BOOT — which needs a configured Supabase, throws ASYNCHRONOUSLY
+    //   without one, and so cannot even be caught around the watch. This
+    //   wrapper sits above the whole app and its contract is «renders its
+    //   child and nothing else»; a test held it to that.
+    //
+    //   The service follows the SESSION, so the session drives it — see
+    //   AuthController. Owning it here would have been a second place that
+    //   decides whether the association is listening.
+    return widget.child;
+  }
 }

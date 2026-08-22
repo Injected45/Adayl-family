@@ -44,9 +44,10 @@ void _report(ScaffoldMessengerState messenger, L l, Object error) {
 /// Raise a call in [threadAdeelId] and open the in-call screen.
 Future<void> startCall(
   BuildContext context,
-  WidgetRef ref,
+  WidgetRef ref, {
   int? threadAdeelId,
-) async {
+  int? peerAdeelId,
+}) async {
   final L l = L.of(context);
   // Captured BEFORE the await: after it the widget may be gone and the
   // context unusable — the same rule _generate() follows in receivables.
@@ -55,7 +56,10 @@ Future<void> startCall(
 
   final int id;
   try {
-    id = await repo.start(threadAdeelId);
+    id = await repo.start(
+      threadAdeelId: threadAdeelId,
+      peerAdeelId: peerAdeelId,
+    );
   } on Object catch (e) {
     _report(messenger, l, e);
     return;

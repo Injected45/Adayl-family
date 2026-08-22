@@ -6,6 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/theme.dart';
+import '../../../core/notify/notifier.dart';
+import '../../../core/notify/notify_text.dart';
 import '../../../core/router/destinations.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
@@ -87,6 +89,14 @@ class _OnResume with WidgetsBindingObserver {
   }
 }
 
+/// The notification TITLE: how many are waiting.
+///
+/// ⚠ A BARE NUMERAL, on purpose. There is no BuildContext in a poll, so no
+///   L — and inventing an Arabic sentence here would put user-facing text
+///   outside the ARB, which is exactly what NotifyText exists to avoid. The
+///   BODY carries the words; the title carries the count.
+String l10nTitle(int n) => n.toString();
+
 class ChatUnread extends AutoDisposeAsyncNotifier<int> {
   /// How often the bell asks.
   ///
@@ -105,6 +115,9 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
   Timer? _timer;
   int _lastRead = 0;
   bool _gone = false;
+
+  /// The count this notifier last announced, so a rise is announced ONCE.
+  int _announced = 0;
 
   @override
   Future<int> build() async {
@@ -157,9 +170,27 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
       //   «يظهر الصوت مع الايقونه الحمره وعدد الارقام» — and it means the
       //   sound can never disagree with what is on screen. A second poll
       //   watching for messages would eventually do both.
-      ref
-          .read(chatChimeProvider)
-          .onCount(n, suppressed: ref.read(chatScreenOpenProvider));
+      final bool onScreen = ref.read(chatScreenOpenProvider);
+      ref.read(chatChimeProvider).onCount(n, suppressed: onScreen);
+
+      // ── والإشعار، لمن التطبيق ليس أمامه ─────────────────────────────
+      // ⚠ THE CHIME IS NOT ENOUGH WHILE THE PHONE IS IN A POCKET. A sound
+      //   with nothing on the lock screen is a noise he cannot act on and
+      //   cannot look up afterwards.
+      //
+      // ⚠ ON THE RISE ONLY, and cleared when the count reaches zero — which
+      //   is what opening the room does. Re-posting on every tick would
+      //   re-alert the phone fifteen times a minute for one message; leaving
+      //   it up after he has read them would be a badge that lies.
+      if (onScreen || n == 0) {
+        unawaited(AppNotifier.clearMessages());
+      } else if (n > _announced) {
+        unawaited(
+          AppNotifier.message(l10nTitle(n), NotifyText.newMessages),
+        );
+      }
+      _announced = n;
+
       state = AsyncValue<int>.data(n);
     } on Object {
       // A failed poll leaves the previous count standing. A bell that flickers

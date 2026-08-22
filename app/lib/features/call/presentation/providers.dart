@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/domain/wire_values.dart';
+import '../../../core/notify/notifier.dart';
+import '../../../core/notify/notify_text.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -62,6 +65,7 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
     try {
       final CallView? call = await ref.read(callRepositoryProvider).liveAny();
       if (_gone) return;
+      _notify(call);
       state = AsyncValue<CallView?>.data(call);
     } on Object {
       // A failed poll leaves the previous answer standing. Dropping a ringing
@@ -69,10 +73,55 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
     }
   }
 
+  /// ── الرنين وهو في الخلفية ─────────────────────────────────────────────
+  ///
+  /// ⚠ THE BANNER IS NOT ENOUGH, and that is the whole of what the
+  ///   association asked for: «اريد التطبيق يشتغل في الخلفية بحيث لما حد يرن
+  ///   يصل الرنين وينتبه». A banner is a thing you see if you are already
+  ///   looking; a notification is what reaches a phone in a pocket.
+  ///
+  /// ⚠ ONLY ON THE EDGE, never on every tick. This runs every three seconds;
+  ///   re-posting the same notification each time would re-alert the phone
+  ///   twenty times a minute for one call. `_ringing` is the id it last
+  ///   announced, so a call is announced once and cleared once.
+  int? _ringing;
+
+  void _notify(CallView? call) {
+    final bool live =
+        call != null &&
+        !call.mine &&
+        (call.status == CallStatusWire.ringing ||
+            call.status == CallStatusWire.active);
+
+    if (!live) {
+      if (_ringing != null) {
+        _ringing = null;
+        unawaited(AppNotifier.clearCall());
+      }
+      return;
+    }
+    if (_ringing == call.id) return;
+    _ringing = call.id;
+    unawaited(
+      AppNotifier.ringing(call.callerName, NotifyText.incomingCall),
+    );
+  }
+
   /// Ask again now — after answering, declining or hanging up, so the banner
   /// goes without waiting out the interval.
   Future<void> refresh() => _tick();
 }
+
+/// من يمكن الاتصال به — قائمة الأسماء.
+///
+/// ⚠ AUTO-DISPOSED AND UNPOLLED. It is read when the screen opens and thrown
+///   away when it closes: a directory of eight names does not change while a
+///   man is looking at it, and a fourth timer for a list nobody watches is
+///   the cost this app has been careful about all along.
+final AutoDisposeFutureProvider<List<CallPeer>> callDirectoryProvider =
+    AutoDisposeFutureProvider<List<CallPeer>>(
+      (Ref ref) => ref.watch(callRepositoryProvider).directory(),
+    );
 
 /// The call this handset is actually on, if any.
 ///

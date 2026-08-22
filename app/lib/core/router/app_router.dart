@@ -19,6 +19,7 @@ import '../../features/directory/presentation/receivables_screen.dart';
 import '../../features/directory/presentation/statements_screen.dart';
 import '../../features/finance/presentation/adeel_aid_screen.dart';
 import '../../features/finance/presentation/cash_screen.dart';
+import '../../features/finance/presentation/member_value_screen.dart';
 import '../../features/finance/presentation/payments_screen.dart';
 import '../../features/home/presentation/placeholder_screen.dart';
 import '../../features/oversight/presentation/audit_screen.dart';
@@ -117,6 +118,30 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                   return id == null
                       ? const AdeelsScreen()
                       : AdeelAidScreen(adeelId: id);
+                },
+              ),
+              // ── «الجدوى» لكل عديل، من جانب الإدارة ─────────────────
+              // The same screen the member reads about himself, opened by
+              // staff about anyone. Not a copy: `api_member_value` decides
+              // in its FIRST statement who may ask about whom — he may ask
+              // about himself, staff may ask about anyone, everyone else is
+              // refused. A second admin-only endpoint would be a second
+              // place that rule lives.
+              //
+              // ⚠ A ROUTE, WHILE THE PORTAL PUSHES IMPERATIVELY. The router
+              //   guard pins a portal account to /my-dues, and a push
+              //   changes no location for it to redirect — which is why the
+              //   member reaches this screen with Navigator.push and staff
+              //   reach it by URL. Same screen, two doors, one policy.
+              GoRoute(
+                path: 'value',
+                builder: (_, GoRouterState state) {
+                  final int? id = int.tryParse(
+                    state.pathParameters['id'] ?? '',
+                  );
+                  return id == null
+                      ? const AdeelsScreen()
+                      : MemberValueScreen(adeelId: id);
                 },
               ),
             ],

@@ -15,6 +15,7 @@ import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../call/presentation/call_directory_screen.dart';
 import '../../call/presentation/call_ui.dart';
 import '../../call/presentation/ice_check_sheet.dart';
 import '../data/chat_read_state.dart';
@@ -352,7 +353,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       actions: <Widget>[
         if (_room == _Room.hall || _key != null)
           IconButton(
-            onPressed: () => unawaited(startCall(context, ref, _key)),
+            onPressed: () =>
+                unawaited(startCall(context, ref, threadAdeelId: _key)),
             icon: const Icon(Icons.call),
             tooltip: l.callStart,
           ),
@@ -363,6 +365,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         //   borrowed public relay is alive — and it normally needs two phones
         //   and two people. This answers it on one, in ten seconds, before
         //   anybody is called and made to wait.
+        // ── اتصال بمشترك ────────────────────────────────────────────────
+        // ⚠ FOR A MEMBER ONLY, and that is the server's rule not a
+        //   preference: start_call refuses a peer call from anyone with no
+        //   عديل behind him — «الاتصال بين المشتركين، والإدارة تتصل عبر
+        //   المحادثة الخاصة». Showing staff a button that is refused would be
+        //   offering something the database will not do.
+        //
+        //   Here rather than in the portal capsule because the chat is the one
+        //   screen both kinds of account share, and because calling already
+        //   lives in this bar — the handset rings the ROOM, this rings a MAN.
+        if (isMember)
+          IconButton(
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const CallDirectoryScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.contact_phone_outlined),
+            tooltip: l.callDirectoryTitle,
+          ),
         IconButton(
           onPressed: () => unawaited(showIceCheck(context, ref)),
           icon: const Icon(Icons.network_check),

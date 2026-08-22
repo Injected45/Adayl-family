@@ -15,6 +15,7 @@ class CallView {
     required this.status,
     required this.startedAt,
     required this.endedAt,
+    required this.peerAdeelId,
   });
 
   final int id;
@@ -28,6 +29,14 @@ class CallView {
   final String startedAt;
   final String endedAt;
 
+  /// The عديل being rung directly, when this is a peer call.
+  ///
+  /// ⚠ NULL FOR BOTH ROOMS, and the three shapes are exclusive by CHECK:
+  ///   a thread id means الإدارة, this means one man to one man, and neither
+  ///   means المجلس. A row that could be read two ways is a row two policies
+  ///   will disagree about.
+  final int? peerAdeelId;
+
   factory CallView.fromJson(Map<String, dynamic> json) => CallView(
     id: (json['id'] as num?)?.toInt() ?? 0,
     threadAdeelId: (json['threadAdeelId'] as num?)?.toInt(),
@@ -36,6 +45,7 @@ class CallView {
     status: json['status']?.toString() ?? '',
     startedAt: json['startedAt']?.toString() ?? '',
     endedAt: json['endedAt']?.toString() ?? '',
+    peerAdeelId: (json['peerAdeelId'] as num?)?.toInt(),
   );
 }
 
@@ -82,6 +92,31 @@ class CallSignal {
     mine: json['mine'] == true,
     fromUserId: json['fromUserId']?.toString() ?? '',
     toUserId: json['toUserId']?.toString() ?? '',
+  );
+}
+
+/// من يمكن الاتصال به — اسمٌ وكودٌ ولا شيء غيرهما.
+///
+/// ⚠ NO PHONE, NO BALANCE, NO DUES. `api_call_directory` answers «من أتصل
+///   به» and every other column would be an answer to a question nobody
+///   asked. It also lists only men whose app is actually bound to a handset:
+///   offering a call to somebody with no app is offering a call that rings
+///   in an empty room.
+class CallPeer {
+  const CallPeer({
+    required this.adeelId,
+    required this.name,
+    required this.code,
+  });
+
+  final int adeelId;
+  final String name;
+  final String code;
+
+  factory CallPeer.fromJson(Map<String, dynamic> json) => CallPeer(
+    adeelId: (json['adeelId'] as num?)?.toInt() ?? 0,
+    name: json['name']?.toString() ?? '',
+    code: json['code']?.toString() ?? '',
   );
 }
 

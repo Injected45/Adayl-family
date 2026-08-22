@@ -37,6 +37,17 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // ⚠ REQUIRED BY flutter_local_notifications, and the build fails at
+        //   checkReleaseAarMetadata without it — not at compile, so the error
+        //   names an AAR rather than the package that needs it. Desugaring is
+        //   what lets a library use java.time on Android versions that predate
+        //   it, which is exactly what scheduling a notification needs.
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    // The runtime half of the line above.
+    dependencies {
+        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     }
 
     kotlinOptions {

@@ -350,6 +350,39 @@ class LAr extends L {
   }
 
   @override
+  String get notifyServiceTitle => 'جمعية العدايل';
+
+  @override
+  String get notifyServiceBody => 'التطبيق يستقبل المكالمات والرسائل';
+
+  @override
+  String get notifyServiceChannel => 'عمل التطبيق في الخلفية';
+
+  @override
+  String get notifyCallChannel => 'المكالمات';
+
+  @override
+  String get notifyCallChannelDesc => 'رنين المكالمات الواردة';
+
+  @override
+  String get notifyChatChannel => 'الرسائل';
+
+  @override
+  String get notifyChatChannelDesc => 'رسائل مجلس العدايل والمحادثات الخاصة';
+
+  @override
+  String get callDirectoryTitle => 'اتصال بمشترك';
+
+  @override
+  String get callDirectoryEmpty => 'لا يوجد مشترك فعّل تطبيقه بعد';
+
+  @override
+  String get callIncomingBody => 'مكالمة واردة — اضغط للردّ';
+
+  @override
+  String get chatNewMessagesBody => 'لديك رسائل جديدة في مجلس العدايل';
+
+  @override
   String callOngoing(String name) {
     return 'مكالمة جارية — $name';
   }

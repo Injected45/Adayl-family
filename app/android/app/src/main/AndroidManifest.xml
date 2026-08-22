@@ -20,6 +20,21 @@
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- ── الإشعارات والعمل في الخلفية ────────────────────────────── -->
+    <!-- ⚠ POST_NOTIFICATIONS is Android 13+, and without it EVERY
+         notification is dropped SILENTLY — no error, nothing on screen.
+         The runtime request is in core/notify/notifier.dart. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- ⚠ AND THE SERVICE TYPE IS MANDATORY FROM ANDROID 14. A foreground
+         service declared without a type does not fail to start — it throws
+         at runtime and takes the app with it. `dataSync` is the honest
+         one: the service exists to keep a poll alive. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <!-- Lets the ringing notification take over a locked screen, which is
+         the whole point of a call arriving while the phone is in a pocket. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <application
         android:label="جمعية العدايل"
         android:name="${applicationName}"
