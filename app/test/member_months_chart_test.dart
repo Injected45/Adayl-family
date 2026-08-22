@@ -102,7 +102,16 @@ void main() {
   // ⚠ THE EMPTY CASE IS NOT AN EMPTY CHART. Twelve blank columns on the one
   //   screen built to answer «ما الجدوى» is a graphic that says nothing, and a
   //   man who has never paid is exactly who opens it first.
-  testWidgets('a man with no movement gets no chart at all', (
+  // ⚠ A QUIET YEAR IS STILL A YEAR, and this test used to assert the
+  //   opposite. It was right about the CUMULATIVE chart it was written for:
+  //   eleven flat months meeting a vertical jump says nothing, and a
+  //   full-width graphic that says nothing is worse than none.
+  //
+  //   The calendar-year waves are a different object. Its empty months are the
+  //   part of the year that has not happened yet, and drawing them is what
+  //   makes «يناير إلى ديسمبر» mean anything at all — the association asked
+  //   for the year, not for the busy part of it.
+  testWidgets('⚠ a quiet year still draws — the months ARE the point', (
     WidgetTester tester,
   ) async {
     await _pump(
@@ -113,7 +122,7 @@ void main() {
       ]),
     );
 
-    expect(find.text(l.valueMonths), findsNothing);
+    expect(find.text(l.valueMonths), findsOneWidget);
   });
 
   testWidgets('...and neither does a database that never sent the series', (

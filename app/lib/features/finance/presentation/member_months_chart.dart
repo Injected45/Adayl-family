@@ -9,62 +9,39 @@ import '../../../core/format/formatters.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 
-/// «الجدوى» عبر الزمن — كم دفعتَ تراكمياً، وكم عاد إليك، شهراً بعد شهر.
+/// حركتك خلال السنة — يناير إلى ديسمبر، موجتان: ما دفعتَ وما استلمتَ.
 ///
-/// ── لماذا أُعيد بناؤه ───────────────────────────────────────────────────────
-/// The first version drew a column per month for each series, side by side, and
-/// the association rejected it in the right words: «الخطان يعبّران عن إجمالي
-/// قيمة، وفي الأسفل أشهر — وهذا اختلاف كبير جداً ولا يؤدي الغرض … اجعل الأسلاف
-/// كرسم بياني لا كمؤشر عمودي متجمد».
+/// ── ما طُلب بالحرف ─────────────────────────────────────────────────────────
+/// «اريدها من يناير الى ديسمبر وخطين واضحين بمنحنيات نزولاً وطلوعاً مثل الأمواج
+///  حسب الدفع والاستلام».
 ///
-/// ⚠ AND THE REAL DEFECT WAS THE TWO SERIES HAVING DIFFERENT RHYTHMS ON ONE
-///   SCALE. Subscriptions arrive every month and are small; aid arrives once in
-///   two years and is large. Drawn as sibling columns, the aid became a single
-///   lone spike — a «مؤشر عمودي متجمد» exactly as he said — and beside it every
-///   subscription column was flattened to a few pixels. One scale is the right
-///   rule; two series that cannot share one are the wrong SHAPE for it.
+/// ── والشكل تغيّر مرّتين قبل هذا، والسببان يستحقّان البقاء ───────────────────
+/// 1. **Grouped columns.** Aid became one lone spike beside twelve flattened
+///    subscription bars — two series with different rhythms on one scale.
+/// 2. **Cumulative step lines.** Correct, and useless on data that lives in a
+///    single month: eleven flat months meeting a vertical jump. «لا يفيدني
+///    بشيء», and it did not.
 ///
-/// ── الشكل الصحيح: خطّان تراكميّان ───────────────────────────────────────────
-/// Cumulative totals are comparable, and they answer the question the screen
-/// exists for. What «الجدوى» asks is «ما الذي دفعتُه مقابل ما أخذتُه» — and on a
-/// cumulative chart the answer is not a number to compute, it is **the vertical
-/// gap between the two lines**, readable at any month without arithmetic.
+/// What survives from both is the RATIO, which moved to [MemberValueBar] and is
+/// answerable from the first receipt. This chart is the SHAPE of a year.
 ///
-/// - A month of aid becomes a STEP in the green line rather than a lone spike.
-/// - Steady subscriptions become a steady climb in the blue.
-/// - A month with nothing is a FLAT segment, which is truthful: the cumulative
-///   value really is unchanged.
+/// ⚠ AND A CURVE BETWEEN TWO MONTHS ASSERTS VALUES THAT DO NOT EXIST — a smooth
+///   rise through February when February was empty. That is a real cost, and it
+///   was accepted deliberately: what a wave communicates is where the year was
+///   busy and where it was quiet. Anyone reading an exact figure off a curve is
+///   reading the wrong instrument; the exact figures are printed above it.
 ///
-/// ⚠ STEPS, NOT A SLOPE BETWEEN POINTS. The old note here objected to lines on
-///   the grounds that «a line from January to March asserts a value for
-///   February». That objection is right for a per-month series and disappears
-///   for a cumulative one — but only if the line is drawn as a STEP. A diagonal
-///   would still invent a gradual payment across a month in which nothing was
-///   paid at all.
-///
-/// ── ولا شيء هنا يجمع مالاً ─────────────────────────────────────────────────
-/// Every figure arrives already summed by `api_member_value`. The running total
-/// below is a MEASUREMENT — how high to put a pixel — and it never reaches the
-/// screen as a number: the end labels print the server's own text for the last
-/// month, which is the same total the two figures above the chart show.
+/// ⚠ AND NOTHING HERE ADDS MONEY. Every value arrives summed by
+///   `api_member_value`. Parsing is a MEASUREMENT — how high to put a pixel —
+///   and it never reaches the screen as a number.
 class MemberMonthsChart extends StatelessWidget {
   const MemberMonthsChart({required this.months, super.key});
 
   final List<MemberMonth> months;
 
-  /// Nothing to plot is not a chart with twelve flat lines.
-  ///
-  /// ⚠ A MAN WHO HAS NEVER PAID would otherwise get a full-width graphic that
-  ///   says nothing, on the one screen built to answer «ما الجدوى».
-  bool get _hasMovement => months.any(
-    (MemberMonth m) =>
-        (double.tryParse(m.paid) ?? 0) > 0 ||
-        (double.tryParse(m.received) ?? 0) > 0,
-  );
-
   @override
   Widget build(BuildContext context) {
-    if (months.isEmpty || !_hasMovement) return const SizedBox.shrink();
+    if (months.isEmpty) return const SizedBox.shrink();
     final L l = L.of(context);
 
     return Column(
@@ -84,7 +61,7 @@ class MemberMonthsChart extends StatelessWidget {
               //   colour alone. It carries the LINE STYLE too, because the pair
               //   validates at ΔE 6.4 under tritanopia, which is the floor band
               //   and legal only with a second channel. The dash IS that
-              //   channel, and it is drawn here exactly as it is on the chart.
+              //   channel, drawn here exactly as it is on the chart.
               Row(
                 children: <Widget>[
                   _Key(tone: AppColors.info, label: l.valuePaid, dashed: false),
@@ -98,12 +75,12 @@ class MemberMonthsChart extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
-                height: 168,
+                height: 178,
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints c) =>
                       CustomPaint(
-                        size: Size(c.maxWidth, 168),
-                        painter: _CumulativePainter(
+                        size: Size(c.maxWidth, 178),
+                        painter: _WavePainter(
                           months: months,
                           textScale: MediaQuery.textScalerOf(context),
                         ),
@@ -122,7 +99,7 @@ class MemberMonthsChart extends StatelessWidget {
 ///
 /// ⚠ THE WORD IS NOT IN THE SERIES COLOUR. A coloured label reads as data, and
 ///   an 11px indigo word on glass is harder to read than the same word in ink.
-///   The mark beside it carries the identity; the text wears a text token.
+///   The mark carries the identity; the text wears a text token.
 class _Key extends StatelessWidget {
   const _Key({required this.tone, required this.label, required this.dashed});
 
@@ -136,10 +113,7 @@ class _Key extends StatelessWidget {
     children: <Widget>[
       CustomPaint(size: const Size(16, 8), painter: _KeyMark(tone, dashed)),
       const SizedBox(width: 4),
-      Text(
-        label,
-        style: const TextStyle(fontSize: 11, color: AppColors.muted),
-      ),
+      Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
     ],
   );
 }
@@ -167,19 +141,29 @@ class _KeyMark extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_KeyMark old) =>
-      old.tone != tone || old.dashed != dashed;
+  bool shouldRepaint(_KeyMark old) => old.tone != tone || old.dashed != dashed;
 }
 
-/// خطّان تراكميّان، والفجوة بينهما هي الجواب.
-class _CumulativePainter extends CustomPainter {
-  _CumulativePainter({required this.months, required this.textScale});
+/// موجتان عبر اثني عشر شهراً.
+class _WavePainter extends CustomPainter {
+  _WavePainter({required this.months, required this.textScale});
 
   final List<MemberMonth> months;
   final TextScaler textScale;
 
-  /// Room for the month labels under the plot.
-  static const double _axis = 18;
+  /// Room for the month names under the plot.
+  static const double _axis = 20;
+
+  /// ⚠ FOUR, EVENLY SPREAD, AND MEASURED RATHER THAN CHOSEN. Twelve Arabic
+  ///   month names across a phone collide into a grey smear; two would leave
+  ///   the middle of the year unlabelled, and the association asked to see
+  ///   «يناير إلى ديسمبر» rather than two ends.
+  ///
+  ///   [0, 3, 6, 9, 11] was tried first and RENDERED WRONG: 9 and 11 are one
+  ///   step apart at the left edge, where December has to be pulled inside the
+  ///   plot — so the two ran into each other and printed as one long smudge. A
+  ///   golden render caught it; no test of the DATA could have.
+  static const List<int> _labelled = <int>[0, 4, 8, 11];
 
   double _v(String s) => double.tryParse(s) ?? 0;
 
@@ -187,62 +171,33 @@ class _CumulativePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (months.isEmpty) return;
 
-    // ── The two cumulative series, AS THE SERVER SENT THEM ─────────────────
-    // ⚠ READ, NOT ADDED. A Dart loop totalling a year of receipts is the app
-    //   doing arithmetic on money — the one thing the text-money rule forbids
-    //   — and member_months_chart_test enforces it by reading this source. It
-    //   caught exactly that loop here, and PATCH_20260821f moved the running
-    //   total into a window function in api_member_value, which is where
-    //   api_adeel_aid has always computed its ledger column.
-    //
-    //   What is left is a MEASUREMENT: how high to put a pixel. It never
-    //   reaches the screen as a number.
     final List<double> paid = months
-        .map((MemberMonth m) => _v(m.paidTotal))
+        .map((MemberMonth m) => _v(m.paid))
         .toList();
     final List<double> got = months
-        .map((MemberMonth m) => _v(m.receivedTotal))
+        .map((MemberMonth m) => _v(m.received))
         .toList();
 
-    final double top = math.max(paid.last, got.last);
-    // A flat pair of zero lines is not a chart; _hasMovement already excludes
-    // it, and this only guards a divide.
-    if (top <= 0) return;
+    // ⚠ ONE SCALE FOR BOTH, never one each. Two y-axes on one chart is the
+    //   commonest way to make two series look related when they are not — and
+    //   these are in the same unit, so a second scale would be a distortion
+    //   with no upside at all.
+    final double top = math.max(
+      paid.fold<double>(0, math.max),
+      got.fold<double>(0, math.max),
+    );
 
     final double h = size.height - _axis;
     final int n = months.length;
     final double step = n <= 1 ? size.width : size.width / (n - 1);
 
-    // ⚠ RTL: the earliest month is on the RIGHT. Mirroring the x axis is what
-    //   makes time run the way the reader's eye does in this app; a chart that
-    //   ran left-to-right under Arabic labels would read backwards.
+    // ⚠ RTL: يناير on the RIGHT, ديسمبر on the LEFT. Time runs the way the
+    //   reader's eye does in this app.
     double x(int i) => size.width - i * step;
-    double y(double v) => h - (v / top) * (h - 8);
+    // A year with nothing in it still draws its baseline rather than dividing
+    // by zero.
+    double y(double v) => top <= 0 ? h - 6 : h - (v / top) * (h - 14);
 
-    // ── The band between the lines: «الجدوى» itself ────────────────────────
-    // ⚠ NEUTRAL, NOT A THIRD COLOUR. It is not a series — it is the DIFFERENCE
-    //   between two, and giving it a hue of its own would put three things on a
-    //   two-colour chart. Muted at 10% reads as shading rather than as data.
-    final Path band = Path()..moveTo(x(0), y(paid[0]));
-    for (int i = 1; i < n; i++) {
-      band
-        ..lineTo(x(i), y(paid[i - 1]))
-        ..lineTo(x(i), y(paid[i]));
-    }
-    for (int i = n - 1; i >= 1; i--) {
-      band
-        ..lineTo(x(i), y(got[i]))
-        ..lineTo(x(i), y(got[i - 1]));
-    }
-    band
-      ..lineTo(x(0), y(got[0]))
-      ..close();
-    canvas.drawPath(
-      band,
-      Paint()..color = AppColors.muted.withValues(alpha: 0.10),
-    );
-
-    // ── The baseline, recessive ────────────────────────────────────────────
     canvas.drawLine(
       Offset(0, h),
       Offset(size.width, h),
@@ -251,29 +206,29 @@ class _CumulativePainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
-    _series(canvas, paid, x, y, AppColors.info, dashed: false);
-    _series(canvas, got, x, y, AppColors.success, dashed: true);
+    _wave(canvas, paid, x, y, AppColors.info, dashed: false);
+    _wave(canvas, got, x, y, AppColors.success, dashed: true);
 
-    // ── Month labels on the extremes only ──────────────────────────────────
-    // ⚠ TWO, NOT TWELVE. Twelve Arabic month names across a phone collide into
-    //   a grey smear; the first and the last say what span the chart covers,
-    //   which is the whole job of this axis.
-    //
-    // ⚠ AND THEY STAY MUTED, which is the one written exception to «a month is
-    //   blue» — see AppColors.month. On this chart AppColors.info is ALREADY
-    //   the «دفعتَ» series, so a blue axis would read as belonging to it.
-    _text(canvas, formatMonthShort(months.first.period), x(0), h + 3, end: true);
-    _text(
-      canvas,
-      formatMonthShort(months.last.period),
-      x(n - 1),
-      h + 3,
-      end: false,
-    );
+    // ── The months ─────────────────────────────────────────────────────────
+    // ⚠ MUTED, and this is the one written exception to «a month is blue» —
+    //   see AppColors.month. On this chart AppColors.info is ALREADY the
+    //   «دفعتَ» series, so a blue axis would read as belonging to it.
+    for (final int i in _labelled) {
+      if (i >= n) continue;
+      _text(
+        canvas,
+        formatMonthShort(months[i].period),
+        x(i),
+        h + 4,
+        size,
+        atStart: i == 0,
+        atEnd: i == n - 1,
+      );
+    }
   }
 
-  /// One cumulative line, drawn as steps.
-  void _series(
+  /// One series, as a smooth wave.
+  void _wave(
     Canvas canvas,
     List<double> v,
     double Function(int) x,
@@ -281,43 +236,53 @@ class _CumulativePainter extends CustomPainter {
     Color tone, {
     required bool dashed,
   }) {
+    if (v.isEmpty) return;
+
     final Path path = Path()..moveTo(x(0), y(v[0]));
-    for (int i = 1; i < v.length; i++) {
-      // Across the month at the old height, then up: the rise lands ON the
-      // month it belongs to instead of being spread across the one before it.
-      path
-        ..lineTo(x(i), y(v[i - 1]))
-        ..lineTo(x(i), y(v[i]));
+    for (int i = 0; i < v.length - 1; i++) {
+      final double x1 = x(i);
+      final double x2 = x(i + 1);
+      final double y1 = y(v[i]);
+      final double y2 = y(v[i + 1]);
+      // ⚠ CONTROL POINTS ON THE HORIZONTAL MIDLINE — the cheapest smoothing
+      //   that CANNOT OVERSHOOT. A Catmull-Rom spline looks rounder and dips
+      //   BELOW the baseline between a busy month and an empty one, drawing
+      //   money that was never negative. This cubic stays inside the two
+      //   values it joins, always.
+      final double mid = (x1 + x2) / 2;
+      path.cubicTo(mid, y1, mid, y2, x2, y2);
     }
 
-    final Paint p = Paint()
-      ..color = tone
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeJoin = StrokeJoin.round
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(dashed ? _dash(path) : path, p);
-
-    // ⚠ ONE MARKER, AT THE END. A dot on every month is a number on every
-    //   point by another name; the end is where the total is, and the total is
-    //   what the two figures above the chart already state.
-    canvas.drawCircle(
-      Offset(x(v.length - 1), y(v.last)),
-      3.5,
-      Paint()..color = tone,
+    canvas.drawPath(
+      dashed ? _dash(path) : path,
+      Paint()
+        ..color = tone
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
     );
+
+    // ── A dot only where a month actually holds something ─────────────────
+    // ⚠ NOT ON ALL TWELVE. A dot on every month is a number on every point by
+    //   another name, and it would put twelve markers on a year in which two
+    //   things happened. A dot here means «this is a real reading», which on a
+    //   curve that invents its in-between values is worth saying.
+    for (int i = 0; i < v.length; i++) {
+      if (v[i] <= 0) continue;
+      canvas.drawCircle(Offset(x(i), y(v[i])), 3.5, Paint()..color = tone);
+    }
   }
 
-  /// A dashed copy of [source] — the second channel the palette needs.
+  /// A dashed copy — the second channel the palette needs.
   Path _dash(Path source) {
     final Path out = Path();
     for (final PathMetric m in source.computeMetrics()) {
       double d = 0;
       while (d < m.length) {
-        final double next = math.min(d + 5, m.length);
+        final double next = math.min(d + 6, m.length);
         out.addPath(m.extractPath(d, next), Offset.zero);
-        d = next + 3.5;
+        d = next + 4;
       }
     }
     return out;
@@ -327,27 +292,38 @@ class _CumulativePainter extends CustomPainter {
     Canvas canvas,
     String s,
     double cx,
-    double top, {
-    required bool end,
+    double top,
+    Size size, {
+    required bool atStart,
+    required bool atEnd,
   }) {
     final TextPainter tp = TextPainter(
       text: TextSpan(
         text: s,
-        style: textScale.scale(9) > 14
-            ? const TextStyle(fontSize: 9, color: AppColors.muted)
-            : TextStyle(
-                fontSize: textScale.scale(9),
-                color: AppColors.muted,
-              ),
+        style: TextStyle(
+          fontSize: math.min(textScale.scale(9), 12),
+          color: AppColors.muted,
+        ),
       ),
       textDirection: TextDirection.rtl,
     )..layout();
-    // Pinned inside the plot at both extremes rather than centred on the point,
-    // so neither label hangs off the edge of the card.
-    final double dx = end ? cx - tp.width : cx;
-    tp.paint(canvas, Offset(dx.clamp(0, math.max(0, cx)), top));
+    // ⚠ THE TWO ENDS ARE ALIGNED, NOT CENTRED-THEN-CLAMPED. Clamping moves a
+    //   label without moving its neighbour, so the gap between them shrinks by
+    //   exactly the amount clamped — which is how December walked into October
+    //   and printed as one smudge. Anchoring the first label to the right edge
+    //   and the last to the left edge keeps every gap the size the spacing
+    //   intended.
+    final double dx = atStart
+        ? size.width - tp.width
+        : atEnd
+        ? 0
+        : (cx - tp.width / 2).clamp(
+            0.0,
+            math.max(0.0, size.width - tp.width),
+          );
+    tp.paint(canvas, Offset(dx, top));
   }
 
   @override
-  bool shouldRepaint(_CumulativePainter old) => old.months != months;
+  bool shouldRepaint(_WavePainter old) => old.months != months;
 }

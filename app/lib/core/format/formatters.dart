@@ -258,6 +258,23 @@ String formatFeeExceptions(Map<String, String> exceptions, String label) {
 ///   wrong on an axis tick 30px wide — the label would either collide with
 ///   its neighbour or be clipped. A twelve-month window is unambiguous
 ///   without it: the months run in order and the newest is named beside it.
+/// «سبتمبر 2025» — الشهر ومعه سنته.
+///
+/// ⚠ THE YEAR IS WHAT MAKES A TWELVE-MONTH AXIS READABLE, and dropping it
+///   was a real defect the association found. A span from سبتمبر 2025 to
+///   أغسطس 2026, labelled «سبتمبر» and «أغسطس», reads as two ADJACENT months
+///   printed backwards — under a heading that says twelve. «التناقض» was his
+///   word for it, and there was one.
+///
+/// ⚠ ONLY AT THE TWO EXTREMES, which is what makes the year affordable at
+///   all: twelve of these across a phone collide into a grey smear, which is
+///   why [formatMonthShort] exists and stays as it is.
+String formatMonthYear(String? period) {
+  final String m = formatMonthShort(period);
+  if (m.isEmpty || period == null || period.length < 4) return m;
+  return '$m ${period.substring(0, 4)}';
+}
+
 String formatMonthShort(String? period) {
   if (period == null || period.length < 7) return period ?? '';
   final int? month = int.tryParse(period.substring(5, 7));

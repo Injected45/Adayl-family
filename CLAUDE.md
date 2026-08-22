@@ -703,6 +703,50 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
 (`features/auth/domain/app_user.dart`); unknown roles fall back to `viewer`. Hiding a
 button is presentation — the same check is always re-enforced server-side.
 
+**⚠ BUT ONLY `admin` REACHES ANY OF IT — بابان لا ثالث لهما.** The ladder above is
+the *shape* the enum still has; the *door* is one rung wide. `my_role()` ends
+`AND p.role = 'admin'`, so an approved `viewer`/`treasurer`/`financeManager`
+matches no staff policy anywhere. Two kinds of account exist and no third:
+**أدمن**, and **عديل بمفتاح من الأدمن**.
+
+⚠ **THE RULE EXISTS BECAUSE A MEMBER OPENED THE ASSOCIATION APP.** He signed in
+with Google, was never asked for a code, and landed inside under his own name.
+Six accounts sat at `role=viewer, status=approved, adeel_id=NULL`, and `my_role()`
+handed the role to any approved profile with no عديل binding — and `viewer` was
+never «a visitor who sees nothing», it was the LOWEST STAFF RANK, with the
+register and the treasury behind it. The root cause is that **`approved` meant
+two different things**: «this person is who he says he is» and «this person is
+staff». Two facts in one column, and nothing anywhere asked which was meant.
+
+The fix is one clause in `my_role()` rather than an edit to thirty policies,
+because every staff policy already goes through `has_role()` → `my_role()` — so a
+policy written tomorrow inherits it. `PATCH_20260822d_two_doors.sql` also narrows
+`set_user_access` to refuse any role but admin (a permission that silently grants
+nothing is worse than one that is refused), gives an access code a **seven-day
+expiry**, **counts and records every redemption attempt** in `code_attempts`
+(five an hour, then refused — and every attempt counts, not only failures, since
+counting failures alone tells a caller his last guess was right), and makes
+`redeem_adeel_code`'s `p_device_id` **inert**: the handset comes from the
+`x-device-id` header only, the same treatment `p_spent_at` got.
+
+⚠ **`assert_two_doors_only()` is the guard that did not exist.** Every other
+`assert_*` asks whether the PLUMBING is intact — grants, policies, sign-in,
+callable functions — and all four passed on the day this happened. None asked
+*is anybody standing inside who was never let in?* `WHICH_STATE.sql` reports the
+same count as a row («غرباء في الداخل»), because it is data rather than schema
+and no schema check can see it.
+
+⚠ **AND ONE HOLE IS NOT IN THE DATABASE AT ALL.** `run_emulator.bat` carries the
+password of a real approved admin, and this repo is public; the anon key is
+public by design, so anyone who reads it can sign in to the live project **as
+that admin**, with no app involved. Deleting the line does not help — it is in
+git history. It closes by rotating the password or deleting the account, and by
+nothing in code. What code *can* do is stop shipping the door: `devLoginEnabled`
+is now `!kReleaseMode && bool.fromEnvironment('DEV_LOGIN')`, because a
+`--dart-define` is set by whoever runs the build and is therefore configuration,
+not a guard. `test/two_doors_test.dart` pins that by reading the source — the
+value cannot be observed from a test, since a test binary is a debug build.
+
 **The عديل portal is a second, disjoint way in.** An عديل signs in with Google,
 types the access code an admin issued him, and thereafter sees his own record,
 dues, receipts and statement — read-only, nothing of the association's. The

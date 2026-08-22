@@ -742,7 +742,20 @@ class LEn extends L {
   String get valueFund => 'The association';
 
   @override
-  String get valueMonths => 'Your movement over 12 months';
+  String get valueShareTitle => 'What came back to you';
+
+  @override
+  String valueShareOf(int percent) {
+    return 'Of every 100 you paid, $percent came back';
+  }
+
+  @override
+  String valueShareOver(int percent) {
+    return 'You received $percent of every 100 you paid — more than you paid';
+  }
+
+  @override
+  String get valueMonths => 'Your year';
 
   @override
   String valueBackToMembers(String rate) {

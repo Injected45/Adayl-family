@@ -1459,10 +1459,28 @@ abstract class L {
   /// **'الجمعية'**
   String get valueFund;
 
+  /// No description provided for @valueShareTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما عاد إليك من اشتراكك'**
+  String get valueShareTitle;
+
+  /// The whole of «الجدوى» in one sentence, and the bar beneath it is the illustration. Deliberately NOT «نسبة الاسترداد»: this is a charitable fund, not a savings account, and nothing is owed back.
+  ///
+  /// In ar, this message translates to:
+  /// **'من كل 100 دفعتَها، عاد إليك {percent}'**
+  String valueShareOf(int percent);
+
+  /// A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden.
+  ///
+  /// In ar, this message translates to:
+  /// **'استلمتَ {percent} من كل 100 دفعتَها — أكثر مما دفعت'**
+  String valueShareOver(int percent);
+
   /// No description provided for @valueMonths.
   ///
   /// In ar, this message translates to:
-  /// **'حركتك خلال 12 شهراً'**
+  /// **'حركتك خلال السنة'**
   String get valueMonths;
 
   /// No description provided for @valueBackToMembers.

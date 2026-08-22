@@ -56,15 +56,27 @@ abstract final class SupabaseConfig {
 
   /// Shows a development sign-in that skips Google.
   ///
-  /// Unlike the old server-side bypass, this one has no special privilege: it
-  /// signs in with a real email/password against GoTrue, so the account must
-  /// actually exist and its role still comes from `public.profiles`. There is no
-  /// route to disable and nothing to leave switched on by accident in
-  /// production — the worst case is a visible button that fails to authenticate.
-  static const bool devLoginEnabled = bool.fromEnvironment(
-    'DEV_LOGIN',
-    defaultValue: false,
-  );
+  /// ⚠ THE OLD REASONING HERE WAS «the worst case is a visible button that
+  ///   fails to authenticate», and it was wrong in the one way that mattered.
+  ///   It assumed the credentials would be a developer's own. `run_emulator.bat`
+  ///   passed the password of a REAL APPROVED ADMIN on the live project, and
+  ///   this repository is public — so the worst case was a button that
+  ///   authenticates perfectly, as the association's owner.
+  ///
+  /// ⚠ AND A `--dart-define` IS NOT A GUARD, because it is set by whoever runs
+  ///   the build. `kReleaseMode` is set by the compiler and cannot be passed in,
+  ///   so a release APK carries no dev sign-in whatever anyone types on the
+  ///   command line. The define now only decides whether DEBUG builds show it.
+  ///
+  ///   That is a real restriction and it is the point: `flutter run --release`
+  ///   with the defines set no longer offers the shortcut. Sign in with Google.
+  ///
+  /// ⚠ The credentials being out is a separate matter and this constant cannot
+  ///   fix it — GoTrue accepts them from curl with the public anon key, with no
+  ///   app involved. Rotate the password or delete the account.
+  static const bool devLoginEnabled =
+      !kReleaseMode &&
+      bool.fromEnvironment('DEV_LOGIN', defaultValue: false);
 
   static const String devLoginEmail = String.fromEnvironment(
     'DEV_LOGIN_EMAIL',

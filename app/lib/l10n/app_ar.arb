@@ -340,7 +340,18 @@
   "@valueSurplus": { "description": "Shown when he has paid MORE than he received, and the most important string in the app. It is NOT a loss and NOT a debt the association owes him: in a mutual fund the surplus of the men nothing happened to is exactly what covers the man something happened to. Calling it anything else would teach members to stop paying once they are «ahead»." },
   "valueEven": "دفعتَ واستلمتَ سواءً",
   "valueFund": "الجمعية",
-  "valueMonths": "حركتك خلال 12 شهراً",
+  "valueShareTitle": "ما عاد إليك من اشتراكك",
+  "valueShareOf": "من كل 100 دفعتَها، عاد إليك {percent}",
+  "@valueShareOf": {
+    "placeholders": { "percent": { "type": "int" } },
+    "description": "The whole of «الجدوى» in one sentence, and the bar beneath it is the illustration. Deliberately NOT «نسبة الاسترداد»: this is a charitable fund, not a savings account, and nothing is owed back."
+  },
+  "valueShareOver": "استلمتَ {percent} من كل 100 دفعتَها — أكثر مما دفعت",
+  "@valueShareOver": {
+    "placeholders": { "percent": { "type": "int" } },
+    "description": "A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden."
+  },
+  "valueMonths": "حركتك خلال السنة",
   "valueBackToMembers": "من كل 100 محصَّلة، صُرف {rate} على المشتركين",
   "@valueBackToMembers": { "placeholders": { "rate": { "type": "String" } } },
   "valueHelped": "وقفت خلف {helped} من {members} مشتركين",

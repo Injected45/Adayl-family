@@ -738,7 +738,20 @@ class LAr extends L {
   String get valueFund => 'الجمعية';
 
   @override
-  String get valueMonths => 'حركتك خلال 12 شهراً';
+  String get valueShareTitle => 'ما عاد إليك من اشتراكك';
+
+  @override
+  String valueShareOf(int percent) {
+    return 'من كل 100 دفعتَها، عاد إليك $percent';
+  }
+
+  @override
+  String valueShareOver(int percent) {
+    return 'استلمتَ $percent من كل 100 دفعتَها — أكثر مما دفعت';
+  }
+
+  @override
+  String get valueMonths => 'حركتك خلال السنة';
 
   @override
   String valueBackToMembers(String rate) {

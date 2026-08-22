@@ -89,17 +89,17 @@ class AuthRepository {
   /// is why `redeem_adeel_code` carries no require_role() gate. It refuses
   /// anyone who is already staff, and refuses a code already redeemed by
   /// somebody else.
-  /// [DeviceIdentity] travels explicitly as well as in the header, so the
-  /// redemption and the device lock are written by the same statement. A code
-  /// that could be spent without establishing a lock would leave an account
-  /// permanently open with nothing on screen to show for it.
+  /// ⚠ THE HANDSET IS NO LONGER SENT, and that is the fix rather than a tidy-up.
+  /// `p_device_id` let the CALLER name the device he was claiming — so two
+  /// phones could send the same string and both hold the binding, which is the
+  /// one thing «عديل واحد، جهاز واحد» exists to stop. The server now takes it
+  /// from the `x-device-id` request header only, which this client already sets
+  /// on every call from the same [DeviceIdentity] value. Nothing changes about
+  /// what device gets bound; what changes is that nobody can choose it.
   Future<void> redeemAdeelCode(String code) => SupabaseFailures.guard(() async {
     await _db.rpc<dynamic>(
       'redeem_adeel_code',
-      params: <String, dynamic>{
-        'p_code': code,
-        'p_device_id': await DeviceIdentity.resolve(),
-      },
+      params: <String, dynamic>{'p_code': code},
     );
   });
 

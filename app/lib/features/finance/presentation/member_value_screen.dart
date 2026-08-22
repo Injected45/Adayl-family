@@ -10,6 +10,7 @@ import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import 'member_months_chart.dart';
+import 'member_value_bar.dart';
 import 'providers.dart';
 
 /// «الجدوى» — what a man put in, what he got out, and what the fund did.
@@ -170,6 +171,26 @@ class _Body extends StatelessWidget {
         //   paid gets the four figures and nothing else, rather than a
         //   full-width graphic of twelve empty columns on the one screen
         //   built to answer «ما الجدوى».
+        const SizedBox(height: AppSpacing.xl),
+        // ── النسبة أولاً، والاتجاه إن وُجد ───────────────────────────────
+        // ⚠ THE BAR ALWAYS, THE TIME CHART ONLY WHEN THERE IS A TIME IN THE
+        //   DATA. The association looked at twelve months of which one had
+        //   anything in it and said «لا يفيدني بشيء» — eleven flat months and
+        //   a vertical jump is what a trend looks like before there is a
+        //   trend. A proportion is answerable from the first receipt.
+        //
+        // ⚠ AND THE THRESHOLD IS THREE, not one: two points make a line
+        //   between two facts, which is a shape the eye reads as a direction
+        //   and which is not one. See MemberMonthsChart for what it draws once
+        //   there is history worth drawing.
+        MemberValueBar(paid: value.paid, received: value.received),
+        // ⚠ ALWAYS, NOT ONLY WITH THREE MONTHS OF HISTORY. The gate was there
+        //   because a CUMULATIVE chart on one month of data is eleven flat
+        //   months and a jump. A calendar year of waves is a different object:
+        //   the empty months are the part of the year that has not happened
+        //   yet, and showing them is what makes «يناير إلى ديسمبر» mean
+        //   anything. The association asked for the year; the year is what it
+        //   gets.
         const SizedBox(height: AppSpacing.xl),
         MemberMonthsChart(months: value.months),
 

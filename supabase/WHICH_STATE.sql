@@ -129,6 +129,77 @@ WITH have AS (
                 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                WHERE n.nspname = 'public' AND p.proname = 'api_aid_others'),
              false)                                                AS patch_21c,
+    -- ── الاتصال الصوتي، ثم بابا الدخول ────────────────────────────────────
+    -- ⚠ EACH PROBE NAMES WHAT ITS PATCH INSTALLS, NEVER WHAT IT REMOVES. This
+    --   file once probed read_all_disbursements_adeel AFTER that policy had
+    --   been replaced, and reported a patch that had just landed correctly as
+    --   NOT applied — forever, because the thing it looked for was gone by
+    --   design.
+    to_regclass('public.calls') IS NOT NULL                             AS patch_21d,
+    to_regclass('public.call_participants') IS NOT NULL                AS patch_21e,
+    -- ⚠ 21f HAS NO PROBE, AND THAT IS THE HONEST ANSWER RATHER THAN A GAP.
+    --   It made «الجدوى» cumulative, and 22/08 (c) then replaced that whole
+    --   function body with the calendar-year one — which carries no running
+    --   key at all. Any probe for it would report false on a project that
+    --   applied it correctly, which is the exact way this file lied about
+    --   read_all_disbursements_adeel.
+    --
+    --   22c installs the final body outright and depends on nothing 21f
+    --   left behind, so the chain is complete without it and the verdict
+    --   below simply never names it.
+    -- ICE عبر TCP/443 و TLS — probed by the transport that patch adds.
+    coalesce((SELECT (ice_servers)::text LIKE '%turns:%'
+                FROM public.association_settings LIMIT 1), false)  AS patch_21g,
+    -- ⚠ PROBED BY A LINE, BECAUSE THIS PATCH CREATES NO OBJECT — it only
+    --   REPLACES update_settings, so «does the function exist» is true on
+    --   every project ever built and answers nothing. The ELSE branch below
+    --   is the fix itself: it is what stops a stale official name being
+    --   written back on every save.
+    coalesce((SELECT pg_get_functiondef(p.oid) LIKE '%ELSE coalesce(p_patch ->> %'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'update_settings'),
+             false)                                                AS patch_21h,
+    -- «ترنّ» حتى يردّ أحد. Probed by the clause join_call gained so that the
+    -- CALLER joining does not stop his own call ringing one second later.
+    coalesce((SELECT pg_get_functiondef(p.oid) LIKE '%caller_user_id%'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'join_call'),
+             false)                                                AS patch_21i,
+    EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE n.nspname='public'
+               AND p.proname='assert_api_functions_callable')           AS patch_21k,
+    EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='calls'
+               AND column_name='peer_adeel_id')                         AS patch_22,
+    -- «الجدوى» من يناير إلى ديسمبر — probed by the year spine itself.
+    -- ⚠ TWO QUOTES, NOT FOUR. pg_get_functiondef returns the body inside its
+    --   dollar-quoted delimiters, so the 'year' inside it is NOT doubled;
+    --   only the doubling this literal needs for itself applies. Four quotes
+    --   matched nothing and reported an applied patch as missing.
+    coalesce((SELECT pg_get_functiondef(p.oid) LIKE '%date_trunc(''year''%'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'api_member_value'),
+             false)                                                AS patch_22c,
+
+    -- ── بابان لا ثالث ─────────────────────────────────────────────────────
+    -- ⚠ PROBED BY THE GUARD, NOT BY my_role()'s BODY. The body is what the
+    --   patch edits, and any later patch that edits it again would leave this
+    --   row lying. assert_two_doors_only() exists for no other reason and is
+    --   therefore the honest witness.
+    EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE n.nspname='public'
+               AND p.proname='assert_two_doors_only')                   AS patch_22d,
+
+    -- ⚠ AND THE DATA QUESTION NOTHING ELSE ASKS: IS ANYBODY STANDING INSIDE
+    --   WHO WAS NEVER LET IN? Six such accounts are what let a member open the
+    --   association app under his own name. A schema check cannot see them —
+    --   every table, policy and grant was exactly right that day.
+    CASE WHEN to_regclass('public.profiles') IS NULL THEN NULL ELSE
+      (xpath('/row/c/text()', query_to_xml(
+        $q$SELECT count(*) AS c FROM public.profiles
+            WHERE status = 'approved' AND adeel_id IS NULL
+              AND role <> 'admin'$q$,
+        false, true, '')))[1]::text::bigint END                         AS strangers_inside,
     -- حركة المشترك على اثني عشر شهراً. Probed by generate_series in the body of
     -- api_member_value — the month spine, which nothing else in that function
     -- has any reason to contain.
@@ -236,6 +307,26 @@ SELECT * FROM (
          CASE WHEN patch_21b THEN 'applied' ELSE 'NOT applied' END FROM have
   UNION ALL SELECT 10.8, 'PATCH 21/08 (c) — دفتر أسلاف للغير',
          CASE WHEN patch_21c THEN 'applied' ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.9, 'PATCH 21/08 (d–k) — الاتصال الصوتي',
+         CASE WHEN patch_21d AND patch_21e AND patch_21g AND patch_21h
+                   AND patch_21i AND patch_21k THEN 'applied'
+              WHEN patch_21d THEN 'PARTIAL — apply the rest in order'
+              ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.95, 'PATCH 22/08 — اتصال عديل بعديل، والجدوى بالسنة',
+         CASE WHEN patch_22 AND patch_22c THEN 'applied'
+              WHEN patch_22 THEN 'PARTIAL — (c) missing'
+              ELSE 'NOT applied' END FROM have
+  UNION ALL SELECT 10.99, 'PATCH 22/08 (d) — بابان لا ثالث',
+         CASE WHEN patch_22d THEN 'applied' ELSE 'NOT applied' END FROM have
+
+  -- ⚠ THE ROW THAT MATTERS MOST, AND IT IS DATA RATHER THAN SCHEMA. Every
+  --   schema check passed on the day a member opened the association app.
+  UNION ALL SELECT 10.995, 'غرباء في الداخل (معتمد، بلا عديل، وليس أدمن)',
+         CASE WHEN strangers_inside IS NULL THEN 'unknown'
+              WHEN strangers_inside = 0 THEN '0 — لا أحد'
+              ELSE strangers_inside::text ||
+                   ' ⚠ كلٌّ منهم يفتح تطبيق الجمعية — طبّق PATCH_20260822d'
+         END FROM have
   UNION ALL SELECT 11, 'مدير معتمد',
          CASE WHEN NOT has_profiles THEN 'no profiles table'
               WHEN admins > 0 THEN admins::text || ' — sign-in works'
@@ -296,6 +387,33 @@ SELECT * FROM (
                 THEN 'READY — apply supabase/PATCH_20260821b_fee_note_and_signin_guard.sql'
               WHEN NOT patch_21c
                 THEN 'READY — apply supabase/PATCH_20260821c_aid_others_ledger.sql'
-              ELSE 'UP TO DATE — every patch through 21/08 (c) is applied.'
+              WHEN NOT patch_21d
+                THEN 'READY — apply supabase/PATCH_20260821d_voice_calls.sql'
+              WHEN NOT patch_21e
+                THEN 'READY — apply supabase/PATCH_20260821e_group_calls.sql'
+              WHEN NOT patch_21g
+                THEN 'READY — apply supabase/PATCH_20260821g_ice_hardening.sql'
+              WHEN NOT patch_21h
+                THEN 'READY — apply supabase/PATCH_20260821h_official_vacancy.sql'
+              WHEN NOT patch_21i
+                THEN 'READY — apply supabase/PATCH_20260821i_call_ringing.sql'
+              -- 21j wiped access on the day it ran and installs no lasting
+              -- object; 21k is what restored the allow-list it disturbed, so
+              -- 21k is the one the chain depends on and the one probed.
+              WHEN NOT patch_21k
+                THEN 'READY — apply supabase/PATCH_20260821k_restore_allowlist.sql'
+              WHEN NOT patch_22
+                THEN 'READY — apply supabase/PATCH_20260822_peer_calls.sql'
+              WHEN NOT patch_22c
+                THEN 'READY — apply supabase/PATCH_20260822c_calendar_year.sql'
+
+              -- ⚠ OR, NOT JUST NOT — the same shape as 20b above. A project
+              --   that somehow carries the guard while strangers are still
+              --   standing inside needs this patch anyway, because §7 is what
+              --   puts them out and §2 is what keeps them out.
+              WHEN NOT patch_22d OR coalesce(strangers_inside, 0) > 0
+                THEN 'READY — apply supabase/PATCH_20260822d_two_doors.sql'
+                  || '  ⚠ يمسح كل مفاتيح الدخول ويفكّ ارتباط كل جهاز.'
+              ELSE 'UP TO DATE — every patch through 22/08 (d) is applied.'
          END FROM have
 ) t ORDER BY ord;
