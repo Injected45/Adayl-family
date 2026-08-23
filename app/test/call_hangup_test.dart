@@ -85,6 +85,7 @@ class _FakeRepo implements CallRepository {
 
 void main() {
   _sheetTests();
+  _noticingTests();
 
   test('hanging up tells the server BEFORE tearing the media down', () {
     // WHY THE SOURCE AND NOT THE BEHAVIOUR: the slow part is native —
@@ -293,6 +294,112 @@ void _sheetTests() {
       reason:
           'close() must be called before pop(), so leave_call is on its way '
           'before the dismiss animation begins.',
+    );
+  });
+}
+
+/// وسرعةُ ملاحظةِ الإغلاق عند الطرف الآخر.
+///
+/// The RULE ends the call; these two decide how fast the other handset FINDS
+/// OUT. Both are invisible at runtime — one lives in a WebRTC callback with no
+/// peer connection in a test binding, the other is the shape of two awaits —
+/// so both are pinned by reading the file, as this repo pins its other
+/// invisible decisions.
+void _noticingTests() {
+  test('a dropped peer ends the call at once, with no round trip', () {
+    final String src = File(
+      'lib/features/call/data/call_session.dart',
+    ).readAsStringSync();
+
+    final int at = src.indexOf('pc.onConnectionState');
+    expect(at, greaterThan(-1), reason: 'the connection-state handler is gone');
+    final String handler = src.substring(at, at + 2400);
+
+    // ⚠ THE HANDLER RECORDS AND EVALUATES; it does not list the dead states.
+    //   Which states count as ALIVE is _livePeers()' job — one place, so a
+    //   fourth state added by the platform cannot be handled in one of them
+    //   and forgotten in the other.
+    expect(
+      handler,
+      contains('_peerState[user] = s'),
+      reason:
+          'WebRTC knows the other man hung up within milliseconds, and '
+          'nothing can act on it unless the state is recorded.',
+    );
+
+    // ── ⚠ THIS ASSERTION WAS THE OPPOSITE ONE, AND WAS FLIPPED ON PURPOSE ──
+    //
+    //   It used to require that the handler only ran a BEAT and never closed,
+    //   on the reasoning that «disconnected» is also what a mobile handover
+    //   produces — so closing here would end a live call every time somebody
+    //   walked past a lift, and the server's seat count should decide.
+    //
+    //   The association weighed that and chose otherwise: «المهم لحظة القفل
+    //   يغلق أياً كان السبب ويقفل بسرعة». Asking first costs a round trip on
+    //   every hang-up, and hanging up is the common case; a blip that ends a
+    //   call is answered by ringing again. The cost is real and is written
+    //   down rather than forgotten.
+    expect(
+      handler,
+      contains('close()'),
+      reason:
+          'the call must END on a dropped peer, not merely ask the server — '
+          'asking costs a round trip on every hang-up.',
+    );
+    expect(
+      handler,
+      contains('_livePeers() == 0'),
+      reason:
+          'and it must be «no peer left alive», never «this peer dropped» — '
+          'المجلس is a room, and four men must keep talking when one leaves.',
+    );
+    expect(
+      handler,
+      contains('_hadCompany'),
+      reason:
+          'a ringing caller holds a peer connection connected to nobody yet',
+    );
+  });
+
+  test('and a peer still connecting counts as alive', () {
+    // A peer renegotiating is not a peer that hung up. Treating it as one
+    // would end the call in the middle of the handshake about to carry it.
+    final String src = File(
+      'lib/features/call/data/call_session.dart',
+    ).readAsStringSync();
+    final int at = src.indexOf('int _livePeers()');
+    expect(at, greaterThan(-1), reason: '_livePeers is gone');
+    final String fn = src.substring(at, at + 700);
+    for (final String alive in <String>[
+      'RTCPeerConnectionStateNew',
+      'RTCPeerConnectionStateConnecting',
+      'RTCPeerConnectionStateConnected',
+    ]) {
+      expect(fn, contains(alive), reason: '$alive must count as alive');
+    }
+  });
+
+  test('and one beat costs one round trip, not two', () {
+    final String src = File(
+      'lib/features/call/data/call_session.dart',
+    ).readAsStringSync();
+
+    final int at = src.indexOf('Future<void> _tick()');
+    expect(at, greaterThan(-1));
+    final String tick = src.substring(at, at + 2200);
+
+    expect(
+      tick,
+      contains('Future.wait'),
+      reason:
+          'the heartbeat and the participant read depend on nothing in each '
+          'other. Sequential awaits made every beat cost two round trips '
+          'before it could see the other man had gone.',
+    );
+    expect(
+      tick,
+      isNot(contains('await _repo.heartbeat(callId);')),
+      reason: 'the sequential heartbeat is what the wait replaced',
     );
   });
 }

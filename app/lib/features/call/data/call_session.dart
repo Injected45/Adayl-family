@@ -148,6 +148,15 @@ class CallSession {
   /// One peer connection per other participant, keyed by his user id.
   final Map<String, RTCPeerConnection> _peers = <String, RTCPeerConnection>{};
 
+  /// آخرُ حالٍ وصلنا عن كلّ ندّ — من onConnectionState.
+  ///
+  /// ⚠ THE CALL ENDS OFF THIS MAP AND NOT OFF A COUNT OF SEATS, because the
+  ///   association asked for «لحظة القفل يغلق أياً كان السبب ويقفل بسرعة».
+  ///   The server's seat count is a round trip away; this is local and arrives
+  ///   in milliseconds.
+  final Map<String, RTCPeerConnectionState> _peerState =
+      <String, RTCPeerConnectionState>{};
+
   /// Whether that peer's remote description has been set yet.
   final Map<String, bool> _remoteSet = <String, bool>{};
 
@@ -233,9 +242,24 @@ class CallSession {
   Future<void> _tick() async {
     if (_closed) return;
     try {
-      await _repo.heartbeat(callId);
-
-      final List<CallParticipant> now = await _repo.participants(callId);
+      // ── ⚠ معاً، لا واحدةً بعد الأخرى ──────────────────────────────────
+      //
+      //   These were two sequential awaits, so every beat cost TWO round trips
+      //   before it could see that the other man had gone — and on a Libyan
+      //   mobile connection a round trip is not free. They depend on nothing
+      //   in each other: one says «I am still here», the other asks «who else
+      //   is». Run together, the beat costs one round trip instead of two, and
+      //   the end of a call is noticed in half the time.
+      //
+      // ⚠ Future.wait STILL FAILS THE WHOLE BEAT IF EITHER THROWS, which is
+      //   what the sequential version did and what the catch below expects: a
+      //   missed beat is a missed beat, and tearing down a live call because
+      //   one request timed out would be far worse.
+      final List<Object?> both = await Future.wait(<Future<Object?>>[
+        _repo.heartbeat(callId),
+        _repo.participants(callId),
+      ]);
+      final List<CallParticipant> now = both[1]! as List<CallParticipant>;
       people.value = now;
       for (final CallParticipant p in now) {
         if (p.mine) {
@@ -284,6 +308,7 @@ class CallSession {
       for (final String gone in _peers.keys.toList()) {
         if (live.contains(gone)) continue;
         await _peers.remove(gone)?.close();
+        _peerState.remove(gone);
         _remoteSet.remove(gone);
         _pending.remove(gone);
       }
@@ -296,6 +321,23 @@ class CallSession {
       debugPrint('call tick: $e');
     }
   }
+
+  /// كم نِدّاً ما زال الصوتُ يمرّ إليه، أو في طريقه.
+  ///
+  /// ⚠ «connecting» AND «new» COUNT AS ALIVE. A peer renegotiating is not a
+  ///   peer that hung up, and treating it as one would end a call in the
+  ///   middle of the handshake that was about to carry it.
+  int _livePeers() => _peers.keys
+      .where(
+        (String u) =>
+            _peerState[u] == null ||
+            _peerState[u] == RTCPeerConnectionState.RTCPeerConnectionStateNew ||
+            _peerState[u] ==
+                RTCPeerConnectionState.RTCPeerConnectionStateConnecting ||
+            _peerState[u] ==
+                RTCPeerConnectionState.RTCPeerConnectionStateConnected,
+      )
+      .length;
 
   Future<RTCPeerConnection> _peerFor(String user) async {
     final RTCPeerConnection? existing = _peers[user];
@@ -330,6 +372,36 @@ class CallSession {
       //   would be a screen contradicting the earpiece.
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         phase.value = CallPhase.talking;
+      }
+
+      // ── ⚠ لحظةَ ينقطع الصوت، تُغلق — أياً كان السبب ────────────────────
+      //
+      //   When the other man hangs up, his handset closes its peer connection
+      //   and THIS one knows within milliseconds — long before the server
+      //   does, and long before the next beat of [steady] could ask. Until now
+      //   nothing listened, so the call ended only when _tick counted fewer
+      //   than two live seats: a beat plus a round trip on a Libyan
+      //   connection, which is «الاتصال يتأخر في القفل».
+      //
+      // ⚠ IT CLOSES, IT DOES NOT ASK. An earlier version ran a beat here and
+      //   left the SERVER's seat count to decide, so that a network blip could
+      //   not end a live conversation. The association weighed that and chose
+      //   otherwise — «المهم لحظة القفل يغلق أياً كان السبب ويقفل بسرعة» — and
+      //   the cost is stated rather than hidden: a tunnel that drops for two
+      //   seconds on mobile data now ends the call, and the answer is to ring
+      //   again. For a room of eight that is the better trade; asking first
+      //   cost a round trip on every hang-up, which is the common case.
+      //
+      // ⚠ AND IT IS «NO PEER LEFT ALIVE», NOT «THIS PEER DROPPED». المجلس is a
+      //   room: four men on a call must keep talking when one leaves. The same
+      //   clause answers both, exactly as the server's «fewer than two seats»
+      //   does — one leaver of four still leaves three peers connected here.
+      //
+      // ⚠ AND ONLY AFTER COMPANY ARRIVED. A ringing caller holds a peer
+      //   connection that has never been connected to anybody.
+      _peerState[user] = s;
+      if (_hadCompany && _peers.isNotEmpty && _livePeers() == 0) {
+        unawaited(close());
       }
     };
 
@@ -513,6 +585,7 @@ class CallSession {
       await pc.close();
     }
     _peers.clear();
+    _peerState.clear();
     _local = null;
 
     await told;
