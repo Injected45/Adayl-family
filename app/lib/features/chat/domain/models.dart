@@ -130,3 +130,61 @@ class ChatThread {
     lastAt: _string(json['lastAt']),
   );
 }
+
+/// محادثة بين عديلٍ وعديل — صفٌّ في صندوق الرجل.
+///
+/// ── ما يميّزها عن [ChatThread] ─────────────────────────────────────────────
+/// A [ChatThread] is a member and THE BOARD; this is a member and ANOTHER
+/// MEMBER. The two look alike on screen and are governed by opposite rules —
+/// the admin reads every board thread and NOT ONE of these — so they are
+/// separate types rather than one with a flag. A flag would be a single `if`
+/// standing between a private conversation and the wrong inbox.
+///
+/// ⚠ THERE IS NO `lastFromStaff` HERE, and its absence is the point. «Is the
+///   board waiting for me» is the question an inbox of board threads is opened
+///   with; between two men the only question is «did I speak last», which is
+///   [lastMine]. Carrying a field that can only ever be false would invite a
+///   screen to render it.
+class DirectThread {
+  const DirectThread({
+    required this.adeelId,
+    required this.adeelName,
+    required this.adeelCode,
+    required this.messages,
+    required this.lastBody,
+    required this.lastMine,
+    required this.lastId,
+    required this.lastAt,
+  });
+
+  /// The OTHER man — never the reader. `api_direct_threads` resolves it from
+  /// the pair, so neither side has to work out which half of it he is.
+  final int adeelId;
+  final String adeelName;
+  final String adeelCode;
+  final int messages;
+
+  /// Empty when that message was deleted — the preview is a second place the
+  /// words could leak from, and the server empties it there for the same reason
+  /// it empties the bubble.
+  final String lastBody;
+
+  final bool lastMine;
+
+  /// The newest message id in this pair, which is what an unread badge counts
+  /// against without fetching a single body.
+  final int lastId;
+
+  final String lastAt;
+
+  factory DirectThread.fromJson(Map<String, dynamic> json) => DirectThread(
+    adeelId: _int(json['adeelId']),
+    adeelName: _string(json['adeelName']),
+    adeelCode: _string(json['adeelCode']),
+    messages: _int(json['messages']),
+    lastBody: _string(json['lastBody']),
+    lastMine: _bool(json['lastMine']),
+    lastId: _int(json['lastId']),
+    lastAt: _string(json['lastAt']),
+  );
+}

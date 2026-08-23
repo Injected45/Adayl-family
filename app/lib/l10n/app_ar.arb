@@ -78,6 +78,30 @@
   "@chatInbox": {
     "description": "The same segment as chatToBoard, read from the board's side: the inbox of every member's private thread."
   },
+  "chatBoardHint": "اسأل عن اشتراكك أو أي أمرٍ يخصّ الجمعية",
+  "@chatBoardHint": {
+    "description": "Subtitle of the board row in the conversations list."
+  },
+  "chatConversations": "محادثة خاصة",
+  "@chatConversations": {
+    "description": "The member side of the second segment: one list holding الإدارة and every other member, to message or to call. NOT «المحادثات» — that is navChat, the name of the whole SCREEN, and a room may not carry the container name. It pairs with «محادثة جماعية»."
+  },
+  "chatDirect": "العدايل",
+  "@chatDirect": {
+    "description": "The third segment: a member private conversation with another member. Members only — the admin cannot read one."
+  },
+  "chatDirectEmpty": "لا محادثات بعد — اختر عديلاً وابدأ",
+  "@chatDirectEmpty": {
+    "description": "Empty state of the member-to-member inbox."
+  },
+  "chatDirectNew": "مراسلة عديل",
+  "@chatDirectNew": {
+    "description": "Opens the list of members he may write to."
+  },
+  "chatDirectPrivate": "هذه المحادثة بينكما وحدكما — لا تظهر للإدارة",
+  "@chatDirectPrivate": {
+    "description": "Stated on the screen because the promise is invisible otherwise, and a man must know what is and is not read."
+  },
   "chatPrivateEmpty": "لا رسائل خاصة بعد — اكتب للإدارة وسيصلك الرد هنا",
   "chatInboxEmpty": "لا رسائل خاصة من المشتركين",
   "chatHint": "اكتب رسالتك…",

@@ -117,6 +117,8 @@ _openAs;
 Finder _body(String text) => find.textContaining(text, findRichText: true);
 
 void main() {
+  _conversationsListTests();
+
   _barBackTests();
   _markOnOpenTests();
   _timeInlineTests();
@@ -486,6 +488,11 @@ Future<_StubChat> _openPrivate(WidgetTester tester, AppUser user) async {
   );
   await tester.pumpAndSettle();
 
+  // ⚠ TWO TAPS NOW, AND THAT IS THE FEATURE. «مراسلة الإدارة» was a segment
+  //   that opened his one conversation; it is «المحادثات» — a LIST — and
+  //   الإدارة is the first row in it. See _Conversations.
+  await tester.tap(find.text(LAr().chatConversations));
+  await tester.pumpAndSettle();
   await tester.tap(find.text(LAr().chatToBoard));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), 'سؤال خاص');
@@ -517,9 +524,10 @@ void _privateTests() {
       (WidgetTester tester) async {
         await _pumpChat(tester, _member);
         expect(find.text(l.chatHall), findsOneWidget);
-        // The same segment reads differently to the two accounts, and both
-        // readings are honest: he writes TO the board, they read FROM everyone.
-        expect(find.text(l.chatToBoard), findsOneWidget);
+        // ⚠ THE SEGMENT IS A LIST NOW, and reads differently to the two
+        //   accounts: a member sees «المحادثات» — الإدارة plus every other
+        //   man — and staff still see the inbox of board threads.
+        expect(find.text(l.chatConversations), findsOneWidget);
         expect(find.byIcon(Icons.arrow_forward), findsNothing);
       },
     );
@@ -717,7 +725,7 @@ void _openThreadTests() {
 
     // Still the open room, and never someone else's thread.
     expect(find.text(l.chatHall), findsOneWidget);
-    expect(find.text(l.chatToBoard), findsOneWidget);
+    expect(find.text(l.chatConversations), findsOneWidget);
     expect(find.byIcon(Icons.arrow_forward), findsNothing);
   });
 
@@ -1019,5 +1027,58 @@ void _timeInlineTests() {
     final Size bubble = tester.getSize(_body('تمام').first);
     // 14px at height 1.5 is 21; two lines could not fit under 34.
     expect(bubble.height, lessThan(34));
+  });
+}
+
+/// ── قائمة المحادثة الخاصة: الإدارة أوّلاً، ثم العدايل ──────────────────────
+///
+/// «تغيّر مراسلة الإدارة وتسميها قائمة المحادثات، يكون بها كل المشتركين ليختار
+///  من يودّ مراسلته أو الاتصال به».
+///
+/// ⚠ AND «كل المشتركين» DID NOT MEAN «drop الإدارة». The literal reading would
+///   have removed the one conversation a man needs to ask about his own dues,
+///   so the board is the FIRST row rather than a segment of its own — and this
+///   is where that judgement is pinned rather than left in a commit message.
+void _conversationsListTests() {
+  final L l = LAr();
+
+  testWidgets('a member sees الإدارة first, before he has chosen anybody', (
+    WidgetTester tester,
+  ) async {
+    await _pumpChat(tester, _member);
+    await tester.tap(find.text(l.chatConversations));
+    await tester.pumpAndSettle();
+
+    expect(find.text(l.chatToBoard), findsOneWidget);
+  });
+
+  // ⚠ THE BUG THIS FOUND, AND IT WAS REAL. The whole list was first wrapped in
+  //   the directory request — so a failed or slow fetch of «who else is here»
+  //   took the BOARD row down with it. The list of other members may fail; his
+  //   way to reach the association may not.
+  testWidgets(
+    '⚠ and الإدارة is still there when the member directory cannot be read',
+    (WidgetTester tester) async {
+      // No override for callDirectoryProvider: with no Supabase configured it
+      // throws, which is exactly the failure being tested.
+      await _pumpChat(tester, _member);
+      await tester.tap(find.text(l.chatConversations));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l.chatToBoard),
+        findsOneWidget,
+        reason: 'a failed directory hid the board thread',
+      );
+    },
+  );
+
+  // ⚠ THE SEGMENT MAY NOT CARRY THE SCREEN'S OWN NAME. `navChat` is
+  //   «المحادثات» — the container — and the ARB says in as many words that a
+  //   room cannot be named after it. Naming this segment «المحادثات» put the
+  //   same word twice on one screen meaning two different things, and the only
+  //   thing that noticed was a finder returning two widgets.
+  test('the private segment is not named after the screen', () {
+    expect(l.chatConversations, isNot(l.navChat));
   });
 }

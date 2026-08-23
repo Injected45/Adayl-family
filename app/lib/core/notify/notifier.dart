@@ -36,25 +36,50 @@ class AppNotifier {
   ///   a channel's importance and sound are fixed at creation, and re-creating
   ///   it with the same id does nothing. A call must be able to interrupt; a
   ///   message must not. One channel would force the same answer on both.
-  static AndroidNotificationDetails get _callChannel =>
-      AndroidNotificationDetails(
-        'calls',
-        NotifyText.callChannel,
-        channelDescription: NotifyText.callChannelDesc,
-        importance: Importance.max,
-        priority: Priority.high,
-        // A call is the one thing in this app allowed to take over the screen.
-        fullScreenIntent: true,
-        category: AndroidNotificationCategory.call,
-        // ⚠ ONGOING, so a swipe does not dismiss a ringing call. It is
-        //   cancelled when the call is answered, declined or expires — see
-        //   [clearCall] — and `v_calls` expires a ring after sixty seconds, so
-        //   it cannot become a notification nobody can remove.
-        ongoing: true,
-        autoCancel: false,
-        playSound: true,
-        enableVibration: true,
-      );
+  static AndroidNotificationDetails
+  get _callChannel => AndroidNotificationDetails(
+    'calls',
+    NotifyText.callChannel,
+    channelDescription: NotifyText.callChannelDesc,
+    importance: Importance.max,
+    priority: Priority.high,
+    // ── ⚠ NO fullScreenIntent, AND IT WAS REMOVED RATHER THAN NEVER ADDED ──
+    //
+    //   `fullScreenIntent: true` sat here, with the comment «a call is the
+    //   one thing allowed to take over the screen». Android took that
+    //   literally: with USE_FULL_SCREEN_INTENT granted and NO full-screen
+    //   Activity of ours to launch, it inflates the notification's own
+    //   layout at full size — so the caller's name filled the screen. The
+    //   association saw it on the first real three-handset test: «الاسم
+    //   يظهر بشكل كبير جدا … ارجعه مثل واتساب».
+    //
+    // ⚠ AND IT WAS COSTING THE SOUND TOO — the note in providers.dart said
+    //   so before this was understood: Android may drop a channel's tone
+    //   for a notification carrying a full-screen intent, because it
+    //   expects the screen it takes over to do the ringing. Nothing was.
+    //
+    // ⚠ NOTHING IS LOST, because this notification only ever fires while
+    //   the app is RUNNING — `_ring()` is raised by the call poll and the
+    //   doorbell, both of which live in the app. There is no push service
+    //   here, so a takeover screen was never reaching a closed phone. The
+    //   foreground case already has IncomingCallBanner; what is wanted in
+    //   the background case is a heads-up banner, which is exactly what
+    //   `importance: max` + `priority: high` + `category.call` produce —
+    //   and is the shape WhatsApp shows.
+    //
+    //   `fullScreenIntent` is a NOTIFICATION property, not a channel one,
+    //   so removing it takes effect on the next call. Changing importance
+    //   or sound would have needed a new channel id.
+    category: AndroidNotificationCategory.call,
+    // ⚠ ONGOING, so a swipe does not dismiss a ringing call. It is
+    //   cancelled when the call is answered, declined or expires — see
+    //   [clearCall] — and `v_calls` expires a ring after sixty seconds, so
+    //   it cannot become a notification nobody can remove.
+    ongoing: true,
+    autoCancel: false,
+    playSound: true,
+    enableVibration: true,
+  );
 
   static AndroidNotificationDetails get _chatChannel =>
       AndroidNotificationDetails(

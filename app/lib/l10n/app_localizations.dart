@@ -409,6 +409,42 @@ abstract class L {
   /// **'الرسائل الخاصة'**
   String get chatInbox;
 
+  /// Subtitle of the board row in the conversations list.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسأل عن اشتراكك أو أي أمرٍ يخصّ الجمعية'**
+  String get chatBoardHint;
+
+  /// The member side of the second segment: one list holding الإدارة and every other member, to message or to call. NOT «المحادثات» — that is navChat, the name of the whole SCREEN, and a room may not carry the container name. It pairs with «محادثة جماعية».
+  ///
+  /// In ar, this message translates to:
+  /// **'محادثة خاصة'**
+  String get chatConversations;
+
+  /// The third segment: a member private conversation with another member. Members only — the admin cannot read one.
+  ///
+  /// In ar, this message translates to:
+  /// **'العدايل'**
+  String get chatDirect;
+
+  /// Empty state of the member-to-member inbox.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا محادثات بعد — اختر عديلاً وابدأ'**
+  String get chatDirectEmpty;
+
+  /// Opens the list of members he may write to.
+  ///
+  /// In ar, this message translates to:
+  /// **'مراسلة عديل'**
+  String get chatDirectNew;
+
+  /// Stated on the screen because the promise is invisible otherwise, and a man must know what is and is not read.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذه المحادثة بينكما وحدكما — لا تظهر للإدارة'**
+  String get chatDirectPrivate;
+
   /// No description provided for @chatPrivateEmpty.
   ///
   /// In ar, this message translates to:

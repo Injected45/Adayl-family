@@ -178,6 +178,25 @@ class LAr extends L {
   String get chatInbox => 'الرسائل الخاصة';
 
   @override
+  String get chatBoardHint => 'اسأل عن اشتراكك أو أي أمرٍ يخصّ الجمعية';
+
+  @override
+  String get chatConversations => 'محادثة خاصة';
+
+  @override
+  String get chatDirect => 'العدايل';
+
+  @override
+  String get chatDirectEmpty => 'لا محادثات بعد — اختر عديلاً وابدأ';
+
+  @override
+  String get chatDirectNew => 'مراسلة عديل';
+
+  @override
+  String get chatDirectPrivate =>
+      'هذه المحادثة بينكما وحدكما — لا تظهر للإدارة';
+
+  @override
   String get chatPrivateEmpty =>
       'لا رسائل خاصة بعد — اكتب للإدارة وسيصلك الرد هنا';
 

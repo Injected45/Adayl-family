@@ -352,3 +352,169 @@ final AutoDisposeFutureProvider<List<ChatThread>> chatThreadsProvider =
       ref.watch(chatUnreadProvider);
       return ref.watch(chatRepositoryProvider).threads();
     });
+
+// ── محادثة بين عديلٍ وعديل ───────────────────────────────────────────────────
+
+/// صندوق الرجل: من راسله ومن راسل.
+///
+/// ⚠ IT RIDES THE BELL, exactly as `chatThreadsProvider` does — one clock, and
+///   now five answers. A list of conversations that only refreshed when the
+///   screen was rebuilt is the complaint that produced that rule: a man writing
+///   to somebody for the FIRST time creates a row that is not on screen, and no
+///   badge can appear beside a row that does not exist.
+final AutoDisposeFutureProvider<List<DirectThread>> directThreadsProvider =
+    AutoDisposeFutureProvider<List<DirectThread>>((Ref ref) {
+      ref.watch(chatUnreadProvider);
+      return ref.watch(chatRepositoryProvider).directThreads();
+    });
+
+/// المحادثة مع رجلٍ بعينه.
+///
+/// ⚠ A SEPARATE FAMILY FROM [chatProvider], KEYED BY THE OTHER MAN. Overloading
+///   the existing `int?` key would have made «null» mean المجلس and an id mean
+///   two different rooms depending on a flag somewhere else — and the two are
+///   governed by opposite rules, one of which the admin reads and one of which
+///   he must never. Two families cannot be confused for one another; one family
+///   with a mode can.
+///
+/// It reuses ChatController's cadence wholesale by extending it: the same
+/// 600 ms / 1.5 s tiers, the same sweep arithmetic, the same doorbell.
+final AutoDisposeAsyncNotifierProviderFamily<
+  DirectChatController,
+  List<ChatMessage>,
+  int
+>
+directChatProvider =
+    AutoDisposeAsyncNotifierProviderFamily<
+      DirectChatController,
+      List<ChatMessage>,
+      int
+    >(DirectChatController.new);
+
+class DirectChatController
+    extends AutoDisposeFamilyAsyncNotifier<List<ChatMessage>, int> {
+  Timer? _timer;
+  Duration _current = ChatController.live;
+  int _quietTicks = 0;
+  int _tick = 0;
+
+  @override
+  Future<List<ChatMessage>> build(int peerAdeelId) async {
+    _stop();
+    _quietTicks = 0;
+    _restartAt(ChatController.live);
+
+    final VoidCallback deafen = ref.read(doorbellProvider).listen((Ring r) {
+      if (r != Ring.chat) return;
+      _wakeUp();
+      unawaited(_reload());
+    });
+
+    ref.onDispose(deafen);
+    ref.onDispose(_stop);
+    return ref.read(chatRepositoryProvider).directMessages(arg);
+  }
+
+  /// ⚠ CANCELS AND NULLS, and the nulling is what matters. Riverpod re-runs
+  ///   build() on the SAME notifier after an invalidate — so a field left
+  ///   pointing at a dead Timer makes [_restartAt] decline to make a new one,
+  ///   and the conversation stops updating until the screen is fully disposed.
+  ///   That bug cost this project «تستوجب خروج ودخول» once already.
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _restartAt(Duration d) {
+    if (_timer != null && _current == d) return;
+    _timer?.cancel();
+    _current = d;
+    _timer = Timer.periodic(d, (_) => unawaited(_poll()));
+  }
+
+  void _wakeUp() {
+    _quietTicks = 0;
+    _restartAt(ChatController.live);
+  }
+
+  void _goneQuiet() {
+    _quietTicks++;
+    if (_quietTicks * _current.inMilliseconds >=
+        ChatController.liveFor.inMilliseconds) {
+      _restartAt(ChatController.idle);
+    }
+  }
+
+  Future<void> _poll() async {
+    final List<ChatMessage>? current = state.valueOrNull;
+    if (current == null || current.isEmpty) {
+      await _reload();
+      return;
+    }
+    try {
+      _tick++;
+      final bool sweep = _tick % ChatController.sweepEvery == 0;
+      final int from = sweep
+          ? (current.length > ChatController.revisit
+                ? current[current.length - ChatController.revisit].id
+                : current.first.id)
+          : current.last.id + 1;
+
+      final List<ChatMessage> tail = await ref
+          .read(chatRepositoryProvider)
+          .directRefreshFrom(from, arg);
+      if (tail.isEmpty) {
+        _goneQuiet();
+        return;
+      }
+
+      final List<ChatMessage> merged = <ChatMessage>[
+        ...current.where((ChatMessage m) => m.id < from),
+        ...tail,
+      ];
+      if (_sameAs(current, merged)) {
+        _goneQuiet();
+        return;
+      }
+      _wakeUp();
+      state = AsyncValue<List<ChatMessage>>.data(merged);
+    } catch (_) {
+      // A poll that fails is a poll. The screen keeps what it has.
+    }
+  }
+
+  static bool _sameAs(List<ChatMessage> a, List<ChatMessage> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].deleted != b[i].deleted) return false;
+    }
+    return true;
+  }
+
+  Future<void> _reload() async {
+    try {
+      state = AsyncValue<List<ChatMessage>>.data(
+        await ref.read(chatRepositoryProvider).directMessages(arg),
+      );
+    } catch (_) {
+      // Same reasoning as _poll.
+    }
+  }
+
+  Future<void> send(String body) async {
+    await ref.read(chatRepositoryProvider).sendDirect(body, toAdeelId: arg);
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+    ref.invalidate(directThreadsProvider);
+  }
+
+  Future<void> remove(int id) async {
+    await ref.read(chatRepositoryProvider).delete(id);
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+  }
+
+  Future<void> refresh() => _reload();
+}

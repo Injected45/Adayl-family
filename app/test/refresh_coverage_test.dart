@@ -64,6 +64,18 @@ void main() {
     'chatChimeProvider': 'a player and a baseline, not data',
     'chatScreenOpenProvider': 'written by the screen, not fetched',
 
+    // ── محادثة بين عديلٍ وعديل ──────────────────────────────────────────────
+    // ⚠ THE CONVERSATION POLLS ITSELF at the same 600 ms / 1.5 s tiers as the
+    //   room, and a forty-five-second sweep over it would be both redundant and
+    //   a scroll fight in the middle of an exchange — the same reasoning that
+    //   exempts chatProvider.
+    //
+    // ⚠ AND THE INBOX RIDES THE BELL, like chatThreadsProvider: one clock, and
+    //   it must not be swept independently or the two lists could disagree
+    //   about when they last looked.
+    'directChatProvider': 'polls itself, faster',
+    'directThreadsProvider': 'rides the bell it watches',
+
     // ── نظام الاتصال الصوتي ──────────────────────────────────────────
     // ⚠ ALL THREE WOULD BE ACTIVELY HARMFUL TO SWEEP, not merely pointless.
     //   incomingCall owns a three-second timer of its own — the bell cannot

@@ -117,8 +117,70 @@ void main() {
     );
   });
 
+  // ── ⚠ اسمُ المتصل: حجمُه مذكورٌ لا موروث ──────────────────────────────────
+  //
+  //   The banner's Text carried a weight and no SIZE, so it took whatever
+  //   DefaultTextStyle happened to be in scope. Inside AppScaffold that was
+  //   the Material body style; at the app root it is whatever
+  //   MaterialApp.builder leaves above it — today about the same, tomorrow
+  //   whatever the next change to that builder decides.
+  //
+  // ⚠ NOT A DIAGNOSIS OF THE ASSOCIATION'S «الاسم يظهر بشكل كبير جدا» — that
+  //   was the NOTIFICATION's full-screen intent, and measuring this banner at
+  //   the root is what ruled it out (14sp with and without the fix). See
+  //   call_notification_shape_test. This assertion is what makes ruling it out
+  //   possible NEXT time: a size that is stated can be read, and a size that
+  //   is inherited can only be guessed at.
+  //
+  // ⚠ AND THE TWO TESTS ABOVE BOTH PASS THROUGH IT. «it renders» and «it takes
+  //   no space when silent» are both true of a banner whose text is three
+  //   times too big. A purely visual regression needs an assertion that reads
+  //   the PIXELS.
+  testWidgets('⚠ the caller name is body-sized, not the root fallback', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(411 * 3, 890 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await _pumpRoot(tester, _call());
+
+    final RichText name = tester.widget<RichText>(
+      // ⚠ THE NAME'S OWN RichText — every Icon in the row is one too, so
+      //   asking the banner for 'its' RichText finds five.
+      find.descendant(
+        of: find.textContaining('المهدي'),
+        matching: find.byType(RichText),
+      ),
+    );
+    final double? size = (name.text as TextSpan).style?.fontSize;
+
+    expect(
+      size,
+      isNotNull,
+      reason: 'the name must state its size, never inherit it at the root',
+    );
+    expect(
+      size,
+      lessThanOrEqualTo(16),
+      reason:
+          'the caller name rendered at $size — this banner sits above every '
+          'Material in the app, so it must carry its own text style.',
+    );
+
+    // AND THE WHOLE BANNER STAYS A BANNER. One line of oversized text pushes
+    // every screen in the app down by its height.
+    expect(
+      tester.getSize(find.byType(IncomingCallBanner)).height,
+      lessThan(110),
+      reason: 'a call banner is one row, not a header',
+    );
+  });
+
   // The other three silent states, at the root this time.
-  testWidgets('nothing for a call I raised myself', (WidgetTester tester) async {
+  testWidgets('nothing for a call I raised myself', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(411 * 3, 890 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);

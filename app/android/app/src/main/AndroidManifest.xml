@@ -32,9 +32,17 @@
          one: the service exists to keep a poll alive. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-    <!-- Lets the ringing notification take over a locked screen, which is
-         the whole point of a call arriving while the phone is in a pocket. -->
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <!-- ⚠ USE_FULL_SCREEN_INTENT IS GONE, DELIBERATELY. It was here so a
+         ringing notification could take over a locked screen — and Android,
+         given the permission and no full-screen Activity of ours to launch,
+         rendered the notification itself at full size, so the caller's name
+         filled the screen. See notifier.dart: the call notification no longer
+         asks for it, and this app has no push service, so nothing ever
+         reached a closed phone for it to take over anyway.
+
+         The permission is dropped rather than merely unused: Android 14 makes
+         it a declared, reviewable capability, and a permission asked for and
+         never exercised is a claim the app does not honour. -->
     <application
         android:label="جمعية العدايل"
         android:name="${applicationName}"

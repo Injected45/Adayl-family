@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../../core/domain/wire_values.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../domain/models.dart';
 import 'call_repository.dart';
 
@@ -34,9 +35,7 @@ enum CallPhase { connecting, ringing, talking, ended, failed, micDenied }
 List<CallParticipant> peersToOfferTo(
   List<CallParticipant> everyone,
   int mySeat,
-) => everyone
-    .where((CallParticipant p) => !p.mine && p.id < mySeat)
-    .toList();
+) => everyone.where((CallParticipant p) => !p.mine && p.id < mySeat).toList();
 
 /// هل هذه الإشارة لي؟
 ///
@@ -86,10 +85,22 @@ bool signalIsForMe(CallSignal s, String myUserId) {
 ///   no round of «you go first» to lose, and no glare: two peers can never both
 ///   offer, because one id is always the larger.
 class CallSession {
-  CallSession({required CallRepository repository, required this.callId})
-    : _repo = repository;
+  /// ⚠ THE DOORBELL IS OPTIONAL AND MUST STAY OPTIONAL. It is an
+  ///   already-constructed object here, never built from this class — the rule
+  ///   in doorbell.dart is that constructing one must never need a configured
+  ///   Supabase, and every test that drives a call builds a session without
+  ///   one. What it buys is latency and nothing else: with it the other man
+  ///   learns of a hang-up in about a tenth of a second, without it in one
+  ///   beat of [steady]. Never a dependency, never awaited, never retried.
+  CallSession({
+    required CallRepository repository,
+    required this.callId,
+    Doorbell? doorbell,
+  }) : _repo = repository,
+       _bell = doorbell;
 
   final CallRepository _repo;
+  final Doorbell? _bell;
   final int callId;
 
   final ValueNotifier<CallPhase> phase = ValueNotifier<CallPhase>(
@@ -116,6 +127,9 @@ class CallSession {
 
   /// The fast clock, alive only while connecting. See [setup].
   Timer? _handshake;
+
+  /// كيف نتوقّف عن سماع الجرس. Null while nothing is subscribed.
+  VoidCallback? _deafen;
 
   /// ⚠ ONE DRAIN AT A TIME. At 300 ms a slow request would let a second drain
   ///   start before the first finished, and both would read the same rows and
@@ -170,6 +184,23 @@ class CallSession {
       phase.value = CallPhase.ringing;
 
       _poll = Timer.periodic(steady, (_) => unawaited(_tick()));
+
+      // ── والجرس، لأنّ «من أغلق أغلق للجميع» يجب أن تُسمع فوراً ─────────────
+      // ⚠ THE RULE WAS ALREADY RIGHT AND THE OTHER MAN STILL WAITED. The
+      //   server ends a «جارية» call the moment fewer than two live seats
+      //   remain, and _tick closes this side on the same count — but only on
+      //   the NEXT beat, and a beat is a second plus a Libyan round trip.
+      //   «يبقي الاتصال مفتوح عند الطرف الاخر» is that gap, and the doorbell
+      //   is already open on this handset for exactly this kind of news.
+      //
+      // ⚠ IT CARRIES NOTHING AND DECIDES NOTHING. The ring is the word «a
+      //   call changed»; what follows is the same authenticated read that
+      //   would have run a second later anyway, so RLS settles everything as
+      //   before. Worst case the ring never arrives and the poll does the job
+      //   it has always done — which is why nothing here retries or reports.
+      _deafen = _bell?.listen((Ring r) {
+        if (r == Ring.call) unawaited(_tick());
+      });
 
       // ── والمصافحة على ساعةٍ أسرع ────────────────────────────────────────
       // ⚠ CONNECTING A CALL WAS SLOW FOR A REASON THAT HAD NOTHING TO DO WITH
@@ -423,15 +454,35 @@ class CallSession {
     }
   }
 
-  /// ⚠ THE MEDIA GOES BEFORE THE SERVER IS TOLD, and the order is the point: a
-  ///   leave that failed to reach the database must still stop the microphone.
-  ///   The seat then empties on its own — twenty seconds of silence is what
-  ///   removes a man from everyone's list — but a live microphone is not
-  ///   something to leave to a retry.
+  /// ── ⚠ THE SERVER IS TOLD FIRST, AND THIS ORDER IS THE FIX ────────────────
   ///
-  /// ⚠ AND LEAVING IS NOT ENDING. In المجلس the call goes on without him; the
-  ///   server ends it when the last seat empties, which is not a decision for
-  ///   whichever handset hung up first.
+  ///   It used to be the other way round, with a comment defending it: «the
+  ///   media goes before the server is told, so a leave that failed to reach
+  ///   the database still stops the microphone». The microphone half of that
+  ///   is right and is kept. The ORDER was wrong, and the association paid for
+  ///   it: «عند اغلاق الاتصال يبقي الاتصال مفتوح عند الطرف الاخر».
+  ///
+  ///   `leave_call` is the one thing that ends the call for the OTHER man, and
+  ///   it was being sent LAST — behind `track.stop()`, `MediaStream.dispose()`
+  ///   and one `RTCPeerConnection.close()` per peer. Those are native calls
+  ///   into WebRTC across a platform channel, tearing down an active DTLS/ICE
+  ///   session; they are not instant, and on a handset they can take seconds.
+  ///   So the other side's «fewer than two seats» rule — which is correct on
+  ///   both the server and here — could not fire until this phone had finished
+  ///   tidying up after itself.
+  ///
+  /// ⚠ FIRED FIRST, AWAITED LAST, WHICH GIVES UP NOTHING. The request leaves
+  ///   this handset before any teardown begins, and is still awaited at the end
+  ///   — so a leave that fails is still caught, and the microphone still stops
+  ///   whatever the network does. `catchError` is attached at the moment it is
+  ///   created rather than at the await, because an error raised while the
+  ///   future sits unawaited across the teardown's own awaits would be reported
+  ///   as unhandled.
+  ///
+  /// ⚠ AND LEAVING IS STILL NOT ENDING. In المجلس the call goes on without him
+  ///   — the server ends it only when fewer than two live seats remain, which
+  ///   for a pair is the first man to hang up and for a group of four is not.
+  ///   That decision stays on the server; this only stops delaying it.
   Future<void> close({bool declined = false}) async {
     if (_closed) return;
     _closed = true;
@@ -441,6 +492,18 @@ class CallSession {
     _poll = null;
     _handshake?.cancel();
     _handshake = null;
+    _deafen?.call();
+    _deafen = null;
+
+    // ⚠ BEFORE THE TEARDOWN. See the note above.
+    final Future<void> told =
+        (declined ? _repo.end(callId, declined: true) : _repo.leave(callId))
+            .catchError((Object e) => debugPrint('call leave: $e'));
+
+    // ⚠ AND THE BELL WITH IT, so the other handset asks NOW rather than on its
+    //   next beat. It carries no id and no verdict — the other side re-reads
+    //   the participant list under its own RLS, exactly as its poll would have.
+    _bell?.ring(Ring.call);
 
     for (final MediaStreamTrack t in _local?.getTracks() ?? const []) {
       await t.stop();
@@ -452,15 +515,7 @@ class CallSession {
     _peers.clear();
     _local = null;
 
-    try {
-      if (declined) {
-        await _repo.end(callId, declined: true);
-      } else {
-        await _repo.leave(callId);
-      }
-    } on Object catch (e) {
-      debugPrint('call leave: $e');
-    }
+    await told;
   }
 
   void dispose() {

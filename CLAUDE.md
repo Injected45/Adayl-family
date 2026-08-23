@@ -683,8 +683,51 @@ Feature-first. Each feature under `features/<name>/` has `data/` (repository),
   read-via-view / write-via-RPC pattern.
 - `features/oversight` — dashboard, reports, audit, settings, users.
   Settings carries «ماعدا» under the monthly fee, and منطقة الخطر.
-- `features/chat` — مجلس العدايل. **Two rooms, not one**: `thread_adeel_id`
-  NULL is the general room and an id is that man's private thread.
+- `features/chat` — مجلس العدايل. **THREE rooms, and the third is not a variant
+  of the second.** `thread_adeel_id` NULL is المجلس; an id is that man's thread
+  with **الإدارة**; and `peer_a`/`peer_b` — the two ids **sorted**, enforced by
+  `ck_chat_shape` — is a conversation between **two عدايل**.
+
+  ⚠ **THE ADMIN READS EVERY BOARD THREAD AND NOT ONE DIRECT THREAD.** The
+  association was asked before a line was written and chose «خاصّة تماماً»
+  (`PATCH_20260823a`), knowing the cost: he cannot moderate one, and
+  `delete_chat_message` deliberately drops its admin exception for these rows —
+  a moderation power that works blind would contradict the promise the read
+  policy makes. Opposite rules, so opposite enum values in `_Room` rather than a
+  flag: a flag is one `if` standing between a private conversation and the wrong
+  inbox.
+
+  ⚠ **THE PAIR IS CANONICAL BY CHECK, NOT BY CONVENTION.** Without `peer_a <
+  peer_b`, (3,7) and (7,3) are two threads for the same two men — each seeing
+  half the conversation, both sure the other is not replying. Sorting in the
+  client would be a rule anybody could forget.
+
+  ⚠ **AND THE المجلس CLAUSE HAD TO BE TIGHTENED TO `peer_a IS NULL`.** The old
+  policy admitted `thread_adeel_id IS NULL` as «the general room» — and a direct
+  message also has it NULL. Left alone, every private conversation in the
+  association would have appeared in المجلس for everyone, **and looked like the
+  feature working**. Proven by reverting it: the admin saw both private
+  messages; with the fix, zero.
+
+  ⚠ **`api_direct_threads()` is SECURITY DEFINER, and the first attempt was a
+  view that came back EMPTY.** It joined `adeels` for the other man's name, and
+  a member sees exactly one row there — his own — so the join dropped every
+  thread and a man holding a live conversation was shown nothing. DEFINER opens
+  no new door: `api_call_directory` already hands him every member's name so he
+  can call them.
+
+  ⚠ **`send_chat_message` gained a third argument and the two-argument overload
+  was DROPPED.** PostgREST dispatches on the named parameters it is given, so
+  both would be reachable and a client sending only `p_body`/`p_thread_adeel_id`
+  would land on the old one — filing a private message into المجلس. Same trap as
+  `redeem_adeel_code`.
+
+  ⚠ **AND THE PATCH RESTATES `GRANT SELECT ON v_chat_messages`.** `CREATE OR
+  REPLACE VIEW` keeps an ACL only while the view survives the statement; drop it
+  for any reason and the replacement has none, and every member gets «permission
+  denied» with the chat simply blank. Found by applying the patch to a database
+  that had never held it — and `assert_views_security_invoker` checks the
+  option, not the privilege, so nothing else would have caught it.
   `chat_repository.dart` is the read-via-view / write-via-RPC pattern again;
   `providers.dart` holds the poll and the note on why it is a poll and not
   Realtime, and `unread_bell.dart` the per-room unread counts.

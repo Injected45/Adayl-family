@@ -214,6 +214,16 @@ WITH have AS (
     -- جرس الباب. Two answers, not one: Realtime may simply never have been
     -- enabled on a project, which is not the same state as «the patch was
     -- never run» and wants a different sentence.
+    -- محادثة بين عديلٍ وعديل. Probed by the COLUMN, and separately by the
+    -- CHECK — a project could have the columns from a half-applied copy and
+    -- the constraint is what makes the pair canonical.
+    EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='chat_messages'
+               AND column_name='peer_a')                              AS patch_23a,
+    EXISTS (SELECT 1 FROM pg_constraint
+             WHERE conrelid='public.chat_messages'::regclass
+               AND conname='ck_chat_shape')                          AS pair_canonical,
+
     to_regclass('realtime.messages') IS NOT NULL                        AS has_realtime,
     (SELECT count(*) FROM pg_policies
       WHERE schemaname = 'realtime' AND tablename = 'messages'
@@ -364,6 +374,11 @@ SELECT * FROM (
               WHEN n_doorbell = 2 THEN 'applied'
               ELSE 'NOT applied' END FROM have
 
+  UNION ALL SELECT 10.997, 'PATCH 23/08 (a) — محادثة بين عديلٍ وعديل',
+         CASE WHEN patch_23a AND pair_canonical THEN 'applied'
+              WHEN patch_23a THEN 'PARTIAL ⚠ العمودان بلا قيد الترتيب'
+              ELSE 'NOT applied' END FROM have
+
   UNION ALL SELECT 10.995, 'غرباء في الداخل (معتمد، بلا عديل، وليس أدمن)',
          CASE WHEN strangers_inside IS NULL THEN 'unknown'
               WHEN strangers_inside = 0 THEN '0 — لا أحد'
@@ -467,15 +482,21 @@ SELECT * FROM (
               WHEN NOT patch_22f
                 THEN 'READY — apply supabase/PATCH_20260822f_call_hangup.sql'
                   || '  المكالمة تنتهي بإغلاق أي طرف، ولا تنتظر الآخر.'
-              -- ⚠ NOT A BLOCKER, AND SAID SO. The doorbell is an accelerator;
-              --   a project without it is correct and merely slower. So this
-              --   branch never says STOP and never hides a real gap behind
-              --   an optional one.
+              WHEN NOT patch_23a OR NOT pair_canonical
+                THEN 'READY — apply supabase/PATCH_20260823a_direct_chat.sql'
+                  || '  محادثة خاصّة بين عديلين، لا يقرؤها الأدمن.'
+
+              -- ⚠ LAST, AND THAT ORDER IS THE FIX. This branch sat ABOVE the
+              --   required patches, so a project with Realtime switched off
+              --   was told «UP TO DATE» while a real patch was still missing —
+              --   an OPTIONAL item hiding a mandatory one, which is the worst
+              --   thing a verdict can do. Every «apply this» above must be
+              --   exhausted before an accelerator is mentioned at all.
               WHEN has_realtime AND n_doorbell <> 2
                 THEN 'READY (اختياري) — apply supabase/PATCH_20260822g_doorbell.sql'
                   || '  يُسرّع الرسائل والمكالمات، ولا يُغيّر أي صلاحية.'
               WHEN NOT has_realtime
-                THEN 'UP TO DATE — every patch through 22/08 (f). جرس الباب يحتاج تفعيل Realtime.'
-              ELSE 'UP TO DATE — every patch through 22/08 (g) is applied.'
+                THEN 'UP TO DATE — كل الترقيعات. جرس الباب وحده يحتاج تفعيل Realtime.'
+              ELSE 'UP TO DATE — every patch through 23/08 (a) is applied.'
          END FROM have
 ) t ORDER BY ord;

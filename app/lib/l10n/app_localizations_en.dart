@@ -180,6 +180,27 @@ class LEn extends L {
   String get chatInbox => 'Private messages';
 
   @override
+  String get chatBoardHint =>
+      'Ask about your subscription or anything about the association';
+
+  @override
+  String get chatConversations => 'Private';
+
+  @override
+  String get chatDirect => 'Members';
+
+  @override
+  String get chatDirectEmpty =>
+      'No conversations yet — pick a member and start one';
+
+  @override
+  String get chatDirectNew => 'Message a member';
+
+  @override
+  String get chatDirectPrivate =>
+      'This conversation is between the two of you — the board cannot read it';
+
+  @override
   String get chatPrivateEmpty =>
       'No private messages yet — write to the board and the reply lands here';
 

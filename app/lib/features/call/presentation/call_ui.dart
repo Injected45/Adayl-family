@@ -30,8 +30,6 @@ import '../data/call_session.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
-
-
 /// ⚠ A CALL THAT CANNOT START MUST SAY SO. Both entry points below post to
 ///   the server before any screen appears — start_call refuses anyone the
 ///   thread does not admit, and answer_call refuses the SECOND person to
@@ -80,7 +78,18 @@ Future<void> startCall(
   //   the larger participant id — the one who joined later — offers to
   //   everyone already in. Both sides compute it from the same two numbers,
   //   so there is nothing to agree on and no glare.
-  await _open(context, ref, CallSession(repository: repo, callId: id));
+  await _open(
+    context,
+    ref,
+    // ⚠ THE BELL GOES IN, so a hang-up on either handset reaches the other in
+    //   about a tenth of a second instead of on its next beat. Optional by
+    //   design — see CallSession — and the poll underneath is unchanged.
+    CallSession(
+      repository: repo,
+      callId: id,
+      doorbell: ref.read(doorbellProvider),
+    ),
+  );
 }
 
 /// Answer [call] and open the in-call screen.
@@ -117,11 +126,14 @@ Future<void> answerCall(
   }
   if (!context.mounted) return;
 
-
   await _open(
     context,
     ref,
-    CallSession(repository: repo, callId: call.id),
+    CallSession(
+      repository: repo,
+      callId: call.id,
+      doorbell: ref.read(doorbellProvider),
+    ),
   );
 }
 
@@ -148,6 +160,23 @@ Future<void> _open(
   unawaited(ref.read(incomingCallProvider.notifier).refresh());
 }
 
+/// هل تُغلق شاشةُ المكالمة نفسَها في هذا الطور؟
+///
+/// ── ⚠ LIFTED OUT FOR THE SAME REASON peersToOfferTo IS ──────────────────────
+/// [_CallSheet] is private and reaching it needs a Navigator, a ProviderScope,
+/// a live session and a microphone — so the DECISION would go untested, and it
+/// is a decision that fails silently in both directions: too eager and a man
+/// loses the screen telling him his microphone was refused; too shy and the
+/// call «يبقي مفتوح عند الطرف الاخر الى ان يقفله بنفسه», which is what the
+/// association reported.
+///
+/// ⚠ «انتهت» AND NOTHING ELSE. A failure and a refused microphone each want a
+///   decision from him — check the signal, grant the permission — and a screen
+///   that closed itself would take the question away with it. «يرنّ» and
+///   «جارٍ الاتصال» are a call in progress; «متصل» is a call he is on.
+@visibleForTesting
+bool sheetDismissesItself(CallPhase phase) => phase == CallPhase.ended;
+
 /// ── شاشة المكالمة ──────────────────────────────────────────────────────────
 class _CallSheet extends StatefulWidget {
   const _CallSheet({required this.session});
@@ -161,6 +190,59 @@ class _CallSheet extends StatefulWidget {
 class _CallSheetState extends State<_CallSheet> {
   bool _speaker = false;
 
+  /// ⚠ LONG ENOUGH TO BE READ, SHORT ENOUGH NOT TO BE «still open».
+  ///   «انتهت المكالمة» has to appear — see [_onPhase] — but it is a message,
+  ///   not a screen he has to dismiss.
+  static const Duration linger = Duration(milliseconds: 1200);
+
+  Timer? _dismiss;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.phase.addListener(_onPhase);
+    // The call can already be over: the other man may have hung up while this
+    // sheet was being built.
+    _onPhase();
+  }
+
+  /// ── ⚠ «من قفل، يقفل على الاثنين» — THE HALF THAT WAS MISSING ─────────────
+  ///
+  ///   The rule was already enforced twice: leave_call ends a «جارية» call the
+  ///   moment fewer than two live seats remain, and CallSession._tick closes
+  ///   this handset on the same count. Both were working, and the association
+  ///   still reported «يبقي الاتصال مفتوح عند الطرف الاخر الى ان يقفله بنفسه»
+  ///   — because THE SHEET NEVER CLOSED ITSELF. The microphone was off, the
+  ///   call was over, and the screen stayed until he pressed red.
+  ///
+  /// ⚠ THE OLD NOTE HERE DEFENDED THAT, and its reasoning is kept rather than
+  ///   discarded: a screen that vanishes on its own leaves a man unsure whether
+  ///   he hung up, was hung up on, or lost signal. So «انتهت المكالمة» is still
+  ///   shown — for [linger] — and only then does the sheet go. The association
+  ///   overruled the conclusion, not the concern.
+  ///
+  /// ⚠ ONLY ON «انتهت». A failure and a refused microphone each want a decision
+  ///   from him — check the signal, grant the permission — and a screen that
+  ///   closed itself would take the question away with it.
+  void _onPhase() {
+    if (!sheetDismissesItself(widget.session.phase.value)) return;
+    // ⚠ Assign-if-null, so a second notification cannot schedule a second pop.
+    _dismiss ??= Timer(linger, () {
+      // mounted is the whole guard: the man may have pressed red himself, in
+      // which case this sheet is already gone and popping again would take the
+      // screen underneath it with it.
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _dismiss?.cancel();
+    widget.session.phase.removeListener(_onPhase);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
@@ -173,17 +255,9 @@ class _CallSheetState extends State<_CallSheet> {
           child: ValueListenableBuilder<CallPhase>(
             valueListenable: widget.session.phase,
             builder: (BuildContext context, CallPhase phase, _) {
-              // ⚠ THE SHEET NEVER CLOSES ITSELF — not on «انتهت», not on a
-              //   failure. A call the other side hung up leaves the words on
-              //   screen until the man dismisses them: a sheet that vanished
-              //   on its own would leave him unsure whether he hung up, was
-              //   hung up on, or lost signal — three different things that
-              //   want three different next moves.
-              //
-              //   (An earlier note here claimed it closed itself on failure.
-              //   It never did. A comment describing an intention the code
-              //   does not carry out is worse than none: the next reader
-              //   trusts it and hunts the bug somewhere else.)
+              // ⚠ IT CLOSES ITSELF ON «انتهت» AND ON NOTHING ELSE — see
+              //   [_CallSheetState._onPhase] for why, and for why a failure and
+              //   a refused microphone deliberately stay on screen.
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -194,8 +268,8 @@ class _CallSheetState extends State<_CallSheet> {
                     size: 44,
                     color: switch (phase) {
                       CallPhase.talking => AppColors.success,
-                      CallPhase.failed || CallPhase.micDenied =>
-                        AppColors.danger,
+                      CallPhase.failed ||
+                      CallPhase.micDenied => AppColors.danger,
                       CallPhase.ended => AppColors.muted,
                       _ => AppColors.brand,
                     },
@@ -271,7 +345,28 @@ class _CallSheetState extends State<_CallSheet> {
                         label: l.callHangUp,
                         tone: AppColors.danger,
                         on: true,
-                        onTap: () => Navigator.of(context).pop(),
+                        // ── ⚠ THE SESSION CLOSES BEFORE THE SHEET DOES ──────
+                        //
+                        //   This used to be pop() alone, and _open then did
+                        //   «await showModalBottomSheet(...)» followed by
+                        //   «await session.close()». That future does not
+                        //   complete until the route's DISMISS ANIMATION has
+                        //   finished — so leave_call, the one request that ends
+                        //   the call for the other man, was not even sent until
+                        //   this sheet had finished sliding off screen, and
+                        //   then waited behind the media teardown as well.
+                        //
+                        //   Three delays stacked on one act. This removes the
+                        //   first: the request goes out on the tap.
+                        //
+                        // ⚠ UNAWAITED, DELIBERATELY. A hang-up must never wait
+                        //   on a network; close() stops the microphone itself
+                        //   and is idempotent, so the «await session.close()»
+                        //   in _open remains correct and becomes a no-op.
+                        onTap: () {
+                          unawaited(widget.session.close());
+                          Navigator.of(context).pop();
+                        },
                       ),
                     ],
                   ),
@@ -315,7 +410,10 @@ class _Round extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.muted),
+        ),
       ],
     );
   }
@@ -374,7 +472,19 @@ class IncomingCallBanner extends ConsumerWidget {
                     : l.callOngoing(call.callerName),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                // ⚠ THE SIZE IS STATED, NOT INHERITED. This banner used to
+                //   sit inside AppScaffold, under a Scaffold and a
+                //   Material, and took its size from them; it now sits in
+                //   MaterialApp.builder, above the Navigator, where what
+                //   is in scope is whatever that builder happens to leave
+                //   there. A widget that draws over EVERY screen must not
+                //   depend on that — call_banner_root_test measures it at
+                //   the root and fails if the size ever becomes somebody
+                //   else's decision again.
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             // ⚠ ICON BUTTONS, AND THIS IS NOT A STYLE CHOICE. A FilledButton

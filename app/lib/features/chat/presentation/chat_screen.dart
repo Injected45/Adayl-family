@@ -15,9 +15,11 @@ import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../call/domain/models.dart';
 import '../../call/presentation/call_directory_screen.dart';
 import '../../call/presentation/call_ui.dart';
 import '../../call/presentation/ice_check_sheet.dart';
+import '../../call/presentation/providers.dart' show callDirectoryProvider;
 import '../data/chat_read_state.dart';
 import '../domain/models.dart';
 import 'chat_flourishes.dart';
@@ -61,13 +63,26 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 /// Which of the two the screen is showing.
-enum _Room { hall, private }
+/// ⚠ THREE ROOMS, AND THE THIRD IS NOT A VARIANT OF THE SECOND. `private` is a
+///   member and THE BOARD — the admin reads every one of those. `direct` is a
+///   member and ANOTHER MEMBER, and the admin reads NOT ONE. Opposite rules, so
+///   opposite values rather than a flag on one: a flag is a single `if` standing
+///   between a private conversation and the wrong inbox.
+enum _Room { hall, private, direct }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   bool _sending = false;
   _Room _room = _Room.hall;
+
+  /// المحادثة الثنائية المفتوحة — null هو الصندوق.
+  ///
+  /// ⚠ SEPARATE FROM [_thread], not a reuse of it. They are ids of the same
+  ///   shape pointing at different things: _thread is «whose board thread»,
+  ///   _peer is «which other man». One field would have made switching rooms
+  ///   carry a stale id into a room where it means something else.
+  int? _peer;
 
   /// The private conversation currently open.
   ///
@@ -236,7 +251,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() => _sending = true);
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(chatProvider(_key).notifier).send(body);
+      await _notifier.send(body);
       // Cleared only on success. A message that was refused — by the rate limit,
       // or by a dropped connection — must still be in the box, or the man has
       // lost what he typed and has no idea whether it was sent.
@@ -271,14 +286,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(chatProvider(_key).notifier).remove(message.id);
+      await _notifier.remove(message.id);
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
     }
   }
 
+  /// The other man name, for the header.
+  ///
+  /// ⚠ READ OFF THE INBOX RATHER THAN FETCHED. api_direct_threads already
+  ///   carries it and is already on screen a tap earlier, so a second request
+  ///   would be a round trip to learn something this widget was just handed.
+  ///   Falls back to the code when the list has not arrived, which is a
+  ///   heading that is briefly terse rather than briefly wrong.
+  String get _peerName {
+    final List<DirectThread>? all =
+        ref.read(directThreadsProvider).valueOrNull;
+    for (final DirectThread t in all ?? const <DirectThread>[]) {
+      if (t.adeelId == _peer) return t.adeelName;
+    }
+    return _peerFallback ?? String.fromCharCode(0x2014);
+  }
+
+  /// The name carried in from the picker, for a conversation that has no
+  /// messages yet and therefore no row in the inbox.
+  String? _peerFallback;
+
   /// Which room the reads and writes go to. Null is المجلس.
   int? get _key => _room == _Room.hall ? null : _thread;
+
+  /// ⚠ ONE PLACE DECIDES WHICH ROOM IS BEING WRITTEN TO, and every caller
+  ///   goes through it. Sending, deleting and retrying each picked the
+  ///   provider for themselves before, which is three chances to send a
+  ///   private message into المجلس.
+  ChatWriter get _notifier => _room == _Room.direct && _peer != null
+      ? _DirectWriter(ref.read(directChatProvider(_peer!).notifier))
+      : _RoomWriter(ref.read(chatProvider(_key).notifier));
 
   @override
   Widget build(BuildContext context) {
@@ -287,13 +330,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final bool isAdmin = me?.role.atLeast(AppRole.admin) ?? false;
     final bool isMember = me?.isAdeelPortal ?? false;
 
-    // A member has exactly ONE thread and never chooses it. Pinned here rather
-    // than on the segment tap, so switching back and forth cannot land him on
-    // an inbox he has no business seeing — the server would give him nothing
-    // anyway, and an empty screen is a worse way to be told.
-    if (isMember && _thread != me!.adeelId) _thread = me.adeelId;
+    // ⚠ THE PIN IS GONE, AND ITS REASON WITH IT. A member used to have exactly
+    //   ONE conversation — with الإدارة — so the screen opened it for him and
+    //   he never chose. He now has as many as there are عدايل, so «الرسائل
+    //   الخاصة» became «المحادثات»: a list with الإدارة at the top and every
+    //   member under it, and he picks.
+    //
+    // ⚠ AND الإدارة STAYS IN IT. «كل المشتركين» is what was asked for and
+    //   dropping the board would have been a literal reading that removed the
+    //   one conversation he needs to ask about his own dues. It is the first
+    //   row, not a segment of its own.
 
-    final bool inbox = _room == _Room.private && _thread == null;
+    // Nothing chosen yet — the list. For staff that is the board inbox; for a
+    // member it is now the whole contact list.
+    final bool inbox =
+        _room == _Room.private && _thread == null && _peer == null;
+
 
     // valueOrNull: the room must never wait on a badge. Absent counts render
     // as no badge, which is what zero looks like — and zero is the honest
@@ -448,7 +500,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     children: <Widget>[
                       Flexible(
                         child: Text(
-                          isMember ? l.chatToBoard : l.chatInbox,
+                          isMember ? l.chatConversations : l.chatInbox,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -467,21 +519,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 // a conversation opened yesterday is not still on screen with
                 // no indication of whose it is.
                 if (!isMember && _room == _Room.private) _thread = null;
+                // Back to the list each time he leaves a conversation, so
+                // one opened yesterday is not still on screen with nothing
+                // saying whose it is.
+                if (_room != _Room.direct) _peer = null;
               }),
             ),
           ),
-          if (inbox)
+          if (inbox && isMember)
+            Expanded(
+              child: _Conversations(
+                onBoard: () => setState(() => _thread = me!.adeelId),
+                onPeer: (int adeelId, String name) => setState(() {
+                  _peer = adeelId;
+                  _peerFallback = name;
+                }),
+              ),
+            )
+          else if (inbox)
             Expanded(child: _Inbox(onOpen: _openThread))
           else ...<Widget>[
-            if (_room == _Room.private && !isMember)
+            if (_room == _Room.private && _peer != null)
               _ThreadHeader(
-                name: _threadName,
+                name: _peerName,
+                onBack: () => setState(() => _peer = null),
+              ),
+            // ⚠ A MEMBER NOW NEEDS A WAY BACK TOO, which he never did while
+            //   the screen opened his one thread for him. Without it the list
+            //   is reachable only by leaving the room and returning.
+            if (_room == _Room.private && _peer == null && _thread != null)
+              _ThreadHeader(
+                name: isMember ? l.chatToBoard : _threadName,
                 onBack: () => setState(() => _thread = null),
               ),
+
             Expanded(
               child: AsyncView<List<ChatMessage>>(
-                value: ref.watch(chatProvider(_key)),
-                onRetry: () => ref.read(chatProvider(_key).notifier).refresh(),
+                value: _room == _Room.direct && _peer != null
+                    ? ref.watch(directChatProvider(_peer!))
+                    : ref.watch(chatProvider(_key)),
+                onRetry: () => _notifier.refresh(),
                 builder: (List<ChatMessage> messages) {
                   if (messages.isEmpty) {
                     return EmptyStateView(
@@ -1430,6 +1507,219 @@ class _UnreadDivider extends StatelessWidget {
           const Expanded(child: Divider(color: AppColors.danger, height: 1)),
         ],
       ),
+    );
+  }
+}
+
+/// ── وصلة الكتابة: غرفةٌ واحدة تُقرّر ────────────────────────────────────────
+///
+/// ⚠ THE TWO ROOMS HAVE DIFFERENT NOTIFIERS AND THE SAME THREE VERBS. Without
+///   this seam every call site — send, delete, retry — picked its own provider,
+///   which is three separate chances to write a private message into المجلس.
+///   One getter decides, and the screen never names a provider again.
+abstract class ChatWriter {
+  Future<void> send(String body);
+  Future<void> remove(int id);
+  Future<void> refresh();
+}
+
+class _RoomWriter implements ChatWriter {
+  const _RoomWriter(this._n);
+  final ChatController _n;
+  @override
+  Future<void> send(String body) => _n.send(body);
+  @override
+  Future<void> remove(int id) => _n.remove(id);
+  @override
+  Future<void> refresh() => _n.refresh();
+}
+
+class _DirectWriter implements ChatWriter {
+  const _DirectWriter(this._n);
+  final DirectChatController _n;
+  @override
+  Future<void> send(String body) => _n.send(body);
+  @override
+  Future<void> remove(int id) => _n.remove(id);
+  @override
+  Future<void> refresh() => _n.refresh();
+}
+
+
+/// ── قائمة المحادثات ─────────────────────────────────────────────────────────
+///
+/// «تغيّر مراسلة الإدارة وتسميها قائمة المحادثات، يكون بها كل المشتركين ليختار
+///  من يودّ مراسلته أو الاتصال به».
+///
+/// One list for everyone a member can reach: الإدارة first, then every other
+/// عديل. Each row messages on tap and calls on the handset — because «من يودّ
+/// مراسلته أو الاتصال به» is one question about one person, and putting the two
+/// answers on two screens makes him navigate to decide which he meant.
+///
+/// ⚠ الإدارة IS IN IT, and the literal reading would have dropped it. «كل
+///   المشتركين» is a description of who was MISSING, not a list of who should
+///   remain — and the board thread is the one conversation he needs to ask about
+///   his own dues. It is the first row, marked differently, so it reads as the
+///   institution rather than as another man.
+///
+/// ⚠ AND THE TWO ROWS GO TO DIFFERENT ROOMS. Tapping الإدارة opens his
+///   `thread_adeel_id` thread, which the admin reads; tapping a man opens a
+///   `peer_a`/`peer_b` pair, which the admin cannot. They look alike here on
+///   purpose — the difference is stated in words on the row rather than left to
+///   be inferred from a layout.
+class _Conversations extends ConsumerWidget {
+  const _Conversations({required this.onBoard, required this.onPeer});
+
+  final VoidCallback onBoard;
+  final void Function(int adeelId, String name) onPeer;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+
+    return ListView(
+      padding: EdgeInsetsDirectional.only(bottom: bottomInset(context)),
+      children: <Widget>[
+        // ── الإدارة، خارج أي انتظار ───────────────────────────────────────
+        // ⚠ IT IS NOT INSIDE THE AsyncView, AND THAT WAS A REAL BUG BEFORE A
+        //   TEST FOUND IT. Wrapping the whole list in the directory request
+          //   meant a failed or slow fetch of «who else is here» took the BOARD
+        //   row down with it — and the board thread is the one conversation a
+        //   man needs when something is wrong. The list of other members can
+        //   wait or fail; his way to ask the association cannot.
+        _BoardRow(onTap: onBoard, l: l),
+
+        // ── العدايل ───────────────────────────────────────────────────────
+        _PeerList(onPeer: onPeer),
+      ],
+    );
+  }
+}
+
+class _BoardRow extends StatelessWidget {
+  const _BoardRow({required this.onTap, required this.l});
+
+  final VoidCallback onTap;
+  final L l;
+
+  @override
+  Widget build(BuildContext context) => GlassCard(
+    margin: const EdgeInsetsDirectional.fromSTEB(
+      AppSpacing.lg,
+      AppSpacing.md,
+      AppSpacing.lg,
+      AppSpacing.sm,
+    ),
+    child: ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: onTap,
+      leading: const CircleAvatar(
+        backgroundColor: AppColors.brand,
+        child: Icon(Icons.shield_outlined, color: AppColors.onFill),
+      ),
+      title: Text(l.chatToBoard),
+      subtitle: Text(
+        l.chatBoardHint,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+      ),
+    ),
+  );
+}
+
+/// من في الجمعية غيره — يُراسله أو يتّصل به.
+///
+/// ⚠ ITS OWN WIDGET so its failure is its own. The directory is
+///   callDirectoryProvider, reused rather than copied: it already answers
+///   «which members may I reach» with the same gate and never returns the
+///   reader himself. A second directory would be a second place deciding who
+///   is reachable, free to disagree about a man just given a key.
+class _PeerList extends ConsumerWidget {
+  const _PeerList({required this.onPeer});
+
+  final void Function(int adeelId, String name) onPeer;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+
+    return AsyncView<List<CallPeer>>(
+      value: ref.watch(callDirectoryProvider),
+      onRetry: () => ref.invalidate(callDirectoryProvider),
+      builder: (List<CallPeer> people) {
+        if (people.isEmpty) return const SizedBox.shrink();
+        final List<DirectThread> threads =
+            ref.watch(directThreadsProvider).valueOrNull ??
+            const <DirectThread>[];
+
+        String? lastWith(int adeelId) {
+          for (final DirectThread t in threads) {
+            if (t.adeelId == adeelId) return t.lastBody;
+          }
+          return null;
+        }
+
+        return Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.xs,
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.lock_outline, size: 14,
+                      color: AppColors.muted),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      l.chatDirectPrivate,
+                      style: const TextStyle(fontSize: 11,
+                          color: AppColors.muted),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final CallPeer p in people)
+              GlassCard(
+                margin: const EdgeInsetsDirectional.fromSTEB(
+                  AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () => onPeer(p.adeelId, p.name),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.identityTone(p.adeelId),
+                    child: Text(p.name.characters.first,
+                        style: const TextStyle(color: AppColors.onFill)),
+                  ),
+                  title: Text(p.name, maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  subtitle: Text(
+                    lastWith(p.adeelId) ?? p.code,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12,
+                        color: AppColors.muted),
+                  ),
+                  // ⚠ IconButton, NEVER a FilledButton: every filled button in
+                  //   this theme is Size(infinity, 52) and asserts in a Row.
+                  trailing: IconButton(
+                    onPressed: () => unawaited(
+                      startCall(context, ref, peerAdeelId: p.adeelId),
+                    ),
+                    icon: const Icon(Icons.call),
+                    color: AppColors.success,
+                    tooltip: l.callTitle,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

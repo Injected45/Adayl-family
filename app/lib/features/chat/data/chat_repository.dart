@@ -91,6 +91,73 @@ class ChatRepository {
         );
       });
 
+  // ── محادثة بين عديلٍ وعديل ───────────────────────────────────────────────
+
+  /// The tail of a conversation with ONE other man, oldest first.
+  ///
+  /// ⚠ FILTERED BY «HE IS ONE OF THE TWO», NOT BY THE ORDERED PAIR, and the
+  ///   difference is what makes this correct without the client knowing which
+  ///   half of the pair it is. The server stores the two ids sorted
+  ///   (`peer_a < peer_b`, a CHECK), so asking for «peerA = him OR peerB = him»
+  ///   would on its own also match his conversations with OTHER men — and RLS
+  ///   then removes every one of those, because a member only ever sees pairs
+  ///   he is a side of. The intersection is exactly this pair.
+  ///
+  /// ⚠ SO THE PRIVACY IS THE SERVER'S HERE TOO. This filter narrows a list the
+  ///   database has already narrowed; it decides nothing.
+  Future<List<ChatMessage>> directMessages(int peerAdeelId, {int limit = 200}) =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db
+            .from('v_chat_messages')
+            .select()
+            .or('peerA.eq.$peerAdeelId,peerB.eq.$peerAdeelId')
+            .order('id', ascending: false)
+            .limit(limit);
+        return _rows(rows).reversed.toList();
+      });
+
+  /// The poll, for a direct thread. Same shape as [refreshFrom].
+  Future<List<ChatMessage>> directRefreshFrom(int fromId, int peerAdeelId) =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db
+            .from('v_chat_messages')
+            .select()
+            .or('peerA.eq.$peerAdeelId,peerB.eq.$peerAdeelId')
+            .gte('id', fromId)
+            .order('id', ascending: true);
+        return _rows(rows);
+      });
+
+  /// صندوقه: من راسله ومن راسل.
+  ///
+  /// ⚠ AN RPC RATHER THAN A VIEW, and the first attempt WAS a view. It joined
+  ///   `adeels` for the other man's name — and a member sees exactly one row
+  ///   there, his own — so the join dropped every thread and the inbox came
+  ///   back empty for a man holding a live conversation. `api_direct_threads`
+  ///   is SECURITY DEFINER and resolves the name where the pair test lives.
+  Future<List<DirectThread>> directThreads() =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db.rpc<dynamic>('api_direct_threads');
+        return (rows as List<dynamic>)
+            .map(
+              (dynamic e) =>
+                  DirectThread.fromJson((e as Map).cast<String, dynamic>()),
+            )
+            .toList();
+      });
+
+  /// ⚠ `p_to_adeel_id`, AND NEVER TOGETHER WITH `p_thread_adeel_id`. The server
+  ///   refuses the combination outright — a message is in ONE room — and this
+  ///   is a separate method rather than a flag on [send] so the two cannot be
+  ///   passed together by accident.
+  Future<void> sendDirect(String body, {required int toAdeelId}) =>
+      SupabaseFailures.guard(() async {
+        await _db.rpc<dynamic>(
+          'send_chat_message',
+          params: <String, dynamic>{'p_body': body, 'p_to_adeel_id': toAdeelId},
+        );
+      });
+
   /// Refused server-side for anyone but the author or an admin. The screen hides
   /// the action in the other cases, which is presentation and counts for
   /// nothing — `delete_chat_message` is where the rule lives.
