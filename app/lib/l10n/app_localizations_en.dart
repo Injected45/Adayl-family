@@ -1451,4 +1451,20 @@ class LEn extends L {
 
   @override
   String get duesSection => 'Subscriptions';
+
+  @override
+  String get unbindTitle => 'Unlink account';
+
+  @override
+  String get unbindBody =>
+      'This releases the member\'s email and handset and deletes his key. Afterwards any other email can claim him when a new key is issued. Only do this if his email changed or he was linked by mistake.';
+
+  @override
+  String get unbindConfirm => 'Unlink';
+
+  @override
+  String get unbindDone => 'Unlinked. Issue a new key so he can sign in.';
+
+  @override
+  String get unbindNothing => 'No account is linked to this member.';
 }

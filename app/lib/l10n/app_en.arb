@@ -1,9 +1,7 @@
 {
   "@@locale": "en",
-
   "appTitle": "Adayl Family Association",
   "appTagline": "Subscribers, subscriptions and treasury management",
-
   "loginTitle": "Welcome",
   "loginSubtitle": "Sign in with your Google account to continue",
   "signInWithGoogle": "Sign in with Google",
@@ -14,18 +12,14 @@
   "devSignInWarning": "Local development only. No identity is verified, and this must be disabled before real use.",
   "devSignInEmail": "Email address",
   "devSignInConfirm": "Sign in",
-
   "pendingTitle": "Awaiting approval",
   "pendingBody": "Your request has been sent to the administrator. You will be able to sign in once your account is approved.",
   "pendingSignedInAs": "Signed in as {email}",
-
   "forbiddenTitle": "No permission",
   "forbiddenBody": "You do not have permission to view this page. Contact your administrator if you believe this is a mistake.",
   "backToHome": "Back to home",
-
   "suspendedTitle": "Account suspended",
   "suspendedBody": "This account has been suspended. Please contact your administrator.",
-
   "signOut": "Sign out",
   "retry": "Retry",
   "refreshData": "Refresh data",
@@ -47,7 +41,6 @@
   "treasuryReadOnlyNote": "The association figures are for information only — there is nothing to do from here",
   "bankAccountNotConfigured": "No association bank account set yet — add it in Settings. You can still record the transfer, but the receipt will name no account.",
   "loading": "Loading...",
-
   "errorGeneric": "Something went wrong. Please try again later.",
   "errorSchemaMismatch": "The database does not match this build of the app. Retrying will not help — the schema needs to be applied.",
   "errorProfileMissing": "Signed in, but this account has no row in the database. Retrying will not help — contact the association's administrator.",
@@ -55,7 +48,6 @@
   "errorNetworkBody": "Could not reach the server. Check your connection and try again.",
   "errorTimeout": "The server took too long to respond",
   "offlineBanner": "No internet connection",
-
   "navChat": "Conversations",
   "chatHall": "Group conversation",
   "chatToBoard": "Message the board",
@@ -100,15 +92,12 @@
   "navSettings": "Settings",
   "navUsers": "User management",
   "navMore": "More",
-
   "roleAdmin": "Administrator",
   "roleFinanceManager": "Finance manager",
   "roleTreasurer": "Treasurer",
   "roleViewer": "Viewer",
-
   "comingSoon": "Coming soon",
   "comingSoonBody": "This screen will be built in a later phase.",
-
   "iceCheck": "Check the call path",
   "iceRunning": "Checking… up to 12 seconds",
   "iceHost": "Local network",
@@ -133,8 +122,20 @@
   "callIncomingBody": "Incoming call — tap to answer",
   "chatNewMessagesBody": "You have new messages",
   "callOngoing": "Call in progress — {name}",
-  "@callOngoing": { "placeholders": { "name": { "type": "String" } } },
-  "@callIncoming": { "placeholders": { "name": { "type": "String" } } },
+  "@callOngoing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@callIncoming": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "callAnswer": "Answer",
   "callDecline": "Decline",
   "callHangUp": "End",
@@ -151,24 +152,27 @@
   "receivableSearchHint": "Search by name, code, month or status",
   "receivableSearchCount": "Showing {shown} of {total}",
   "@receivableSearchCount": {
-    "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } }
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   },
-
   "debtBadge": "Owes {amount}",
   "ageYears": "{count} years",
-
   "familySummary": "Subscriber summary",
   "debt": "Outstanding",
   "totalPaid": "Total approved payments",
   "personalData": "Personal details",
   "totalDue": "Charged",
-
   "phone": "Phone",
   "dateOfBirth": "Date of birth",
   "registeredAt": "Registered on",
   "age": "Age",
   "notProvided": "—",
-
   "noReceivables": "No receivables raised yet",
   "period": "Month",
   "totalAmount": "Total",
@@ -179,7 +183,6 @@
   "collectedTotal": "Collected",
   "outstandingTotal": "Outstanding",
   "allPeriods": "All months",
-
   "statementsIntro": "A chronological view of receivables, payments and balance.",
   "selectFamily": "Select a subscriber",
   "selectFamilyToView": "Select a subscriber to view their statement",
@@ -192,9 +195,7 @@
   "movementBalance": "Balance",
   "movementNote": "Notes",
   "closingBalance": "Closing balance",
-
   "notAssigned": "Not set",
-
   "noPayments": "No payments recorded yet",
   "registerPayment": "Register payment",
   "receiptNo": "Receipt no.",
@@ -214,14 +215,12 @@
   "paymentSaved": "Payment recorded and applied to the oldest receivables",
   "noDebtForFamily": "This subscriber has no outstanding balance, so no payment can be recorded.",
   "amountTooHigh": "Maximum {amount}",
-
   "cancelAndReverse": "Cancel and reverse",
   "cancelReason": "Reason for cancelling",
   "cancelReasonHint": "State why this payment is being cancelled",
   "cancelPaymentWarning": "The payment will be cancelled and its effect on receivables and the treasury reversed, while the historical record is kept.",
   "confirmCancel": "Confirm cancellation",
   "paymentCancelled": "Payment cancelled and its effect reversed",
-
   "registerDisbursement": "Record a disbursement",
   "confirmDisbursement": "Confirm disbursement",
   "kindMember": "To a member",
@@ -260,9 +259,21 @@
   "valueFund": "The association",
   "valueShareTitle": "What came back to you",
   "valueShareOf": "Of every 100 you paid, {percent} came back",
-  "@valueShareOf": { "placeholders": { "percent": { "type": "int" } } },
+  "@valueShareOf": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "valueShareOver": "You received {percent} of every 100 you paid — more than you paid",
-  "@valueShareOver": { "placeholders": { "percent": { "type": "int" } } },
+  "@valueShareOver": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "valueMonths": "Your year",
   "valueBackToMembers": "Of every 100 collected, {rate} went to members",
   "valueHelped": "It stood behind {helped} of {members} members",
@@ -302,7 +313,6 @@
   "thisMonthLabel": "This month",
   "movementTypeLabel": "Type",
   "voided": "Voided",
-
   "generateReceivables": "Raise this month's receivables",
   "generateConfirmTitle": "Raise receivables for {period}",
   "generateConfirmBody": "A receivable will be raised for every active subscriber this month. A duplicate for the same subscriber and month is not possible.",
@@ -311,9 +321,7 @@
   "autoClose": "Close previous months",
   "autoCloseResult": "{count} months closed",
   "nothingToGenerate": "No new receivables for this month",
-
   "statAdeels": "Subscribers",
-
   "statTotalDebt": "Total outstanding",
   "statTotalCollected": "Total collected",
   "subActive": "{count} active",
@@ -328,8 +336,6 @@
   "periodClosedBadge": "Closed",
   "periodClosedNote": "Already closed",
   "periodBlockedNote": "Close the earlier month first",
-
-
   "fromDate": "From",
   "toDate": "To",
   "presetThisMonth": "This month",
@@ -341,11 +347,9 @@
   "partiallyPaidCount": "Partially paid",
   "openPartially": "receivables partly settled",
   "noReportRows": "No movements in the selected period",
-
   "noAuditEntries": "No actions recorded",
   "auditActor": "User",
   "allEvents": "All actions",
-
   "settingsWarning": "Accounting rule: changing the fee here does not alter any receivable already raised.",
   "generalSection": "General",
   "treasurerSection": "Treasurer",
@@ -364,13 +368,11 @@
   "settingsSaved": "Settings saved; historical receivables are unchanged",
   "confirmChangesTitle": "Confirm changes",
   "noChanges": "No changes",
-
   "familyCodeTitle": "Have a subscription code?",
   "familyCodeBody": "If an administrator gave you an access code, type it here to see your own subscription straight away.",
   "familyCodeField": "Subscription code",
   "familyCodeHint": "XXXX-XXXX-XXXX",
   "familyCodeAction": "Sign in with a subscription code",
-
   "myFamilyTitle": "My subscription",
   "myFamilyIntro": "Your subscription and payments. Read-only.",
   "myStatementSection": "Statement",
@@ -387,13 +389,11 @@
   "ledgerTotals": "Totals",
   "balanceDueLabel": "Balance you owe",
   "balanceSettledLabel": "Nothing outstanding",
-
   "issueCodeTitle": "Subscriber access code",
   "issueCodeBody": "Give this code to the subscriber so he can sign in and see only his own figures. Issuing a new code revokes the old one.",
   "issueCodeAction": "Issue access code",
   "issueCodeRegenerate": "Issue a new code",
   "issueCodeCopied": "Code copied",
-
   "dangerZoneSection": "Danger zone",
   "purgeTitle": "Erase financial data",
   "purgeIntro": "Permanently deletes every receivable, payment, cash movement and audit entry. Intended to be used once, to clear trial figures before going live.",
@@ -406,7 +406,6 @@
   "purgeConfirmAction": "Erase permanently",
   "purgeDone": "Erased {count} rows; numbering starts over",
   "purgeNothingToDo": "There is no financial data to erase",
-
   "purgeAllTitle": "Erase the subscriber register",
   "purgeAllIntro": "Permanently deletes every subscriber, and all financial data with them. The database returns to empty, as if the system had never been used.",
   "purgeAllWhyFinancial": "Why the financial data goes too: every receivable and receipt belongs to a subscriber, so a subscriber cannot be deleted while his receipt survives.",
@@ -415,7 +414,6 @@
   "purgeAllConfirmTitle": "Permanently erase everything",
   "purgeAllConfirmAction": "Erase everything",
   "purgeAllNothingToDo": "There is no data to erase",
-
   "pendingRequests": "Pending requests",
   "allUsers": "Users",
   "approve": "Approve",
@@ -427,7 +425,6 @@
   "noUsers": "No users",
   "userUpdated": "Account updated",
   "cannotModifySelfNote": "You cannot modify your own account",
-
   "requiredField": "This field is required",
   "membershipStatusField": "Membership status",
   "statusActive": "Active",
@@ -437,7 +434,6 @@
   "discardChangesBody": "You have unsaved changes. Leave without saving?",
   "discard": "Discard",
   "delete": "Delete",
-
   "navRegister": "Subscribers",
   "addAdeel": "Add subscriber",
   "editAdeel": "Edit subscriber",
@@ -449,7 +445,13 @@
   "deleteAdeelBody": "This cannot be undone. A subscriber with any financial history cannot be removed — suspend him instead.",
   "monthlyFeeLabel": "Monthly subscription",
   "openPeriodsBadge": "{count} open periods",
-  "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
+  "@openPeriodsBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "issuedLabel": "Total charged",
   "myBalanceNow": "You owe",
   "myIssuedTotal": "Subscriptions",
@@ -469,8 +471,12 @@
   "settledUpTitle": "Nothing outstanding",
   "settledUpBody": "Every subscription is settled. Thank you.",
   "openMonthsCount": "{count, plural, =1{1 month unpaid} other{{count} months unpaid}}",
-  "monthlyFeeLabel": "Monthly subscription",
   "myDuesTitle": "My subscriptions",
   "openPeriodsCount": "{count, plural, =0{Nothing due} =1{One month} other{{count} months}}",
-  "duesSection": "Subscriptions"
+  "duesSection": "Subscriptions",
+  "unbindTitle": "Unlink account",
+  "unbindBody": "This releases the member's email and handset and deletes his key. Afterwards any other email can claim him when a new key is issued. Only do this if his email changed or he was linked by mistake.",
+  "unbindConfirm": "Unlink",
+  "unbindDone": "Unlinked. Issue a new key so he can sign in.",
+  "unbindNothing": "No account is linked to this member."
 }

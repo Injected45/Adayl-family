@@ -182,6 +182,27 @@ class DirectoryRepository {
         );
         return _obj(payload)['code'] as String;
       });
+
+  /// فكّ ارتباط العديل عن البريد الذي يحمله — مخرجُ الإدارة.
+  ///
+  /// ⚠ IT EXISTS BECAUSE THE OWNERSHIP RULE HAS NO OTHER REMEDY. Since
+  ///   PATCH_20260823c the first email to redeem a key owns that عديل for
+  ///   good: any other account typing a valid key is REFUSED rather than
+  ///   taking over. That is what the association asked for, and it turns three
+  ///   ordinary accidents into permanent lockouts — a man redeems with the
+  ///   wrong Google account, a member loses his email, or a slip reaches the
+  ///   wrong hands once. Before, «issue a new key» quietly repaired all three
+  ///   by eviction; now nothing does unless this is called.
+  ///
+  /// Returns how many accounts were released, so the screen can say so rather
+  /// than claim an act that touched nobody.
+  Future<int> unbindAdeel(int adeelId) => SupabaseFailures.guard(() async {
+    final dynamic payload = await _db.rpc<dynamic>(
+      'unbind_adeel',
+      params: <String, dynamic>{'p_adeel_id': adeelId},
+    );
+    return (_obj(payload)['unbound'] as num).toInt();
+  });
 }
 
 /// Raised when a read returns nothing for an id the caller asked for by name.

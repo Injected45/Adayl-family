@@ -2670,6 +2670,36 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'الاشتراكات'**
   String get duesSection;
+
+  /// No description provided for @unbindTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'فكّ ارتباط الحساب'**
+  String get unbindTitle;
+
+  /// No description provided for @unbindBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيُفصل بريدُ هذا المشترك وهاتفُه، ويُحذف مفتاحه. بعدها يستطيع أيُّ بريدٍ آخر أن يرتبط به عند إصدار مفتاح جديد. لا تفعل هذا إلا إذا تغيّر بريدُه أو أُخطئ في الربط.'**
+  String get unbindBody;
+
+  /// No description provided for @unbindConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'فكّ الارتباط'**
+  String get unbindConfirm;
+
+  /// No description provided for @unbindDone.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّ فكّ الارتباط. أصدر مفتاحاً جديداً ليدخل.'**
+  String get unbindDone;
+
+  /// No description provided for @unbindNothing.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا حساب مرتبط بهذا المشترك.'**
+  String get unbindNothing;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

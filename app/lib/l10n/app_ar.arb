@@ -1,9 +1,7 @@
 {
   "@@locale": "ar",
-
   "appTitle": "جمعية العدايل",
   "appTagline": "نظام إدارة المشتركين والاشتراكات والصندوق",
-
   "loginTitle": "أهلاً بك",
   "loginSubtitle": "سجّل الدخول بحساب Google الخاص بك للمتابعة",
   "signInWithGoogle": "الدخول بحساب Google",
@@ -14,21 +12,21 @@
   "devSignInWarning": "للتطوير المحلي فقط. لا يتم التحقق من الهوية، ويجب تعطيله قبل التشغيل الفعلي.",
   "devSignInEmail": "البريد الإلكتروني",
   "devSignInConfirm": "دخول",
-
   "pendingTitle": "بانتظار الموافقة",
   "pendingBody": "تم إرسال طلبك إلى مسؤول النظام. ستتمكن من الدخول فور اعتماد حسابك.",
   "pendingSignedInAs": "تم تسجيل الدخول باسم {email}",
   "@pendingSignedInAs": {
-    "placeholders": { "email": { "type": "String" } }
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
   },
-
   "forbiddenTitle": "لا توجد صلاحية",
   "forbiddenBody": "ليس لديك صلاحية للوصول إلى هذه الصفحة. تواصل مع مسؤول النظام إذا كنت تعتقد أن هذا خطأ.",
   "backToHome": "العودة إلى الرئيسية",
-
   "suspendedTitle": "الحساب موقوف",
   "suspendedBody": "تم إيقاف هذا الحساب. يرجى مراجعة مسؤول النظام.",
-
   "signOut": "تسجيل الخروج",
   "retry": "إعادة المحاولة",
   "refreshData": "تحديث البيانات",
@@ -53,7 +51,6 @@
   },
   "bankAccountNotConfigured": "لم يُسجَّل الحساب المصرفي للجمعية بعد — أضفه من الإعدادات. يمكنك تسجيل الحوالة الآن، لكن الإيصال لن يذكر حساباً.",
   "loading": "جارٍ التحميل...",
-
   "errorGeneric": "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً",
   "errorSchemaMismatch": "قاعدة البيانات لا تطابق هذا الإصدار من التطبيق. لن تنجح المحاولة مرة أخرى — يلزم تطبيق مخطط قاعدة البيانات.",
   "errorProfileMissing": "تم تسجيل الدخول، لكن لا يوجد سجل لهذا الحساب في قاعدة البيانات. لن تنجح المحاولة مرة أخرى — راجع إدارة الجمعية.",
@@ -61,7 +58,6 @@
   "errorNetworkBody": "تعذّر الوصول إلى الخادم. تحقق من اتصالك ثم أعد المحاولة.",
   "errorTimeout": "انتهت مهلة الاتصال بالخادم",
   "offlineBanner": "لا يوجد اتصال بالإنترنت",
-
   "navChat": "المحادثات",
   "@navChat": {
     "description": "The screen, from the outside. It was «المجلس» — the word a Libyan association uses for where its people sit — but the screen holds TWO rooms now, and a name that describes one of them cannot also name the container. «المحادثات» is the container; «محادثة جماعية» is the room inside it."
@@ -108,7 +104,13 @@
   "chatSend": "إرسال",
   "chatEmoji": "رموز",
   "chatUnreadCount": "{count, plural, =1{رسالة جديدة} =2{رسالتان جديدتان} few{{count} رسائل جديدة} other{{count} رسالة جديدة}}",
-  "@chatUnreadCount": { "placeholders": { "count": { "type": "int" } } },
+  "@chatUnreadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatUnreadMany": "٩٩+",
   "chatNewMessages": "رسائل جديدة",
   "@chatEmoji": {
@@ -152,15 +154,12 @@
   "navSettings": "الإعدادات",
   "navUsers": "إدارة المستخدمين",
   "navMore": "المزيد",
-
   "roleAdmin": "مدير النظام",
   "roleFinanceManager": "المدير المالي",
   "roleTreasurer": "أمين الصندوق",
   "roleViewer": "مطّلع",
-
   "comingSoon": "قيد الإنشاء",
   "comingSoonBody": "سيتم بناء هذه الشاشة في مرحلة لاحقة.",
-
   "iceCheck": "فحص مسار الاتصال",
   "@iceCheck": {
     "description": "Runs on ONE phone and answers the question that otherwise needs two: will a call connect to somebody on a different network. It gathers ICE candidates and reports which kinds came back."
@@ -197,8 +196,20 @@
   "callIncomingBody": "مكالمة واردة — اضغط للردّ",
   "chatNewMessagesBody": "لديك رسائل جديدة في مجلس العدايل",
   "callOngoing": "مكالمة جارية — {name}",
-  "@callOngoing": { "placeholders": { "name": { "type": "String" } } },
-  "@callIncoming": { "placeholders": { "name": { "type": "String" } } },
+  "@callOngoing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@callIncoming": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "callAnswer": "ردّ",
   "callDecline": "رفض",
   "callHangUp": "إنهاء",
@@ -221,27 +232,42 @@
   },
   "receivableSearchCount": "يعرض {shown} من {total}",
   "@receivableSearchCount": {
-    "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } },
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    },
     "description": "Shown only while a search narrows the list. ⚠ The three totals above it do NOT change — they are the server's figures for the whole period — so without this line a filtered list under an unfiltered total reads as a fault."
   },
-
   "debtBadge": "مديونية {amount}",
-  "@debtBadge": { "placeholders": { "amount": { "type": "String" } } },
+  "@debtBadge": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "ageYears": "{count} سنة",
-  "@ageYears": { "placeholders": { "count": { "type": "int" } } },
-
+  "@ageYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "familySummary": "ملخص المشترك",
   "debt": "المديونية",
   "totalPaid": "إجمالي المدفوع المعتمد",
   "personalData": "البيانات الشخصية",
   "totalDue": "المستحق",
-
   "phone": "الهاتف",
   "dateOfBirth": "تاريخ الميلاد",
   "registeredAt": "تاريخ التسجيل",
   "age": "العمر",
   "notProvided": "—",
-
   "noReceivables": "لم يتم إنشاء استحقاقات بعد",
   "period": "الشهر",
   "totalAmount": "الإجمالي",
@@ -252,7 +278,6 @@
   "collectedTotal": "المحصل",
   "outstandingTotal": "المديونية القائمة",
   "allPeriods": "كل الأشهر",
-
   "statementsIntro": "عرض تسلسلي للاستحقاقات والدفعات والرصيد.",
   "selectFamily": "اختر المشترك",
   "selectFamilyToView": "اختر مشتركاً لعرض كشف الحساب",
@@ -265,9 +290,7 @@
   "movementBalance": "الرصيد",
   "movementNote": "ملاحظات",
   "closingBalance": "الرصيد الختامي",
-
   "notAssigned": "غير محدد",
-
   "noPayments": "لم تُسجَّل أي دفعة بعد",
   "registerPayment": "تسجيل سداد",
   "receiptNo": "رقم الإيصال",
@@ -287,15 +310,19 @@
   "paymentSaved": "تم تسجيل السداد وتوزيعه على أقدم الاستحقاقات",
   "noDebtForFamily": "هذا المشترك لا توجد عليه مديونية، لذلك لا يمكن تسجيل سداد.",
   "amountTooHigh": "الحد الأقصى {amount}",
-  "@amountTooHigh": { "placeholders": { "amount": { "type": "String" } } },
-
+  "@amountTooHigh": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "cancelAndReverse": "إلغاء وعكس",
   "cancelReason": "سبب الإلغاء",
   "cancelReasonHint": "اذكر سبب إلغاء هذه الدفعة",
   "cancelPaymentWarning": "سيتم إلغاء الدفعة وعكس أثرها على الاستحقاقات والصندوق مع بقاء السجل التاريخي.",
   "confirmCancel": "تأكيد الإلغاء",
   "paymentCancelled": "تم إلغاء الدفعة وعكس أثرها",
-
   "registerDisbursement": "تسجيل صرف",
   "confirmDisbursement": "اعتماد الصرف",
   "kindMember": "صرف لمشترك",
@@ -325,20 +352,28 @@
   "overTreasuryBalance": "رصيد الصندوق {amount} فقط",
   "@overTreasuryBalance": {
     "description": "Shown under the amount when a disbursement would overdraw the treasury. Mirrors rule 7's cap on the collection side, in the other direction: the association cannot pay out money it does not hold.",
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "disbursementSaved": "تم تسجيل الصرف {voucher} — رصيد الصندوق الآن {balance}",
   "@disbursementSaved": {
     "description": "The balance is restated with the voucher number so an admin who has just emptied the fund learns it now rather than on the next attempt.",
-    "placeholders": { "voucher": { "type": "String" }, "balance": { "type": "String" } }
+    "placeholders": {
+      "voucher": {
+        "type": "String"
+      },
+      "balance": {
+        "type": "String"
+      }
+    }
   },
   "cancelDisbursement": "إلغاء الصرف",
   "cancelDisbursementWarning": "سيتم إلغاء إيصال الصرف وإعادة قيمته إلى رصيد الجمعية، مع بقاء السجل التاريخي.",
   "disbursementCancelled": "تم إلغاء الصرف وأُعيدت قيمته إلى الصندوق",
   "aidTitle": "مصروفات للمشترك",
-  "@aidTitle": {
-    "description": "The app bar over the aid ledger, third person: the association looking at one man's history. «ما صُرف له» and nothing more — «ما صُرف له من الجمعية» was truncated to «...من الجم» on a phone, which is a longer heading that says less. Whose it is, is on the page underneath it."
-  },
   "@aidTitle": {
     "description": "Staff heading, third person: the association looking at one man's aid history."
   },
@@ -355,31 +390,60 @@
   "aidOthersRecipients": "حسب الوجه",
   "aidOthersAll": "كل السندات",
   "valueTitle": "الجدوى",
-  "@valueTitle": { "description": "The heading of the membership-value screen. «الجدوى» and not «الربح»: a mutual fund is not an investment, and the word chosen here is the one the whole screen depends on." },
+  "@valueTitle": {
+    "description": "The heading of the membership-value screen. «الجدوى» and not «الربح»: a mutual fund is not an investment, and the word chosen here is the one the whole screen depends on."
+  },
   "valuePaid": "دفعتَ",
   "valueReceived": "استلمتَ",
   "valueAhead": "أعطتك الجمعية أكثر مما دفعتَ بـ",
-  "@valueAhead": { "description": "Shown when a member has received MORE than he paid. States the fact and nothing else — no «ربح», which would make the next man expect one." },
+  "@valueAhead": {
+    "description": "Shown when a member has received MORE than he paid. States the fact and nothing else — no «ربح», which would make the next man expect one."
+  },
   "valueSurplus": "فائض تكافلك",
-  "@valueSurplus": { "description": "Shown when he has paid MORE than he received, and the most important string in the app. It is NOT a loss and NOT a debt the association owes him: in a mutual fund the surplus of the men nothing happened to is exactly what covers the man something happened to. Calling it anything else would teach members to stop paying once they are «ahead»." },
+  "@valueSurplus": {
+    "description": "Shown when he has paid MORE than he received, and the most important string in the app. It is NOT a loss and NOT a debt the association owes him: in a mutual fund the surplus of the men nothing happened to is exactly what covers the man something happened to. Calling it anything else would teach members to stop paying once they are «ahead»."
+  },
   "valueEven": "دفعتَ واستلمتَ سواءً",
   "valueFund": "الجمعية",
   "valueShareTitle": "ما عاد إليك من اشتراكك",
   "valueShareOf": "من كل 100 دفعتَها، عاد إليك {percent}",
   "@valueShareOf": {
-    "placeholders": { "percent": { "type": "int" } },
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    },
     "description": "The whole of «الجدوى» in one sentence, and the bar beneath it is the illustration. Deliberately NOT «نسبة الاسترداد»: this is a charitable fund, not a savings account, and nothing is owed back."
   },
   "valueShareOver": "استلمتَ {percent} من كل 100 دفعتَها — أكثر مما دفعت",
   "@valueShareOver": {
-    "placeholders": { "percent": { "type": "int" } },
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    },
     "description": "A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden."
   },
   "valueMonths": "حركتك خلال السنة",
   "valueBackToMembers": "من كل 100 محصَّلة، صُرف {rate} على المشتركين",
-  "@valueBackToMembers": { "placeholders": { "rate": { "type": "String" } } },
+  "@valueBackToMembers": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
   "valueHelped": "وقفت خلف {helped} من {members} مشتركين",
-  "@valueHelped": { "placeholders": { "helped": { "type": "int" }, "members": { "type": "int" } } },
+  "@valueHelped": {
+    "placeholders": {
+      "helped": {
+        "type": "int"
+      },
+      "members": {
+        "type": "int"
+      }
+    }
+  },
   "valueLargest": "أكبر ما صُرف لمشترك واحد",
   "aidColDate": "التاريخ",
   "aidColSerial": "#",
@@ -393,7 +457,14 @@
   "aidShowing": "{shown} من {total}",
   "@aidShowing": {
     "description": "Shown above the ledger while a search filters it, so a reader knows the running-total column still belongs to the FULL history and not to what is on screen.",
-    "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } }
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   },
   "disbursementNoteHint": "اسم المولود، أو صاحب المناسبة",
   "disbursementNoteHelp": "تظهر هذه الملاحظة في كشف المشترك بجانب البند، فيُعرف لماذا صُرف له.",
@@ -408,7 +479,13 @@
   "aidVouchers": "السندات",
   "aidPanelTitle": "الإجمالي",
   "aidVoucherCount": "{count} سند",
-  "@aidVoucherCount": { "placeholders": { "count": { "type": "int" } } },
+  "@aidVoucherCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noAid": "لم يُصرف له شيء من الجمعية بعد",
   "noMyAid": "لم يُصرف لك شيء من الجمعية بعد",
   "totalCollected": "إجمالي المحصل",
@@ -431,12 +508,20 @@
   "voucherCount": "{count, plural, =1{سند صرف واحد} =2{سندا صرف} few{{count} سندات صرف} other{{count} سند صرف}}",
   "@voucherCount": {
     "description": "How many vouchers made out to this subscriber are folded into his treasury card. Shown in red beside the receipt count, so a closed card says there is an outgoing side inside it. A COUNT and never an amount: two money figures side by side on one row invite the reader to subtract, and aid is never netted against what a member paid.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "receiptCount": "{count, plural, =0{لا إيصالات} =1{إيصال واحد} =2{إيصالان} few{{count} إيصالات} other{{count} إيصالاً}}",
   "@receiptCount": {
     "description": "How many live receipts are folded into one subscriber's row on the treasury screen. It is what tells a reader the row opens at all.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "cashMovements": "حركة الصندوق",
   "noCashMovements": "لم تُسجَّل أي حركة صندوق بعد",
@@ -444,31 +529,76 @@
   "thisMonthLabel": "الشهر",
   "movementTypeLabel": "النوع",
   "voided": "ملغي",
-
   "generateReceivables": "إنشاء استحقاقات الشهر",
   "generateConfirmTitle": "إنشاء استحقاقات {period}",
-  "@generateConfirmTitle": { "placeholders": { "period": { "type": "String" } } },
+  "@generateConfirmTitle": {
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
   "generateConfirmBody": "سيتم إنشاء استحقاق لكل مشترك نشط لهذا الشهر. لا يمكن إنشاء استحقاق مكرر لنفس المشترك والشهر.",
   "generateConfirm": "إنشاء",
   "generateResult": "تم إنشاء {created} استحقاق، وتم تجاوز {skipped}",
-  "@generateResult": { "placeholders": { "created": { "type": "int" }, "skipped": { "type": "int" } } },
+  "@generateResult": {
+    "placeholders": {
+      "created": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
   "autoClose": "إقفال الأشهر السابقة",
   "autoCloseResult": "تم إقفال {count} شهراً",
-  "@autoCloseResult": { "placeholders": { "count": { "type": "int" } } },
+  "@autoCloseResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "nothingToGenerate": "لا توجد استحقاقات جديدة لهذا الشهر",
-
   "statAdeels": "عدد المشتركين",
-
   "statTotalDebt": "إجمالي المديونية",
   "statTotalCollected": "إجمالي المحصل",
   "subActive": "{count} نشط",
-  "@subActive": { "placeholders": { "count": { "type": "int" } } },
+  "@subActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "subIndebtedAdeels": "{count} مشترك مدين",
-  "@subIndebtedAdeels": { "placeholders": { "count": { "type": "int" } } },
+  "@subIndebtedAdeels": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "subCashTransfer": "نقدي {cash} • تحويل {transfer}",
-  "@subCashTransfer": { "placeholders": { "cash": { "type": "String" }, "transfer": { "type": "String" } } },
+  "@subCashTransfer": {
+    "placeholders": {
+      "cash": {
+        "type": "String"
+      },
+      "transfer": {
+        "type": "String"
+      }
+    }
+  },
   "heldOfWhich": "منها عهد للمشتركين {amount}",
-  "@heldOfWhich": { "placeholders": { "amount": { "type": "String" } } },
+  "@heldOfWhich": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "topDebtors": "أعلى المديونيات",
   "noDebtsNow": "لا توجد مديونيات حالية",
   "closeMonth": "إقفال شهر",
@@ -477,8 +607,6 @@
   "periodClosedBadge": "مُقفل",
   "periodClosedNote": "أُقفل من قبل",
   "periodBlockedNote": "أقفل ما قبله أولاً",
-
-
   "fromDate": "من تاريخ",
   "toDate": "إلى تاريخ",
   "presetThisMonth": "هذا الشهر",
@@ -486,17 +614,27 @@
   "presetThisYear": "هذه السنة",
   "collectionDetail": "تفصيل التحصيل",
   "issuedCount": "{count} سجل",
-  "@issuedCount": { "placeholders": { "count": { "type": "int" } } },
+  "@issuedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "collectedCount": "{count} دفعة",
-  "@collectedCount": { "placeholders": { "count": { "type": "int" } } },
+  "@collectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "partiallyPaidCount": "السداد الجزئي",
   "openPartially": "استحقاقات مفتوحة جزئياً",
   "noReportRows": "لا توجد حركات في الفترة المحددة",
-
   "noAuditEntries": "لا توجد عمليات مسجلة",
   "auditActor": "المستخدم",
   "allEvents": "كل العمليات",
-
   "settingsWarning": "قاعدة محاسبية: تعديل قيمة الاشتراك هنا لا يغيّر أي استحقاق سبق إنشاؤه.",
   "generalSection": "الإعدادات العامة",
   "treasurerSection": "أمين الصندوق",
@@ -506,7 +644,9 @@
   "memberFeeField": "اشتراك العضو الشهري",
   "feeExceptionLabel": "ماعدا",
   "backAction": "رجوع",
-  "@feeExceptionLabel": { "description": "Heads each month-exception row in Settings, directly under the monthly fee it is the exception TO. One word, because the row that follows it — a month and an amount — is the sentence." },
+  "@feeExceptionLabel": {
+    "description": "Heads each month-exception row in Settings, directly under the monthly fee it is the exception TO. One word, because the row that follows it — a month and an amount — is the sentence."
+  },
   "feeExceptionAdd": "إضافة شهر مستثنى",
   "systemStartField": "تاريخ بداية العمل بالنظام",
   "fullNameField": "الاسم",
@@ -514,32 +654,53 @@
   "invalidNumberField": "«{field}» يجب أن يكون رقماً، أو اتركه فارغاً لإبقائه كما هو",
   "@invalidNumberField": {
     "description": "Shown instead of sending a value Postgres cannot cast to numeric. Naming the field is the whole point: the server answers 22P02, which has no wording at all, so the admin was told 'something went wrong' about a box he may not have touched.",
-    "placeholders": { "field": { "type": "String" } }
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
   },
   "invalidDateField": "«{field}» يجب أن يكون تاريخاً بالصيغة YYYY-MM-DD، أو اتركه فارغاً لإبقائه كما هو",
   "@invalidDateField": {
     "description": "Same as invalidNumberField, for a date cast.",
-    "placeholders": { "field": { "type": "String" } }
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
   },
   "settingsSaved": "تم حفظ الإعدادات، ولن تتغير الاستحقاقات التاريخية",
   "confirmChangesTitle": "تأكيد التغييرات",
   "noChanges": "لا توجد تغييرات",
-
   "familyCodeTitle": "لديك رمز اشتراك؟",
   "familyCodeBody": "إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، اكتبه هنا لترى بيانات اشتراكك مباشرة.",
   "familyCodeField": "رمز الاشتراك",
   "familyCodeHint": "XXXX-XXXX-XXXX",
   "familyCodeAction": "دخول برمز الاشتراك",
-
   "myFamilyTitle": "اشتراكي",
   "myFamilyIntro": "بيانات اشتراكك ومدفوعاتك. للاطلاع فقط.",
   "myStatementSection": "كشف الحساب",
   "statementSearchHint": "بحث",
   "clearSearch": "مسح البحث",
   "statementShowing": "عرض {shown} من {total} حركة",
-  "@statementShowing": { "placeholders": { "shown": { "type": "int" }, "total": { "type": "int" } } },
+  "@statementShowing": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "statementShowMore": "عرض {count} أخرى",
-  "@statementShowMore": { "placeholders": { "count": { "type": "int" } } },
+  "@statementShowMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "statementShowAll": "عرض الكل",
   "ledgerParticulars": "البيان",
   "ledgerDebit": "مدين",
@@ -549,13 +710,11 @@
   "ledgerTotals": "الإجمالي",
   "balanceDueLabel": "الرصيد المستحق عليك",
   "balanceSettledLabel": "لا يوجد رصيد مستحق",
-
   "issueCodeTitle": "رمز دخول المشترك",
   "issueCodeBody": "أعطِ هذا الرمز للمشترك ليدخل ويرى بياناته فقط. إصدار رمز جديد يلغي القديم.",
   "issueCodeAction": "إصدار رمز دخول",
   "issueCodeRegenerate": "إصدار رمز جديد",
   "issueCodeCopied": "تم نسخ الرمز",
-
   "dangerZoneSection": "منطقة الخطر",
   "purgeTitle": "مسح البيانات المالية",
   "purgeIntro": "يحذف نهائياً كل الاستحقاقات والتحصيلات وحركات الخزينة وسجل العمليات. يُستعمل مرة واحدة لتصفير بيانات التجربة قبل بدء العمل الفعلي.",
@@ -564,13 +723,24 @@
   "purgeButton": "مسح البيانات المالية",
   "purgeConfirmTitle": "مسح نهائي للبيانات المالية",
   "purgeConfirmPrompt": "للتأكيد، اكتب: {phrase}",
-  "@purgeConfirmPrompt": { "placeholders": { "phrase": { "type": "String" } } },
+  "@purgeConfirmPrompt": {
+    "placeholders": {
+      "phrase": {
+        "type": "String"
+      }
+    }
+  },
   "purgeConfirmField": "عبارة التأكيد",
   "purgeConfirmAction": "مسح نهائي",
   "purgeDone": "تم مسح {count} سجل، وأصبح الترقيم يبدأ من جديد",
-  "@purgeDone": { "placeholders": { "count": { "type": "int" } } },
+  "@purgeDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "purgeNothingToDo": "لا توجد بيانات مالية لمسحها",
-
   "purgeAllTitle": "مسح بيانات المشتركين",
   "purgeAllIntro": "يحذف نهائياً كل المشتركين، ومعهم كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.",
   "purgeAllWhyFinancial": "لماذا تُحذف البيانات المالية معهم: كل استحقاق وكل إيصال مرتبط بمشترك، فلا يمكن حذف المشترك وإبقاء إيصاله.",
@@ -579,7 +749,6 @@
   "purgeAllConfirmTitle": "مسح نهائي لكل البيانات",
   "purgeAllConfirmAction": "مسح كل البيانات",
   "purgeAllNothingToDo": "لا توجد بيانات لمسحها",
-
   "pendingRequests": "طلبات معلقة",
   "allUsers": "المستخدمون",
   "approve": "اعتماد",
@@ -591,7 +760,6 @@
   "noUsers": "لا يوجد مستخدمون",
   "userUpdated": "تم تحديث الحساب",
   "cannotModifySelfNote": "لا يمكنك تعديل حسابك الشخصي",
-
   "requiredField": "هذا الحقل مطلوب",
   "membershipStatusField": "حالة العضوية",
   "statusActive": "نشط",
@@ -601,7 +769,6 @@
   "discardChangesBody": "لديك تغييرات غير محفوظة، هل تريد الخروج بدون حفظ؟",
   "discard": "تجاهل",
   "delete": "حذف",
-
   "navRegister": "المشتركين",
   "addAdeel": "إضافة مشترك",
   "editAdeel": "تعديل مشترك",
@@ -613,7 +780,13 @@
   "deleteAdeelBody": "لا يمكن التراجع. المشترك الذي له سجل مالي لا يُحذف — غيّر حالته إلى موقوف بدلاً من ذلك.",
   "monthlyFeeLabel": "الاشتراك الشهري",
   "openPeriodsBadge": "{count} فترة مفتوحة",
-  "@openPeriodsBadge": { "placeholders": { "count": { "type": "int" } } },
+  "@openPeriodsBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "issuedLabel": "إجمالي المستحق",
   "myBalanceNow": "المستحق عليك",
   "myIssuedTotal": "الاشتراكات",
@@ -630,7 +803,11 @@
   "creditNotice": "أكثر من المستحق بـ {amount} — تُضاف إلى رصيده وتُخصم من الأشهر القادمة",
   "@creditNotice": {
     "description": "Shown in the payment sheet the moment the typed amount passes what the member owes. Overpaying is allowed now; this is what stops a treasurer who typed 5000 for 500 finding out from the receipt.",
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "deviceLockedTitle": "هذا الاشتراك مرتبط بجهاز آخر",
   "@deviceLockedTitle": {
@@ -649,17 +826,37 @@
     "description": "Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee."
   },
   "ofTotal": "من {amount}",
-  "@ofTotal": { "placeholders": { "amount": { "type": "String" } } },
+  "@ofTotal": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "settledUpTitle": "لا مستحقات عليك",
   "settledUpBody": "كل اشتراكاتك مسدَّدة. شكراً لالتزامك.",
   "openMonthsCount": "{count, plural, =1{شهر واحد غير مسدَّد} =2{شهران غير مسدَّدين} few{{count} أشهر غير مسدَّدة} other{{count} شهراً غير مسدَّد}}",
-  "@openMonthsCount": { "placeholders": { "count": { "type": "int" } } },
-  "monthlyFeeLabel": "الاشتراك الشهري",
+  "@openMonthsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "myDuesTitle": "اشتراكاتي",
   "openPeriodsCount": "{count, plural, =0{لا مستحقات} =1{شهر واحد} =2{شهران} few{{count} أشهر} other{{count} شهراً}}",
   "@openPeriodsCount": {
     "description": "How many months are still outstanding, carried on the CLOSED row of the folded «الاشتراكات» section. A fold that hides the answer costs a tap to learn what a glance used to tell, so the heading keeps the one figure the section is opened for. «لا مستحقات» at zero is an ANSWER, not a count of nothing.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-  "duesSection": "الاشتراكات"
+  "duesSection": "الاشتراكات",
+  "unbindTitle": "فكّ ارتباط الحساب",
+  "unbindBody": "سيُفصل بريدُ هذا المشترك وهاتفُه، ويُحذف مفتاحه. بعدها يستطيع أيُّ بريدٍ آخر أن يرتبط به عند إصدار مفتاح جديد. لا تفعل هذا إلا إذا تغيّر بريدُه أو أُخطئ في الربط.",
+  "unbindConfirm": "فكّ الارتباط",
+  "unbindDone": "تمّ فكّ الارتباط. أصدر مفتاحاً جديداً ليدخل.",
+  "unbindNothing": "لا حساب مرتبط بهذا المشترك."
 }

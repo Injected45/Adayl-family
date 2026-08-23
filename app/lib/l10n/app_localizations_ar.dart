@@ -1449,4 +1449,20 @@ class LAr extends L {
 
   @override
   String get duesSection => 'الاشتراكات';
+
+  @override
+  String get unbindTitle => 'فكّ ارتباط الحساب';
+
+  @override
+  String get unbindBody =>
+      'سيُفصل بريدُ هذا المشترك وهاتفُه، ويُحذف مفتاحه. بعدها يستطيع أيُّ بريدٍ آخر أن يرتبط به عند إصدار مفتاح جديد. لا تفعل هذا إلا إذا تغيّر بريدُه أو أُخطئ في الربط.';
+
+  @override
+  String get unbindConfirm => 'فكّ الارتباط';
+
+  @override
+  String get unbindDone => 'تمّ فكّ الارتباط. أصدر مفتاحاً جديداً ليدخل.';
+
+  @override
+  String get unbindNothing => 'لا حساب مرتبط بهذا المشترك.';
 }

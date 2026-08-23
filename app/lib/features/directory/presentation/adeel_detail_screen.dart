@@ -10,6 +10,7 @@ import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/realtime/doorbell.dart';
 import '../../../core/router/destinations.dart';
+import '../../../core/state/refresh.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/stat_card.dart';
@@ -28,6 +29,60 @@ import 'providers.dart';
 /// gesture for an admin who has lost the message: issuing revokes the previous
 /// code but does NOT sign out someone who already redeemed it, because by then
 /// the binding lives on his profile rather than on the code.
+/// فكّ ارتباط العديل عن بريده.
+///
+/// ⚠ THE CONFIRMATION IS NOT CEREMONY. After this the NEXT email to redeem a
+///   key becomes the owner — so pressing it on the wrong man hands his dues,
+///   receipts and statement to somebody else the moment a code is issued.
+Future<void> _unbindAccount(
+  BuildContext context,
+  WidgetRef ref,
+  int adeelId,
+) async {
+  final L l = L.of(context);
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+  final bool ok =
+      await showDialog<bool>(
+        context: context,
+        builder: (BuildContext c) => GlassDialog(
+          title: Text(l.unbindTitle),
+          content: Text(l.unbindBody),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: Text(l.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: Text(l.unbindConfirm),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+  if (!ok) return;
+
+  try {
+    final int n = await ref
+        .read(directoryRepositoryProvider)
+        .unbindAdeel(adeelId);
+
+    // ⚠ THE SAME RING AS ISSUING A KEY, and for the same reason: the released
+    //   handset is refused by the server from this instant, and this is what
+    //   makes it STOP SHOWING his dues in under a second instead of waiting
+    //   for the forty-five-second tick.
+    ref.read(doorbellProvider).ring(Ring.access);
+    refreshAll(ref);
+
+    messenger.showSnackBar(
+      SnackBar(content: Text(n > 0 ? l.unbindDone : l.unbindNothing)),
+    );
+  } on Object catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
+  }
+}
+
 Future<void> _showAccessCode(
   BuildContext context,
   WidgetRef ref,
@@ -151,6 +206,16 @@ class AdeelDetailScreen extends ConsumerWidget {
             tooltip: l.issueCodeTitle,
             onPressed: () => _showAccessCode(context, ref, adeelId),
             icon: const Icon(Icons.key_outlined),
+          ),
+        // ⚠ ADMIN ONLY, AND A CONFIRMATION, because it is the one action that
+        //   can hand this عديل to a different person. unbind_adeel() gates on
+        //   admin server-side too — the button is hidden rather than offered
+        //   and refused.
+        if (role.atLeast(AppRole.admin))
+          IconButton(
+            tooltip: l.unbindTitle,
+            onPressed: () => _unbindAccount(context, ref, adeelId),
+            icon: const Icon(Icons.link_off),
           ),
         if (role.atLeast(AppRole.financeManager))
           IconButton(

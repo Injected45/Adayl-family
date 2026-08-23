@@ -41,7 +41,12 @@ void main() {
     ).readAsStringSync();
 
     final int issued = src.indexOf('.issueAdeelCode(adeelId)');
-    final int rung = src.indexOf('ring(Ring.access)');
+    // ⚠ SEARCH FROM THE ISSUE CALL, NOT FROM THE TOP. «فكّ الارتباط» rings the
+    //   same bell for the same reason and sits ABOVE this in the file, so a
+    //   bare indexOf found ITS ring and reported the issue path as ringing too
+    //   early. The test was measuring the wrong statement, and it would have
+    //   gone on passing after the issue ring was deleted.
+    final int rung = src.indexOf('ring(Ring.access)', issued);
 
     expect(issued, greaterThan(-1), reason: 'the issue call is gone');
     expect(
@@ -57,6 +62,24 @@ void main() {
       reason:
           'ringing before the RPC would send every handset to ask a question '
           'whose answer has not changed yet — and would ring on a failure.',
+    );
+  });
+
+  test('and unlinking an account rings it too', () {
+    // Unbinding releases the handset server-side exactly as issuing does — the
+    // phone is refused from that instant — so it owes the same speed.
+    final String src = File(
+      'lib/features/directory/presentation/adeel_detail_screen.dart',
+    ).readAsStringSync();
+
+    final int unbound = src.indexOf('.unbindAdeel(adeelId)');
+    expect(unbound, greaterThan(-1), reason: 'the unlink call is gone');
+    expect(
+      src.indexOf('ring(Ring.access)', unbound),
+      greaterThan(unbound),
+      reason:
+          'unlinking must ring the doorbell, or the released handset keeps '
+          'painting his dues until the forty-five-second tick.',
     );
   });
 
