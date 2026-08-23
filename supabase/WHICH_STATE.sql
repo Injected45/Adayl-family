@@ -224,6 +224,25 @@ WITH have AS (
              WHERE conrelid='public.chat_messages'::regclass
                AND conname='ck_chat_shape')                          AS pair_canonical,
 
+    -- بابٌ واحدٌ للعديل. Probed by what the patch INSTALLS — the UNIQUE index
+    -- — and separately by the ABSENCE of the claim inside api_touch_login,
+    -- because the dangerous half of this patch is a sentence in a body and a
+    -- CREATE OR REPLACE could put it back with every other check still green.
+    EXISTS (SELECT 1 FROM pg_indexes
+             WHERE schemaname='public' AND indexname='uq_profiles_adeel')  AS patch_23b,
+    NOT EXISTS (SELECT 1 FROM pg_proc pr
+                  JOIN pg_namespace ns ON ns.oid = pr.pronamespace
+                 WHERE ns.nspname='public' AND pr.proname='api_touch_login'
+                   AND pg_get_functiondef(pr.oid) LIKE '%request_device_id%')
+                                                                  AS login_sealed,
+    -- ومصنعُ الغرباء: هل أُغلق؟ Probed by the sentence the function raises,
+    -- because the signature is unchanged and only the body decides.
+    EXISTS (SELECT 1 FROM pg_proc pr
+              JOIN pg_namespace ns ON ns.oid = pr.pronamespace
+             WHERE ns.nspname='public' AND pr.proname='set_user_access'
+               AND pg_get_functiondef(pr.oid) LIKE '%بابان لا ثالث لهما%')
+                                                                  AS factory_shut,
+
     to_regclass('realtime.messages') IS NOT NULL                        AS has_realtime,
     (SELECT count(*) FROM pg_policies
       WHERE schemaname = 'realtime' AND tablename = 'messages'
@@ -379,6 +398,17 @@ SELECT * FROM (
               WHEN patch_23a THEN 'PARTIAL ⚠ العمودان بلا قيد الترتيب'
               ELSE 'NOT applied' END FROM have
 
+  UNION ALL SELECT 10.998, 'PATCH 23/08 (b) — بابٌ واحدٌ للعديل: المفتاح',
+         CASE WHEN patch_23b AND login_sealed AND factory_shut THEN 'applied'
+              WHEN patch_23b AND login_sealed
+                THEN 'PARTIAL ⚠ مصنع الغرباء في set_user_access ما زال مفتوحاً'
+              WHEN login_sealed
+                THEN 'PARTIAL ⚠ الباب مغلق بلا قيد «عديلٌ واحد، حسابٌ واحد»'
+              WHEN patch_23b
+                THEN 'PARTIAL ⚠ القيد موجود و api_touch_login ما زالت تربط جهازاً'
+              ELSE 'NOT applied ⚠ الهاتف الملغى يُعيد ربط نفسه بلا مفتاح'
+         END FROM have
+
   UNION ALL SELECT 10.995, 'غرباء في الداخل (معتمد، بلا عديل، وليس أدمن)',
          CASE WHEN strangers_inside IS NULL THEN 'unknown'
               WHEN strangers_inside = 0 THEN '0 — لا أحد'
@@ -486,6 +516,10 @@ SELECT * FROM (
                 THEN 'READY — apply supabase/PATCH_20260823a_direct_chat.sql'
                   || '  محادثة خاصّة بين عديلين، لا يقرؤها الأدمن.'
 
+              WHEN NOT patch_23b OR NOT login_sealed OR NOT factory_shut
+                THEN 'READY — apply supabase/PATCH_20260823b_login_lockdown.sql'
+                  || '  ⚠ الأهمّ: هاتفٌ أُلغي مفتاحه يُعيد ربط نفسه بلا رمز.'
+
               -- ⚠ LAST, AND THAT ORDER IS THE FIX. This branch sat ABOVE the
               --   required patches, so a project with Realtime switched off
               --   was told «UP TO DATE» while a real patch was still missing —
@@ -497,6 +531,6 @@ SELECT * FROM (
                   || '  يُسرّع الرسائل والمكالمات، ولا يُغيّر أي صلاحية.'
               WHEN NOT has_realtime
                 THEN 'UP TO DATE — كل الترقيعات. جرس الباب وحده يحتاج تفعيل Realtime.'
-              ELSE 'UP TO DATE — every patch through 23/08 (a) is applied.'
+              ELSE 'UP TO DATE — every patch through 23/08 (b) is applied.'
          END FROM have
 ) t ORDER BY ord;

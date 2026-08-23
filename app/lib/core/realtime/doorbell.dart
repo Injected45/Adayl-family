@@ -43,6 +43,26 @@ enum Ring {
 
   /// مكالمة رُفعت، أو رُدّ عليها، أو أُنهيت.
   call,
+
+  /// ── مفتاحٌ صدر، فهاتفٌ يجب أن يُغلق ────────────────────────────────────
+  ///
+  /// ⚠ THE SERVER ALREADY REFUSES THE OLD HANDSET THE INSTANT A KEY IS
+  ///   ISSUED — issue_adeel_code clears profiles.device_id, and my_adeel_id()
+  ///   returns NULL without a match, so every read that phone makes comes back
+  ///   empty from that moment. Nothing here is a permission.
+  ///
+  ///   What lagged was the phone NOTICING. api_me() carries deviceLocked and
+  ///   was re-read on the forty-five-second AutoRefresh tick, so a revoked
+  ///   handset could go on displaying his dues — read from its own cache —
+  ///   for most of a minute. The association asked for «فوراً», and «فوراً»
+  ///   is what a stale screen is measured against, not what the database
+  ///   already refused.
+  ///
+  /// ⚠ IT CARRIES NO NAME AND NO ID. Every handset in the association hears
+  ///   «somebody's key changed» and each one asks api_me() about ITSELF —
+  ///   which is the same authenticated call the timer would have made, only
+  ///   sooner. A man learns nothing about anyone else from it.
+  access,
 }
 
 class Doorbell {

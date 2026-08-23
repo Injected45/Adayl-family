@@ -9,6 +9,7 @@ import '../../features/chat/presentation/unread_bell.dart';
 import '../../l10n/app_localizations.dart';
 import '../notify/background_service.dart';
 import '../notify/notify_text.dart';
+import '../realtime/doorbell.dart';
 import 'refresh.dart';
 
 /// Keeps every figure in the app current, without anyone pressing anything.
@@ -64,12 +65,30 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   bool _foreground = true;
   VoidCallback? _unlisten;
 
+  /// كيف نتوقّف عن سماع الجرس.
+  VoidCallback? _deafen;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(AutoRefresh.interval, (_) => _tick());
     _unlisten = BackgroundService.listen(_beat);
+
+    // ── ومن يسمع «تغيّر مفتاح» يسأل عن نفسه فوراً ─────────────────────────
+    //
+    // ⚠ NOT refreshAll, AND NOT THE TIMER. This asks ONE question — api_me()
+    //   — and it is the question the ring is about: هل ما زال مفتاحي صالحاً.
+    //   Sweeping fourteen providers because somebody else got a new key would
+    //   be the battery cost this app has refused all along.
+    //
+    // ⚠ AND EVERY HANDSET ASKS ABOUT ITSELF. The ring carries no id, so the
+    //   answer a phone gets is its own — the same authenticated call the
+    //   forty-five-second tick would have made, only sooner.
+    _deafen = ref.read(doorbellProvider).listen((Ring r) {
+      if (r != Ring.access || !mounted) return;
+      unawaited(ref.read(authControllerProvider.notifier).refreshProfile());
+    });
   }
 
   @override
@@ -78,6 +97,9 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
     //   over `ref`, and reading a ref after dispose throws — which in this app
     //   once aborted the rest of dispose() and leaked every timer below it.
     _unlisten?.call();
+    // Same reason, same order: this closure reads ref too.
+    _deafen?.call();
+    _deafen = null;
     _unlisten = null;
     _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -121,7 +143,6 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
     if (front && !_foreground) _tick();
     _foreground = front;
   }
-
 
   void _tick() {
     if (!_foreground || !mounted) return;

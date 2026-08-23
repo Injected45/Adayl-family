@@ -8,6 +8,7 @@ import '../../../core/config/theme.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
@@ -38,6 +39,26 @@ Future<void> _showAccessCode(
     final String code = await ref
         .read(directoryRepositoryProvider)
         .issueAdeelCode(adeelId);
+
+    // ── ودقّةٌ على الجرس: أُصدر مفتاح، فليُغلق الهاتفُ القديم الآن ──────────
+    //
+    // ⚠ THE KEY IS ALREADY REVOKED AT THIS LINE. issue_adeel_code cleared
+    //   device_id inside its own transaction, so the old handset is refused by
+    //   my_adeel_id() from this instant — every read it makes returns nothing.
+    //   This changes no permission whatsoever.
+    //
+    //   It shortens the gap between «refused» and «shows a refusal». api_me()
+    //   is where deviceLocked lives, and it was re-read on the 45-second
+    //   AutoRefresh tick — so the old phone kept PAINTING his dues out of its
+    //   own cache for up to that long. The ring collapses it to about a tenth
+    //   of a second.
+    //
+    // ⚠ AFTER the RPC and never before: a ring on a failed issue would send
+    //   every handset to ask a question whose answer has not changed.
+    // ⚠ AND unawaited, like every other ring. A doorbell that could delay
+    //   showing the admin his code would be worse than no doorbell.
+    ref.read(doorbellProvider).ring(Ring.access);
+
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,

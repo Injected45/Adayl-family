@@ -66,10 +66,19 @@ void main() {
     //   only «ask now», and every read that follows goes through RLS exactly as
     //   it does today. If a payload ever grows a field, the private channel
     //   stops being sufficient and this test is where that decision surfaces.
-    test('there are exactly two kinds, and both are bare words', () {
-      expect(Ring.values, <Ring>[Ring.chat, Ring.call]);
+    //
+    // ⚠ IT WENT FROM TWO TO THREE ON 23/08, and this test is what made that a
+    //   decision instead of a diff. Ring.access says «somebody's key changed»
+    //   — see the enum — and it was added because a revoked handset went on
+    //   painting a member's dues from its own cache until AutoRefresh's
+    //   forty-five-second tick. It carries no id and no name, like the other
+    //   two, so every phone that hears it asks api_me() about ITSELF and the
+    //   security argument above is untouched.
+    test('there are exactly three kinds, and all are bare words', () {
+      expect(Ring.values, <Ring>[Ring.chat, Ring.call, Ring.access]);
       expect(Ring.chat.name, 'chat');
       expect(Ring.call.name, 'call');
+      expect(Ring.access.name, 'access');
     });
 
     // ⚠ ONE TOPIC, AND THE POLICY IS WRITTEN AGAINST THIS EXACT STRING.
