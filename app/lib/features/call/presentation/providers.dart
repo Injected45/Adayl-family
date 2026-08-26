@@ -82,7 +82,47 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
   static const Duration interval = Duration(seconds: 1);
 
   Timer? _timer;
+
+  /// ⚠ THIS FLAG IS WHY EVERY INTERVAL SINCE 23/08 CHANGED NOTHING. It said
+  ///   «the notifier is gone, drop the answer» — and it was set by the previous
+  ///   build's onDispose and NEVER CLEARED, on a notifier Riverpod REUSES.
+  ///
+  ///   The sequence, all of it invisible: build() watches
+  ///   authControllerProvider; AutoRefresh calls refreshProfile() every 45
+  ///   seconds; refreshProfile assigns a NEW AuthState (no operator ==, so it
+  ///   always emits); Riverpod re-runs build() ON THE SAME OBJECT, firing the
+  ///   old onDispose first, which sets it. From that moment every tick
+  ///   fetched the call correctly and then threw the answer away.
+  ///
+  ///   So the banner was refreshed by exactly one thing: build()'s own return
+  ///   value. Which is to say a ringing phone appeared on the other handset up
+  ///   to FORTY-FIVE SECONDS later, at a moment that had nothing to do with
+  ///   the call. «يتأخر جدا في ظهور الرنين عند الطرف الاخر» — and lowering the
+  ///   clock from three seconds to one could not touch it, because the clock
+  ///   was never what was broken.
+  ///
+  /// ⚠ IT IS THE SAME TRAP THE CHAT POLL PAID FOR, one field over. There the
+  ///   dead Timer was left in the field; here the flag is left set. Both come
+  ///   from the same false assumption — that a rebuild means a new object.
+  ///   [_stop] is the answer in both places: cancel, null, CLEAR, and call it
+  ///   first thing in build().
   bool _gone = false;
+
+  /// ⚠ ONE REQUEST AT A TIME. The clock fires every second; a request that
+  ///   takes three on a Libyan connection would otherwise leave three in
+  ///   flight, each finishing out of order and the LAST one to land deciding
+  ///   what the banner shows — which can be the oldest answer.
+  bool _busy = false;
+
+  /// أوقِف الساعة، وامسح الأثر.
+  ///
+  /// ⚠ ALL THREE, AND NULLING IS NOT OPTIONAL. A cancelled Timer left in the
+  ///   field looks alive to anything that checks it.
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+    _gone = true;
+  }
 
   @override
   Future<CallView?> build() async {
@@ -93,12 +133,13 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
     final AppUser? user = ref.watch(authControllerProvider).user;
     if (user == null || user.status != AccountStatus.approved) return null;
 
-    ref.onDispose(() {
-      _gone = true;
-      _timer?.cancel();
-      _timer = null;
-    });
+    // ⚠ STOP FIRST, THEN ARM. On a rebuild this is the SAME notifier still
+    //   holding the previous build's clock and its «gone» flag. See [_gone].
+    _stop();
+    _gone = false;
+    _busy = false;
     _timer = Timer.periodic(interval, (_) => unawaited(_tick()));
+    ref.onDispose(_stop);
 
     // ── والجرس ────────────────────────────────────────────────────────
     // ⚠ A RING HAS SIXTY SECONDS TO BE NOTICED AND THE FIRST FIVE ARE THE
@@ -115,6 +156,8 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
   }
 
   Future<void> _tick() async {
+    if (_busy || _gone) return;
+    _busy = true;
     try {
       final CallView? call = await ref.read(callRepositoryProvider).liveAny();
       if (_gone) return;
@@ -123,6 +166,8 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
     } on Object {
       // A failed poll leaves the previous answer standing. Dropping a ringing
       // call to null because one request timed out would hang up on somebody.
+    } finally {
+      _busy = false;
     }
   }
 

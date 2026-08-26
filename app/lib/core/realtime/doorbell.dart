@@ -111,6 +111,15 @@ class Doorbell {
           final Ring? ring = switch (kind) {
             'chat' => Ring.chat,
             'call' => Ring.call,
+            // ⚠ THE THIRD CASE WAS MISSING, so every access ring was
+            //   BROADCAST and then DROPPED at the ear. adeel_detail_screen
+            //   rings it the moment a key is issued, the enum carries it, and
+            //   nothing here mapped it — so the revoked handset went on
+            //   showing his dues until the forty-five-second tick, which is
+            //   the exact delay the ring exists to remove. A default arm that
+            //   silently returns null is how a whole feature disappears
+            //   without one error anywhere.
+            'access' => Ring.access,
             _ => null,
           };
           if (ring == null) return;
