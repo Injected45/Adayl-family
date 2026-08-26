@@ -1406,8 +1406,7 @@ class LEn extends L {
   String get portalOfficialsHint => 'Who to call, and their numbers';
 
   @override
-  String get portalTreasuryHint =>
-      'Where the association\'s money stands — to read only';
+  String get portalTreasuryHint => '';
 
   @override
   String get myDetailsTitle => 'My subscription details';
@@ -1467,4 +1466,29 @@ class LEn extends L {
 
   @override
   String get unbindNothing => 'No account is linked to this member.';
+
+  @override
+  String get arrearsBoardTitle => 'In arrears';
+
+  @override
+  String get arrearsBoardClear =>
+      'Nobody is in arrears, and nobody holds credit.';
+
+  @override
+  String get arrearsBoardNote =>
+      'What the fund is owed and what it owes back. Red: he owes. Green: he has paid ahead.';
+
+  @override
+  String get arrearsMine => 'me';
+
+  @override
+  String get arrearsHeldLabel => 'paid ahead';
+
+  @override
+  String arrearsAlsoHeld(String amount) {
+    return 'also holds $amount';
+  }
+
+  @override
+  String get currency => 'LYD';
 }

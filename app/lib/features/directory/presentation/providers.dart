@@ -63,6 +63,12 @@ final FutureProvider<List<Official>> officialsProvider =
 /// The association's treasury totals. Watched by the عديل portal's المزيد sheet
 /// and by nothing else — staff read the same figures through v_cash_summary,
 /// which their RLS lets them see whole.
+/// لوحُ المتأخّرات، لكلّ من في الجمعية.
+final FutureProvider<List<ArrearsRow>> arrearsBoardProvider =
+    FutureProvider<List<ArrearsRow>>(
+      (Ref ref) => ref.watch(directoryRepositoryProvider).arrearsBoard(),
+    );
+
 final FutureProvider<AssociationFinance> associationFinanceProvider =
     FutureProvider<AssociationFinance>(
       (Ref ref) => ref.watch(directoryRepositoryProvider).associationFinance(),

@@ -817,7 +817,7 @@
   "portalDetailsHint": "اسمك ورقمك وحالتك وقيمة اشتراكك الشهري",
   "portalBankHint": "إلى أين تُرسل الحوالة، ورقم الحساب لنسخه",
   "portalOfficialsHint": "بمن تتصل، وأرقام هواتفهم",
-  "portalTreasuryHint": "أين يقف مال الجمعية — للاطلاع فقط",
+  "portalTreasuryHint": "",
   "@portalTreasuryHint": {
     "description": "The one-line summary on the الصندوق menu card. It says «للاطلاع فقط» on the card itself, not only inside: a member should know before he opens it that there is nothing here for him to act on."
   },
@@ -858,5 +858,22 @@
   "unbindBody": "سيُفصل بريدُ هذا المشترك وهاتفُه، ويُحذف مفتاحه. بعدها يستطيع أيُّ بريدٍ آخر أن يرتبط به عند إصدار مفتاح جديد. لا تفعل هذا إلا إذا تغيّر بريدُه أو أُخطئ في الربط.",
   "unbindConfirm": "فكّ الارتباط",
   "unbindDone": "تمّ فكّ الارتباط. أصدر مفتاحاً جديداً ليدخل.",
-  "unbindNothing": "لا حساب مرتبط بهذا المشترك."
+  "unbindNothing": "لا حساب مرتبط بهذا المشترك.",
+  "arrearsBoardTitle": "عليهم متأخرات",
+  "arrearsBoardClear": "لا أحد عليه متأخرات، ولا عهدة لأحد.",
+  "arrearsBoardNote": "هذه التزامات الصندوق ومستحقّاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدّماً.",
+  "arrearsMine": "أنا",
+  "arrearsHeldLabel": "له عهدة",
+  "arrearsAlsoHeld": "وله عهدة {amount}",
+  "@arrearsAlsoHeld": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "currency": "د.ل",
+  "@currency": {
+    "description": "The Libyan dinar, as the association writes it. Named ONCE on the fund page — on the balance and on nothing else — so six figures in a column do not each repeat it."
+  }
 }

@@ -1401,7 +1401,7 @@ class LAr extends L {
   String get portalOfficialsHint => 'بمن تتصل، وأرقام هواتفهم';
 
   @override
-  String get portalTreasuryHint => 'أين يقف مال الجمعية — للاطلاع فقط';
+  String get portalTreasuryHint => '';
 
   @override
   String get myDetailsTitle => 'تفاصيل اشتراكي';
@@ -1465,4 +1465,28 @@ class LAr extends L {
 
   @override
   String get unbindNothing => 'لا حساب مرتبط بهذا المشترك.';
+
+  @override
+  String get arrearsBoardTitle => 'عليهم متأخرات';
+
+  @override
+  String get arrearsBoardClear => 'لا أحد عليه متأخرات، ولا عهدة لأحد.';
+
+  @override
+  String get arrearsBoardNote =>
+      'هذه التزامات الصندوق ومستحقّاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدّماً.';
+
+  @override
+  String get arrearsMine => 'أنا';
+
+  @override
+  String get arrearsHeldLabel => 'له عهدة';
+
+  @override
+  String arrearsAlsoHeld(String amount) {
+    return 'وله عهدة $amount';
+  }
+
+  @override
+  String get currency => 'د.ل';
 }

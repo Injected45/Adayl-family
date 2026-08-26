@@ -470,29 +470,51 @@ void _moreSheetTests() {
     expect(find.text(l.bankAccountNotSetYet), findsOneWidget);
   });
 
-  testWidgets('the treasury is the ASSOCIATION\'s figures, and says it is read-only', (
-    WidgetTester tester,
-  ) async {
-    // The one that matters. His own balance is 20.00; the association's is
-    // 700.00 with 4,900.00 outstanding. If this page ever showed his own
-    // numbers — which is exactly what v_cash_summary would return for him,
-    // because it is SECURITY INVOKER — the headings would be lying and nothing
-    // on screen would betray it.
-    await openSection(tester, app(), l.navCash);
+  testWidgets(
+    'the treasury is the ASSOCIATION\'s figures, and offers no action',
+    (WidgetTester tester) async {
+      // The one that matters. His own balance is 20.00; the association's is
+      // 700.00 with 4,900.00 outstanding. If this page ever showed his own
+      // numbers — which is exactly what v_cash_summary would return for him,
+      // because it is SECURITY INVOKER — the headings would be lying and nothing
+      // on screen would betray it.
+      await openSection(tester, app(), l.navCash);
 
-    expect(find.text(formatMoney('640.00')), findsOneWidget);
-    expect(find.text(formatMoney('60.00')), findsOneWidget);
-    expect(find.text(formatMoney('450.00')), findsOneWidget);
-    expect(find.text(formatMoney('4900.00')), findsOneWidget);
+      // ⚠ THE BALANCE NOW CARRIES «د.ل» AND NOTHING ELSE DOES. It moved into
+      //   the panel and took the unit with it — «مثلا الان رصيد الجمعية 2,900.00
+      //   د.ل» — so a bare formatMoney('640.00') no longer matches it, which is
+      //   what this line caught.
+      expect(
+        find.text(formatMoneyWithCurrency('640.00', l.currency)),
+        findsOneWidget,
+        reason: 'the balance is the one figure that names the unit',
+      );
+      expect(find.text(formatMoney('60.00')), findsOneWidget);
+      expect(find.text(formatMoney('450.00')), findsOneWidget);
+      expect(find.text(formatMoney('4900.00')), findsOneWidget);
 
-    // Read-only, said out loud: a member seeing the treasury for the first
-    // time will look for something to do about it.
-    expect(find.text(l.treasuryReadOnlyNote), findsOneWidget);
+      // ── ⚠ THE «للاطلاع فقط» SENTENCE IS GONE, AND THIS ASSERTION WAS THE
+      //   OPPOSITE ONE ────────────────────────────────────────────────────────
+      //
+      //   It required the note to be on screen, on the reasoning that a member
+      //   seeing the treasury for the first time will look for something to do
+      //   about it. The association read it and disagreed: «لا داعي لها، الرقم
+      //   الظاهر يبين كل شيء». The page carries no button and never did, so the
+      //   sentence answered a question the screen does not raise.
+      //
+      //   What the note was really guarding is asserted directly below and is
+      //   the part that matters: nothing on this page is an action.
+      expect(
+        find.text(l.treasuryReadOnlyNote),
+        findsNothing,
+        reason: 'the read-only sentence was removed by request',
+      );
 
-    // And nothing on it is an action.
-    expect(find.byType(OutlinedButton), findsNothing);
-    expect(find.byType(FilledButton), findsNothing);
-  });
+      // And nothing on it is an action — which is the guarantee, not the words.
+      expect(find.byType(OutlinedButton), findsNothing);
+      expect(find.byType(FilledButton), findsNothing);
+    },
+  );
 
   testWidgets('the MENU itself carries no figures, only doors', (
     WidgetTester tester,

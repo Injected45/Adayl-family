@@ -135,6 +135,7 @@ void main() {
         'success': AppColors.success,
         'info': AppColors.info,
         'brandDeep': AppColors.brandDeep,
+        'dues': AppColors.dues,
       };
       tones.forEach((String name, Color tone) {
         final Color card = over(tone.withValues(alpha: 0.10), wellSurface);
@@ -155,6 +156,7 @@ void main() {
         'warning': AppColors.warning,
         'info': AppColors.info,
         'accent': AppColors.accent,
+        'dues': AppColors.dues,
       };
       accents.forEach((String name, Color c) {
         expect(

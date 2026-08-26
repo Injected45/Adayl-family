@@ -392,6 +392,62 @@ class Statement {
 /// Read-only in the strongest sense available: the RPC behind it takes no
 /// argument and performs no write, and nothing on the portal offers an action
 /// against it.
+/// سطرٌ في لوح المتأخّرات: رجلٌ، وما عليه، وما له.
+///
+/// ⚠ THIS IS THE ONE PLACE THIS APP NAMES A MAN'S MONEY TO OTHER MEN, and it
+///   is deliberate. api_association_finance() carries «no per-member figure»
+///   and the treasury page says «Aggregates only»; the association asked for
+///   the opposite, in these words: «ليصبح كل العدايل على دراية بكل من عليهم
+///   مستحقات ولم يدفعوا». Pressure to pay is the point of the list.
+///
+/// ⚠ AND IT STOPS AT ARREARS AND CREDIT. Nothing about aid — «فلان أُعطي 500
+///   لعزاء» is the most private fact this system holds, and the policy that
+///   would have shown it was DROPPED for that reason. A debt to the group is
+///   the group's business; what the group gave a man is not.
+class ArrearsRow {
+  const ArrearsRow({
+    required this.adeelId,
+    required this.adeelCode,
+    required this.name,
+    required this.owed,
+    required this.held,
+    required this.status,
+    required this.mine,
+  });
+
+  final int adeelId;
+  final String adeelCode;
+  final String name;
+
+  /// ما عليه — مجموع أرصدة استحقاقاته غير الملغاة. Text, like every amount.
+  final String owed;
+
+  /// ما له عهدةً — ما دفعه مقدَّماً ولم يُخصَم بعد.
+  final String held;
+
+  final String status;
+
+  /// هل هذا أنا؟ The screen marks his own row rather than hiding it: a list
+  /// that quietly omitted the reader would be a list he cannot check.
+  final bool mine;
+
+  factory ArrearsRow.fromJson(Map<String, dynamic> json) => ArrearsRow(
+    adeelId: (json['adeelId'] as num).toInt(),
+    adeelCode: _string(json['adeelCode']),
+    name: _string(json['name']),
+    owed: _string(json['owed']),
+    held: _string(json['held']),
+    status: _string(json['status']),
+    mine: json['mine'] == true,
+  );
+
+  /// هل عليه شيء؟ Kept here rather than in the widget, because «greater than
+  /// zero» on a TEXT amount is a parse and a comparison that must agree with
+  /// the one the server sorted by.
+  bool get owes => (double.tryParse(owed) ?? 0) > 0;
+  bool get hasCredit => (double.tryParse(held) ?? 0) > 0;
+}
+
 class AssociationFinance {
   const AssociationFinance({
     required this.balance,

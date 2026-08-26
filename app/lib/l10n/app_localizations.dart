@@ -2620,7 +2620,7 @@ abstract class L {
   /// The one-line summary on the الصندوق menu card. It says «للاطلاع فقط» on the card itself, not only inside: a member should know before he opens it that there is nothing here for him to act on.
   ///
   /// In ar, this message translates to:
-  /// **'أين يقف مال الجمعية — للاطلاع فقط'**
+  /// **''**
   String get portalTreasuryHint;
 
   /// Heading of the collapsed panel at the foot of the عديل portal. It holds what is left after the name, code and status moved up into the balance card: phone, join date, monthly fee.
@@ -2700,6 +2700,48 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'لا حساب مرتبط بهذا المشترك.'**
   String get unbindNothing;
+
+  /// No description provided for @arrearsBoardTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'عليهم متأخرات'**
+  String get arrearsBoardTitle;
+
+  /// No description provided for @arrearsBoardClear.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا أحد عليه متأخرات، ولا عهدة لأحد.'**
+  String get arrearsBoardClear;
+
+  /// No description provided for @arrearsBoardNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذه التزامات الصندوق ومستحقّاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدّماً.'**
+  String get arrearsBoardNote;
+
+  /// No description provided for @arrearsMine.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنا'**
+  String get arrearsMine;
+
+  /// No description provided for @arrearsHeldLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'له عهدة'**
+  String get arrearsHeldLabel;
+
+  /// No description provided for @arrearsAlsoHeld.
+  ///
+  /// In ar, this message translates to:
+  /// **'وله عهدة {amount}'**
+  String arrearsAlsoHeld(String amount);
+
+  /// The Libyan dinar, as the association writes it. Named ONCE on the fund page — on the balance and on nothing else — so six figures in a column do not each repeat it.
+  ///
+  /// In ar, this message translates to:
+  /// **'د.ل'**
+  String get currency;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

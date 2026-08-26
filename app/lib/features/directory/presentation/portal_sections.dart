@@ -400,16 +400,21 @@ class _MenuCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      section.subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        height: 1.4,
-                        color: AppColors.muted,
+                    // ⚠ «أين يقف مال الجمعية — للاطلاع فقط» IS GONE FROM THE
+                    //   PAGE HEADER, by request. An empty subtitle collapses
+                    //   rather than leaving a blank line, so a section that
+                    //   still has one is unaffected.
+                    if (section.subtitle.isNotEmpty)
+                      Text(
+                        section.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 1.4,
+                          color: AppColors.muted,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -600,38 +605,64 @@ class _TreasuryBody extends ConsumerWidget {
               _Panel(child: SectionNote(describeApiFailure(l, e))),
           data: (AssociationFinance f) => Column(
             children: <Widget>[
-              // The conclusion first and alone, because it is the figure the
-              // page is opened for. The workings sit under it rather than
-              // around it — the same arrangement the treasurer's own screen
-              // uses, so the two read alike.
-              _Headline(
-                label: l.associationBalance,
-                value: formatMoney(f.balance),
-                tone: AppColors.warning,
-              ),
+              // ── ⚠ THE BALANCE MOVED INSIDE THE CONTAINER ─────────────────
+              //
+              //   It was a headline of its own above the panel — «the
+              //   conclusion first and alone». The association asked for it in
+              //   the box with the workings: «كلمة رصيد الجمعية … يظهر الرصيد
+              //   في حاوية الصندوق». It is still FIRST, and still the only row
+              //   carrying the unit, so it still reads as the conclusion.
+              // ── لوحُ المتأخّرات، فوق كلّ رقمٍ آخر ─────────────────────────
+              //
+              // ⚠ ABOVE «المحصّل نقداً» BY REQUEST, and the position is the
+              //   whole point: «تجعله يظهر في أعلى القائمة … ليكون واضحاً وضعُ
+              //   الصندوق بالتزاماته … ليصبح كل العدايل على دراية بكل من عليهم
+              //   مستحقات ولم يدفعوا». Under the totals it would be a detail;
+              //   above them it is the first thing a member reads.
+              const _ArrearsBoard(),
               const SizedBox(height: AppSpacing.md),
               _Panel(
                 child: Column(
                   children: <Widget>[
+                    // ── ⚠ ONE ROW CARRIES «د.ل», AND IT IS THIS ONE ──────────
+                    //
+                    //   «مثلا الان رصيد الجمعية 2,900.00 د.ل». The unit sits on
+                    //   the conclusion and on nothing else, which is the same
+                    //   rule the الاشتراكات tile follows for the opposite
+                    //   reason: naming it once is what stops six figures in a
+                    //   column each repeating it.
+                    SectionRow(
+                      label: l.associationBalance,
+                      value: formatMoneyWithCurrency(f.balance, l.currency),
+                      tone: AppColors.success,
+                    ),
                     SectionRow(
                       label: l.collectedCash,
                       value: formatMoney(f.cash),
+                      tone: AppColors.success,
                     ),
                     SectionRow(
                       label: l.collectedTransfer,
                       value: formatMoney(f.transfer),
+                      tone: AppColors.info,
                     ),
-                    // Money the association is holding and does not own: a
-                    // member who paid a year ahead is owed it back until each
-                    // month is billed. See members_held().
+                    // ⚠ RED, NOT AMBER, AND THE ASSOCIATION IS RIGHT. Money a
+                    //   member paid ahead is owed BACK to him — «لأنها التزام
+                    //   على الصندوق» — so it belongs with the outgoings, not
+                    //   with a caution. See members_held().
                     SectionRow(
                       label: l.heldForMembers,
                       value: formatMoney(f.heldForMembers),
-                      tone: AppColors.warning,
+                      tone: AppColors.danger,
                     ),
+                    // ⚠ AND المستحقات IS NEITHER. It is money owed TO the fund,
+                    //   so red would read as a liability and green as cash in
+                    //   hand — both wrong about where the fund stands. Hence
+                    //   AppColors.dues; see the note on that token.
                     SectionRow(
                       label: l.dueFromMembers,
                       value: formatMoney(f.outstanding),
+                      tone: AppColors.dues,
                     ),
                     // The outgoing side. Transparency that showed only what came
                     // in would overstate the fund by everything it has ever paid
@@ -640,13 +671,17 @@ class _TreasuryBody extends ConsumerWidget {
                     SectionRow(
                       label: l.totalDisbursed,
                       value: formatMoney(f.disbursed),
+                      tone: AppColors.danger,
                     ),
                     SectionRow(
                       label: l.statAdeels,
                       value: '${f.members}',
                       trailing: l.subActive(f.activeMembers),
                     ),
-                    SectionNote(l.treasuryReadOnlyNote),
+                    // ⚠ «أرقام الجمعية للاطلاع فقط…» WAS HERE AND IS GONE, by
+                    //   request: «لا داعي لها، الرقم الظاهر يبين كل شيء». The
+                    //   page carries no button and never did, so the sentence
+                    //   was answering a question the screen does not raise.
                   ],
                 ),
               ),
@@ -656,37 +691,50 @@ class _TreasuryBody extends ConsumerWidget {
   }
 }
 
-/// One figure across the width, in its section's colour.
-class _Headline extends StatelessWidget {
-  const _Headline({
-    required this.label,
-    required this.value,
-    required this.tone,
-  });
-
-  final String label;
-  final String value;
-  final Color tone;
+class _ArrearsBoard extends ConsumerWidget {
+  const _ArrearsBoard();
 
   @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              color: tone,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+
+    return ref
+        .watch(arrearsBoardProvider)
+        .when(
+          loading: () => const LinearProgressIndicator(minHeight: 2),
+          error: (Object e, StackTrace _) =>
+              _Panel(child: SectionNote(describeApiFailure(l, e))),
+          data: (List<ArrearsRow> rows) => _Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                SectionRow(
+                  label: l.arrearsBoardTitle,
+                  value: '${rows.where((ArrearsRow r) => r.owes).length}',
+                  tone: AppColors.danger,
+                ),
+                if (rows.isEmpty)
+                  SectionNote(l.arrearsBoardClear)
+                else
+                  for (final ArrearsRow r in rows)
+                    SectionRow(
+                      // ⚠ HIS OWN ROW IS MARKED, NOT HIDDEN. A list that
+                      //   quietly omitted the reader is a list he cannot check
+                      //   against what his own «تفاصيل اشتراكي» says.
+                      label: r.mine ? '${r.name} — ${l.arrearsMine}' : r.name,
+                      value: r.owes ? formatMoney(r.owed) : formatMoney(r.held),
+                      // الدَّينُ أحمر، والعهدةُ في صالحه — ولا يُخلط اللونان.
+                      tone: r.owes ? AppColors.danger : AppColors.success,
+                      trailing: r.owes
+                          ? (r.hasCredit
+                                ? l.arrearsAlsoHeld(formatMoney(r.held))
+                                : null)
+                          : l.arrearsHeldLabel,
+                    ),
+                SectionNote(l.arrearsBoardNote),
+              ],
             ),
           ),
-        ],
-      ),
-    );
+        );
   }
 }

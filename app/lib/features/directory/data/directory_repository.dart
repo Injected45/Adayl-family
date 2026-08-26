@@ -183,6 +183,24 @@ class DirectoryRepository {
         return _obj(payload)['code'] as String;
       });
 
+  /// لوحُ المتأخّرات: كلُّ من عليه شيء أو له عهدة، بالاسم.
+  ///
+  /// ⚠ AN RPC, NOT A VIEW, and it has to be. A member's RLS on receivables and
+  ///   payments is «his own row», so a SECURITY INVOKER read would hand every
+  ///   man his OWN arrears under a heading that says «الجمعية» — a wrong answer
+  ///   with nothing on screen to doubt. api_arrears_board() is DEFINER and
+  ///   gates on in_association().
+  Future<List<ArrearsRow>> arrearsBoard() =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db.rpc<dynamic>('api_arrears_board');
+        return (rows as List<dynamic>)
+            .map(
+              (dynamic e) =>
+                  ArrearsRow.fromJson((e as Map).cast<String, dynamic>()),
+            )
+            .toList();
+      });
+
   /// فكّ ارتباط العديل عن البريد الذي يحمله — مخرجُ الإدارة.
   ///
   /// ⚠ IT EXISTS BECAUSE THE OWNERSHIP RULE HAS NO OTHER REMEDY. Since

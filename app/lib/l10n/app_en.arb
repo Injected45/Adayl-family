@@ -465,7 +465,7 @@
   "portalDetailsHint": "Your name, number, status and monthly fee",
   "portalBankHint": "Where to send a transfer, with the account number to copy",
   "portalOfficialsHint": "Who to call, and their numbers",
-  "portalTreasuryHint": "Where the association's money stands — to read only",
+  "portalTreasuryHint": "",
   "myDetailsTitle": "My subscription details",
   "ofTotal": "of {amount}",
   "settledUpTitle": "Nothing outstanding",
@@ -478,5 +478,22 @@
   "unbindBody": "This releases the member's email and handset and deletes his key. Afterwards any other email can claim him when a new key is issued. Only do this if his email changed or he was linked by mistake.",
   "unbindConfirm": "Unlink",
   "unbindDone": "Unlinked. Issue a new key so he can sign in.",
-  "unbindNothing": "No account is linked to this member."
+  "unbindNothing": "No account is linked to this member.",
+  "arrearsBoardTitle": "In arrears",
+  "arrearsBoardClear": "Nobody is in arrears, and nobody holds credit.",
+  "arrearsBoardNote": "What the fund is owed and what it owes back. Red: he owes. Green: he has paid ahead.",
+  "arrearsMine": "me",
+  "arrearsHeldLabel": "paid ahead",
+  "arrearsAlsoHeld": "also holds {amount}",
+  "@arrearsAlsoHeld": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "currency": "LYD",
+  "@currency": {
+    "description": "The Libyan dinar."
+  }
 }

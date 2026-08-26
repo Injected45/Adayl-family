@@ -85,6 +85,22 @@ abstract final class AppColors {
   /// ⚠ THE ONE PLACE IT IS NOT USED is the «الجدوى» chart axis, where info
   ///   is already the «دفعتَ» series — a blue axis there would read as
   ///   belonging to that series rather than to both.
+  /// المستحقّات — «الأرجواني الفاقع الداكن», by request.
+  ///
+  /// ⚠ A SEVENTH ACCENT, AND THE NOTE ON [month] ARGUES AGAINST ONE. That note
+  ///   says a new hue would compete with الدين and المدفوع on the same card,
+  ///   and it is right about a CARD. This is a different job: on the fund page
+  ///   six figures sit in one column and the association wants each readable at
+  ///   a glance — «المستحقات» is neither a debt of the fund (red) nor money it
+  ///   holds (green), it is money owed TO it, and reusing either would say the
+  ///   wrong thing about the fund's position.
+  ///
+  /// ⚠ MEASURED, NOT PICKED. 8.72:1 on white, 7.61 on the field, 6.44 on its
+  ///   own 10% tint — every pairing the design suite checks, cleared with room.
+  ///   purple-700 also passes; purple-800 was chosen because «فاقع داكن» wants
+  ///   the darker end and the margin costs nothing.
+  static const Color dues = Color(0xFF6B21A8);
+
   static const Color month = info;
   static const Color infoSoft = Color(0xFFE0E7FF);
   static const Color accent = Color(0xFFB45309);

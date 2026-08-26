@@ -64,6 +64,7 @@ void refreshAll(WidgetRef ref) {
   // What the member is shown of the association’s position. Same figures,
   // different reader — and it went stale the same way.
   ref.invalidate(directory.associationFinanceProvider);
+  ref.invalidate(directory.arrearsBoardProvider);
   // Which month may be closed next. It changes the moment one is closed, and
   // a stale answer offers a month that rule 15a will refuse.
   ref.invalidate(finance.closablePeriodsProvider);
