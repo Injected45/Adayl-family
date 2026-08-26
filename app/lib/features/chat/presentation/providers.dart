@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -324,6 +325,35 @@ class ChatController
     await _reload();
   }
 
+  /// يُرسل مقطعاً صوتيّاً.
+  ///
+  /// ⚠ THE FILE GOES UP FIRST AND THE MESSAGE SECOND, and the order is the
+  ///   safe one. A failed upload sends nothing; a failed send leaves an
+  ///   orphaned object NOBODY can hear — no row names it, and the read policy
+  ///   has nothing to join. The other order would put a message on screen
+  ///   pointing at a file that is not there.
+  ///
+  /// ⚠ AND THE HANDSET'S COPY GOES EITHER WAY. It is a temp file the platform
+  ///   would clear on its own, but a recording of a man's voice is not left
+  ///   lying on a phone because a request failed.
+  Future<void> sendVoice(File file, int ms) async {
+    final ChatRepository repo = ref.read(chatRepositoryProvider);
+    final String path = await repo.uploadVoice(file);
+    try {
+      await repo.send('', threadAdeelId: arg, voicePath: path, voiceMs: ms);
+    } on Object {
+      // ⚠ THE ORPHAN IS SWEPT. Inaudible either way, but a bucket that fills
+      //   with unreachable clips is a bill nobody can explain.
+      unawaited(repo.removeVoice(path));
+      rethrow;
+    } finally {
+      unawaited(deleteLocalVoice(file));
+    }
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+  }
+
   Future<void> refresh() => _reload();
 }
 
@@ -516,5 +546,32 @@ class DirectChatController
     await _reload();
   }
 
+  /// يُرسل مقطعاً صوتيّاً في المحادثة الخاصّة. See ChatController.sendVoice.
+  Future<void> sendVoice(File file, int ms) async {
+    final ChatRepository repo = ref.read(chatRepositoryProvider);
+    final String path = await repo.uploadVoice(file);
+    try {
+      await repo.sendDirect('', toAdeelId: arg, voicePath: path, voiceMs: ms);
+    } on Object {
+      unawaited(repo.removeVoice(path));
+      rethrow;
+    } finally {
+      unawaited(deleteLocalVoice(file));
+    }
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+    ref.invalidate(directThreadsProvider);
+  }
+
   Future<void> refresh() => _reload();
+}
+
+/// يحذف نسخةَ الجهاز بعد الرفع — نجح أو فشل.
+Future<void> deleteLocalVoice(File f) async {
+  try {
+    if (f.existsSync()) await f.delete();
+  } on Object {
+    // A temp file the platform clears anyway.
+  }
 }

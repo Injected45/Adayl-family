@@ -1463,8 +1463,7 @@ class LEn extends L {
       'Nobody is in arrears, and nobody holds credit.';
 
   @override
-  String get arrearsBoardNote =>
-      'What the fund is owed and what it owes back. Red: he owes. Green: he has paid ahead.';
+  String get arrearsBoardNote => 'Red: he owes · Green: he has paid ahead';
 
   @override
   String get arrearsMine => 'me';
@@ -1504,4 +1503,25 @@ class LEn extends L {
 
   @override
   String get themeDark => 'Dark';
+
+  @override
+  String get voicePlay => 'Play';
+
+  @override
+  String get voiceStop => 'Stop';
+
+  @override
+  String get voiceRecord => 'Voice note';
+
+  @override
+  String get voiceRecording => 'Recording…';
+
+  @override
+  String get voiceCancel => 'Cancel';
+
+  @override
+  String get voiceNoMic => 'Recording needs microphone permission';
+
+  @override
+  String get voiceTooShort => 'That clip was too short';
 }

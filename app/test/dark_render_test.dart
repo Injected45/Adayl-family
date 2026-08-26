@@ -21,6 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 ///   both palettes — which is the half a machine can check.
 void main() {
   _literalColourSweep();
+  _themePickerTests();
+  _defaultModeTests();
 
   tearDown(() => applyAppTheme(AppThemeMode.light));
 
@@ -178,6 +180,113 @@ void _literalColourSweep() {
           'a literal colour cannot follow الوضع الليلي. Use an AppColors / '
           'GlassColors token, which applyAppTheme swaps:\n  '
           '${offenders.join('\n  ')}',
+    );
+  });
+}
+
+/// زرُّ المظهر: واحدٌ، في بابين.
+///
+/// ⚠ IT WAS WRITTEN PRIVATE INSIDE THE PORTAL and the association then asked
+///   for it in the admin app too. The cheap move is to copy it — and two
+///   pickers drift: one gains an option, the other keeps the old labels, for a
+///   control whose whole job is to be the same thing everywhere.
+void _themePickerTests() {
+  test('⚠ one ThemePicker, used by both the member and the admin', () {
+    final String portal = File(
+      'lib/features/directory/presentation/adeel_portal_screen.dart',
+    ).readAsStringSync();
+    final String scaffold = File(
+      'lib/core/widgets/app_scaffold.dart',
+    ).readAsStringSync();
+
+    expect(
+      portal,
+      contains('const ThemePicker()'),
+      reason: 'the member reaches it from «المزيد»',
+    );
+    expect(
+      scaffold,
+      contains('const ThemePicker()'),
+      reason: 'the admin reaches it from «المزيد» too',
+    );
+
+    // ⚠ AND NEITHER MAY DECLARE ITS OWN. A private copy would compile, render
+    //   and look identical on the day it was written.
+    for (final String src in <String>[portal, scaffold]) {
+      expect(
+        src,
+        isNot(contains('class _ThemePicker')),
+        reason: 'the picker lives in core/config/theme_picker.dart, once',
+      );
+    }
+  });
+
+  test('and it offers exactly the two modes the palette has', () {
+    final String src = File(
+      'lib/core/config/theme_picker.dart',
+    ).readAsStringSync();
+    for (final AppThemeMode m in AppThemeMode.values) {
+      expect(
+        src,
+        contains('AppThemeMode.${m.name}'),
+        reason:
+            'a mode the palette supports and the picker cannot reach is a '
+            'mode nobody can choose',
+      );
+    }
+  });
+}
+
+/// الوضعُ الداكن هو الافتراضيّ لمن حمّل التطبيق للتوّ.
+///
+/// ⚠ AND «UNSET» IS THE ONLY WAY TO GET IT. A man who has picked either mode
+///   must keep his pick for ever after — so «light» has to be read and
+///   honoured, not treated as the absence of «dark». A naive
+///   «v == 'dark' ? dark : dark» would ignore every member who chose the
+///   ordinary palette, and he would find the app dark again on every launch
+///   with nothing to explain it.
+void _defaultModeTests() {
+  test('⚠ a fresh install opens dark, and a stored choice always wins', () {
+    final String src = File(
+      'lib/core/config/theme_mode_provider.dart',
+    ).readAsStringSync();
+    final int at = src.indexOf('Future<AppThemeMode> read()');
+    expect(at, greaterThan(-1));
+    final String fn = src.substring(at, (at + 700).clamp(0, src.length));
+
+    expect(
+      fn,
+      contains("if (v == 'light') return AppThemeMode.light;"),
+      reason:
+          'a stored «light» must be honoured explicitly — otherwise a man who '
+          'chose the ordinary palette gets the dark one back on every launch',
+    );
+    expect(
+      fn,
+      contains("if (v == 'dark') return AppThemeMode.dark;"),
+      reason: 'and a stored «dark» is a choice too, not the fallback',
+    );
+    expect(
+      RegExp(r'return AppThemeMode\.dark;').allMatches(fn).length,
+      greaterThanOrEqualTo(2),
+      reason:
+          'the unset case AND the failed-read case both fall to dark — a read '
+          'that threw is «never chosen», not «chose light»',
+    );
+  });
+
+  test('and the provider default agrees with the store default', () {
+    // ⚠ IF THEY DISAGREE THE PICKER LIES. build() answers before the stored
+    //   value arrives, so a light default there would draw «عادي» selected on
+    //   a screen that is already dark.
+    final String src = File(
+      'lib/core/config/theme_mode_provider.dart',
+    ).readAsStringSync();
+    final int at = src.indexOf('AppThemeMode build()');
+    expect(at, greaterThan(-1));
+    expect(
+      src.substring(at, (at + 600).clamp(0, src.length)),
+      contains('return AppThemeMode.dark;'),
     );
   });
 }

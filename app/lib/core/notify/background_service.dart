@@ -35,11 +35,30 @@ class BackgroundService {
   ///   catch one — a missed call needs six consecutive failures, not one. And a
   ///   message arriving within ten seconds is «بسرعة» by any reading of it.
   ///
-  /// ⚠ FASTER WOULD BE PAID FOR IN BATTERY, NOT IN QUOTA. At five seconds a
-  ///   phone in a pocket wakes seventeen thousand times a day for an
-  ///   association of eight men who are rarely all online. The cost that
-  ///   matters here has always been the handset, never the free tier.
-  static const Duration heartbeat = Duration(seconds: 10);
+  /// ⚠ FASTER IS PAID FOR IN BATTERY, NOT IN QUOTA. At five seconds a phone
+  ///   in a pocket wakes seventeen thousand times a day for an association of
+  ///   eight men who are rarely all online. The cost that matters here has
+  ///   always been the handset, never the free tier.
+  ///
+  /// ⚠ AND IT WAS TEN UNTIL A REAL CALL LOG SETTLED IT. «ستّ فرص» is the right
+  ///   arithmetic for «did he MISS the call» and the wrong one for «هل ظهر
+  ///   الرنين بمجرد الرنّ» — which is what the association actually asked. On
+  ///   their own handsets a call was answered after 24 seconds and another
+  ///   after 73; ten seconds is the floor those numbers are built on, because
+  ///   in the background this beat IS the clock. Four gives fifteen chances
+  ///   inside the same sixty-second ring and puts the first one within four
+  ///   seconds of the phone being picked up.
+  ///
+  /// ⚠ WHAT THE BEAT COSTS IS ONE POKE, NOT A SWEEP. It sends a bare word to
+  ///   the main isolate; AutoRefresh._beat then asks two capped, body-less
+  ///   queries — «كم رسالة» and «هل من مكالمة». refreshAll is deliberately NOT
+  ///   called here, and that is what makes four seconds affordable at all.
+  ///
+  /// ⚠ AND IT IS STILL NOT A PUSH NOTIFICATION. Nothing rings while the app is
+  ///   CLOSED — that needs a push service and a server, and this project has
+  ///   neither. Four seconds is the floor for «the app is alive in the
+  ///   background»; it is not instant and must never be described as instant.
+  static const Duration heartbeat = Duration(seconds: 4);
 
   static bool _configured = false;
 

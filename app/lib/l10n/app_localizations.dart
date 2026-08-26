@@ -2695,10 +2695,10 @@ abstract class L {
   /// **'لا أحد عليه متأخرات، ولا عهدة لأحد.'**
   String get arrearsBoardClear;
 
-  /// No description provided for @arrearsBoardNote.
+  /// ⚠ SHORTENED BY REQUEST. It read «هذه التزامات الصندوق ومستحقاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدماً» — the first sentence described the panel a second time. What survives is the only part a reader cannot work out for himself: which colour means what.
   ///
   /// In ar, this message translates to:
-  /// **'هذه التزامات الصندوق ومستحقّاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدّماً.'**
+  /// **'الأحمر: مستحقات عليه · الأخضر: له عهدة مدفوعة مقدماً'**
   String get arrearsBoardNote;
 
   /// No description provided for @arrearsMine.
@@ -2766,6 +2766,48 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'داكن'**
   String get themeDark;
+
+  /// No description provided for @voicePlay.
+  ///
+  /// In ar, this message translates to:
+  /// **'تشغيل'**
+  String get voicePlay;
+
+  /// No description provided for @voiceStop.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف'**
+  String get voiceStop;
+
+  /// No description provided for @voiceRecord.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل صوتي'**
+  String get voiceRecord;
+
+  /// No description provided for @voiceRecording.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ التسجيل…'**
+  String get voiceRecording;
+
+  /// No description provided for @voiceCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get voiceCancel;
+
+  /// No description provided for @voiceNoMic.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يمكن التسجيل بدون إذن الميكروفون'**
+  String get voiceNoMic;
+
+  /// No description provided for @voiceTooShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقطع قصير جداً'**
+  String get voiceTooShort;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

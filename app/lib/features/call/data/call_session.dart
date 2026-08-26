@@ -141,6 +141,27 @@ class CallSession {
   String _me = '';
   bool _closed = false;
 
+  /// ── ⚠ الرنينُ لا يدوم — حزامٌ محلّيٌّ لا يعتمد على الشبكة ────────────────
+  ///
+  ///   v_calls already turns a «ترن» older than sixty seconds into «فائتة»,
+  ///   and _tick closes on that. But it closes on an ANSWER FROM THE SERVER,
+  ///   and the one situation where a phone rings for ever is the one where the
+  ///   server cannot be reached: every byId returns null, null is deliberately
+  ///   not an ending, and the caller rings until he gives up by hand. The
+  ///   association watched exactly that — «بقي الرنين مستمر لفترة طويلة الى ان
+  ///   فصلته انا».
+  ///
+  /// ⚠ SIXTY-FIVE, NOT SIXTY. The server's expiry must normally win, because
+  ///   it is the fact both handsets read; five seconds of margin keeps this a
+  ///   FALLBACK rather than a second authority racing the first.
+  ///
+  /// ⚠ AND IT MEASURES «RINGING», NOT «ON A CALL». A man in المجلس is
+  ///   «جارية» however long he talks; only a call nobody has joined is capped.
+  static const Duration ringTimeout = Duration(seconds: 65);
+
+  /// متى بدأ الرنين. Null once anybody has joined.
+  DateTime? _ringingSince;
+
   /// ⚠ WHETHER ANYBODY EVER JOINED. Without it the «fewer than two seats»
   ///   rule would fire on the ringing caller, who is alone by definition.
   bool _hadCompany = false;
@@ -191,6 +212,7 @@ class CallSession {
 
       _myId = await _repo.join(callId);
       phase.value = CallPhase.ringing;
+      _ringingSince = DateTime.now();
 
       _poll = Timer.periodic(steady, (_) => unawaited(_tick()));
 
@@ -239,6 +261,16 @@ class CallSession {
   ///   drop this handset out of everyone else's list after twenty seconds.
   ///   It is three small requests a second against a call, which is nothing
   ///   beside the audio it is carrying.
+  /// نبضةٌ واحدة، للاختبار.
+  ///
+  /// ⚠ @visibleForTesting RATHER THAN PRIVATE, for the same reason
+  ///   ChatChime.play() is: driving the real beat needs a live call, a
+  ///   microphone and a platform channel no test binding provides — and the
+  ///   DECISION this beat makes (close, or stay) is the one that left two
+  ///   handsets on a dead call. It is pinned rather than trusted.
+  @visibleForTesting
+  Future<void> tickForTest() => _tick();
+
   Future<void> _tick() async {
     if (_closed) return;
     try {
@@ -255,11 +287,42 @@ class CallSession {
       //   what the sequential version did and what the catch below expects: a
       //   missed beat is a missed beat, and tearing down a live call because
       //   one request timed out would be far worse.
-      final List<Object?> both = await Future.wait(<Future<Object?>>[
+      final List<Object?> three = await Future.wait(<Future<Object?>>[
         _repo.heartbeat(callId),
         _repo.participants(callId),
+        _repo.byId(callId),
       ]);
-      final List<CallParticipant> now = both[1]! as List<CallParticipant>;
+      final List<CallParticipant> now = three[1]! as List<CallParticipant>;
+      final CallView? call = three[2] as CallView?;
+
+      // ── ⚠ هل انتهت المكالمة أصلاً؟ ─────────────────────────────────────
+      //
+      //   THE SEAT COUNT BELOW CANNOT ANSWER THIS, and that is why two
+      //   handsets sat on a dead call. «Fewer than two live seats» only fires
+      //   after company has ARRIVED — a ringing caller is alone by definition
+      //   — so a call that never connected has one seat from first ring to
+      //   last and the rule never bites. Pressing red ended it for the presser
+      //   and left the other man «شبه متصل» until he pressed too.
+      //
+      //   The association's log said it plainly: every call that day carried
+      //   ONE seat, and one of them rang for 469 seconds.
+      //
+      // ⚠ AND THE SERVER IS THE AUTHORITY HERE. «انتهت», «مرفوضة» and
+      //   «فائتة» are all decided by v_calls — including the sixty-second
+      //   expiry of a ring and the twenty-second expiry of a silent seat — so
+      //   this closes on the same fact both sides read, and they cannot
+      //   disagree about when a call is over.
+      //
+      // ⚠ A MISSING ROW IS NOT AN ENDING. RLS, a dropped request or a slow
+      //   view all return null, and hanging up on that would end a live call
+      //   over one bad packet. Only a call the server RETURNS and marks
+      //   finished counts.
+      if (call != null &&
+          call.status != CallStatusWire.ringing &&
+          call.status != CallStatusWire.active) {
+        await close();
+        return;
+      }
       people.value = now;
       for (final CallParticipant p in now) {
         if (p.mine) {
@@ -286,7 +349,20 @@ class CallSession {
       //   the caller holds the only seat, which is the normal state and not an
       //   ended call — closing on it would hang up on every call the instant it
       //   was placed.
-      if (now.length >= 2) _hadCompany = true;
+      // ── الرنينُ له سقف ────────────────────────────────────────────────
+      // ⚠ CHECKED BEFORE THE SEAT COUNT, so a call nobody answered ends even
+      //   when the participant read is what is failing.
+      if (_ringingSince != null &&
+          phase.value == CallPhase.ringing &&
+          DateTime.now().difference(_ringingSince!) > ringTimeout) {
+        await close();
+        return;
+      }
+      if (now.length >= 2) {
+        _hadCompany = true;
+        // Company has arrived: this is a conversation now, not a ring.
+        _ringingSince = null;
+      }
       if (_hadCompany && now.length < 2) {
         // close() stops the microphone, tears down the peers, sets the phase
         // and is guarded against running twice. The sheet stays open showing

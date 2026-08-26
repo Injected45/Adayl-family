@@ -23,6 +23,32 @@ import 'package:flutter/foundation.dart';
 class CallRingtone {
   CallRingtone();
 
+  /// ── ⚠ نغمتان، لا واحدة ────────────────────────────────────────────────
+  ///
+  ///   «ringtone.wav» is what the RECEIVER hears — «somebody is calling you».
+  ///   «ringback.wav» is what the CALLER hears while he waits — «طوط طوط»,
+  ///   the sound a telephone makes back at you. They are not the same signal
+  ///   and must never be the same file: a caller hearing his own ringtone
+  ///   cannot tell whether the other man's phone is ringing or his own.
+  ///
+  /// ⚠ AND THE SILENCE WAS THE COMPLAINT: «عند الاتصال يبقى صامت». A caller
+  ///   with no tone has no way to know the call went anywhere at all — the
+  ///   screen says «يرنّ» and the earpiece says nothing, and on a Libyan
+  ///   connection that is exactly when a man hangs up and tries again.
+  ///
+  /// ⚠ IT IS OURS, SYNTHESISED, like the other two — 440 Hz + 480 Hz together,
+  ///   which is what a telephone ringback IS; one sine alone reads as a
+  ///   microwave. 400 ms on, 200 off, 400 on, then two seconds of silence.
+  ///   This repository is public and a borrowed tone would be somebody's
+  ///   property.
+  ///
+  /// ⚠ AND IT BEGINS AND ENDS AT DIGITAL SILENCE, with soft edges on each
+  ///   burst. A non-zero edge puts a click at the top of every repeat — the
+  ///   same rule ringtone.wav is built to, and call_ringtone_test asserts it
+  ///   against the BYTES.
+  static const String receiverAsset = 'sounds/ringtone.wav';
+  static const String callerAsset = 'sounds/ringback.wav';
+
   /// ⚠ ONE PLAYER, REUSED — the same rule as [ChatChime], for a worse failure.
   ///   A player per ring would leave the previous one looping forever, because
   ///   nothing else holds a reference to stop it. Two calls in a minute and the
@@ -34,13 +60,25 @@ class CallRingtone {
   /// Whether the tone is currently sounding. Read by the tests.
   bool get isRinging => _ringing;
 
-  /// ابدأ الرنين. Idempotent — the poll that drives this fires every three
-  /// seconds and would otherwise restart the loop from the top each tick,
+  /// ابدأ الرنين عند المستقبِل. Idempotent — the poll that drives this fires
+  /// every second and would otherwise restart the loop from the top each tick,
   /// which sounds like a stutter rather than a ring.
   Future<void> start() async {
     if (_ringing) return;
     _ringing = true;
     await play();
+  }
+
+  /// وابدأ الرنينَ الراجع عند المتّصل. Same idempotence, same player.
+  ///
+  /// ⚠ THE SAME SINGLE PLAYER, so the two can never sound together. A handset
+  ///   is only ever one end of one call, and holding two loopers would leave
+  ///   whichever was not stopped ringing until the app was restarted — the
+  ///   failure the one-player rule above exists to prevent.
+  Future<void> startRingback() async {
+    if (_ringing) return;
+    _ringing = true;
+    await play(asset: callerAsset);
   }
 
   /// أوقِف الرنين — عند الرد أو الرفض أو انتهاء المكالمة.
@@ -59,14 +97,14 @@ class CallRingtone {
   ///   binding provides, so what is pinned is the DECISION — every branch that
   ///   reaches this line and every branch that must not.
   @visibleForTesting
-  Future<void> play() async {
+  Future<void> play({String asset = receiverAsset}) async {
     try {
       final AudioPlayer p = _player ??= AudioPlayer();
       // ⚠ LOOP, and this is the whole difference from the chime. The clip is
       //   two seconds; a call rings for sixty.
       await p.setReleaseMode(ReleaseMode.loop);
       await p.play(
-        AssetSource('sounds/ringtone.wav'),
+        AssetSource(asset),
         volume: 1,
         ctx: AudioContext(
           android: const AudioContextAndroid(

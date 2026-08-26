@@ -478,7 +478,7 @@
   "unbindNothing": "No account is linked to this member.",
   "arrearsBoardTitle": "In arrears",
   "arrearsBoardClear": "Nobody is in arrears, and nobody holds credit.",
-  "arrearsBoardNote": "What the fund is owed and what it owes back. Red: he owes. Green: he has paid ahead.",
+  "arrearsBoardNote": "Red: he owes · Green: he has paid ahead",
   "arrearsMine": "me",
   "arrearsHeldLabel": "paid ahead",
   "arrearsAlsoHeld": "also holds {amount}",
@@ -529,5 +529,12 @@
   },
   "themeLabel": "Appearance",
   "themeLight": "Light",
-  "themeDark": "Dark"
+  "themeDark": "Dark",
+  "voicePlay": "Play",
+  "voiceStop": "Stop",
+  "voiceRecord": "Voice note",
+  "voiceRecording": "Recording…",
+  "voiceCancel": "Cancel",
+  "voiceNoMic": "Recording needs microphone permission",
+  "voiceTooShort": "That clip was too short"
 }

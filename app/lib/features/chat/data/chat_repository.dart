@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_failures.dart';
@@ -98,16 +100,22 @@ class ChatRepository {
         .toList();
   });
 
-  Future<void> send(String body, {int? threadAdeelId}) =>
-      SupabaseFailures.guard(() async {
-        await _db.rpc<dynamic>(
-          'send_chat_message',
-          params: <String, dynamic>{
-            'p_body': body,
-            'p_thread_adeel_id': threadAdeelId,
-          },
-        );
-      });
+  Future<void> send(
+    String body, {
+    int? threadAdeelId,
+    String? voicePath,
+    int? voiceMs,
+  }) => SupabaseFailures.guard(() async {
+    await _db.rpc<dynamic>(
+      'send_chat_message',
+      params: <String, dynamic>{
+        'p_body': body,
+        'p_thread_adeel_id': threadAdeelId,
+        'p_voice_path': voicePath,
+        'p_voice_ms': voiceMs,
+      },
+    );
+  });
 
   // ── محادثة بين عديلٍ وعديل ───────────────────────────────────────────────
 
@@ -172,13 +180,76 @@ class ChatRepository {
   ///   refuses the combination outright — a message is in ONE room — and this
   ///   is a separate method rather than a flag on [send] so the two cannot be
   ///   passed together by accident.
-  Future<void> sendDirect(String body, {required int toAdeelId}) =>
-      SupabaseFailures.guard(() async {
-        await _db.rpc<dynamic>(
-          'send_chat_message',
-          params: <String, dynamic>{'p_body': body, 'p_to_adeel_id': toAdeelId},
+  Future<void> sendDirect(
+    String body, {
+    required int toAdeelId,
+    String? voicePath,
+    int? voiceMs,
+  }) => SupabaseFailures.guard(() async {
+    await _db.rpc<dynamic>(
+      'send_chat_message',
+      params: <String, dynamic>{
+        'p_body': body,
+        'p_to_adeel_id': toAdeelId,
+        'p_voice_path': voicePath,
+        'p_voice_ms': voiceMs,
+      },
+    );
+  });
+
+  // ── المقاطع الصوتيّة ──────────────────────────────────────────────────────
+
+  /// يرفع المقطعَ ويُرجع مسارَه.
+  ///
+  /// ⚠ THE PATH BEGINS WITH HIS OWN uid, AND TWO GUARDS DEMAND IT. The storage
+  ///   INSERT policy fixes the prefix, and send_chat_message refuses to attach
+  ///   a path that is not his — because attaching is what makes a file
+  ///   audible. Neither is decoration: without the second a man could name
+  ///   somebody else's clip and republish it into a room its owner never chose.
+  ///
+  /// ⚠ AND THE FILE GOES UP BEFORE THE MESSAGE EXISTS, which is why the upload
+  ///   cannot ask the message who may hear it. An abandoned upload is
+  ///   inaudible — no row names it, and the read policy has nothing to join.
+  Future<String> uploadVoice(File file) => SupabaseFailures.guard(() async {
+    final String? uid = _db.auth.currentUser?.id;
+    if (uid == null) throw StateError('not signed in');
+    final String path = '$uid/${DateTime.now().millisecondsSinceEpoch}.m4a';
+    // ⚠ THE CONTENT TYPE IS STATED, NOT INFERRED. Without it the client
+    //   guesses from the extension and can store the object as
+    //   application/octet-stream — which a browser refuses to play at all, so
+    //   the web build would show a clip that can be downloaded and not heard.
+    //   AAC-LC in an m4a container IS audio/mp4; that is the container's own
+    //   registered type, not an approximation.
+    await _db.storage
+        .from(_bucket)
+        .upload(
+          path,
+          file,
+          fileOptions: const FileOptions(contentType: 'audio/mp4'),
         );
-      });
+    return path;
+  });
+
+  /// رابطٌ موقَّتٌ للاستماع.
+  ///
+  /// ⚠ SIGNED, NEVER PUBLIC, AND SHORT-LIVED. The bucket is private: a signed
+  ///   URL is the only way to play a clip, it expires, and nothing durable
+  ///   exists that could be forwarded out of the room it belongs to. Five
+  ///   minutes is longer than any clip and shorter than a conversation.
+  ///
+  /// ⚠ AND THE SIGNATURE IS STILL SUBJECT TO THE POLICY. Supabase signs only
+  ///   what the caller may read, so a man asking for a clip whose message he
+  ///   cannot see gets a refusal, not a link.
+  Future<String> voiceUrl(String path) => SupabaseFailures.guard(
+    () => _db.storage.from(_bucket).createSignedUrl(path, 300),
+  );
+
+  /// ويحذف ملفَّه هو — بعد حذف رسالته، أو تسجيلاً تراجع عنه قبل الإرسال.
+  Future<void> removeVoice(String path) => SupabaseFailures.guard(() async {
+    await _db.storage.from(_bucket).remove(<String>[path]);
+  });
+
+  static const String _bucket = 'voice';
 
   /// Refused server-side for anyone but the author or an admin. The screen hides
   /// the action in the other cases, which is presentation and counts for

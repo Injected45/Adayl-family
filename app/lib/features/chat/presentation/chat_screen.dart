@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,11 +22,13 @@ import '../../call/presentation/call_ui.dart';
 import '../../call/presentation/ice_check_sheet.dart';
 import '../../call/presentation/providers.dart' show callDirectoryProvider;
 import '../data/chat_read_state.dart';
+import '../data/voice_recorder.dart';
 import '../domain/models.dart';
 import 'chat_flourishes.dart';
 import 'emoji_panel.dart';
 import 'providers.dart';
 import 'unread_bell.dart';
+import 'voice_bubble.dart';
 
 /// مجلس العدايل — the open room, and the private thread beside it.
 ///
@@ -75,6 +78,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scroll = ScrollController();
   bool _sending = false;
   _Room _room = _Room.hall;
+
+  /// المسجِّل، وحالتُه على الشاشة.
+  ///
+  /// ⚠ ONE RECORDER FOR THE SCREEN, not one per room. A man cannot record in
+  ///   two conversations at once, and a recorder per room would leave a
+  ///   microphone open in a room he has left.
+  final VoiceRecorder _recorder = VoiceRecorder();
+  bool _recording = false;
+  Duration _recFor = Duration.zero;
+  Timer? _recTick;
 
   /// المحادثة الثنائية المفتوحة — null هو الصندوق.
   ///
@@ -219,15 +232,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (last > 0) {
       unawaited(_reads.markRead(last).catchError((Object _) {}));
       if (room != null) {
-        unawaited(
-          _reads.markThreadRead(room, last).catchError((Object _) {}),
-        );
+        unawaited(_reads.markThreadRead(room, last).catchError((Object _) {}));
       } else {
         unawaited(_reads.markHallRead(last).catchError((Object _) {}));
       }
     }
     // He has left the room, so the chime is armed again.
     _screenOpen.state = false;
+    // ⚠ THE MICROPHONE CLOSES WITH THE SCREEN. Leaving mid-recording must not
+    //   leave a hot microphone behind — dispose() cancels first, which also
+    //   deletes the half-recorded file.
+    _recTick?.cancel();
+    unawaited(_recorder.dispose());
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -262,6 +278,67 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// ⚠ TAP TO START, TAP TO SEND — not press-and-hold. Hold-to-record is what
+  ///   the platform apps do, and it is also what loses a recording when a
+  ///   finger slips or a notification steals the gesture. A minute is long
+  ///   enough that holding a phone still for it is a demand rather than a
+  ///   convenience, and this room is used by men in their seventies.
+  Future<void> _startRec(L l) async {
+    if (_recording || _sending) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final bool ok = await _recorder.start();
+    if (!mounted) return;
+    if (!ok) {
+      // ⚠ NAMED, NOT SILENT. A microphone button that does nothing reads as a
+      //   broken app; «لا إذن للميكروفون» reads as a setting he can change.
+      messenger.showSnackBar(SnackBar(content: Text(l.voiceNoMic)));
+      return;
+    }
+    setState(() {
+      _recording = true;
+      _recFor = Duration.zero;
+    });
+    _recTick = Timer.periodic(const Duration(milliseconds: 200), (Timer _) {
+      if (!mounted) return;
+      setState(() => _recFor = _recorder.elapsed);
+      // ⚠ THE CAP STOPS AND SENDS rather than discarding. Sixty seconds is the
+      //   server's rule; reaching it must not throw away the minute he spoke.
+      if (_recFor >= VoiceRecorder.maxLength) unawaited(_stopRec(l));
+    });
+  }
+
+  Future<void> _stopRec(L l) async {
+    if (!_recording) return;
+    _recTick?.cancel();
+    _recTick = null;
+    setState(() => _recording = false);
+
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final (File, int)? clip = await _recorder.stop();
+    if (!mounted) return;
+    if (clip == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l.voiceTooShort)));
+      return;
+    }
+
+    setState(() => _sending = true);
+    try {
+      await _notifier.sendVoice(clip.$1, clip.$2);
+      _toBottom();
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _cancelRec() async {
+    _recTick?.cancel();
+    _recTick = null;
+    if (mounted) setState(() => _recording = false);
+    await _recorder.cancel();
   }
 
   Future<void> _delete(L l, ChatMessage message) async {
@@ -300,8 +377,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ///   Falls back to the code when the list has not arrived, which is a
   ///   heading that is briefly terse rather than briefly wrong.
   String get _peerName {
-    final List<DirectThread>? all =
-        ref.read(directThreadsProvider).valueOrNull;
+    final List<DirectThread>? all = ref.read(directThreadsProvider).valueOrNull;
     for (final DirectThread t in all ?? const <DirectThread>[]) {
       if (t.adeelId == _peer) return t.adeelName;
     }
@@ -345,7 +421,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // member it is now the whole contact list.
     final bool inbox =
         _room == _Room.private && _thread == null && _peer == null;
-
 
     // valueOrNull: the room must never wait on a badge. Absent counts render
     // as no badge, which is what zero looks like — and zero is the honest
@@ -530,7 +605,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Expanded(
               child: _Conversations(
                 onBoard: () => setState(() => _thread = me!.adeelId),
+                // ── ⚠ الغرفةُ تتبدّل، لا رقمُ العديل وحده ──────────────────
+                //
+                //   THIS LINE IS WHY EVERY PRIVATE MESSAGE WENT TO المجلس.
+                //   Tapping a man set _peer and left _room at «private» — and
+                //   _notifier reads «_room == _Room.direct && _peer != null»,
+                //   so it fell through to _RoomWriter with _key = _thread =
+                //   null, which IS المجلس. _Room.direct was written, wired
+                //   into the reader and the writer, and then never set by
+                //   anything: dead code that made the feature look implemented.
+                //
+                //   Proven on the association's own database — 63 messages in
+                //   المجلس, 61 in board threads, and ZERO with a peer pair.
+                //   «كل رسالة يتم ارسالها بينهما تظهر في محادثة جماعية».
+                //
+                // ⚠ AND THE TESTS DID NOT CATCH IT BECAUSE THEY ASKED THE
+                //   WRONG QUESTION. They proved the list renders and its rows
+                //   are tappable; nothing asked where a message GOES after the
+                //   tap. See chat_direct_route_test.
                 onPeer: (int adeelId, String name) => setState(() {
+                  _room = _Room.direct;
                   _peer = adeelId;
                   _peerFallback = name;
                 }),
@@ -539,10 +633,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           else if (inbox)
             Expanded(child: _Inbox(onOpen: _openThread))
           else ...<Widget>[
-            if (_room == _Room.private && _peer != null)
+            if (_room == _Room.direct && _peer != null)
               _ThreadHeader(
                 name: _peerName,
-                onBack: () => setState(() => _peer = null),
+                // ⚠ BOTH, and in this order: leaving the conversation must put
+                //   the room back or the next message would be written into a
+                //   direct thread with nobody in it.
+                onBack: () => setState(() {
+                  _room = _Room.private;
+                  _peer = null;
+                }),
               ),
             // ⚠ A MEMBER NOW NEEDS A WAY BACK TOO, which he never did while
             //   the screen opened his one thread for him. Without it the list
@@ -664,6 +764,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
             _Composer(
+              recording: _recording,
+              recordedFor: _recFor,
+              onMic: () => _startRec(l),
+              onStopRec: () => _stopRec(l),
+              onCancelRec: _cancelRec,
               controller: _input,
               sending: _sending,
               onSend: () => _send(l),
@@ -919,6 +1024,61 @@ class _Body extends StatelessWidget {
       );
     }
 
+    // ── مقطعٌ صوتيّ ────────────────────────────────────────────────────────
+    // ⚠ ABOVE THE EMOJI BRANCH AND BELOW THE DELETED ONE, and the order is the
+    //   rule. A voice note carries an EMPTY body, so isEmojiOnly('') decides
+    //   nothing and the plain branch would paint a bubble with nothing in it —
+    //   a message that arrived, occupies a row, and cannot be heard. And a
+    //   DELETED voice note is a tombstone like any other: its path is cleared
+    //   server-side, so the branch above must still win.
+    if (message.isVoice) {
+      return GestureDetector(
+        onLongPress: canDelete ? onDelete : null,
+        child: Container(
+          margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: mine ? AppColors.brand : GlassColors.surface,
+            borderRadius: BorderRadiusDirectional.only(
+              topStart: const Radius.circular(AppRadius.card),
+              topEnd: const Radius.circular(AppRadius.card),
+              bottomStart: Radius.circular(mine ? AppRadius.card : 4),
+              bottomEnd: Radius.circular(mine ? 4 : AppRadius.card),
+            ).resolve(Directionality.of(context)),
+            border: Border.all(
+              color: mine ? AppColors.brand : GlassColors.stroke,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              VoiceBubble(
+                path: message.voicePath!,
+                ms: message.voiceMs ?? 0,
+                // ⚠ THE BUBBLE'S OWN INK. Mine is painted on brand and the
+                //   room's on the surface, and one fixed colour would be
+                //   invisible on one of the two.
+                tone: mine ? AppColors.onFill : AppColors.text,
+              ),
+              Text(
+                formatTime(message.createdAt),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: mine
+                      ? AppColors.onFill.withValues(alpha: 0.75)
+                      : AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // ── A GESTURE, NOT A SENTENCE ────────────────────────────────────────────
     // «🙏» on its own is not a message with a bubble round it — it is the thing
     // people say without words, and every chat these members already use renders
@@ -1096,11 +1256,25 @@ class _Composer extends StatefulWidget {
     required this.controller,
     required this.sending,
     required this.onSend,
+    required this.recording,
+    required this.recordedFor,
+    required this.onMic,
+    required this.onStopRec,
+    required this.onCancelRec,
   });
 
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
+
+  /// ⚠ THE STRIP REPLACES THE ROW, it does not sit above it. A text box beside
+  ///   a running microphone invites a man to type while recording and then
+  ///   asks which of the two he meant to send.
+  final bool recording;
+  final Duration recordedFor;
+  final VoidCallback onMic;
+  final VoidCallback onStopRec;
+  final VoidCallback onCancelRec;
 
   @override
   State<_Composer> createState() => _ComposerState();
@@ -1226,71 +1400,89 @@ class _ComposerState extends State<_Composer> {
             //   Scaffold knows nothing about.
             AppSpacing.md + (_emoji ? 0 : bottomInset(context)),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              // ── The emoji key ────────────────────────────────────────────────
-              // Before the field, where the system keyboard puts its own. The icon
-              // says which state a second tap leads to, which is how every keyboard
-              // toggle on the platform behaves.
-              IconButton(
-                onPressed: sending ? null : _toggleEmoji,
-                icon: Icon(
-                  _emoji
-                      ? Icons.keyboard_alt_outlined
-                      : Icons.emoji_emotions_outlined,
-                ),
-                tooltip: l.chatEmoji,
-                color: AppColors.muted,
-                visualDensity: VisualDensity.compact,
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: _focus,
-                  // Tapping the message box means "I want to type", so the grid
-                  // gets out of the way by itself.
-                  onTap: () {
-                    if (_emoji) setState(() => _emoji = false);
-                  },
-                  enabled: !sending,
-                  // Grows with the message and then stops. A composer that keeps
-                  // growing pushes the conversation off the screen it belongs to.
-                  minLines: 1,
-                  maxLines: 4,
-                  // The database refuses anything longer; stopping the keystroke is
-                  // kinder than accepting six hundred more characters and then
-                  // rejecting the lot.
-                  maxLength: 1000,
-                  textInputAction: TextInputAction.newline,
-                  keyboardType: TextInputType.multiline,
-                  decoration: InputDecoration(
-                    hintText: l.chatHint,
-                    // The counter only matters near the cap, and a permanent
-                    // «0/1000» under a chat box is clutter on every single screen.
-                    counterText: '',
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              // Send points the way the language reads: in Arabic, forward is
-              // leftward, and `Directionality` is what makes the same icon correct
-              // in both.
-              IconButton.filled(
-                onPressed: sending ? null : widget.onSend,
-                icon: sending
-                    ? SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onFill,
+          child: widget.recording
+              ? _RecordingStrip(
+                  elapsed: widget.recordedFor,
+                  onCancel: widget.onCancelRec,
+                  onSend: widget.onStopRec,
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    // ── The emoji key ────────────────────────────────────────────────
+                    // Before the field, where the system keyboard puts its own. The icon
+                    // says which state a second tap leads to, which is how every keyboard
+                    // toggle on the platform behaves.
+                    IconButton(
+                      onPressed: sending ? null : _toggleEmoji,
+                      icon: Icon(
+                        _emoji
+                            ? Icons.keyboard_alt_outlined
+                            : Icons.emoji_emotions_outlined,
+                      ),
+                      tooltip: l.chatEmoji,
+                      color: AppColors.muted,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        focusNode: _focus,
+                        // Tapping the message box means "I want to type", so the grid
+                        // gets out of the way by itself.
+                        onTap: () {
+                          if (_emoji) setState(() => _emoji = false);
+                        },
+                        enabled: !sending,
+                        // Grows with the message and then stops. A composer that keeps
+                        // growing pushes the conversation off the screen it belongs to.
+                        minLines: 1,
+                        maxLines: 4,
+                        // The database refuses anything longer; stopping the keystroke is
+                        // kinder than accepting six hundred more characters and then
+                        // rejecting the lot.
+                        maxLength: 1000,
+                        textInputAction: TextInputAction.newline,
+                        keyboardType: TextInputType.multiline,
+                        decoration: InputDecoration(
+                          hintText: l.chatHint,
+                          // The counter only matters near the cap, and a permanent
+                          // «0/1000» under a chat box is clutter on every single screen.
+                          counterText: '',
                         ),
-                      )
-                    : const Icon(Icons.send_rounded),
-                tooltip: l.chatSend,
-              ),
-            ],
-          ),
+                      ),
+                    ),
+                    // ── المِيكروفون ──────────────────────────────────────────────
+                    // ⚠ IT NEVER REPLACES THE SEND BUTTON. Some apps swap the two as
+                    //   the box empties and fills; here both are always present and
+                    //   always in the same place, because a control that moves is one
+                    //   a man has to look for every time.
+                    IconButton(
+                      onPressed: sending ? null : widget.onMic,
+                      icon: const Icon(Icons.mic_none_rounded),
+                      tooltip: l.voiceRecord,
+                      color: AppColors.muted,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    // Send points the way the language reads: in Arabic, forward is
+                    // leftward, and `Directionality` is what makes the same icon correct
+                    // in both.
+                    IconButton.filled(
+                      onPressed: sending ? null : widget.onSend,
+                      icon: sending
+                          ? SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.onFill,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      tooltip: l.chatSend,
+                    ),
+                  ],
+                ),
         ),
         // ── The grid, where the keyboard would be ─────────────────────────────
         // Below the composer rather than above it, so the message box does not
@@ -1519,6 +1711,12 @@ class _UnreadDivider extends StatelessWidget {
 ///   One getter decides, and the screen never names a provider again.
 abstract class ChatWriter {
   Future<void> send(String body);
+
+  /// ⚠ THROUGH THE SAME DOOR AS TEXT, deliberately. A voice note obeys every
+  ///   rule a message obeys — which room it lands in above all — and giving it
+  ///   its own path to the controllers would be a second place for a private
+  ///   clip to be filed into المجلس.
+  Future<void> sendVoice(File file, int ms);
   Future<void> remove(int id);
   Future<void> refresh();
 }
@@ -1528,6 +1726,8 @@ class _RoomWriter implements ChatWriter {
   final ChatController _n;
   @override
   Future<void> send(String body) => _n.send(body);
+  @override
+  Future<void> sendVoice(File file, int ms) => _n.sendVoice(file, ms);
   @override
   Future<void> remove(int id) => _n.remove(id);
   @override
@@ -1540,11 +1740,12 @@ class _DirectWriter implements ChatWriter {
   @override
   Future<void> send(String body) => _n.send(body);
   @override
+  Future<void> sendVoice(File file, int ms) => _n.sendVoice(file, ms);
+  @override
   Future<void> remove(int id) => _n.remove(id);
   @override
   Future<void> refresh() => _n.refresh();
 }
-
 
 /// ── قائمة المحادثات ─────────────────────────────────────────────────────────
 ///
@@ -1583,7 +1784,7 @@ class _Conversations extends ConsumerWidget {
         // ── الإدارة، خارج أي انتظار ───────────────────────────────────────
         // ⚠ IT IS NOT INSIDE THE AsyncView, AND THAT WAS A REAL BUG BEFORE A
         //   TEST FOUND IT. Wrapping the whole list in the directory request
-          //   meant a failed or slow fetch of «who else is here» took the BOARD
+        //   meant a failed or slow fetch of «who else is here» took the BOARD
         //   row down with it — and the board thread is the one conversation a
         //   man needs when something is wrong. The list of other members can
         //   wait or fail; his way to ask the association cannot.
@@ -1671,14 +1872,12 @@ class _PeerList extends ConsumerWidget {
               ),
               child: Row(
                 children: <Widget>[
-                  Icon(Icons.lock_outline, size: 14,
-                      color: AppColors.muted),
+                  Icon(Icons.lock_outline, size: 14, color: AppColors.muted),
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
                       l.chatDirectPrivate,
-                      style: TextStyle(fontSize: 11,
-                          color: AppColors.muted),
+                      style: TextStyle(fontSize: 11, color: AppColors.muted),
                     ),
                   ),
                 ],
@@ -1687,23 +1886,31 @@ class _PeerList extends ConsumerWidget {
             for (final CallPeer p in people)
               GlassCard(
                 margin: const EdgeInsetsDirectional.fromSTEB(
-                  AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   onTap: () => onPeer(p.adeelId, p.name),
                   leading: CircleAvatar(
                     backgroundColor: AppColors.identityTone(p.adeelId),
-                    child: Text(p.name.characters.first,
-                        style: TextStyle(color: AppColors.onFill)),
+                    child: Text(
+                      p.name.characters.first,
+                      style: TextStyle(color: AppColors.onFill),
+                    ),
                   ),
-                  title: Text(p.name, maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    p.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: Text(
                     lastWith(p.adeelId) ?? p.code,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12,
-                        color: AppColors.muted),
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                   // ⚠ IconButton, NEVER a FilledButton: every filled button in
                   //   this theme is Size(infinity, 52) and asserts in a Row.
@@ -1720,6 +1927,72 @@ class _PeerList extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// شريطُ التسجيل — ما يحلُّ محلَّ صندوق الكتابة أثناء الحديث.
+///
+/// ⚠ THREE THINGS AND NO MORE: how long he has spoken, a way out, and a way
+///   to send. A waveform would be decoration on a strip that lives for under a
+///   minute, and the association's phones are not fast.
+class _RecordingStrip extends StatelessWidget {
+  const _RecordingStrip({
+    required this.elapsed,
+    required this.onCancel,
+    required this.onSend,
+  });
+
+  final Duration elapsed;
+  final VoidCallback onCancel;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final int s = elapsed.inSeconds;
+
+    return Row(
+      children: <Widget>[
+        // ⚠ CANCEL FIRST — furthest from the send button. The two do opposite
+        //   things and a mis-tap between them costs the recording.
+        IconButton(
+          onPressed: onCancel,
+          icon: const Icon(Icons.close_rounded),
+          tooltip: l.voiceCancel,
+          color: AppColors.danger,
+          visualDensity: VisualDensity.compact,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Icon(Icons.fiber_manual_record, size: 12, color: AppColors.danger),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            l.voiceRecording,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Text(
+          '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.muted,
+            fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        IconButton.filled(
+          onPressed: onSend,
+          icon: const Icon(Icons.send_rounded),
+          tooltip: l.chatSend,
+        ),
+      ],
     );
   }
 }

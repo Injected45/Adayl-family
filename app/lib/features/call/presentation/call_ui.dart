@@ -26,6 +26,7 @@ import '../../../core/realtime/doorbell.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../data/call_repository.dart';
+import '../data/call_ringtone.dart';
 import '../data/call_session.dart';
 import '../domain/models.dart';
 import 'providers.dart';
@@ -89,6 +90,8 @@ Future<void> startCall(
       callId: id,
       doorbell: ref.read(doorbellProvider),
     ),
+    // ⚠ HE RAISED THE CALL, so he is the one waiting for an answer.
+    ringback: true,
   );
 }
 
@@ -140,24 +143,78 @@ Future<void> answerCall(
 Future<void> _open(
   BuildContext context,
   WidgetRef ref,
-  CallSession session,
-) async {
+  CallSession session, {
+  bool ringback = false,
+}) async {
   ref.read(activeCallProvider.notifier).state = session;
   unawaited(session.open());
 
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: false,
-    enableDrag: false,
-    backgroundColor: Colors.transparent,
-    builder: (BuildContext _) => _CallSheet(session: session),
-  );
+  // ── ⚠ الرنينُ الراجع: «طوط طوط» في أذن المتّصل ────────────────────────
+  //
+  //   «عند الاتصال يبقى صامت». A caller with no tone has no way to know the
+  //   call went anywhere at all — the screen says «يرنّ» and the earpiece says
+  //   nothing, and that is exactly when a man hangs up and tries again.
+  //
+  // ⚠ IT RIDES THE PHASE, NOT A TIMER. The session owns the truth about when a
+  //   call stops ringing — an answer, a refusal, an expiry, a hang-up all end
+  //   it — so a listener on «phase» can never disagree with the screen. A
+  //   separate clock would eventually ring into a live conversation.
+  //
+  // ⚠ AND ONLY THE CALLER. answerCall() takes a call that is already ringing at
+  //   the other end; playing a ringback there would put a telephone tone under
+  //   the man who just pressed «ردّ».
+  // ⚠ THE CALLER ONLY, AND THE FLAG IS WHY. open() sets the phase to «ringing»
+  //   on BOTH handsets — it means «I have my seat and the call is not connected
+  //   yet», which is true of the man who answered too. Without this flag the
+  //   receiver would hear a telephone ringback under the button he just
+  //   pressed, which is the sound of a call that has NOT been answered.
+  final CallRingtone tone = ref.read(callRingtoneProvider);
+  void followPhase() {
+    if (ringback && session.phase.value == CallPhase.ringing) {
+      unawaited(tone.startRingback());
+    } else {
+      unawaited(tone.stop());
+    }
+  }
 
-  await session.close();
-  session.dispose();
-  ref.read(activeCallProvider.notifier).state = null;
-  unawaited(ref.read(incomingCallProvider.notifier).refresh());
+  session.phase.addListener(followPhase);
+  followPhase();
+
+  // ── ⚠ try/finally, AND IT IS NOT DEFENSIVE PROGRAMMING ───────────────────
+  //
+  //   activeCallProvider was set on the FIRST line of this function, and the
+  //   banner hides while it is non-null — that is how a man is stopped from
+  //   being offered a call he is already on. So anything that throws between
+  //   that line and the cleanup leaves the provider holding a dead session,
+  //   and THAT HANDSET NEVER SHOWS AN INCOMING CALL AGAIN. Not this call: any
+  //   call, until the app is restarted.
+  //
+  //   The window is real and it grew: a modal route, a WebRTC teardown, a
+  //   platform-channel audio stop and — since the ringback — a listener and a
+  //   provider read. One of those throwing is not a hypothesis.
+  //
+  // ⚠ THE ORDER INSIDE finally IS THE SAME AS BEFORE. The listener is released
+  //   before session.dispose() disposes «phase», because a listener left on a
+  //   disposed ValueNotifier is the leak this codebase has paid for — and the
+  //   tone would be left looping with nothing holding a reference to stop it.
+  try {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext _) => _CallSheet(session: session),
+    );
+  } finally {
+    session.phase.removeListener(followPhase);
+    unawaited(tone.stop());
+
+    await session.close();
+    session.dispose();
+    ref.read(activeCallProvider.notifier).state = null;
+    unawaited(ref.read(incomingCallProvider.notifier).refresh());
+  }
 }
 
 /// هل تُغلق شاشةُ المكالمة نفسَها في هذا الطور؟
@@ -386,6 +443,7 @@ class _Round extends StatelessWidget {
     required this.label,
     required this.on,
     required this.onTap,
+
     /// ⚠ NULLABLE WITH THE FALLBACK IN THE BODY, not a default value. A
     ///   default must be a compile-time constant, and the palette is no longer
     ///   constant — it is swapped when the member chooses الوضع الليلي. A
@@ -418,10 +476,7 @@ class _Round extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: AppColors.muted),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, color: AppColors.muted)),
       ],
     );
   }

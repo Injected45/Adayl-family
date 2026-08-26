@@ -8,6 +8,7 @@ import '../../features/chat/presentation/unread_bell.dart';
 import '../../l10n/app_localizations.dart';
 import '../config/glass.dart';
 import '../config/theme.dart';
+import '../config/theme_picker.dart';
 import '../router/destinations.dart';
 import '../state/refresh.dart';
 import '../state/restart.dart';
@@ -201,20 +202,21 @@ class AppScaffold extends ConsumerWidget {
           //
           // Only for him: staff have the pill, and a second way back would be
           // a control that does what the bar underneath already does.
-          leading: leading ??
+          leading:
+              leading ??
               (portal
-              ? IconButton(
-                  onPressed: () => context.go(AppRoutes.myDues),
-                  // A HOUSE, not a back arrow. Two reasons, and the second is
-                  // the one that bit: it takes him to his own page rather than
-                  // one step back — and the room already uses arrow_forward to
-                  // leave a private thread for the inbox, so the same glyph in
-                  // the bar above it would be two different journeys drawn
-                  // identically. A widget test found that before a member did.
-                  icon: const Icon(Icons.home_outlined),
-                  tooltip: l.myFamilyTitle,
-                )
-              : null),
+                  ? IconButton(
+                      onPressed: () => context.go(AppRoutes.myDues),
+                      // A HOUSE, not a back arrow. Two reasons, and the second is
+                      // the one that bit: it takes him to his own page rather than
+                      // one step back — and the room already uses arrow_forward to
+                      // leave a private thread for the inbox, so the same glyph in
+                      // the bar above it would be two different journeys drawn
+                      // identically. A widget test found that before a member did.
+                      icon: const Icon(Icons.home_outlined),
+                      tooltip: l.myFamilyTitle,
+                    )
+                  : null),
         ),
         // EVERYTHING that floats over the body is added up here, once, and
         // published as one number. A screen asks `bottomInset(context)` and gets
@@ -339,6 +341,19 @@ class AppScaffold extends ConsumerWidget {
                         ),
                     ],
                   ),
+                  // ── شكلُ التطبيق ──────────────────────────────────────
+                  // ⚠ THE SAME WIDGET THE MEMBER USES, not a second copy —
+                  //   see ThemePicker. And UNDER the destinations, because
+                  //   those are places to go and this is a preference: a
+                  //   segmented control among the tiles would read as a
+                  //   thirteenth screen.
+                  //
+                  // ⚠ THE SHEET IS NOT DISMISSED ON CHANGE. Every tile above
+                  //   pops because it navigates; this one repaints the sheet
+                  //   he is looking at, which IS the confirmation. Closing it
+                  //   would hide the one thing that proves the tap worked.
+                  const SizedBox(height: AppSpacing.lg),
+                  const ThemePicker(),
                 ],
               ),
             ),

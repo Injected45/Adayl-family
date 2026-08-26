@@ -22,13 +22,22 @@ class ThemeModeStore {
 
   static const String _key = 'app_theme_mode';
 
+  /// ⚠ DARK IS THE DEFAULT, AND «UNSET» IS THE ONLY WAY TO GET IT. A handset
+  ///   that has never been asked opens dark — «اي شخص يحمل التطبيق يحمل على
+  ///   الوضع الداكن» — and the moment a man picks either mode his choice is
+  ///   stored and wins for ever after. So «light» must be READ AND HONOURED,
+  ///   not treated as the absence of «dark»: a naive «v == 'dark' ? dark :
+  ///   dark-by-default» would ignore every man who chose the ordinary palette.
   Future<AppThemeMode> read() async {
     try {
       final String? v = await _storage.read(key: _key);
-      return v == 'dark' ? AppThemeMode.dark : AppThemeMode.light;
+      if (v == 'light') return AppThemeMode.light;
+      if (v == 'dark') return AppThemeMode.dark;
+      return AppThemeMode.dark;
     } on Object {
-      // A handset that will not give up the value gets the ordinary palette.
-      return AppThemeMode.light;
+      // A handset that will not give up the value gets the default too — a
+      // failed read is «never chosen», not «chose light».
+      return AppThemeMode.dark;
     }
   }
 
@@ -42,9 +51,10 @@ class ThemeModeStore {
   }
 }
 
-final Provider<ThemeModeStore> themeModeStoreProvider = Provider<ThemeModeStore>(
-  (Ref ref) => const ThemeModeStore(FlutterSecureStorage()),
-);
+final Provider<ThemeModeStore> themeModeStoreProvider =
+    Provider<ThemeModeStore>(
+      (Ref ref) => const ThemeModeStore(FlutterSecureStorage()),
+    );
 
 /// الوضعُ الحاليّ. تُشاهده الجذرُ فيُعيد بناء التطبيق كلَّه.
 ///
@@ -58,8 +68,9 @@ class ThemeModeController extends Notifier<AppThemeMode> {
     // ⚠ SYNCHRONOUS, AND THE STORED VALUE ARRIVES LATER. main() has already
     //   applied the saved palette before runApp, so the first frame is
     //   correct; this default only matters to a test that builds the provider
-    //   without one.
-    return AppThemeMode.light;
+    //   without one — and it must agree with the store's default, or the
+    //   picker would show «عادي» selected on a screen that is dark.
+    return AppThemeMode.dark;
   }
 
   Future<void> load() async {
@@ -77,9 +88,8 @@ class ThemeModeController extends Notifier<AppThemeMode> {
   }
 
   /// بدّل.
-  Future<void> toggle() => set(
-    state == AppThemeMode.dark ? AppThemeMode.light : AppThemeMode.dark,
-  );
+  Future<void> toggle() =>
+      set(state == AppThemeMode.dark ? AppThemeMode.light : AppThemeMode.dark);
 }
 
 final NotifierProvider<ThemeModeController, AppThemeMode> themeModeProvider =
@@ -96,7 +106,7 @@ Future<AppThemeMode> readSavedThemeMode() async {
   try {
     return await const ThemeModeStore(FlutterSecureStorage()).read();
   } on Object {
-    debugPrint('theme mode: falling back to light');
-    return AppThemeMode.light;
+    debugPrint('theme mode: falling back to the default (dark)');
+    return AppThemeMode.dark;
   }
 }

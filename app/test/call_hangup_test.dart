@@ -70,6 +70,13 @@ class _FakeRepo implements CallRepository {
     String? to,
   }) async => log.add('signal');
 
+  /// The call as the SERVER sees it. Null keeps the session alive — see the
+  /// note on byId: a missing row is a failed read, never an ending.
+  CallView? live;
+
+  @override
+  Future<CallView?> byId(int callId) async => live;
+
   @override
   Future<CallView?> liveIn(int? threadAdeelId) async => null;
 
@@ -86,6 +93,8 @@ class _FakeRepo implements CallRepository {
 void main() {
   _sheetTests();
   _noticingTests();
+  _bothSidesCloseTests();
+  _ringTimeoutTests();
 
   test('hanging up tells the server BEFORE tearing the media down', () {
     // WHY THE SOURCE AND NOT THE BEHAVIOUR: the slow part is native —
@@ -400,6 +409,150 @@ void _noticingTests() {
       tick,
       isNot(contains('await _repo.heartbeat(callId);')),
       reason: 'the sequential heartbeat is what the wait replaced',
+    );
+  });
+}
+
+/// من أغلق، أغلق عند الطرفين — حتى لو لم تتّصل المكالمة أصلاً.
+///
+/// ⚠ THE OLD RULE COULD NOT COVER THE COMMON CASE. CallSession closed itself
+///   when fewer than two LIVE SEATS remained — and only after company had
+///   arrived, because a ringing caller is alone by definition. A call that
+///   never connected has ONE seat from first ring to last, so the rule never
+///   fired and the other man sat on «جارية» until he pressed red himself.
+///
+///   The association's own log: every call that day carried one seat, one rang
+///   for 469 seconds, and «انتهت بعد» was recorded for the presser alone.
+///
+/// ⚠ SO THE SESSION NOW ASKS THE SERVER WHAT THE CALL IS, not only who is in
+///   it. «انتهت», «مرفوضة» and «فائتة» all come from v_calls — the same fact
+///   both handsets read, so they cannot disagree about when a call is over.
+void _bothSidesCloseTests() {
+  CallView view(String status) => CallView.fromJson(<String, dynamic>{
+    'id': 7,
+    'threadAdeelId': null,
+    'callerName': 'هيثم',
+    'mine': false,
+    'status': status,
+    'startedAt': '2026-08-26T10:00:00Z',
+    'answeredAt': null,
+    'endedAt': null,
+  });
+
+  test('⚠ the other side closes when the server says the call ended', () async {
+    for (final String over in <String>['انتهت', 'مرفوضة', 'فائتة']) {
+      final _FakeRepo repo = _FakeRepo()..live = view(over);
+      final CallSession s = CallSession(repository: repo, callId: 7);
+
+      await s.tickForTest();
+
+      expect(
+        s.phase.value,
+        CallPhase.ended,
+        reason:
+            'a call the server calls «$over» must not leave a live microphone '
+            'and a screen saying «جارية»',
+      );
+    }
+  });
+
+  test('and a RINGING or LIVE call is left alone', () async {
+    for (final String on in <String>['ترن', 'جارية']) {
+      final _FakeRepo repo = _FakeRepo()..live = view(on);
+      final CallSession s = CallSession(repository: repo, callId: 7);
+
+      await s.tickForTest();
+
+      expect(
+        s.phase.value,
+        isNot(CallPhase.ended),
+        reason: 'closing on «$on» would hang up on every call as it is placed',
+      );
+    }
+  });
+
+  test('⚠ and a call the server does not return is NOT an ending', () async {
+    // RLS, a dropped request or a slow view all return null. Hanging up on
+    // that would end a live conversation over one bad packet — and on a Libyan
+    // mobile connection that packet arrives regularly.
+    final _FakeRepo repo = _FakeRepo()..live = null;
+    final CallSession s = CallSession(repository: repo, callId: 7);
+
+    await s.tickForTest();
+
+    expect(s.phase.value, isNot(CallPhase.ended));
+  });
+}
+
+/// الرنينُ لا يدوم إلى ما لا نهاية.
+///
+/// ⚠ THE SERVER ALREADY EXPIRES A RING AT SIXTY SECONDS — v_calls turns it
+///   into «فائتة» and _tick closes on that. But that closure needs an ANSWER
+///   FROM THE SERVER, and the one situation where a phone rings for ever is
+///   the one where the server cannot be reached: every read returns null, null
+///   is deliberately not an ending, and the caller rings until he gives up by
+///   hand. The association watched exactly that: «بقي الرنين مستمر لفترة طويلة
+///   الى ان فصلته انا».
+void _ringTimeoutTests() {
+  test('⚠ a ring nobody answered ends itself, with no server at all', () {
+    // The reads are pinned in the source rather than driven, because reaching
+    // sixty-five seconds in a widget test means a fake clock this session does
+    // not own — and the DECISION is what matters: the cap is checked before
+    // the seat count, so a call nobody answered ends even when the participant
+    // read is the thing failing.
+    final String src = File(
+      'lib/features/call/data/call_session.dart',
+    ).readAsStringSync();
+
+    final int at = src.indexOf('_ringingSince != null');
+    expect(at, greaterThan(-1), reason: 'the ring has no cap at all');
+
+    final int seats = src.indexOf('if (now.length >= 2)');
+    expect(
+      at,
+      lessThan(seats),
+      reason:
+          'the cap must be checked BEFORE the seat count — otherwise a failing '
+          'participant read is exactly what keeps the ring alive',
+    );
+
+    final String block = src.substring(at, (at + 400).clamp(0, src.length));
+    expect(block, contains('CallPhase.ringing'));
+    expect(
+      block,
+      contains('close()'),
+      reason: 'it must END the call, not merely report it',
+    );
+  });
+
+  test('and the cap sits ABOVE the server expiry, never below it', () {
+    // ⚠ SIXTY-FIVE, NOT SIXTY. The server's expiry must normally win, because
+    //   it is the fact both handsets read; the margin is what keeps this a
+    //   fallback rather than a second authority racing the first.
+    expect(
+      CallSession.ringTimeout.inSeconds,
+      greaterThan(60),
+      reason: 'below 60 this would beat the server and become the authority',
+    );
+    expect(
+      CallSession.ringTimeout.inSeconds,
+      lessThanOrEqualTo(90),
+      reason: 'a ring a man has walked away from is not worth a third minute',
+    );
+  });
+
+  test('⚠ and answering clears the cap, so a long call is never cut', () {
+    final String src = File(
+      'lib/features/call/data/call_session.dart',
+    ).readAsStringSync();
+    final int at = src.indexOf('if (now.length >= 2) {');
+    expect(at, greaterThan(-1));
+    expect(
+      src.substring(at, (at + 300).clamp(0, src.length)),
+      contains('_ringingSince = null'),
+      reason:
+          'a man talking in المجلس is «جارية» however long he talks — only a '
+          'call nobody has joined is capped',
     );
   });
 }

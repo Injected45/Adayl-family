@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/glass.dart';
-import '../../../core/config/palette.dart';
 import '../../../core/config/theme.dart';
-import '../../../core/config/theme_mode_provider.dart';
+import '../../../core/config/theme_picker.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
@@ -602,7 +601,7 @@ class _PortalMoreSheet extends ConsumerWidget {
               //   named states a member picks between; a switch would need a
               //   label saying which way is on, and «الوضع الليلي: مُطفأ» is a
               //   sentence nobody reads twice.
-              const _ThemePicker(),
+              const ThemePicker(),
               const SizedBox(height: AppSpacing.md),
               OutlinedButton.icon(
                 onPressed: () {
@@ -722,72 +721,76 @@ class _BalanceHero extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Row(
                 children: <Widget>[
-                  // ── الكود في المربّع، والاسم بجانبه ───────────────────
-                  // ⚠ THE CODE, NOT AN INITIAL. A first letter is decoration:
-                  //   it identifies nobody, and on a page that shows one man
-                  //   his own record it identifies him least of all. «A-04» is
-                  //   what the association calls him on every receipt and
-                  //   every voucher, and it is what he is asked for on the
-                  //   phone — so it belongs in the one place the eye goes
-                  //   first, not in a caption under his name.
-                  Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.brandSoft,
-                      borderRadius: BorderRadius.circular(AppRadius.chip),
-                    ),
-                    // ⚠ SCALED DOWN, NEVER CLIPPED. «A-04» fits at 14; the
-                    //   day the register passes ninety-nine it becomes «A-100»
-                    //   and a fixed size would crop the last digit — which on
-                    //   a code is not a cosmetic loss but a wrong identity.
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        adeel.adeelCode,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: AppFonts.display,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.brandDeep,
-                        ),
+                  // ── ⚠ الاسمُ أوّلاً، والكودُ على يساره ────────────────────
+                  //
+                  //   The code used to be a 42×42 square BEFORE the name —
+                  //   «the one place the eye goes first». The association
+                  //   looked at it and asked for the opposite: «اريده على يسار
+                  //   اسم المشترك على نفس السطر … بحيث يكون شكله منتظم ومميز».
+                  //
+                  //   And they are right about this page. The old note argued
+                  //   the code identifies him better than an initial would —
+                  //   true, and beside the point on the ONE screen that shows
+                  //   a man his OWN record: he knows who he is. The name is
+                  //   what he reads; the code is what he QUOTES on the phone,
+                  //   and a thing you quote belongs at the end of the line
+                  //   where it can be found, not in front of the thing it
+                  //   labels.
+                  //
+                  // ⚠ Expanded ON THE NAME, so a long Libyan name shortens
+                  //   itself rather than pushing the code off the card.
+                  Expanded(
+                    child: Text(
+                      adeel.fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        height: 1.25,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Row(
-                      children: <Widget>[
-                        // ⚠ Flexible, so a long Libyan name shortens itself
-                        //   rather than pushing the affordance — and then the
-                        //   status badge — off the edge of the card.
-                        Flexible(
-                          child: Text(
-                            adeel.fullName,
-                            // One line now that the code has left the column.
-                            // Two would leave the square hanging beside a
-                            // block of text instead of a line.
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              height: 1.25,
-                              fontWeight: FontWeight.w800,
-                            ),
+                  const SizedBox(width: AppSpacing.sm),
+                  // ── ⚠ حبّةٌ لا مربّع، ولا تلامس الحدّ ─────────────────────
+                  //
+                  //   A pill sized by its own text: «A-04» and «A-100» both
+                  //   sit correctly in it, where a fixed 42×42 square had to
+                  //   scale the second one down to fit. The horizontal padding
+                  //   IS the «لا يلامس خطوط التصميم» — the fill never touches
+                  //   the glyphs, and the card's own padding keeps the pill
+                  //   off the pane's edge.
+                  //
+                  // ⚠ AND IT WEARS THE BRAND, NOT THE STATE. The card behind
+                  //   it is already tinted red or green by what he owes; a
+                  //   code that changed colour with it would read as part of
+                  //   the money rather than as his number.
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.brandSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 3,
+                      ),
+                      // ⚠ SCALED DOWN, NEVER CLIPPED. On a code a cropped
+                      //   digit is not a cosmetic loss but a wrong identity.
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          adeel.adeelCode,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                            color: AppColors.brandDeep,
                           ),
                         ),
-                        // ⚠ THE ⓘ IS GONE, BY REQUEST — and the affordance it
-                        //   stood for is not. The note it carried said «a name
-                        //   that opens something and does not say so is a
-                        //   feature nobody finds»; what replaced it says the
-                        //   same thing louder, because the WHOLE CARD is now
-                        //   tinted by his standing and is the obvious thing to
-                        //   press. Tapping the name still opens «تفاصيل
-                        //   اشتراكي» and is still the only way there.
-                      ],
+                      ),
                     ),
                   ),
                   // ⚠ «نشط» MOVED INTO «تفاصيل اشتراكي», by request. It is a
@@ -1779,57 +1782,3 @@ class _DueTile extends StatelessWidget {
 ///
 /// The count therefore rides on the BUTTON itself. Same provider, same number
 /// as the staff bell — one source, so the two can never disagree.
-
-/// شكلُ التطبيق: عاديّ أو ليليّ.
-///
-/// ⚠ IN THE «المزيد» SHEET AND NOWHERE ELSE. It is a preference, not a
-///   destination — putting it in the section menu beside «تفاصيل اشتراكي»
-///   would make it look like a page he can open, and it is one tap.
-///
-/// ⚠ AND IT WRITES BEFORE IT RETURNS, so the sheet he is looking at repaints
-///   under him. That is the confirmation: no snack bar, no «تم الحفظ», the
-///   change IS the feedback.
-class _ThemePicker extends ConsumerWidget {
-  const _ThemePicker();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final L l = L.of(context);
-    final AppThemeMode mode = ref.watch(themeModeProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
-          child: Text(
-            l.themeLabel,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppColors.muted,
-            ),
-          ),
-        ),
-        SegmentedButton<AppThemeMode>(
-          segments: <ButtonSegment<AppThemeMode>>[
-            ButtonSegment<AppThemeMode>(
-              value: AppThemeMode.light,
-              icon: const Icon(Icons.light_mode_outlined, size: 18),
-              label: Text(l.themeLight),
-            ),
-            ButtonSegment<AppThemeMode>(
-              value: AppThemeMode.dark,
-              icon: const Icon(Icons.dark_mode_outlined, size: 18),
-              label: Text(l.themeDark),
-            ),
-          ],
-          selected: <AppThemeMode>{mode},
-          showSelectedIcon: false,
-          onSelectionChanged: (Set<AppThemeMode> v) =>
-              ref.read(themeModeProvider.notifier).set(v.first),
-        ),
-      ],
-    );
-  }
-}

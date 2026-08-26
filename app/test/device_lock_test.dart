@@ -489,9 +489,22 @@ void _moreSheetTests() {
         findsOneWidget,
         reason: 'the balance is the one figure that names the unit',
       );
-      expect(find.text(formatMoney('60.00')), findsOneWidget);
-      expect(find.text(formatMoney('450.00')), findsOneWidget);
-      expect(find.text(formatMoney('4900.00')), findsOneWidget);
+      // ⚠ EVERY FIGURE ON THIS PAGE CARRIES «د.ل» NOW, not the balance alone
+      //   — «لا تنسى كل القيم على يسارها د.ل». It is a column a member reads
+      //   line by line rather than as one summary, so each line answering
+      //   «كم» on its own is the better reading.
+      expect(
+        find.text(formatMoneyWithCurrency('60.00', l.currency)),
+        findsOneWidget,
+      );
+      expect(
+        find.text(formatMoneyWithCurrency('450.00', l.currency)),
+        findsOneWidget,
+      );
+      expect(
+        find.text(formatMoneyWithCurrency('4900.00', l.currency)),
+        findsOneWidget,
+      );
 
       // ── ⚠ THE «للاطلاع فقط» SENTENCE IS GONE, AND THIS ASSERTION WAS THE
       //   OPPOSITE ONE ────────────────────────────────────────────────────────

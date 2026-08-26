@@ -185,7 +185,11 @@ void main() {
     final double duesY = tester.getTopLeft(find.text('شهر 2026-02')).dy;
 
     expect(nameY, lessThan(heroY), reason: 'the name must head the card');
-    expect(heroY, lessThan(duesY), reason: 'the figure still precedes the dues');
+    expect(
+      heroY,
+      lessThan(duesY),
+      reason: 'the figure still precedes the dues',
+    );
 
     // Once, not twice. The identity panel at the foot kept a copy of the name
     // as its title while the hero grew one, which put the same three facts on
@@ -458,7 +462,10 @@ void main() {
     await tester.tap(find.text(l.myStatementSection).last);
     await tester.pumpAndSettle();
 
-    expect(find.text(l.ledgerParticulars), findsOneWidget); // the table IS there
+    expect(
+      find.text(l.ledgerParticulars),
+      findsOneWidget,
+    ); // the table IS there
     expect(find.byType(TextField), findsNothing);
     expect(find.text(l.statementShowing(3, 3)), findsNothing);
   });
@@ -522,7 +529,11 @@ void main() {
         of: find.text(formatMoney(raw)),
         matching: find.byType(FittedBox),
       );
-      expect(cells, findsWidgets, reason: '$raw is not rendered in a money cell');
+      expect(
+        cells,
+        findsWidgets,
+        reason: '$raw is not rendered in a money cell',
+      );
 
       for (int i = 0; i < cells.evaluate().length; i++) {
         final Finder cell = cells.at(i);
@@ -817,8 +828,7 @@ void _portalHeaderTests() {
     //   two identifiers for one man on one row, and the weaker one is louder.
     expect(find.text('ا'), findsNothing);
   });
-
-  testWidgets('...and the code sits BEFORE the name, level with it', (
+  testWidgets('⚠ ...and the code sits AFTER the name, level with it', (
     WidgetTester tester,
   ) async {
     await open(tester);
@@ -826,13 +836,26 @@ void _portalHeaderTests() {
     final Offset code = tester.getCenter(find.text('A-01').first);
     final Offset name = tester.getCenter(find.text('المهدي العدولي'));
 
-    // ⚠ LEVEL, not stacked — that is the whole request. Compared by centre and
-    //   not by top, because the two are different sizes and their tops differ
-    //   by a pixel or two while sitting on the same row.
+    // ⚠ LEVEL, not stacked — compared by centre and not by top, because the
+    //   two are different sizes and their tops differ by a pixel or two while
+    //   sitting on the same row.
     expect((code.dy - name.dy).abs(), lessThan(4));
 
-    // And BEFORE it, which in this right-to-left screen is further right.
-    expect(code.dx, greaterThan(name.dx));
+    // ── ⚠ THIS ASSERTION WAS REVERSED, DELIBERATELY ──────────────────────
+    //
+    //   It required the code BEFORE the name — «the one place the eye goes
+    //   first» — and the association asked for the opposite: «اريده على يسار
+    //   اسم المشترك على نفس السطر». They are right about this page: it shows
+    //   a man his OWN record, so he knows who he is. The name is what he
+    //   reads; the code is what he QUOTES on the phone, and a thing you quote
+    //   belongs at the end of the line where it can be found.
+    //
+    //   AFTER it, which on this right-to-left screen is further LEFT.
+    expect(
+      code.dx,
+      lessThan(name.dx),
+      reason: 'the code belongs at the end of the line, on the left in RTL',
+    );
   });
 
   testWidgets('a very long name shortens itself and never pushes the code out', (
@@ -840,11 +863,21 @@ void _portalHeaderTests() {
   ) async {
     await open(tester);
 
-    // The square keeps its whole width whatever the name does — a code clipped
-    // to «A-0» is not a shorter code, it is a different man.
-    final Size square = tester.getSize(
-      find.ancestor(of: find.text('A-01').first, matching: find.byType(Container)).first,
+    // ⚠ THE PILL IS SIZED BY ITS OWN TEXT NOW, not fixed at 42×42 — «A-04» and
+    //   «A-100» each sit correctly in it, where the square had to scale the
+    //   second one down to fit. So the assertion is no longer a WIDTH: it is
+    //   that the code is still fully on screen and still legible beside a name
+    //   long enough to have pushed it off.
+    expect(find.text('A-01'), findsWidgets);
+
+    final Offset code = tester.getCenter(find.text('A-01').first);
+    expect(
+      code.dx,
+      greaterThan(0),
+      reason: 'a code pushed off the card is a man with no number',
     );
-    expect(square.width, 42);
+
+    // And nothing overflowed doing it.
+    expect(tester.takeException(), isNull);
   });
 }

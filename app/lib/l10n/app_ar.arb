@@ -843,7 +843,7 @@
   "unbindNothing": "لا حساب مرتبط بهذا المشترك.",
   "arrearsBoardTitle": "عليهم متأخرات",
   "arrearsBoardClear": "لا أحد عليه متأخرات، ولا عهدة لأحد.",
-  "arrearsBoardNote": "هذه التزامات الصندوق ومستحقّاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدّماً.",
+  "arrearsBoardNote": "الأحمر: مستحقات عليه · الأخضر: له عهدة مدفوعة مقدماً",
   "arrearsMine": "أنا",
   "arrearsHeldLabel": "له عهدة",
   "arrearsAlsoHeld": "وله عهدة {amount}",
@@ -887,5 +887,15 @@
   },
   "themeLabel": "شكل التطبيق",
   "themeLight": "عادي",
-  "themeDark": "داكن"
+  "themeDark": "داكن",
+  "@arrearsBoardNote": {
+    "description": "⚠ SHORTENED BY REQUEST. It read «هذه التزامات الصندوق ومستحقاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدماً» — the first sentence described the panel a second time. What survives is the only part a reader cannot work out for himself: which colour means what."
+  },
+  "voicePlay": "تشغيل",
+  "voiceStop": "إيقاف",
+  "voiceRecord": "تسجيل صوتي",
+  "voiceRecording": "جارٍ التسجيل…",
+  "voiceCancel": "إلغاء",
+  "voiceNoMic": "لا يمكن التسجيل بدون إذن الميكروفون",
+  "voiceTooShort": "المقطع قصير جداً"
 }

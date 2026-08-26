@@ -249,10 +249,7 @@ class SectionRow extends StatelessWidget {
                 if (trailing != null && trailing!.isNotEmpty)
                   Text(
                     trailing!,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.muted,
-                    ),
+                    style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
               ],
             ),
@@ -333,19 +330,35 @@ void openPortalSection(
   PortalSection section, {
   required int adeelId,
 }) {
-  final L l = L.of(context);
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      builder: (_) => _PortalSectionPage(
-        section: _describe(l, section),
-        child: switch (section) {
-          PortalSection.details => _DetailsBody(adeelId: adeelId),
-          PortalSection.bank => const _BankBody(),
-          PortalSection.officials => const _OfficialsBody(),
-          PortalSection.treasury => const _TreasuryBody(),
-        },
-      ),
+      builder: (BuildContext c) => portalSectionPage(c, section, adeelId),
     ),
+  );
+}
+
+/// The page one section opens, built on its own.
+///
+/// ⚠ LIFTED OUT SO IT CAN BE MOUNTED WITHOUT A NAVIGATOR, and for one reason:
+///   «لا اريد اي حرف يخرج خارج اطار الديزاين». Proving that needs the REAL
+///   page at a real width with the worst data — a long Libyan name, a
+///   six-figure amount, both palettes — and a test cannot reach a widget that
+///   only exists inside a route builder. See treasury_overflow_test.
+@visibleForTesting
+Widget portalSectionPage(
+  BuildContext context,
+  PortalSection section,
+  int adeelId,
+) {
+  final L l = L.of(context);
+  return _PortalSectionPage(
+    section: _describe(l, section),
+    child: switch (section) {
+      PortalSection.details => _DetailsBody(adeelId: adeelId),
+      PortalSection.bank => const _BankBody(),
+      PortalSection.officials => const _OfficialsBody(),
+      PortalSection.treasury => const _TreasuryBody(),
+    },
   );
 }
 
@@ -440,6 +453,56 @@ class _MenuCard extends StatelessWidget {
 }
 
 /// A section's contents, in the pane they belong to.
+/// عنوانٌ فوق حاوية.
+///
+/// ⚠ OUTSIDE THE PANE, NOT INSIDE IT. A heading printed on the glass takes the
+///   first row of a card whose rows are the point; sitting above it, in the
+///   muted tone, it labels the box without competing with a single figure in
+///   it.
+///
+/// ⚠ AND AN ICON, BECAUSE TWO PANELS NOW STACK. «الصندوق» and «المشتركون» are
+///   two answers to two questions on one scroll, and a reader arriving
+///   mid-page needs to know which one he is in without reading a word.
+class _PanelTitle extends StatelessWidget {
+  const _PanelTitle({required this.icon, required this.text});
+
+  /// ⚠ A WIDGET, NOT IconData, AND vault_icon_test IS WHY. The first version
+  ///   took an IconData and used Icons.savings_outlined for الصندوق — the
+  ///   PIGGY BANK the association rejected, «an animal, and a child's toy,
+  ///   standing for the fund that pays for a bereavement». A guard that scans
+  ///   lib/ for it caught the icon inside an hour of it being written.
+  final Widget icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsetsDirectional.only(
+      start: AppSpacing.xs,
+      bottom: AppSpacing.sm,
+    ),
+    child: Row(
+      children: <Widget>[
+        icon,
+        const SizedBox(width: AppSpacing.xs),
+        // ⚠ Flexible + ellipsis: a title is never allowed to push past the
+        //   pane it labels. «لا اريد اي حرف يخرج خارج اطار الديزاين».
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _Panel extends StatelessWidget {
   const _Panel({required this.child});
 
@@ -628,32 +691,28 @@ class _TreasuryBody extends ConsumerWidget {
               _Panel(child: SectionNote(describeApiFailure(l, e))),
           data: (AssociationFinance f) => Column(
             children: <Widget>[
-              // ── ⚠ THE BALANCE MOVED INSIDE THE CONTAINER ─────────────────
+              // ── ⚠ الصندوقُ أوّلاً، ثمّ ما له وما عليه ─────────────────────
               //
-              //   It was a headline of its own above the panel — «the
-              //   conclusion first and alone». The association asked for it in
-              //   the box with the workings: «كلمة رصيد الجمعية … يظهر الرصيد
-              //   في حاوية الصندوق». It is still FIRST, and still the only row
-              //   carrying the unit, so it still reads as the conclusion.
-              // ── لوحُ المتأخّرات، فوق كلّ رقمٍ آخر ─────────────────────────
-              //
-              // ⚠ ABOVE «المحصّل نقداً» BY REQUEST, and the position is the
-              //   whole point: «تجعله يظهر في أعلى القائمة … ليكون واضحاً وضعُ
-              //   الصندوق بالتزاماته … ليصبح كل العدايل على دراية بكل من عليهم
-              //   مستحقات ولم يدفعوا». Under the totals it would be a detail;
-              //   above them it is the first thing a member reads.
-              const _ArrearsBoard(),
-              const SizedBox(height: AppSpacing.md),
+              //   The arrears board was on top for one revision — «فوق المحصل
+              //   نقدا» — and the association looked at it and reversed the
+              //   two: «حاوية رصيد الجمعية اجعلها هي التي بالأعلى». It is the
+              //   right order. The fund's own position is the answer; who owes
+              //   what is the working behind it, and a page opens with its
+              //   answer.
+              _PanelTitle(
+                icon: VaultIcon(size: 16, color: AppColors.brand),
+                text: l.navCash,
+              ),
               _Panel(
                 child: Column(
                   children: <Widget>[
-                    // ── ⚠ ONE ROW CARRIES «د.ل», AND IT IS THIS ONE ──────────
-                    //
-                    //   «مثلا الان رصيد الجمعية 2,900.00 د.ل». The unit sits on
-                    //   the conclusion and on nothing else, which is the same
-                    //   rule the الاشتراكات tile follows for the opposite
-                    //   reason: naming it once is what stops six figures in a
-                    //   column each repeating it.
+                    // ⚠ EVERY FIGURE CARRIES «د.ل» NOW, not the balance alone.
+                    //   It was on the conclusion only, on the reasoning that
+                    //   six figures each repeating a unit is noise. The
+                    //   association asked for all of them — «لا تنسى كل القيم
+                    //   على يسارها د.ل» — and it is a column a member reads
+                    //   line by line rather than as one summary, so each line
+                    //   answering «كم» on its own is the better reading.
                     SectionRow(
                       label: l.associationBalance,
                       value: formatMoneyWithCurrency(f.balance, l.currency),
@@ -661,53 +720,53 @@ class _TreasuryBody extends ConsumerWidget {
                     ),
                     SectionRow(
                       label: l.collectedCash,
-                      value: formatMoney(f.cash),
+                      value: formatMoneyWithCurrency(f.cash, l.currency),
                       tone: AppColors.success,
                     ),
                     SectionRow(
                       label: l.collectedTransfer,
-                      value: formatMoney(f.transfer),
+                      value: formatMoneyWithCurrency(f.transfer, l.currency),
                       tone: AppColors.info,
                     ),
-                    // ⚠ RED, NOT AMBER, AND THE ASSOCIATION IS RIGHT. Money a
-                    //   member paid ahead is owed BACK to him — «لأنها التزام
-                    //   على الصندوق» — so it belongs with the outgoings, not
-                    //   with a caution. See members_held().
+                    // ⚠ RED: money a member paid ahead is owed BACK to him —
+                    //   «لأنها التزام على الصندوق». See members_held().
                     SectionRow(
                       label: l.heldForMembers,
-                      value: formatMoney(f.heldForMembers),
+                      value: formatMoneyWithCurrency(
+                        f.heldForMembers,
+                        l.currency,
+                      ),
                       tone: AppColors.danger,
                     ),
                     // ⚠ AND المستحقات IS NEITHER. It is money owed TO the fund,
                     //   so red would read as a liability and green as cash in
-                    //   hand — both wrong about where the fund stands. Hence
-                    //   AppColors.dues; see the note on that token.
+                    //   hand — both wrong about where the fund stands.
                     SectionRow(
                       label: l.dueFromMembers,
-                      value: formatMoney(f.outstanding),
+                      value: formatMoneyWithCurrency(f.outstanding, l.currency),
                       tone: AppColors.dues,
                     ),
-                    // The outgoing side. Transparency that showed only what came
-                    // in would overstate the fund by everything it has ever paid
-                    // out — the opposite of transparency. The TOTAL is his to
-                    // see; who received it is not.
                     SectionRow(
                       label: l.totalDisbursed,
-                      value: formatMoney(f.disbursed),
+                      value: formatMoneyWithCurrency(f.disbursed, l.currency),
                       tone: AppColors.danger,
                     ),
-                    SectionRow(
-                      label: l.statAdeels,
-                      value: '${f.members}',
-                      trailing: l.subActive(f.activeMembers),
-                    ),
-                    // ⚠ «أرقام الجمعية للاطلاع فقط…» WAS HERE AND IS GONE, by
-                    //   request: «لا داعي لها، الرقم الظاهر يبين كل شيء». The
-                    //   page carries no button and never did, so the sentence
-                    //   was answering a question the screen does not raise.
+                    // ⚠ NOT A SUM OF MONEY, so no unit. A count that carried
+                    //   «د.ل» would be the one figure on the page that lied.
+                    SectionRow(label: l.statAdeels, value: '${f.members}'),
                   ],
                 ),
               ),
+              const SizedBox(height: AppSpacing.lg),
+              _PanelTitle(
+                icon: Icon(
+                  Icons.groups_outlined,
+                  size: 16,
+                  color: AppColors.brand,
+                ),
+                text: l.arrearsBoardTitle,
+              ),
+              const _ArrearsBoard(),
             ],
           ),
         );
@@ -731,33 +790,136 @@ class _ArrearsBoard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                SectionRow(
-                  label: l.arrearsBoardTitle,
-                  value: '${rows.where((ArrearsRow r) => r.owes).length}',
-                  tone: AppColors.danger,
-                ),
+                // ⚠ «عليهم متأخرات 4» IS GONE, by request. It counted the rows
+                //   printed directly beneath it — a heading that told the
+                //   reader what he was about to see anyway, and took a line to
+                //   do it.
                 if (rows.isEmpty)
                   SectionNote(l.arrearsBoardClear)
                 else
-                  for (final ArrearsRow r in rows)
-                    SectionRow(
-                      // ⚠ HIS OWN ROW IS MARKED, NOT HIDDEN. A list that
-                      //   quietly omitted the reader is a list he cannot check
-                      //   against what his own «تفاصيل اشتراكي» says.
-                      label: r.mine ? '${r.name} — ${l.arrearsMine}' : r.name,
-                      value: r.owes ? formatMoney(r.owed) : formatMoney(r.held),
-                      // الدَّينُ أحمر، والعهدةُ في صالحه — ولا يُخلط اللونان.
-                      tone: r.owes ? AppColors.danger : AppColors.success,
-                      trailing: r.owes
-                          ? (r.hasCredit
-                                ? l.arrearsAlsoHeld(formatMoney(r.held))
-                                : null)
-                          : l.arrearsHeldLabel,
-                    ),
+                  for (final ArrearsRow r in rows) _ArrearsLine(row: r),
+                // ⚠ SHORTENED, by request: the long sentence explained the
+                //   panel a second time. What survives is the only part that
+                //   cannot be guessed — which colour means what.
                 SectionNote(l.arrearsBoardNote),
               ],
             ),
           ),
         );
+  }
+}
+
+/// سطرٌ واحد: الاسمُ، والملاحظةُ، والمبلغُ بوحدته.
+///
+/// ⚠ NOT SectionRow, AND THAT IS THE WHOLE REASON THIS EXISTS. SectionRow puts
+///   its `trailing` UNDER the value — right for «الحساب المصرفي», where the
+///   note explains the figure above it — and here it broke every man with an
+///   عهدة across two lines while most of the row sat empty. «لدينا وسع كثير»,
+///   and changing SectionRow would have changed four other pages.
+///
+/// ⚠ Expanded ON THE NAME, so a long Libyan name shortens itself rather than
+///   pushing the amount off the edge. The amount never shrinks: it is the
+///   thing the row is read for.
+///
+/// ⚠ AND THE UNIT IS ON EVERY LINE HERE, unlike الصندوق below where it sits on
+///   the balance alone. These rows are a LIST of independent figures a reader
+///   scans one against another; that column is one summary where the unit is
+///   named once at the top.
+class _ArrearsLine extends StatelessWidget {
+  const _ArrearsLine({required this.row});
+
+  final ArrearsRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final bool owes = row.owes;
+    final Color tone = owes ? AppColors.danger : AppColors.success;
+
+    // ⚠ HIS OWN ROW IS MARKED, NOT HIDDEN. A list that quietly omitted the
+    //   reader is a list he cannot check against his own «تفاصيل اشتراكي».
+    final String name = row.mine ? '${row.name} — ${l.arrearsMine}' : row.name;
+    final String note = owes
+        ? (row.hasCredit ? l.arrearsAlsoHeld(formatMoney(row.held)) : '')
+        : l.arrearsHeldLabel;
+
+    // ── ⚠ Wrap, NOT Row — سطرٌ واحدٌ إن اتّسع، واثنان إن لم يتّسع ──────────
+    //
+    //   A bare Row overflowed by 141 PIXELS at 320px with a long Libyan name
+    //   and a six-figure amount. An overflow is not a subtle defect: Flutter
+    //   paints yellow and black stripes across the design. Ellipsis on the
+    //   name alone could not save it — the note and the amount together were
+    //   already wider than the pane.
+    //
+    // ⚠ AND THE ASSOCIATION CHOSE THE TRADE: «لا مانع من ادراج صف ثاني تحت،
+    //   ولكن الخروج خارج اطار التطبيق ممنوع تحت اي ظرف كان». Wrap gives
+    //   exactly that — one line whenever it fits, a second when it must, and
+    //   never a pixel outside the pane.
+    //
+    // ⚠ THE NAME IS CAPPED, NOT Expanded. Wrap hands each child its natural
+    //   width, so an uncapped name would take the whole run on its own; the
+    //   cap is what leaves room for the amount beside it in the common case.
+    //
+    // ⚠ AND THE NOTE TRAVELS WITH THE AMOUNT, in one inner Row. They are one
+    //   statement — «له عهدة 100 د.ل» — and letting the wrap split them would
+    //   put «له عهدة» at the end of one line and its figure at the start of
+    //   the next.
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.sm,
+        runSpacing: 2,
+        children: <Widget>[
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: AppColors.ink),
+            ),
+          ),
+          // ⚠ THREE INDEPENDENT WRAP CHILDREN, AND THE NOTE IS NOT GLUED TO
+          //   THE AMOUNT. The first attempt put them in one inner Row so they
+          //   would never split — and that Row is unbounded inside a Wrap, so
+          //   «وله عهدة 98,765.00» plus «123,456.00 د.ل» overflowed the pane by
+          //   133 pixels ON ITS OWN. Gluing them made the pair impossible to
+          //   break and therefore impossible to fit.
+          //
+          //   The note carries its own figure, so it reads perfectly on a line
+          //   of its own. Every child is capped and ellipsised: nothing here
+          //   can be wider than the pane, whatever the register holds.
+          if (note.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: Text(
+                note,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: AppColors.muted),
+              ),
+            ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              formatMoneyWithCurrency(owes ? row.owed : row.held, l.currency),
+              maxLines: 1,
+              // ⚠ scaleDown, NOT ellipsis. A truncated NAME is still a name; a
+              //   truncated AMOUNT is a different number, and this is the one
+              //   thing on the row that must never be read wrong.
+              overflow: TextOverflow.visible,
+              softWrap: false,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: tone,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

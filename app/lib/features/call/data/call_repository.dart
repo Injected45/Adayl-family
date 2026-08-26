@@ -36,6 +36,33 @@ class CallRepository {
   ///
   /// Newest first with a cap of one: `start_call` guarantees at most one live
   /// call per thread, so anything older is history.
+  /// حالُ مكالمةٍ بعينها — «هل ما زالت قائمة».
+  ///
+  /// ⚠ THE SEAT COUNT IS NOT THE SAME QUESTION, and that difference is what
+  ///   left two handsets on a dead call. CallSession closed itself when fewer
+  ///   than two LIVE SEATS remained — but only after company had actually
+  ///   arrived, because a ringing caller is alone by definition. A call that
+  ///   never connected has one seat from beginning to end, so that rule could
+  ///   never fire, and pressing red ended it for the presser alone.
+  ///
+  ///   The association's own log said so: every call that day carried ONE
+  ///   seat, one rang for 469 seconds, and «انتهت بعد» was set for the man who
+  ///   pressed and for nobody else.
+  ///
+  /// ⚠ v_calls, NOT the table: the view already reports a «ترن» older than
+  ///   sixty seconds as «فائتة» and a «جارية» whose seats have gone quiet as
+  ///   ended. Reading the table would keep a corpse alive on screen.
+  Future<CallView?> byId(int callId) => SupabaseFailures.guard(() async {
+    final dynamic rows = await _db
+        .from('v_calls')
+        .select()
+        .eq('id', callId)
+        .limit(1);
+    final List<dynamic> list = rows as List<dynamic>;
+    if (list.isEmpty) return null;
+    return CallView.fromJson((list.first as Map).cast<String, dynamic>());
+  });
+
   Future<CallView?> liveIn(int? threadAdeelId) =>
       SupabaseFailures.guard(() async {
         final dynamic rows = await _inThread(
@@ -94,7 +121,8 @@ class CallRepository {
             .order('id', ascending: true);
         return (rows as List<dynamic>)
             .map(
-              (dynamic e) => CallSignal.fromJson((e as Map).cast<String, dynamic>()),
+              (dynamic e) =>
+                  CallSignal.fromJson((e as Map).cast<String, dynamic>()),
             )
             .toList();
       });
@@ -122,7 +150,9 @@ class CallRepository {
   Future<List<CallPeer>> directory() => SupabaseFailures.guard(() async {
     final dynamic rows = await _db.rpc<dynamic>('api_call_directory');
     return (rows as List<dynamic>)
-        .map((dynamic e) => CallPeer.fromJson((e as Map).cast<String, dynamic>()))
+        .map(
+          (dynamic e) => CallPeer.fromJson((e as Map).cast<String, dynamic>()),
+        )
         .toList();
   });
 

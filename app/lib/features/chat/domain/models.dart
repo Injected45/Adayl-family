@@ -24,6 +24,8 @@ class ChatMessage {
     this.threadAdeelId,
     this.threadName = '',
     this.room = 'hall',
+    this.voicePath,
+    this.voiceMs,
   });
 
   /// Monotonic, and the app leans on that twice: it is the sort key and it is
@@ -84,6 +86,20 @@ class ChatMessage {
   ///   private is ever labelled as something it is not.
   final String room;
 
+  /// مسارُ المقطع في مخزن voice، وطولُه بالمللي ثانية.
+  ///
+  /// ⚠ NULL ON A DELETED MESSAGE, and the view is what makes that true — it
+  ///   sends no path once deleted_at is set, exactly as it sends no body. The
+  ///   client is never handed something it is trusted to hide.
+  ///
+  /// ⚠ AND A PATH IS NOT A URL. The bucket is private: the path is signed for
+  ///   a few minutes when a man presses play, so nothing durable ever exists
+  ///   that could be forwarded out of the room it belongs to.
+  final String? voicePath;
+  final int? voiceMs;
+
+  bool get isVoice => voicePath != null && voicePath!.isNotEmpty;
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
     id: _int(json['id']),
     authorName: _string(json['authorName']),
@@ -96,6 +112,10 @@ class ChatMessage {
     room: json['room'] is String && (json['room'] as String).isNotEmpty
         ? json['room'] as String
         : 'hall',
+    voicePath: json['voicePath'] is String && (json['voicePath'] as String).isNotEmpty
+        ? json['voicePath'] as String
+        : null,
+    voiceMs: json['voiceMs'] is num ? (json['voiceMs'] as num).toInt() : null,
     threadAdeelId: json['threadAdeelId'] is num
         ? (json['threadAdeelId'] as num).toInt()
         : null,

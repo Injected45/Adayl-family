@@ -15,9 +15,10 @@ import '../data/call_ringtone.dart';
 import '../data/call_session.dart';
 import '../domain/models.dart';
 
-final Provider<CallRepository> callRepositoryProvider = Provider<CallRepository>(
-  (Ref ref) => CallRepository(ref.watch(supabaseClientProvider)),
-);
+final Provider<CallRepository> callRepositoryProvider =
+    Provider<CallRepository>(
+      (Ref ref) => CallRepository(ref.watch(supabaseClientProvider)),
+    );
 
 /// نغمة الرنين — واحدة للتطبيق كلّه.
 ///
@@ -61,11 +62,24 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
   ///   POLLED NOTHING AT ALL. A call to him appeared only if he wandered into
   ///   المجلس. See app.dart, where the banner now sits above the whole app.
   ///
-  ///   Two rather than three is the smaller half of the same complaint: the
-  ///   query is one capped row and the server has already excluded every stale
-  ///   «ترن», so the cost of asking more often is close to nothing, and
-  ///   missing a call is the one failure this feature cannot have.
-  static const Duration interval = Duration(seconds: 2);
+  ///   Three became two, and two became ONE, and each step was a report
+  ///   rather than a preference. The last one came from a test with both
+  ///   handsets awake, side by side, on the foreground — «مازال يتأخر في
+  ///   الرنين». With the app in front of a man there is no Android throttling
+  ///   left to blame: what remains is this clock and a round trip.
+  ///
+  /// ⚠ ONE SECOND IS AFFORDABLE ONLY BECAUSE OF WHAT THE QUERY IS. It selects
+  ///   ONE capped row from v_calls with no body and no join, and the server has
+  ///   already excluded every stale «ترن» — so a handset asks about eight men
+  ///   once a second and carries a few hundred bytes doing it. The moment this
+  ///   read grows a join or drops its limit, one second stops being affordable
+  ///   and the number has to come back up.
+  ///
+  /// ⚠ AND THE DOORBELL IS STILL THE FAST PATH. This clock is the GUARANTEE —
+  ///   what a handset falls back to when Realtime is not delivering. If a call
+  ///   still feels late with this at one second, the fault is not the interval
+  ///   and lowering it further will not find it.
+  static const Duration interval = Duration(seconds: 1);
 
   Timer? _timer;
   bool _gone = false;
@@ -183,9 +197,7 @@ class IncomingCall extends AutoDisposeAsyncNotifier<CallView?> {
 
     if (_ringing == call.id) return;
     _ringing = call.id;
-    unawaited(
-      AppNotifier.ringing(call.callerName, NotifyText.incomingCall),
-    );
+    unawaited(AppNotifier.ringing(call.callerName, NotifyText.incomingCall));
   }
 
   /// ردّ، أو رفض — فيسكت الرنين فوراً ولا يعود.

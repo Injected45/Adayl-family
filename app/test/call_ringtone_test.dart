@@ -23,11 +23,24 @@ import 'package:flutter_test/flutter_test.dart';
 class _Spy extends CallRingtone {
   int plays = 0;
 
+  /// آخرُ ملفٍّ طُلب — فالنغمتان ليستا واحدة.
+  ///
+  /// ⚠ THE CALLER AND THE RECEIVER HEAR DIFFERENT SOUNDS, and a spy that only
+  ///   counted plays could not tell them apart — which is exactly the mistake
+  ///   worth guarding: a caller hearing his own ringtone cannot tell whether
+  ///   the other phone is ringing or his own.
+  String? lastAsset;
+
   @override
-  Future<void> play() async => plays++;
+  Future<void> play({String asset = CallRingtone.receiverAsset}) async {
+    plays++;
+    lastAsset = asset;
+  }
 }
 
 void main() {
+  _ringbackTests();
+
   group('the decision', () {
     test('starting rings once', () async {
       final _Spy t = _Spy();
@@ -40,13 +53,16 @@ void main() {
     //   RINGING CALL EACH TIME. Restarting the loop on every tick would cut the
     //   tone off two seconds in, forever — a stutter, not a ring. The idempotence
     //   is the feature.
-    test('⚠ and starting again while ringing does NOT restart the loop', () async {
-      final _Spy t = _Spy();
-      await t.start();
-      await t.start();
-      await t.start();
-      expect(t.plays, 1);
-    });
+    test(
+      '⚠ and starting again while ringing does NOT restart the loop',
+      () async {
+        final _Spy t = _Spy();
+        await t.start();
+        await t.start();
+        await t.start();
+        expect(t.plays, 1);
+      },
+    );
 
     test('stopping silences it, and it can ring again afterwards', () async {
       final _Spy t = _Spy();
@@ -76,29 +92,33 @@ void main() {
     //   silence: a non-zero edge puts a click at the start of every repeat, and
     //   a click is the loudest thing in the file. That is a property of the
     //   BYTES, and nothing else in this project would ever notice it changing.
-    test('ringtone.wav is a loopable 16-bit mono WAV that starts and ends silent', () {
-      final File f = File('assets/sounds/ringtone.wav');
-      expect(f.existsSync(), isTrue, reason: 'the ringtone asset is missing');
+    test(
+      'ringtone.wav is a loopable 16-bit mono WAV that starts and ends silent',
+      () {
+        final File f = File('assets/sounds/ringtone.wav');
+        expect(f.existsSync(), isTrue, reason: 'the ringtone asset is missing');
 
-      final bytes = f.readAsBytesSync();
-      final data = bytes.buffer.asByteData();
+        final bytes = f.readAsBytesSync();
+        final data = bytes.buffer.asByteData();
 
-      expect(String.fromCharCodes(bytes.sublist(0, 4)), 'RIFF');
-      expect(String.fromCharCodes(bytes.sublist(8, 12)), 'WAVE');
-      expect(data.getUint16(22, Endian.little), 1, reason: 'must be mono');
-      expect(data.getUint16(34, Endian.little), 16, reason: 'must be 16-bit');
+        expect(String.fromCharCodes(bytes.sublist(0, 4)), 'RIFF');
+        expect(String.fromCharCodes(bytes.sublist(8, 12)), 'WAVE');
+        expect(data.getUint16(22, Endian.little), 1, reason: 'must be mono');
+        expect(data.getUint16(34, Endian.little), 16, reason: 'must be 16-bit');
 
-      expect(
-        data.getInt16(44, Endian.little),
-        0,
-        reason: 'first sample must be silence or every loop starts with a click',
-      );
-      expect(
-        data.getInt16(bytes.length - 2, Endian.little).abs(),
-        lessThan(64),
-        reason: 'last sample must be silence or the loop clicks',
-      );
-    });
+        expect(
+          data.getInt16(44, Endian.little),
+          0,
+          reason:
+              'first sample must be silence or every loop starts with a click',
+        );
+        expect(
+          data.getInt16(bytes.length - 2, Endian.little).abs(),
+          lessThan(64),
+          reason: 'last sample must be silence or the loop clicks',
+        );
+      },
+    );
 
     test('and it carries a real tone, measured as energy not one sample', () {
       final bytes = File('assets/sounds/ringtone.wav').readAsBytesSync();
@@ -122,8 +142,16 @@ void main() {
         return n == 0 ? 0 : (sum / n);
       }
 
-      expect(rms(0, 0.28), greaterThan(0.001), reason: 'the first tone is silent');
-      expect(rms(0.36, 0.64), greaterThan(0.001), reason: 'the second tone is silent');
+      expect(
+        rms(0, 0.28),
+        greaterThan(0.001),
+        reason: 'the first tone is silent',
+      );
+      expect(
+        rms(0.36, 0.64),
+        greaterThan(0.001),
+        reason: 'the second tone is silent',
+      );
       // The rest before the loop repeats — what makes it a ring rather than a
       // continuous buzz.
       expect(rms(0.75, 1.95), lessThan(1e-8), reason: 'the rest is not silent');
@@ -179,14 +207,187 @@ void main() {
   //   rather than the plumbing: a ring lives sixty seconds (v_calls expires
   //   it), so the interval must give several chances at it. One chance is a
   //   missed call whenever a single request fails.
-  test('the background heartbeat catches a sixty-second ring several times', () {
-    expect(BackgroundService.heartbeat.inSeconds, lessThanOrEqualTo(15));
+  //
+  // ⚠ THE FLOOR WAS EIGHT SECONDS AND IT WAS LOWERED DELIBERATELY, on evidence
+  //   rather than preference. «Several chances» answers «did he MISS the call»;
+  //   the association asked a different question — «هل ظهر الرنين بمجرد الرنّ»
+  //   — and their own call log answered it: 24 seconds to one answer, 73 to
+  //   another. In the background this beat IS the clock, so ten seconds was
+  //   the floor those numbers were built on.
+  //
+  // ⚠ AND THE BATTERY ARGUMENT IS NOT DISMISSED, IT IS PRICED. The beat sends
+  //   one word to the main isolate, which then makes two capped, body-less
+  //   requests. refreshAll is deliberately not called there. Three seconds
+  //   would be a poll disguised as a heartbeat; three is the floor now, and
+  //   anything under it should be argued for in a comment like this one.
+  test(
+    'the background heartbeat catches a sixty-second ring several times',
+    () {
+      expect(BackgroundService.heartbeat.inSeconds, lessThanOrEqualTo(15));
+      expect(
+        60 ~/ BackgroundService.heartbeat.inSeconds,
+        greaterThanOrEqualTo(4),
+        reason: 'too slow to be sure of catching a ring',
+      );
+      // And not so fast that a phone in a pocket pays for it.
+      expect(BackgroundService.heartbeat.inSeconds, greaterThanOrEqualTo(3));
+    },
+  );
+}
+
+/// نغمتان لا واحدة: ما يسمعه المتّصل، وما يسمعه المستقبِل.
+///
+/// ⚠ «عند الاتصال يبقى صامت». A caller with no tone cannot tell whether the
+///   call went anywhere at all — the screen says «يرنّ» and the earpiece says
+///   nothing, which is exactly when a man hangs up and tries again.
+///
+/// ⚠ AND THEY MUST NOT BE THE SAME FILE. A caller hearing his own ringtone
+///   cannot tell whether the other man's phone is ringing or his own.
+void _ringbackTests() {
+  test('⚠ the caller and the receiver hear different files', () {
     expect(
-      60 ~/ BackgroundService.heartbeat.inSeconds,
-      greaterThanOrEqualTo(4),
-      reason: 'too slow to be sure of catching a ring',
+      CallRingtone.callerAsset,
+      isNot(CallRingtone.receiverAsset),
+      reason: 'one signal for two opposite meanings is no signal',
     );
-    // And not so fast that a phone in a pocket pays for it.
-    expect(BackgroundService.heartbeat.inSeconds, greaterThanOrEqualTo(8));
+  });
+
+  test('starting a ringback plays the CALLER file, and once', () async {
+    final _Spy t = _Spy();
+    await t.startRingback();
+    expect(t.plays, 1);
+    expect(t.lastAsset, CallRingtone.callerAsset);
+
+    // ⚠ IDEMPOTENT, like start(). The phase listener fires on every change and
+    //   would otherwise restart the loop from the top — a stutter, not a ring.
+    await t.startRingback();
+    expect(t.plays, 1);
+  });
+
+  test('and the receiver tone is still the default', () async {
+    final _Spy t = _Spy();
+    await t.start();
+    expect(t.lastAsset, CallRingtone.receiverAsset);
+  });
+
+  test('⚠ and one player, so the two can never sound together', () async {
+    // A handset is only ever one end of one call. Holding two loopers would
+    // leave whichever was not stopped ringing until the app was restarted.
+    final _Spy t = _Spy();
+    await t.startRingback();
+    await t.start();
+    expect(t.plays, 1, reason: 'the second must be refused while one is live');
+    await t.stop();
+    await t.start();
+    expect(t.plays, 2, reason: 'and allowed once the first has stopped');
+  });
+
+  test('⚠ the ringback file exists, and begins and ends at silence', () {
+    // The same rule ringtone.wav is built to: a non-zero edge puts a click at
+    // the top of every repeat, and this clip repeats every three seconds.
+    final File f = File('assets/sounds/ringback.wav');
+    expect(f.existsSync(), isTrue, reason: 'the caller has no tone at all');
+
+    final Uint8List b = f.readAsBytesSync();
+    expect(String.fromCharCodes(b.sublist(0, 4)), 'RIFF');
+    expect(String.fromCharCodes(b.sublist(8, 12)), 'WAVE');
+
+    final ByteData d = ByteData.sublistView(b);
+    expect(d.getInt16(44, Endian.little), 0, reason: 'starts on a click');
+    expect(
+      d.getInt16(b.length - 2, Endian.little),
+      0,
+      reason: 'ends on a click, heard at every repeat',
+    );
+  });
+
+  test('⚠ the call teardown always runs, whatever throws', () {
+    // ── THE WORST FAILURE THIS FILE GUARDS ─────────────────────────────────
+    //
+    //   activeCallProvider is set on the FIRST line of _open, and the banner
+    //   hides while it is non-null — that is how a man is stopped from being
+    //   offered a call he is already on. So anything throwing between that line
+    //   and the cleanup leaves the provider holding a dead session, and THAT
+    //   HANDSET NEVER SHOWS AN INCOMING CALL AGAIN — not this call, any call,
+    //   until the app is restarted.
+    //
+    //   The window is real and it GREW with the ringback: a modal route, a
+    //   WebRTC teardown, a platform-channel audio stop, a listener and a
+    //   provider read. One of those throwing is not a hypothesis.
+    final String src = File(
+      'lib/features/call/presentation/call_ui.dart',
+    ).readAsStringSync();
+
+    final int at = src.indexOf('Future<void> _open(');
+    expect(at, greaterThan(-1));
+    final String fn = src.substring(at, (at + 6000).clamp(0, src.length));
+
+    expect(
+      fn,
+      contains('} finally {'),
+      reason: 'the cleanup must run on every path out of _open',
+    );
+    final int fin = fn.indexOf('} finally {');
+    final String cleanup = fn.substring(fin);
+    expect(cleanup, contains('activeCallProvider.notifier).state = null'));
+    expect(cleanup, contains('session.dispose()'));
+    expect(cleanup, contains('removeListener(followPhase)'));
+  });
+
+  test('⚠ and the RECEIVER never hears a ringback', () {
+    // open() sets the phase to «ringing» on BOTH handsets — it means «I have my
+    // seat and the call is not connected yet», which is true of the man who
+    // answered too. A telephone ringback under the button he just pressed is
+    // the sound of a call that has NOT been answered.
+    final String src = File(
+      'lib/features/call/presentation/call_ui.dart',
+    ).readAsStringSync();
+
+    expect(src, contains('bool ringback = false'));
+    expect(
+      src,
+      contains('if (ringback && session.phase.value == CallPhase.ringing)'),
+      reason: 'the tone must be gated on WHO raised the call',
+    );
+    // And exactly one caller opts in: the man who raised it.
+    expect(
+      'ringback: true'.allMatches(src).length,
+      1,
+      reason: 'answerCall must never pass it',
+    );
+  });
+
+  test('and the caller hears it only while the call is RINGING', () {
+    final String src = File(
+      'lib/features/call/presentation/call_ui.dart',
+    ).readAsStringSync();
+
+    expect(src, contains('startRingback()'));
+    // ⚠ ON THE PHASE, NOT A TIMER. The session owns the truth about when a call
+    //   stops ringing — an answer, a refusal, an expiry, a hang-up all end it —
+    //   so a listener on `phase` can never disagree with the screen.
+    expect(
+      src,
+      contains('session.phase.addListener'),
+      reason: 'a separate clock would eventually ring into a live conversation',
+    );
+    // ⚠ THE RINGBACK'S OWN LISTENER, NOT «a removeListener somewhere». The
+    //   sheet releases one too — «widget.session.phase.removeListener(_onPhase)»
+    //   — and a bare match on the method name found THAT and passed while the
+    //   ringback's listener was deleted. Proven by deleting it: the test stayed
+    //   green. The callback's NAME is what makes the assertion specific.
+    expect(
+      src,
+      contains('session.phase.removeListener(followPhase)'),
+      reason:
+          'session.dispose() disposes phase; a listener left on it is the leak '
+          'this codebase has paid for before — and the tone would loop with '
+          'nothing holding a reference to stop it',
+    );
+    expect(
+      src,
+      contains('session.phase.addListener(followPhase)'),
+      reason: 'and it must be the same callback that was attached',
+    );
   });
 }

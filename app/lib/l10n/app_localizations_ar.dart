@@ -1463,7 +1463,7 @@ class LAr extends L {
 
   @override
   String get arrearsBoardNote =>
-      'هذه التزامات الصندوق ومستحقّاته على المشتركين. الأحمر: عليه. الأخضر: له عهدة مدفوعة مقدّماً.';
+      'الأحمر: مستحقات عليه · الأخضر: له عهدة مدفوعة مقدماً';
 
   @override
   String get arrearsMine => 'أنا';
@@ -1503,4 +1503,25 @@ class LAr extends L {
 
   @override
   String get themeDark => 'داكن';
+
+  @override
+  String get voicePlay => 'تشغيل';
+
+  @override
+  String get voiceStop => 'إيقاف';
+
+  @override
+  String get voiceRecord => 'تسجيل صوتي';
+
+  @override
+  String get voiceRecording => 'جارٍ التسجيل…';
+
+  @override
+  String get voiceCancel => 'إلغاء';
+
+  @override
+  String get voiceNoMic => 'لا يمكن التسجيل بدون إذن الميكروفون';
+
+  @override
+  String get voiceTooShort => 'المقطع قصير جداً';
 }
