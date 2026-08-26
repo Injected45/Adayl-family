@@ -29,6 +29,16 @@ abstract final class NotifyText {
   /// The body of a new-message notification. Its title is the count.
   static String newMessages = '';
 
+  /// «مجلس العدايل · فلان» — the hall needs its NAME in the title, because a
+  /// message there is from one of eight men and the room is the context. A
+  /// private line and a board thread are already identified by who wrote them.
+  static String Function(String) hallFrom = (String who) => who;
+
+  /// «… ورسالة أخرى» — Android replaces a notification by id, so the newest
+  /// line is what he sees; without the count he would open the app expecting
+  /// one message and find four.
+  static String Function(String, int) andMore = (String body, int more) => body;
+
   /// The permanent notification Android requires while the service runs.
   static String serviceTitle = '';
   static String serviceBody = '';
@@ -44,6 +54,8 @@ abstract final class NotifyText {
   static void fill(L l) {
     incomingCall = l.callIncomingBody;
     newMessages = l.chatNewMessagesBody;
+    hallFrom = l.chatNotifyHallFrom;
+    andMore = l.chatNotifyAndMore;
     serviceTitle = l.notifyServiceTitle;
     serviceBody = l.notifyServiceBody;
     serviceChannel = l.notifyServiceChannel;

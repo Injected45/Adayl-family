@@ -23,6 +23,7 @@ class ChatMessage {
     this.authorAdeelId,
     this.threadAdeelId,
     this.threadName = '',
+    this.room = 'hall',
   });
 
   /// Monotonic, and the app leans on that twice: it is the sort key and it is
@@ -70,6 +71,19 @@ class ChatMessage {
   /// conversation that is still open. Empty in المجلس.
   final String threadName;
 
+  /// أيُّ غرفة: 'hall' | 'board' | 'direct'.
+  ///
+  /// ⚠ THE SERVER SAYS IT; NOTHING HERE INFERS IT. A direct message and a hall
+  ///   message BOTH carry threadAdeelId null, and inferring the room from that
+  ///   has now caused two separate defects — a read policy that showed every
+  ///   private conversation to everyone, and a hall query that showed a man
+  ///   his own private line inside المجلس. See PATCH_20260823f.
+  ///
+  ///   Defaults to 'hall' for a database that predates the column, which is
+  ///   the safe side: an unknown room is treated as the PUBLIC one, so nothing
+  ///   private is ever labelled as something it is not.
+  final String room;
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
     id: _int(json['id']),
     authorName: _string(json['authorName']),
@@ -79,6 +93,9 @@ class ChatMessage {
     fromStaff: _bool(json['fromStaff']),
     deleted: _bool(json['deleted']),
     threadName: _string(json['threadName']),
+    room: json['room'] is String && (json['room'] as String).isNotEmpty
+        ? json['room'] as String
+        : 'hall',
     threadAdeelId: json['threadAdeelId'] is num
         ? (json['threadAdeelId'] as num).toInt()
         : null,

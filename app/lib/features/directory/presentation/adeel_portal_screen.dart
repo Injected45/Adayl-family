@@ -181,9 +181,20 @@ class AdeelPortalScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: <Widget>[
+                    // ⚠ appTitle, NOT myFamilyTitle, AND NOT A NEW STRING.
+                    //   The header said «اشتراكي»; the association preferred
+                    //   «جمعية العدايل» — the app already has that name and
+                    //   this is the only screen a member ever sees, so it is
+                    //   the app's title bar as far as he is concerned.
+                    //
+                    // ⚠ myFamilyTitle STAYS, and stays «اشتراكي», because its
+                    //   other caller is the HOME button's tooltip in
+                    //   AppScaffold — «take me to my subscription» is a
+                    //   destination, not a masthead. Retitling the shared
+                    //   string would have quietly renamed that too.
                     Expanded(
                       child: Text(
-                        l.myFamilyTitle,
+                        l.appTitle,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -467,9 +478,11 @@ class _OthersAidButton extends ConsumerWidget {
           // spinner on a label makes an aside look like the point.
           Text(
             formatMoney(aid.valueOrNull?.total ?? '0.00'),
+            // ⚠ RED: what the fund paid out to everyone else — money that has
+            //   LEFT, which is what red says on the الصندوق page too.
             style: const TextStyle(
               fontWeight: FontWeight.w900,
-              color: AppColors.muted,
+              color: AppColors.danger,
               fontSize: 13,
             ),
           ),
@@ -516,9 +529,11 @@ class _MyAidButton extends ConsumerWidget {
           // aside look like the point.
           Text(
             formatMoney(aid.valueOrNull?.total ?? '0.00'),
+            // ⚠ GREEN: this is what the association GAVE HIM. It was red, which
+            //   in this app means «عليك» — the opposite of what a gift is.
             style: const TextStyle(
               fontWeight: FontWeight.w900,
-              color: AppColors.danger,
+              color: AppColors.success,
               fontSize: 13,
             ),
           ),
@@ -649,14 +664,34 @@ class _BalanceHero extends StatelessWidget {
         ? formatMoney(detail.credit)
         : formatMoney(detail.netBalance);
 
-    final Color statusTone = switch (adeel.membershipStatus) {
-      MembershipStatusWire.active => AppColors.success,
-      MembershipStatusWire.suspended => AppColors.warning,
-      _ => AppColors.muted,
-    };
+    // ── ⚠ الحاوية كلُّها تلبس وضعَه ─────────────────────────────────────
+    //
+    //   «الحاوية بالكامل تظهر بلون خلفية حمراء شفافة في حال العديل عليه
+    //   مديونية … وتظهر باللون الأخضر الزجاجي الشفاف في حال أن العديل لديه
+    //   قيمة عهدة له. ويظل الوضع العادي في حال العديل صفر.»
+    //
+    // ⚠ THREE STATES, AND THE THIRD IS «NO TINT» ON PURPOSE. A man who owes
+    //   nothing and is owed nothing is not a state worth colouring; tinting
+    //   him too would leave the card always coloured, and a signal that is
+    //   always on is not a signal.
+    //
+    // ⚠ 0.10 IS THE SAME ALPHA THE TINTED KPI CARD USES, and it is the one the
+    //   design suite proves at: label and figure in a tone, over a fill made of
+    //   that same tone, must still clear AA — both sides move together, which
+    //   is the pairing most likely to fail. Deepening this would fail it.
+    //
+    // ⚠ AND THE BORDER MOVES WITH THE FILL. A tinted pane inside the app's
+    //   default hairline reads as a mistake rather than a state.
+    final Color? heroFill = owes
+        ? AppColors.danger.withValues(alpha: 0.10)
+        : inCredit
+        ? AppColors.success.withValues(alpha: 0.10)
+        : null;
 
     return GlassCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
+      fill: heroFill,
+      borderColor: heroFill == null ? null : tone.withValues(alpha: 0.30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -735,22 +770,24 @@ class _BalanceHero extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        // The affordance. A name that opens something and does
-                        // not say so is a feature nobody finds, and this is
-                        // still the ONLY way to his details.
-                        const Icon(
-                          Icons.info_outline,
-                          size: 13,
-                          color: AppColors.muted,
-                        ),
+                        // ⚠ THE ⓘ IS GONE, BY REQUEST — and the affordance it
+                        //   stood for is not. The note it carried said «a name
+                        //   that opens something and does not say so is a
+                        //   feature nobody finds»; what replaced it says the
+                        //   same thing louder, because the WHOLE CARD is now
+                        //   tinted by his standing and is the obvious thing to
+                        //   press. Tapping the name still opens «تفاصيل
+                        //   اشتراكي» and is still the only way there.
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  // The status the database stores, verbatim — what he reads
-                  // here and what the treasurer reads cannot diverge.
-                  StatusBadge(label: adeel.membershipStatus, tone: statusTone),
+                  // ⚠ «نشط» MOVED INTO «تفاصيل اشتراكي», by request. It is a
+                  //   fact about his membership, not about his money, and it
+                  //   almost never changes — so on the one card he reads every
+                  //   day it was competing with the figure he opened the app
+                  //   for. It still shows the status the database stores,
+                  //   verbatim, in the section that holds the rest of what the
+                  //   association records about him.
                 ],
               ),
             ),
@@ -812,14 +849,63 @@ class _BalanceHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            figure,
-            style: TextStyle(
-              fontFamily: AppFonts.display,
-              fontSize: 40,
-              height: 1.1,
-              fontWeight: FontWeight.w800,
-              color: tone,
+          // ── ⚠ الرقمُ ثمّ الوحدة، بينهما فراغ ──────────────────────────
+          //
+          //   «يكون على يساره د.ل … لا تكون ملاصقة للقيمة ولكن بها فراغ قليل
+          //   كما هو معروف في كل التطبيقات العالمية.»
+          //
+          // ⚠ A ROW OF TWO TEXTS, NOT formatMoneyWithCurrency. That helper
+          //   joins them with ONE ordinary space into a single string, so the
+          //   unit would inherit the figure's 40pt display face and its tone —
+          //   «د.ل» as tall and as red as the amount, which is exactly the
+          //   «ملاصقة» look the association is describing. Two widgets let the
+          //   gap be chosen and let the unit stay quiet.
+          //
+          // ⚠ baseline: TextBaseline.alphabetic WITH CrossAxisAlignment.baseline
+          //   — a smaller Text in a Row otherwise centres against the tall one
+          //   and floats in the middle of the digits.
+          //
+          // ⚠ AND THE UNIT IS MUTED, NEVER «tone». The colour on this card
+          //   carries a meaning — red is «عليك», green is «لك» — and a currency
+          //   symbol is neither.
+          // ⚠ FittedBox, AND A LAYOUT TEST IS WHAT PUT IT HERE. Adding the
+          //   unit widened this line, and «a four-figure amount stays inside
+          //   its column» failed with «A RenderFlex overflowed by 75 pixels» —
+          //   a real overflow at a real phone width, not a strict test. The
+          //   40pt figure alone already filled the card.
+          //
+          // ⚠ SCALE THE ROW, NOT THE FIGURE. Shrinking only the number would
+          //   let «د.ل» grow relatively larger as the amount grows, so the
+          //   unit would loom over five digits and hide beside two. Scaling
+          //   the pair keeps the proportion and the gap the association asked
+          //   for at every amount.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: <Widget>[
+                Text(
+                  figure,
+                  style: TextStyle(
+                    fontFamily: AppFonts.display,
+                    fontSize: 40,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: tone,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  l.currency,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.xs),

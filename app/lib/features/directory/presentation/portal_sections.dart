@@ -126,15 +126,23 @@ class _Header extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  section.subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
-                    color: AppColors.muted,
+                // ⚠ AN EMPTY SUBTITLE COLLAPSES, HERE AS ON THE PAGE HEADER.
+                //   All four hints were removed by request — «زائدة عن
+                //   الحاجة» — and a Text('') would leave each tile carrying a
+                //   blank line and two pixels of nothing. Guarding both render
+                //   sites is what lets the strings simply be emptied rather
+                //   than each call site edited.
+                if (section.subtitle.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 2),
+                  Text(
+                    section.subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: AppColors.muted,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -399,11 +407,15 @@ class _MenuCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    // ⚠ «أين يقف مال الجمعية — للاطلاع فقط» IS GONE FROM THE
-                    //   PAGE HEADER, by request. An empty subtitle collapses
-                    //   rather than leaving a blank line, so a section that
-                    //   still has one is unaffected.
+                    // ⚠ ALL FOUR SUBTITLES ARE EMPTY NOW, BY REQUEST —
+                    //   «زائدة عن الحاجة». Each was a sentence describing what
+                    //   the section already shows: «اسمك ورقمك وحالتك وقيمة
+                    //   الاشتراك» sat under a page listing exactly those.
+                    //
+                    // ⚠ THE STRINGS WERE EMPTIED, NOT THE FIELD REMOVED, and
+                    //   both render sites collapse on empty — here and on the
+                    //   menu tile. So a section that wants a hint again gets
+                    //   one by filling in the ARB, with no widget to edit.
                     if (section.subtitle.isNotEmpty)
                       Text(
                         section.subtitle,
@@ -465,9 +477,20 @@ class _DetailsBody extends ConsumerWidget {
               children: <Widget>[
                 SectionRow(label: l.fullNameField, value: d.adeel.fullName),
                 SectionRow(label: l.receiptNo, value: d.adeel.adeelCode),
+                // ⚠ «نشط» LIVES HERE NOW AND ONLY HERE. It used to sit as a
+                //   badge beside his name on the balance card as well —
+                //   two places, one fact, and on the card he reads every day
+                //   it competed with the figure he opened the app for. The
+                //   tone it wore there comes with it, so nothing is lost but
+                //   the duplication.
                 SectionRow(
                   label: l.statusLabel,
                   value: d.adeel.membershipStatus,
+                  tone: switch (d.adeel.membershipStatus) {
+                    MembershipStatusWire.active => AppColors.success,
+                    MembershipStatusWire.suspended => AppColors.warning,
+                    _ => AppColors.muted,
+                  },
                 ),
                 SectionRow(label: l.phone, value: d.adeel.phone),
                 SectionRow(

@@ -56,14 +56,32 @@ class ChatRepository {
         return _rows(rows);
       });
 
-  /// `is('threadAdeelId', null)` and not `eq(..., null)`: PostgREST needs IS
-  /// NULL, and `eq` with a null would filter on the literal string.
+  /// ── ⚠ THE ROOM IS ASKED FOR BY NAME, NOT INFERRED ────────────────────────
+  ///
+  ///   This read `isFilter('threadAdeelId', null)` for المجلس — and a DIRECT
+  ///   message has that column NULL too. RLS hands a man his own direct rows
+  ///   (it must; that is his conversation), so the hall query swept them up
+  ///   and both participants watched a private line appear in the public room.
+  ///   Reported in exactly those words: «الرسالة تظهر أيضاً في المحادثة
+  ///   العامة». Nobody else ever saw it — read_chat's «peer_a IS NULL» held,
+  ///   proven with the app's own role — but the two of them did, and that is
+  ///   enough to destroy the promise.
+  ///
+  /// ⚠ SECOND TIME THIS EXACT AMBIGUITY HAS BITTEN. PATCH_20260823a's own note
+  ///   says the read policy «had to be tightened to peer_a IS NULL» for the
+  ///   same reason. The policy was fixed; every other reader of that column
+  ///   was not. So the view now carries `room` — 'hall' | 'board' | 'direct'
+  ///   — and nothing has to remember the rule again.
+  ///
+  /// ⚠ AND `eq`, NOT `isFilter`: room is never null. The old note here warned
+  ///   that `eq(..., null)` filters on the literal string; that trap is gone
+  ///   with the nullable column it applied to.
   static PostgrestFilterBuilder<dynamic> _inRoom(
     PostgrestFilterBuilder<dynamic> query,
     int? threadAdeelId,
   ) => threadAdeelId == null
-      ? query.isFilter('threadAdeelId', null)
-      : query.eq('threadAdeelId', threadAdeelId);
+      ? query.eq('room', 'hall')
+      : query.eq('room', 'board').eq('threadAdeelId', threadAdeelId);
 
   /// The board's inbox: one row per private conversation, newest first.
   ///
@@ -105,16 +123,19 @@ class ChatRepository {
   ///
   /// ⚠ SO THE PRIVACY IS THE SERVER'S HERE TOO. This filter narrows a list the
   ///   database has already narrowed; it decides nothing.
-  Future<List<ChatMessage>> directMessages(int peerAdeelId, {int limit = 200}) =>
-      SupabaseFailures.guard(() async {
-        final dynamic rows = await _db
-            .from('v_chat_messages')
-            .select()
-            .or('peerA.eq.$peerAdeelId,peerB.eq.$peerAdeelId')
-            .order('id', ascending: false)
-            .limit(limit);
-        return _rows(rows).reversed.toList();
-      });
+  Future<List<ChatMessage>> directMessages(
+    int peerAdeelId, {
+    int limit = 200,
+  }) => SupabaseFailures.guard(() async {
+    final dynamic rows = await _db
+        .from('v_chat_messages')
+        .select()
+        .eq('room', 'direct')
+        .or('peerA.eq.$peerAdeelId,peerB.eq.$peerAdeelId')
+        .order('id', ascending: false)
+        .limit(limit);
+    return _rows(rows).reversed.toList();
+  });
 
   /// The poll, for a direct thread. Same shape as [refreshFrom].
   Future<List<ChatMessage>> directRefreshFrom(int fromId, int peerAdeelId) =>
@@ -122,6 +143,7 @@ class ChatRepository {
         final dynamic rows = await _db
             .from('v_chat_messages')
             .select()
+            .eq('room', 'direct')
             .or('peerA.eq.$peerAdeelId,peerB.eq.$peerAdeelId')
             .gte('id', fromId)
             .order('id', ascending: true);
@@ -196,6 +218,39 @@ extension ChatUnread on ChatRepository {
             .eq('mine', false)
             .limit(cap);
         return (rows as List<dynamic>).length;
+      });
+
+  /// أحدثُ رسالةٍ لم يقرأها — لنصِّ الإشعار وحده.
+  ///
+  /// ⚠ ONE ROW, AND ONLY WHEN A NOTIFICATION IS ACTUALLY POSTED. The bell
+  ///   ticks every two seconds and deliberately fetches ONE CAPPED COLUMN with
+  ///   no bodies — that frugality is the only reason two seconds is
+  ///   affordable. This is the opposite request: bodies, an author and a room,
+  ///   for a single row. It is affordable because it runs on the RISE of the
+  ///   count while the app is in the background, which is a handful of times a
+  ///   day, not every tick.
+  ///
+  /// ⚠ AND THE NOTIFICATION WAS WRONG WITHOUT IT. Its title was the bare
+  ///   COUNT — «3» on a lock screen — and its body said «لديك رسائل جديدة في
+  ///   مجلس العدايل» for every message, including a private one between two
+  ///   عدايل and a thread with the board. A notification that names the wrong
+  ///   room is worse than a silent one: it is read, believed, and acted on.
+  ///
+  /// Returns null when there is nothing to show, so the caller can fall back
+  /// to the generic text rather than lose the alert.
+  Future<ChatMessage?> newestUnread(int sinceId) =>
+      SupabaseFailures.guard(() async {
+        final dynamic rows = await _db
+            .from('v_chat_messages')
+            .select()
+            .gt('id', sinceId)
+            .eq('mine', false)
+            .order('id', ascending: false)
+            .limit(1);
+        // ⚠ QUALIFIED: this sits in an extension, where the class's private
+        //   static is not in scope unqualified.
+        final List<ChatMessage> list = ChatRepository._rows(rows);
+        return list.isEmpty ? null : list.first;
       });
 
   /// The newest id that exists for this caller, or 0 for an empty room.
@@ -273,7 +328,10 @@ extension ChatHallUnread on ChatRepository {
         final dynamic rows = await _db
             .from('v_chat_messages')
             .select('id')
-            .isFilter('threadAdeelId', null)
+            // ⚠ THE SAME BUG WAS HERE. The hall badge counted a man's own
+            //   private messages as unread المجلس — so a private conversation
+            //   put a number on the public room.
+            .eq('room', 'hall')
             .gt('id', sinceId)
             .eq('mine', false)
             .limit(cap);

@@ -1396,14 +1396,13 @@ class LEn extends L {
       'Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.';
 
   @override
-  String get portalDetailsHint => 'Your name, number, status and monthly fee';
+  String get portalDetailsHint => '';
 
   @override
-  String get portalBankHint =>
-      'Where to send a transfer, with the account number to copy';
+  String get portalBankHint => '';
 
   @override
-  String get portalOfficialsHint => 'Who to call, and their numbers';
+  String get portalOfficialsHint => '';
 
   @override
   String get portalTreasuryHint => '';
@@ -1491,4 +1490,14 @@ class LEn extends L {
 
   @override
   String get currency => 'LYD';
+
+  @override
+  String chatNotifyHallFrom(String who) {
+    return 'The hall · $who';
+  }
+
+  @override
+  String chatNotifyAndMore(String body, int more) {
+    return '$body  (+$more more)';
+  }
 }

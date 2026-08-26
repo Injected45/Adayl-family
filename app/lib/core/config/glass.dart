@@ -156,6 +156,7 @@ class GlassCard extends StatelessWidget {
     this.margin,
     this.onTap,
     this.borderColor,
+    this.fill,
     super.key,
   });
 
@@ -169,11 +170,25 @@ class GlassCard extends StatelessWidget {
 
   final Color? borderColor;
 
+  /// A tint over the card's own glass, for a card that must show a STATE.
+  ///
+  /// ⚠ NULL IS THE NORMAL CASE AND MUST STAY THE DEFAULT. These cards repeat
+  ///   down a page; a fill on every one of them would be a page of colour, and
+  ///   the one card that means something would say nothing. The portal's
+  ///   balance hero is the caller this exists for — red when he owes, green
+  ///   when the association holds his عهدة, and untinted when he is level.
+  ///
+  /// ⚠ PASS A TRANSLUCENT COLOUR. An opaque fill would cover the glass this
+  ///   design system is built on, and 0.10 is the alpha the design suite
+  ///   proves its tone pairings at.
+  final Color? fill;
+
   @override
   Widget build(BuildContext context) {
     final Widget surface = GlassSurface(
       radius: AppRadius.pane,
       borderColor: borderColor,
+      fill: fill,
       padding: onTap == null ? padding : EdgeInsets.zero,
       child: onTap == null
           ? child

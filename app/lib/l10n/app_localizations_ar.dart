@@ -1392,13 +1392,13 @@ class LAr extends L {
       'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.';
 
   @override
-  String get portalDetailsHint => 'اسمك ورقمك وحالتك وقيمة اشتراكك الشهري';
+  String get portalDetailsHint => '';
 
   @override
-  String get portalBankHint => 'إلى أين تُرسل الحوالة، ورقم الحساب لنسخه';
+  String get portalBankHint => '';
 
   @override
-  String get portalOfficialsHint => 'بمن تتصل، وأرقام هواتفهم';
+  String get portalOfficialsHint => '';
 
   @override
   String get portalTreasuryHint => '';
@@ -1489,4 +1489,14 @@ class LAr extends L {
 
   @override
   String get currency => 'د.ل';
+
+  @override
+  String chatNotifyHallFrom(String who) {
+    return 'مجلس العدايل · $who';
+  }
+
+  @override
+  String chatNotifyAndMore(String body, int more) {
+    return '$body  (و$more أخرى)';
+  }
 }

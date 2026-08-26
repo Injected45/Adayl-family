@@ -17,6 +17,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../data/chat_chime.dart';
 import '../data/chat_read_state.dart';
 import '../data/chat_repository.dart';
+import '../domain/models.dart';
 import 'providers.dart';
 
 final Provider<ChatReadState> chatReadStateProvider = Provider<ChatReadState>(
@@ -184,6 +185,14 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
     // waiting before the app opened», and a sound for those would greet
     // every launch with yesterday's messages. See ChatChime._seen.
     ref.read(chatChimeProvider).onCount(first, suppressed: true);
+
+    // ⚠ AND THE NOTIFICATION IS ARMED THE SAME WAY, WHICH IT WAS NOT. This
+    //   line was missing: _announced stayed 0 across a rebuild, so the first
+    //   tick after the app resumed found «n > 0 > _announced» and posted a
+    //   fresh alert for messages it had already announced. The chime had this
+    //   reasoning written out beside it and the notification never inherited
+    //   it — a phone re-alerting for yesterday's messages on every resume.
+    _announced = first;
     return first;
   }
 
@@ -214,9 +223,22 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
       if (onScreen || n == 0) {
         unawaited(AppNotifier.clearMessages());
       } else if (n > _announced) {
-        unawaited(
-          AppNotifier.message(l10nTitle(n), NotifyText.newMessages),
-        );
+        // ⚠ THE CONTENT COMES FROM THE MESSAGE, NOT FROM THE COUNT. The title
+        //   used to be «$n» — a bare number on a lock screen — over a body
+        //   that said «لديك رسائل جديدة في مجلس العدايل» for EVERY message,
+        //   including a private one between two عدايل and a thread with the
+        //   board. A notification that names the wrong room is worse than a
+        //   silent one: it is read, believed, and acted on.
+        //
+        // ⚠ ONE EXTRA REQUEST, ON THE RISE ONLY. The tick itself stays a
+        //   single capped column with no bodies — that frugality is why two
+        //   seconds is affordable — and this asks for one row at the moment an
+        //   alert is actually posted, which is a handful of times a day.
+        //
+        // ⚠ AND IT FALLS BACK RATHER THAN FAILING. If the row cannot be read,
+        //   the generic text still goes out: a vague alert is recoverable, a
+        //   missing one is not.
+        unawaited(_announce(n));
       }
       _announced = n;
 
@@ -226,6 +248,41 @@ class ChatUnread extends AutoDisposeAsyncNotifier<int> {
       // to zero on one dropped request is worse than a bell that is a minute
       // stale — the whole point of it is that it can be trusted at a glance.
     }
+  }
+
+  /// يبني نصَّ الإشعار من أحدث رسالةٍ لم تُقرأ.
+  ///
+  /// ⚠ THE ROOM DECIDES THE TITLE, and the three are not interchangeable:
+  ///   المجلس is a room whose NAME he needs (a message there is from one of
+  ///   eight men, and the room is the context), while a private line and a
+  ///   board thread are already identified by who wrote them. So the hall
+  ///   prefixes the room and the other two do not.
+  ///
+  /// ⚠ A DELETED MESSAGE ARRIVES WITH AN EMPTY BODY — the view sends '' rather
+  ///   than the text, so nothing here has to hide anything — and an empty body
+  ///   falls back to the generic line instead of posting a blank notification.
+  Future<void> _announce(int n) async {
+    String title = l10nTitle(n);
+    String body = NotifyText.newMessages;
+    try {
+      final ChatMessage? m = await ref
+          .read(chatRepositoryProvider)
+          .newestUnread(_lastRead);
+      if (m != null && m.body.trim().isNotEmpty) {
+        title = m.room == 'hall'
+            ? NotifyText.hallFrom(m.authorName)
+            : m.authorName;
+        body = m.body;
+        // ⚠ «ورسائلُ أخرى» RATHER THAN A SECOND NOTIFICATION. Android replaces
+        //   by id, so the newest line is what he sees; without the count he
+        //   would open the app expecting one message and find four.
+        if (n > 1) body = NotifyText.andMore(body, n - 1);
+      }
+    } on Object {
+      // Keep the generic alert. See the note at the call site.
+    }
+    if (_gone) return;
+    unawaited(AppNotifier.message(title, body));
   }
 
   /// اسأل الآن — من نبضة الخدمة الأماميّة وهو في الخلفية.

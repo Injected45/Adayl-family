@@ -462,9 +462,9 @@
   "creditNotice": "{amount} more than owed — it goes to his credit and covers coming months",
   "deviceLockedTitle": "This subscription is tied to another device",
   "deviceLockedBody": "Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.",
-  "portalDetailsHint": "Your name, number, status and monthly fee",
-  "portalBankHint": "Where to send a transfer, with the account number to copy",
-  "portalOfficialsHint": "Who to call, and their numbers",
+  "portalDetailsHint": "",
+  "portalBankHint": "",
+  "portalOfficialsHint": "",
   "portalTreasuryHint": "",
   "myDetailsTitle": "My subscription details",
   "ofTotal": "of {amount}",
@@ -495,5 +495,24 @@
   "currency": "LYD",
   "@currency": {
     "description": "The Libyan dinar."
+  },
+  "chatNotifyHallFrom": "The hall · {who}",
+  "@chatNotifyHallFrom": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "chatNotifyAndMore": "{body}  (+{more} more)",
+  "@chatNotifyAndMore": {
+    "placeholders": {
+      "body": {
+        "type": "String"
+      },
+      "more": {
+        "type": "int"
+      }
+    }
   }
 }

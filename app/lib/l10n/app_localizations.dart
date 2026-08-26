@@ -2602,19 +2602,19 @@ abstract class L {
   /// No description provided for @portalDetailsHint.
   ///
   /// In ar, this message translates to:
-  /// **'اسمك ورقمك وحالتك وقيمة اشتراكك الشهري'**
+  /// **''**
   String get portalDetailsHint;
 
   /// No description provided for @portalBankHint.
   ///
   /// In ar, this message translates to:
-  /// **'إلى أين تُرسل الحوالة، ورقم الحساب لنسخه'**
+  /// **''**
   String get portalBankHint;
 
   /// No description provided for @portalOfficialsHint.
   ///
   /// In ar, this message translates to:
-  /// **'بمن تتصل، وأرقام هواتفهم'**
+  /// **''**
   String get portalOfficialsHint;
 
   /// The one-line summary on the الصندوق menu card. It says «للاطلاع فقط» on the card itself, not only inside: a member should know before he opens it that there is nothing here for him to act on.
@@ -2742,6 +2742,18 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'د.ل'**
   String get currency;
+
+  /// No description provided for @chatNotifyHallFrom.
+  ///
+  /// In ar, this message translates to:
+  /// **'مجلس العدايل · {who}'**
+  String chatNotifyHallFrom(String who);
+
+  /// No description provided for @chatNotifyAndMore.
+  ///
+  /// In ar, this message translates to:
+  /// **'{body}  (و{more} أخرى)'**
+  String chatNotifyAndMore(String body, int more);
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

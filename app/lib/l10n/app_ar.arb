@@ -814,9 +814,9 @@
     "description": "Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app."
   },
   "deviceLockedBody": "رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.",
-  "portalDetailsHint": "اسمك ورقمك وحالتك وقيمة اشتراكك الشهري",
-  "portalBankHint": "إلى أين تُرسل الحوالة، ورقم الحساب لنسخه",
-  "portalOfficialsHint": "بمن تتصل، وأرقام هواتفهم",
+  "portalDetailsHint": "",
+  "portalBankHint": "",
+  "portalOfficialsHint": "",
   "portalTreasuryHint": "",
   "@portalTreasuryHint": {
     "description": "The one-line summary on the الصندوق menu card. It says «للاطلاع فقط» on the card itself, not only inside: a member should know before he opens it that there is nothing here for him to act on."
@@ -875,5 +875,24 @@
   "currency": "د.ل",
   "@currency": {
     "description": "The Libyan dinar, as the association writes it. Named ONCE on the fund page — on the balance and on nothing else — so six figures in a column do not each repeat it."
+  },
+  "chatNotifyHallFrom": "مجلس العدايل · {who}",
+  "@chatNotifyHallFrom": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "chatNotifyAndMore": "{body}  (و{more} أخرى)",
+  "@chatNotifyAndMore": {
+    "placeholders": {
+      "body": {
+        "type": "String"
+      },
+      "more": {
+        "type": "int"
+      }
+    }
   }
 }
