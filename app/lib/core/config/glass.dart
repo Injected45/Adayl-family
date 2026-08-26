@@ -107,7 +107,7 @@ class GlassSurface extends StatelessWidget {
       pane = DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: shape,
-          boxShadow: const <BoxShadow>[
+          boxShadow: <BoxShadow>[
             BoxShadow(
               color: GlassColors.lift,
               blurRadius: 24,
@@ -134,7 +134,7 @@ class _EdgeLight extends CustomPainter {
     final Paint paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: <Color>[GlassColors.stroke, Color(0x00FFFFFF)],

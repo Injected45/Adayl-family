@@ -751,12 +751,6 @@ class LEn extends L {
   String get valueReceived => 'You received';
 
   @override
-  String get valueAhead => 'The association gave you more than you paid, by';
-
-  @override
-  String get valueSurplus => 'Your share of others\' need';
-
-  @override
   String get valueEven => 'You paid and received the same';
 
   @override
@@ -767,12 +761,12 @@ class LEn extends L {
 
   @override
   String valueShareOf(int percent) {
-    return 'Of every 100 you paid, $percent came back';
+    return '$percent% of what you paid came back to you';
   }
 
   @override
   String valueShareOver(int percent) {
-    return 'You received $percent of every 100 you paid — more than you paid';
+    return '$percent% of what you paid came back — more than you paid';
   }
 
   @override
@@ -780,12 +774,7 @@ class LEn extends L {
 
   @override
   String valueBackToMembers(String rate) {
-    return 'Of every 100 collected, $rate went to members';
-  }
-
-  @override
-  String valueHelped(int helped, int members) {
-    return 'It stood behind $helped of $members members';
+    return '$rate% of everything collected went back to members';
   }
 
   @override
@@ -1500,4 +1489,19 @@ class LEn extends L {
   String chatNotifyAndMore(String body, int more) {
     return '$body  (+$more more)';
   }
+
+  @override
+  String get valueOwedByHim => 'Balance against him';
+
+  @override
+  String get valueOwedToHim => 'Balance in your favour';
+
+  @override
+  String get themeLabel => 'Appearance';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/config/palette.dart';
+import 'core/config/theme_mode_provider.dart';
 import 'core/notify/notify_text.dart';
 import 'core/state/restart.dart';
 import 'core/supabase/supabase_client_provider.dart';
@@ -34,5 +36,11 @@ Future<void> main() async {
   // initialiseSupabase() stays outside it: the Supabase client is a process-wide
   // singleton holding the session, and tearing it down would sign the user out —
   // which is a different act from restarting the app.
+  // ⚠ BEFORE runApp, AND THAT IS THE WHOLE POINT. The palette lives in plain
+  //   statics (see palette.dart) and the provider cannot be read before the
+  //   ProviderScope exists — so without this the first frame paints light and
+  //   jumps to dark a moment later, which on every launch reads as a fault.
+  applyAppTheme(await readSavedThemeMode());
+
   runApp(const RestartWidget(child: FamilyApp()));
 }

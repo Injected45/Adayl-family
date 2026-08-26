@@ -29,7 +29,12 @@ class AidLedger extends StatefulWidget {
   const AidLedger({
     required this.all,
     required this.rows,
-    this.tone = AppColors.danger,
+    /// ⚠ NULLABLE WITH THE FALLBACK IN THE BODY, not a default value. A
+    ///   default must be a compile-time constant, and the palette is no longer
+    ///   constant — it is swapped when the member chooses الوضع الليلي. A
+    ///   const default would have frozen the LIGHT colour here for ever,
+    ///   leaving one control still light on a dark screen.
+    this.tone,
     super.key,
   });
 
@@ -52,7 +57,7 @@ class AidLedger extends StatefulWidget {
   ///   that drifts when it is copied. A colour does not drift. It is one word
   ///   at each call site, and it keeps each screen consistent with its own
   ///   headline instead of with the other screen's.
-  final Color tone;
+  final Color? tone;
 
   @override
   State<AidLedger> createState() => _AidLedgerState();
@@ -155,7 +160,8 @@ class _AidLedgerState extends State<AidLedger> {
                         key: ValueKey<int>(e.voucher.id),
                         entry: e,
                         metrics: metrics,
-                        tone: widget.tone,
+                        // ⚠ See the note on [tone]: nullable, resolved here.
+                        tone: widget.tone ?? AppColors.danger,
                         serial: widget.all.indexOf(e) + 1,
                         open: _openId == e.voucher.id,
                         onToggle: () => setState(
@@ -303,7 +309,7 @@ class _LedgerHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
-    const TextStyle style = TextStyle(
+    final TextStyle style = TextStyle(
       fontSize: kAidLedgerSize,
       fontWeight: FontWeight.w800,
       color: AppColors.muted,
@@ -672,7 +678,7 @@ class _Stacked extends StatelessWidget {
       children: <Widget>[
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: AppColors.muted),
+          style: TextStyle(fontSize: 11, color: AppColors.muted),
         ),
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(fontSize: 12)),
@@ -698,7 +704,7 @@ class _DetailLine extends StatelessWidget {
             width: 96,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              style: TextStyle(fontSize: 11, color: AppColors.muted),
             ),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),

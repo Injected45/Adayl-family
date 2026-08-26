@@ -20,7 +20,7 @@ class GoogleSignInButton extends StatelessWidget {
     return FilledButton.icon(
       onPressed: busy ? null : onPressed,
       icon: busy
-          ? const SizedBox.square(
+          ? SizedBox.square(
               dimension: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
@@ -38,7 +38,7 @@ class GoogleSignInButton extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: const Text(
+              child: Text(
                 'G',
                 style: TextStyle(
                   color: AppColors.brand,

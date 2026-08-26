@@ -26,11 +26,7 @@ import '../../../l10n/app_localizations.dart';
 ///   Two scales, one idea, so the screen says one thing twice rather than two
 ///   things once.
 class MemberValueBar extends StatelessWidget {
-  const MemberValueBar({
-    required this.paid,
-    required this.received,
-    super.key,
-  });
+  const MemberValueBar({required this.paid, required this.received, super.key});
 
   /// Money as text, end to end. Parsed here to MEASURE a rectangle and never
   /// printed as a number: every figure on screen is the server's own string.
@@ -81,7 +77,14 @@ class MemberValueBar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
-                  color: share >= 1 ? AppColors.success : AppColors.ink,
+                  // ⚠ RED BELOW 100%, BY REQUEST — and it is worth knowing what
+                  //   it says. Everywhere else in this app red means «عليك»: a
+                  //   debt, something owed. Here it means «عاد إليك أقل مما
+                  //   دفعت», which in a صندوق تكافل is the ORDINARY and
+                  //   fortunate case — a man who has not needed the fund. The
+                  //   association weighed that and chose the colour anyway: it
+                  //   marks who has drawn on the fund and who has carried it.
+                  color: share >= 1 ? AppColors.success : AppColors.danger,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -108,9 +111,23 @@ class MemberValueBar extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  _End(label: l.valueReceived, value: received,
-                       tone: AppColors.success),
-                  _End(label: l.valuePaid, value: paid, tone: AppColors.info),
+                  // ⚠ THE THIRD PLACE THESE TWO FIGURES APPEAR, and it was
+                  //   nearly missed: «استلمتَ» was green and «دفعتَ» was BLUE
+                  //   here, so a sweep that only looked for green-and-red
+                  //   would have walked past it. Both now match the card above
+                  //   and the chart below — «دفعتَ» green, «استلمتَ» red — and
+                  //   one figure in a different colour on a third container is
+                  //   how a reader learns to distrust all of them.
+                  _End(
+                    label: l.valueReceived,
+                    value: received,
+                    tone: AppColors.danger,
+                  ),
+                  _End(
+                    label: l.valuePaid,
+                    value: paid,
+                    tone: AppColors.success,
+                  ),
                 ],
               ),
             ],
@@ -133,7 +150,7 @@ class _End extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
-      Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+      Text(label, style: TextStyle(fontSize: 11, color: AppColors.muted)),
       Text(
         formatMoney(value),
         style: TextStyle(

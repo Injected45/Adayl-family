@@ -310,7 +310,7 @@ class _CallSheetState extends State<_CallSheet> {
                               .map((CallParticipant p) => p.displayName)
                               .join(ArabicPunctuation.listSeparator),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: AppColors.muted,
                           ),
@@ -386,17 +386,25 @@ class _Round extends StatelessWidget {
     required this.label,
     required this.on,
     required this.onTap,
-    this.tone = AppColors.brand,
+    /// ⚠ NULLABLE WITH THE FALLBACK IN THE BODY, not a default value. A
+    ///   default must be a compile-time constant, and the palette is no longer
+    ///   constant — it is swapped when the member chooses الوضع الليلي. A
+    ///   const default would have frozen the LIGHT colour here for ever,
+    ///   leaving one control still light on a dark screen.
+    this.tone,
   });
 
   final IconData icon;
   final String label;
   final bool on;
-  final Color tone;
+  final Color? tone;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    // ⚠ THE FALLBACK LIVES HERE, not in the parameter list. See the note on
+    //   [tone]: a default must be constant and the palette no longer is.
+    final Color t = tone ?? AppColors.brand;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -404,15 +412,15 @@ class _Round extends StatelessWidget {
           onPressed: onTap,
           icon: Icon(icon),
           style: IconButton.styleFrom(
-            backgroundColor: on ? tone : tone.withValues(alpha: 0.12),
-            foregroundColor: on ? AppColors.onFill : tone,
+            backgroundColor: on ? t : t.withValues(alpha: 0.12),
+            foregroundColor: on ? AppColors.onFill : t,
             minimumSize: const Size(56, 56),
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: AppColors.muted),
+          style: TextStyle(fontSize: 11, color: AppColors.muted),
         ),
       ],
     );
@@ -463,7 +471,7 @@ class IncomingCallBanner extends ConsumerWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: <Widget>[
-            const Icon(Icons.phone_callback, color: AppColors.brand),
+            Icon(Icons.phone_callback, color: AppColors.brand),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(

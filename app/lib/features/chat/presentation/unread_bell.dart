@@ -363,7 +363,7 @@ class ChatBell extends ConsumerWidget {
                   //   still costs one small request — and «99+» is the same
                   //   answer to the reader as any larger number.
                   unread > 99 ? l.chatUnreadMany : '$unread',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: AppColors.onFill,
@@ -427,7 +427,7 @@ class ThreadUnreadBadge extends StatelessWidget {
         ),
         child: Text(
           count > 99 ? l.chatUnreadMany : '$count',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w900,
             color: AppColors.onFill,
@@ -500,7 +500,7 @@ class SegmentCount extends StatelessWidget {
       ),
       child: Text(
         count > 99 ? l.chatUnreadMany : '$count',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w900,
           color: AppColors.onFill,

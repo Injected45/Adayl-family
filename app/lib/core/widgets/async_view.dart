@@ -115,7 +115,7 @@ class AsyncView<T> extends StatelessWidget {
 class StatusBadge extends StatelessWidget {
   const StatusBadge({required this.label, required this.tone, super.key});
 
-  const StatusBadge.neutral({required this.label, super.key})
+  StatusBadge.neutral({required this.label, super.key})
     : tone = AppColors.inkMuted;
 
   final String label;
@@ -246,7 +246,7 @@ class LabelledValue extends StatelessWidget {
         Text(
           value.isEmpty ? '—' : value,
           textAlign: centred ? TextAlign.center : TextAlign.start,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: AppFonts.body,
             fontSize: 14,
             fontWeight: FontWeight.w700,

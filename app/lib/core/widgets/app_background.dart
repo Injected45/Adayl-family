@@ -32,13 +32,13 @@ class AppBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(color: AppColors.fieldBase),
+      decoration: BoxDecoration(color: AppColors.fieldBase),
       // RepaintBoundary so scrolling content above never repaints the field.
       // Without it, every frame of a list scroll redraws four radial gradients.
       child: RepaintBoundary(
         child: CustomPaint(
-          painter: const _AuroraPainter(),
-          // Field first, then the app. Static, so it is const and never rebuilds.
+          painter: _AuroraPainter(),
+          // Field first, then the app. Static, so it is and never rebuilds.
           child: child,
         ),
       ),
@@ -47,12 +47,18 @@ class AppBackground extends StatelessWidget {
 }
 
 class _AuroraPainter extends CustomPainter {
-  const _AuroraPainter();
+  _AuroraPainter();
 
   /// Placed with AlignmentDirectional-equivalent fractions rather than fixed
   /// offsets, so the composition mirrors correctly in RTL — the warm wash stays
   /// on the reading-start side in both directions.
-  static const List<(Color, Alignment, double)> _washes =
+  /// ⚠ A GETTER, NEVER A `static final` LIST. Anything derived from the
+  ///   palette and cached at first use keeps the colours of whichever theme
+  ///   was active THEN — so a member who switched to الوضع الليلي would get
+  ///   a dark app with this one thing still painted in the light palette,
+  ///   and it would look like a rendering bug rather than a stale cache.
+  ///   Rebuilding a four-item list per paint costs nothing.
+  static List<(Color, Alignment, double)> get _washes =>
       <(Color, Alignment, double)>[
         (AppColors.auroraTeal, Alignment(0.85, -0.80), 1.05),
         (AppColors.auroraCyan, Alignment(-0.80, -0.35), 0.90),

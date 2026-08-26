@@ -274,7 +274,7 @@ class AdeelDetailScreen extends ConsumerWidget {
                       // The affordance. A name that opens something and does
                       // not say so is a feature nobody finds — and this is now
                       // the ONLY way to his personal data.
-                      const Icon(
+                      Icon(
                         Icons.info_outline,
                         size: 18,
                         color: AppColors.muted,
@@ -558,7 +558,7 @@ class _SummaryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.chip),
             ),
             alignment: Alignment.center,
-            child: const Icon(
+            child: Icon(
               Icons.summarize_outlined,
               size: 18,
               color: AppColors.brandDeep,
@@ -580,7 +580,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const Icon(Icons.expand_more, size: 20, color: AppColors.muted),
+              Icon(Icons.expand_more, size: 20, color: AppColors.muted),
             ],
           ),
           children: <Widget>[
@@ -801,7 +801,7 @@ class _FoldingSection extends StatelessWidget {
                   children: <Widget>[
                     trailing!,
                     const SizedBox(width: AppSpacing.xs),
-                    const Icon(
+                    Icon(
                       Icons.expand_more,
                       size: 20,
                       color: AppColors.muted,

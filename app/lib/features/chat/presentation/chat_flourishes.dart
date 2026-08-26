@@ -38,7 +38,13 @@ class ChatAvatar extends StatelessWidget {
   /// Six accents from the tested palette. Not arbitrary colours: each is already
   /// paired with [AppColors.onFill] elsewhere in the app, so the letter on top
   /// is legible without a second contrast check.
-  static const List<Color> _tones = <Color>[
+  /// ⚠ A GETTER, NEVER A `static final` LIST. Anything derived from the
+  ///   palette and cached at first use keeps the colours of whichever theme
+  ///   was active THEN — so a member who switched to الوضع الليلي would get
+  ///   a dark app with this one thing still painted in the light palette,
+  ///   and it would look like a rendering bug rather than a stale cache.
+  ///   Rebuilding a four-item list per paint costs nothing.
+  static List<Color> get _tones => <Color>[
     AppColors.brand,
     AppColors.success,
     AppColors.info,

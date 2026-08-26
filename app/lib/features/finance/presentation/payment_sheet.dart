@@ -336,7 +336,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     ),
                     child: Row(
                       children: <Widget>[
-                        const VaultIcon(size: 18, color: AppColors.warning),
+                        VaultIcon(size: 18, color: AppColors.warning),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
@@ -429,7 +429,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     _error!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       color: AppColors.danger,
                     ),
@@ -440,7 +440,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                 FilledButton(
                   onPressed: canSubmit ? () => _submit(l, adeel) : null,
                   child: _submitting
-                      ? const SizedBox.square(
+                      ? SizedBox.square(
                           dimension: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
@@ -548,7 +548,7 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
   return showDialog<void>(
     context: context,
     builder: (BuildContext dialogContext) => GlassDialog(
-      icon: const Icon(Icons.check_circle, color: AppColors.success, size: 40),
+      icon: Icon(Icons.check_circle, color: AppColors.success, size: 40),
       title: Text(l.paymentSaved, textAlign: TextAlign.center),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -581,7 +581,7 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
           const SizedBox(height: AppSpacing.md),
           Text(
             l.allocationPreview,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: AppSpacing.xs),
           for (final PaymentAllocationView allocation in payment.allocations)
@@ -592,7 +592,7 @@ Future<void> _showReceipt(BuildContext context, L l, PaymentView payment) {
                 children: <Widget>[
                   Text(
                     formatPeriodMonth(allocation.period),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.month,
                       fontWeight: FontWeight.w700,
                     ),

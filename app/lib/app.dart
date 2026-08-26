@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/config/palette.dart';
 import 'core/config/theme.dart';
+import 'core/config/theme_mode_provider.dart';
 import 'core/l10n/latin_digit_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/state/auto_refresh.dart';
@@ -16,15 +18,32 @@ class FamilyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final GoRouter router = ref.watch(routerProvider);
 
+    // ── ⚠ الوضعُ يُشاهَد هنا، والتطبيقُ كلُّه يُعاد بناؤه ────────────────────
+    //
+    //   The palette is a set of plain statics, so a change to it repaints
+    //   nothing on its own — the widgets have to be rebuilt to read the new
+    //   values. Watching the mode at the ROOT is what does that: everything
+    //   below is rebuilt in one pass, and buildAppTheme() is re-run with it.
+    //
+    // ⚠ AND THE KEY IS LOAD-BEARING. Without it Flutter reuses the element
+    //   tree and every widget that did not itself depend on the provider keeps
+    //   its old paint — a half-dark app. The key forces the subtree to be
+    //   built afresh, which is exactly what a palette swap needs.
+    final AppThemeMode mode = ref.watch(themeModeProvider);
+
     return MaterialApp.router(
       // onGenerateTitle rather than `title`, so even the window title comes
       // from the ARB file instead of a hard-coded Arabic literal.
       onGenerateTitle: (BuildContext context) => L.of(context).appTitle,
       debugShowCheckedModeBanner: false,
 
+      key: ValueKey<AppThemeMode>(mode),
       theme: buildAppTheme(),
-      // The prototype has no dark palette, and inventing one would be a
-      // redesign rather than a migration. Revisit as a deliberate piece of work.
+      // ⚠ ONE ThemeData, BUILT FROM WHICHEVER PALETTE IS LOADED — not a light
+      //   theme and a dark theme handed to Flutter to choose between. This app
+      //   names AppColors directly in 482 places; Flutter's own light/dark
+      //   switch only reaches widgets that read Theme.of(context), so it would
+      //   have changed the scaffolding and left every screen untouched.
       themeMode: ThemeMode.light,
 
       // Arabic is forced rather than following the device: this is a Libyan

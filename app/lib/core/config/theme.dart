@@ -42,32 +42,32 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // ── Ink ────────────────────────────────────────────────────────────────────
   /// Body and heading text. 19:1 on white.
-  static const Color ink = Color(0xFF0B1220);
+  static Color ink = Color(0xFF0B1220);
 
   /// Secondary text. slate-600 — the lightest value that still clears AA on
   /// glass. Anything lighter is the single most common glassmorphism mistake.
-  static const Color inkMuted = Color(0xFF475569);
+  static Color inkMuted = Color(0xFF475569);
 
   /// For labels ON a saturated flat fill.
-  static const Color onFill = Color(0xFFFFFFFF);
+  static Color onFill = Color(0xFFFFFFFF);
 
   // ── Brand ──────────────────────────────────────────────────────────────────
-  static const Color brand = Color(0xFF0F766E);
-  static const Color brandDeep = Color(0xFF0B5A54);
-  static const Color brandSoft = Color(0xFFCCFBF1);
+  static Color brand = Color(0xFF0F766E);
+  static Color brandDeep = Color(0xFF0B5A54);
+  static Color brandSoft = Color(0xFFCCFBF1);
 
   // ── Flat accents. Six, saturated, no gradients. ─────────────────────────────
-  static const Color danger = Color(0xFFBE123C);
-  static const Color dangerSoft = Color(0xFFFFE4E6);
+  static Color danger = Color(0xFFBE123C);
+  static Color dangerSoft = Color(0xFFFFE4E6);
 
   /// green-800, not green-700. Measured: green-700 reaches only 3.99:1
   /// against a 14% tint of itself, which is what StatusBadge draws, and it
   /// still fails at 10%. This is also the value index.html used.
-  static const Color success = Color(0xFF166534);
-  static const Color successSoft = Color(0xFFDCFCE7);
-  static const Color warning = Color(0xFF92400E);
-  static const Color warningSoft = Color(0xFFFEF3C7);
-  static const Color info = Color(0xFF4338CA);
+  static Color success = Color(0xFF166534);
+  static Color successSoft = Color(0xFFDCFCE7);
+  static Color warning = Color(0xFF92400E);
+  static Color warningSoft = Color(0xFFFEF3C7);
+  static Color info = Color(0xFF4338CA);
 
   /// A month, wherever one is written — «يناير», «يناير 2026», «01».
   ///
@@ -99,13 +99,15 @@ abstract final class AppColors {
   ///   own 10% tint — every pairing the design suite checks, cleared with room.
   ///   purple-700 also passes; purple-800 was chosen because «فاقع داكن» wants
   ///   the darker end and the margin costs nothing.
-  static const Color dues = Color(0xFF6B21A8);
+  static Color dues = Color(0xFF6B21A8);
 
-  static const Color month = info;
-  static const Color infoSoft = Color(0xFFE0E7FF);
-  static const Color accent = Color(0xFFB45309);
+  /// ⚠ A GETTER for the same reason as the aliases above: a copy taken at
+  ///   class-load would keep the light indigo after the theme changed.
+  static Color get month => info;
+  static Color infoSoft = Color(0xFFE0E7FF);
+  static Color accent = Color(0xFFB45309);
 
-  static const Color neutralSoft = Color(0xFFEEF2F6);
+  static Color neutralSoft = Color(0xFFEEF2F6);
 
   /// لونٌ خاصٌّ بكل عديل — a colour of his own, from his own number.
   ///
@@ -140,25 +142,42 @@ abstract final class AppColors {
     //   Sweeping all 360 hues against the badge fill puts the worst case at
     //   hue 60° — 3.57:1 at L=0.30, and 4.95:1 at L=0.24. The suite proves it
     //   for every id rather than for the handful anybody looked at.
-    return HSLColor.fromAHSL(1, hue, 0.62, 0.24).toColor();
+    // ⚠ AND IT FLIPS WITH THE PALETTE, MEASURED THE SAME WAY. 0.24 is a text
+    //   colour on LIGHT glass; on a dark pane it is nearly invisible. Sweeping
+    //   all 360 hues against the dark badge fill puts the worst case at hue
+    //   240° — pure blue, the mirror of the light palette's yellow — and it
+    //   clears AA only from 0.76 upward: 4.42:1 at 0.72, 5.15:1 at 0.76.
+    //
+    // ⚠ READ THROUGH A TOKEN, NOT A FLAG. identityLight is assigned by
+    //   applyAppTheme like every other value here, so this function has no
+    //   idea which palette is active and cannot be left out of a future one.
+    return HSLColor.fromAHSL(1, hue, 0.62, identityLight).toColor();
   }
 
+  /// إضاءةُ لون العديل — تتبع اللوحة. See [identityTone].
+  static double identityLight = 0.24;
+
+
   // ── The vibrant field that makes glass legible ─────────────────────────────
-  static const Color fieldBase = Color(0xFFE6F2F0);
-  static const Color auroraTeal = Color(0xFF5EEAD4);
-  static const Color auroraCyan = Color(0xFF7DD3FC);
-  static const Color auroraAmber = Color(0xFFFDE68A);
-  static const Color auroraViolet = Color(0xFFC7D2FE);
+  static Color fieldBase = Color(0xFFE6F2F0);
+  static Color auroraTeal = Color(0xFF5EEAD4);
+  static Color auroraCyan = Color(0xFF7DD3FC);
+  static Color auroraAmber = Color(0xFFFDE68A);
+  static Color auroraViolet = Color(0xFFC7D2FE);
 
   // ── Compatibility aliases ──────────────────────────────────────────────────
   // Kept so the redesign did not have to touch 20 screens in one commit. New
   // code should use `ink` / `inkMuted` / `GlassColors`.
-  static const Color text = ink;
-  static const Color muted = inkMuted;
-  static const Color background = fieldBase;
-  static const Color card = Color(0xFFFFFFFF);
-  static const Color line = Color(0xFFDDE5EC);
-  static const Color brandDark = brandDeep;
+  // ⚠ GETTERS, NOT COPIES. As `static Color text = ink` these would be
+  //   assigned ONCE at class-load and keep the light value for ever, so every
+  //   screen still using the old alias would stay light while the rest of the
+  //   app went dark. A getter follows whatever `ink` currently is.
+  static Color get text => ink;
+  static Color get muted => inkMuted;
+  static Color get background => fieldBase;
+  static Color card = Color(0xFFFFFFFF);
+  static Color line = Color(0xFFDDE5EC);
+  static Color get brandDark => brandDeep;
 }
 
 /// Translucency tokens.
@@ -169,11 +188,11 @@ abstract final class AppColors {
 abstract final class GlassColors {
   /// Content surfaces: cards, panels, list rows. Text sits directly on this, so
   /// it is the most opaque.
-  static const Color surface = Color(0xD1FFFFFF); // white @ 82%
+  static Color surface = Color(0xD1FFFFFF); // white @ 82%
 
   /// Floating chrome: app bar, navigation, sheets. Slightly more transparent
   /// because content is meant to be sensed moving beneath it.
-  static const Color chrome = Color(0xBFFFFFFF); // white @ 75%
+  static Color chrome = Color(0xBFFFFFFF); // white @ 75%
 
   /// Overlay surfaces: dialogs and bottom sheets.
   ///
@@ -182,7 +201,7 @@ abstract final class GlassColors {
   /// blurred (see GlassDialog). Without the frost there is nothing separating a
   /// translucent pane from the dimmed barrier behind it, and 82% white over a dark
   /// scrim reads as muddy grey rather than glass.
-  static const Color overlay = Color(0xF7FFFFFF); // white @ 97%
+  static Color overlay = Color(0xF7FFFFFF); // white @ 97%
 
   /// Dropdown menus. FULLY opaque, and the only surface in this file that is.
   ///
@@ -202,7 +221,7 @@ abstract final class GlassColors {
   ///   slot that separates the two — DropdownMenuThemeData governs the M3
   ///   DropdownMenu widget, not this one. So each field names it, and a test
   ///   fails the build if one forgets.
-  static const Color menu = Color(0xFFFFFFFF);
+  static Color menu = Color(0xFFFFFFFF);
 
   /// A recessed well inside a glass surface — inputs, KPI tiles, totals rows.
   ///
@@ -210,21 +229,21 @@ abstract final class GlassColors {
   /// rendered result was dead grey that read as "disabled" rather than
   /// "recessed" — visible only once the design was looked at rather than
   /// measured. A cool tint at the same lightness reads as intentional depth.
-  static const Color well = Color(0x120F766E); // brand @ 7%
+  static Color well = Color(0x120F766E); // brand @ 7%
 
   /// The well's own hairline. Depth needs an edge as well as a fill.
-  static const Color wellEdge = Color(0x1A0F766E);
+  static Color wellEdge = Color(0x1A0F766E);
 
   /// The light-catching top edge. This single hairline is what reads as "glass"
   /// more than the blur does.
-  static const Color stroke = Color(0xB3FFFFFF); // white @ 70%
+  static Color stroke = Color(0xB3FFFFFF); // white @ 70%
 
   /// An outer hairline in ink, so the pane has a definite edge on a light
   /// field. A white-only border is invisible against pale backgrounds.
-  static const Color hairline = Color(0x14101828); // ink @ 8%
+  static Color hairline = Color(0x14101828); // ink @ 8%
 
   /// Ambient lift for floating chrome only.
-  static const Color lift = Color(0x140B1220);
+  static Color lift = Color(0x140B1220);
 }
 
 abstract final class AppRadius {
@@ -283,7 +302,7 @@ abstract final class AppFonts {
 }
 
 ThemeData buildAppTheme() {
-  const ColorScheme scheme = ColorScheme(
+  final ColorScheme scheme = ColorScheme(
     brightness: Brightness.light,
     primary: AppColors.brand,
     onPrimary: AppColors.onFill,
@@ -312,7 +331,7 @@ ThemeData buildAppTheme() {
   // 1.5 line-height on body copy, per the typography guidance. Arabic needs it
   // more than Latin does: the script has tall ascenders and deep descenders that
   // collide at 1.2.
-  final TextTheme text = const TextTheme(
+  final TextTheme text = TextTheme(
     displaySmall: TextStyle(
       fontFamily: AppFonts.display,
       fontSize: 30,
@@ -407,7 +426,7 @@ ThemeData buildAppTheme() {
 
     // The app bar is a glass pane built in AppScaffold, so the Material one is
     // stripped to nothing rather than fighting it.
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       foregroundColor: AppColors.ink,
@@ -432,7 +451,7 @@ ThemeData buildAppTheme() {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.pane),
-        side: const BorderSide(color: GlassColors.hairline),
+        side: BorderSide(color: GlassColors.hairline),
       ),
     ),
 
@@ -460,7 +479,7 @@ ThemeData buildAppTheme() {
         minimumSize: const Size.fromHeight(52),
         foregroundColor: AppColors.brandDeep,
         backgroundColor: GlassColors.surface,
-        side: const BorderSide(color: AppColors.line, width: 1.5),
+        side: BorderSide(color: AppColors.line, width: 1.5),
         shape: controlShape,
         textStyle: const TextStyle(
           fontFamily: AppFonts.body,
@@ -494,36 +513,36 @@ ThemeData buildAppTheme() {
       fillColor: GlassColors.well,
       isDense: true,
       contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 14, 14, 14),
-      hintStyle: const TextStyle(
+      hintStyle: TextStyle(
         fontFamily: AppFonts.body,
         color: AppColors.inkMuted,
       ),
-      labelStyle: const TextStyle(
+      labelStyle: TextStyle(
         fontFamily: AppFonts.body,
         color: AppColors.inkMuted,
         fontWeight: FontWeight.w600,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
-        borderSide: const BorderSide(color: GlassColors.wellEdge),
+        borderSide: BorderSide(color: GlassColors.wellEdge),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
-        borderSide: const BorderSide(color: GlassColors.wellEdge),
+        borderSide: BorderSide(color: GlassColors.wellEdge),
       ),
       // 2px focus ring, always visible. Keyboard users cannot use this app
       // without it and glass hides a subtle one completely.
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
-        borderSide: const BorderSide(color: AppColors.brand, width: 2),
+        borderSide: BorderSide(color: AppColors.brand, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
-        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
+        borderSide: BorderSide(color: AppColors.danger, width: 1.5),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
-        borderSide: const BorderSide(color: AppColors.danger, width: 2),
+        borderSide: BorderSide(color: AppColors.danger, width: 2),
       ),
     ),
 
@@ -558,7 +577,7 @@ ThemeData buildAppTheme() {
       ),
     ),
 
-    navigationRailTheme: const NavigationRailThemeData(
+    navigationRailTheme: NavigationRailThemeData(
       backgroundColor: Colors.transparent,
       indicatorColor: AppColors.brandSoft,
       selectedIconTheme: IconThemeData(color: AppColors.brandDeep, size: 24),
@@ -582,13 +601,13 @@ ThemeData buildAppTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.pane),
       ),
-      titleTextStyle: const TextStyle(
+      titleTextStyle: TextStyle(
         fontFamily: AppFonts.display,
         fontSize: 18,
         fontWeight: FontWeight.w800,
         color: AppColors.ink,
       ),
-      contentTextStyle: const TextStyle(
+      contentTextStyle: TextStyle(
         fontFamily: AppFonts.body,
         fontSize: 14,
         height: 1.55,
@@ -596,7 +615,7 @@ ThemeData buildAppTheme() {
       ),
     ),
 
-    bottomSheetTheme: const BottomSheetThemeData(
+    bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
@@ -606,11 +625,11 @@ ThemeData buildAppTheme() {
 
     chipTheme: ChipThemeData(
       backgroundColor: GlassColors.surface,
-      side: const BorderSide(color: AppColors.line),
+      side: BorderSide(color: AppColors.line),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      labelStyle: const TextStyle(
+      labelStyle: TextStyle(
         fontFamily: AppFonts.body,
         fontSize: 13,
         fontWeight: FontWeight.w700,
@@ -622,7 +641,7 @@ ThemeData buildAppTheme() {
       ),
     ),
 
-    listTileTheme: const ListTileThemeData(
+    listTileTheme: ListTileThemeData(
       iconColor: AppColors.brandDeep,
       titleTextStyle: TextStyle(
         fontFamily: AppFonts.body,
@@ -640,7 +659,7 @@ ThemeData buildAppTheme() {
 
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.ink,
-      contentTextStyle: const TextStyle(
+      contentTextStyle: TextStyle(
         fontFamily: AppFonts.body,
         fontSize: 14,
         color: AppColors.onFill,
@@ -651,9 +670,9 @@ ThemeData buildAppTheme() {
       ),
     ),
 
-    dividerTheme: const DividerThemeData(color: AppColors.line, space: 1),
+    dividerTheme: DividerThemeData(color: AppColors.line, space: 1),
 
-    progressIndicatorTheme: const ProgressIndicatorThemeData(
+    progressIndicatorTheme: ProgressIndicatorThemeData(
       color: AppColors.brand,
       linearTrackColor: AppColors.neutralSoft,
     ),

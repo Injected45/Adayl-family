@@ -53,7 +53,7 @@ class LoginScreen extends ConsumerWidget {
                             color: AppColors.brand,
                             borderRadius: BorderRadius.circular(AppRadius.pane),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.diversity_3,
                             size: 36,
                             color: AppColors.onFill,

@@ -100,7 +100,7 @@ class AuditScreen extends ConsumerWidget {
                               ),
                               Text(
                                 formatDateTime(entry.occurredAt),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   color: AppColors.muted,
                                 ),
@@ -115,7 +115,7 @@ class AuditScreen extends ConsumerWidget {
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             '${l.auditActor}: ${entry.actorName}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               color: AppColors.muted,
                             ),

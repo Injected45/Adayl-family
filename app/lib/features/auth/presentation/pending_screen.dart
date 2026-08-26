@@ -132,7 +132,7 @@ class _FamilyCodeBoxState extends ConsumerState<_FamilyCodeBox> {
                 ? null
                 : () => _redeem(l),
             icon: _busy
-                ? const SizedBox.square(
+                ? SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,

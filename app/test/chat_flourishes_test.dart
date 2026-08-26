@@ -41,7 +41,7 @@ void main() {
 
     testWidgets('it draws at the size it is given', (WidgetTester tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
           home: Scaffold(body: Center(child: ChatAvatar(name: 'محمد', size: 30))),
         ),
       );

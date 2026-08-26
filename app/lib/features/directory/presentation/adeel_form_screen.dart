@@ -211,7 +211,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                 IconButton(
                   tooltip: l.deleteAdeelTitle,
                   onPressed: _saving ? null : () => _delete(l),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.delete_outline,
                     color: AppColors.danger,
                   ),
@@ -279,7 +279,7 @@ class _AdeelFormState extends ConsumerState<_AdeelForm> {
                 FilledButton(
                   onPressed: _saving ? null : () => _save(l),
                   child: _saving
-                      ? const SizedBox.square(
+                      ? SizedBox.square(
                           dimension: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,

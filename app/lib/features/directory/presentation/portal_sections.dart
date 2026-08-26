@@ -136,7 +136,7 @@ class _Header extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     section.subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       height: 1.5,
                       color: AppColors.muted,
@@ -229,7 +229,7 @@ class SectionRow extends StatelessWidget {
             width: 116,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              style: TextStyle(fontSize: 12, color: AppColors.muted),
             ),
           ),
           Expanded(
@@ -249,7 +249,7 @@ class SectionRow extends StatelessWidget {
                 if (trailing != null && trailing!.isNotEmpty)
                   Text(
                     trailing!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppColors.muted,
                     ),
@@ -284,7 +284,7 @@ class SectionNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(fontSize: 11, height: 1.6, color: AppColors.muted),
+    style: TextStyle(fontSize: 11, height: 1.6, color: AppColors.muted),
   );
 }
 
@@ -421,7 +421,7 @@ class _MenuCard extends StatelessWidget {
                         section.subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           height: 1.4,
                           color: AppColors.muted,
@@ -430,7 +430,7 @@ class _MenuCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_left, size: 18, color: AppColors.muted),
+              Icon(Icons.chevron_left, size: 18, color: AppColors.muted),
             ],
           ),
         ),

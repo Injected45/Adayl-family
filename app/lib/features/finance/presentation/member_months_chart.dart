@@ -35,9 +35,24 @@ import '../domain/models.dart';
 ///   `api_member_value`. Parsing is a MEASUREMENT — how high to put a pixel —
 ///   and it never reaches the screen as a number.
 class MemberMonthsChart extends StatelessWidget {
-  const MemberMonthsChart({required this.months, super.key});
+  const MemberMonthsChart({
+    required this.months,
+    required this.paid,
+    required this.received,
+    super.key,
+  });
 
   final List<MemberMonth> months;
+
+  /// المجموعان، للمفتاح وحده.
+  ///
+  /// ⚠ THEY ARE NOT DRAWN AND NOTHING HERE ADDS THEM UP. Every figure in this
+  ///   app arrives summed by the server as TEXT, and the class note above says
+  ///   parsing here is a MEASUREMENT that never reaches the screen as a
+  ///   number. These two are the exception that proves it: they reach the
+  ///   screen as the server's own strings, printed and never parsed.
+  final String paid;
+  final String received;
 
   @override
   Widget build(BuildContext context) {
@@ -64,11 +79,24 @@ class MemberMonthsChart extends StatelessWidget {
               //   channel, drawn here exactly as it is on the chart.
               Row(
                 children: <Widget>[
-                  _Key(tone: AppColors.info, label: l.valuePaid, dashed: false),
-                  const SizedBox(width: AppSpacing.md),
+                  // ⚠ GREEN FOR «دفعتَ» AND RED FOR «استلمتَ», and the SHAPE is
+                  //   untouched — solid and dashed exactly as before, which is
+                  //   the second channel the palette needs (see the note
+                  //   above). The pair was reversed once; it now agrees with
+                  //   the verdict on the card above, and a legend that
+                  //   disagreed with the figures it explains would be worse
+                  //   than no legend.
                   _Key(
                     tone: AppColors.success,
+                    label: l.valuePaid,
+                    amount: paid,
+                    dashed: false,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  _Key(
+                    tone: AppColors.danger,
                     label: l.valueReceived,
+                    amount: received,
                     dashed: true,
                   ),
                 ],
@@ -101,19 +129,47 @@ class MemberMonthsChart extends StatelessWidget {
 ///   an 11px indigo word on glass is harder to read than the same word in ink.
 ///   The mark carries the identity; the text wears a text token.
 class _Key extends StatelessWidget {
-  const _Key({required this.tone, required this.label, required this.dashed});
+  const _Key({
+    required this.tone,
+    required this.label,
+    required this.amount,
+    required this.dashed,
+  });
 
   final Color tone;
   final String label;
+  final String amount;
   final bool dashed;
 
+  /// ⚠ THE LABEL STAYS MUTED AND THE FIGURE TAKES THE TONE. Colouring both
+  ///   would make the legend louder than the chart it explains — and the mark
+  ///   beside them already carries the identity, which is what a legend is
+  ///   for. The figure wears the tone because it is the number the reader came
+  ///   for, and because it must agree with its own wave at a glance.
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
       CustomPaint(size: const Size(16, 8), painter: _KeyMark(tone, dashed)),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: AppColors.muted),
+          ),
+          Text(
+            formatMoney(amount),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: tone,
+            ),
+          ),
+        ],
+      ),
     ],
   );
 }
@@ -136,7 +192,11 @@ class _KeyMark extends CustomPainter {
       return;
     }
     for (double x = 0; x < size.width; x += 6) {
-      canvas.drawLine(Offset(x, y), Offset(math.min(x + 3.5, size.width), y), p);
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(math.min(x + 3.5, size.width), y),
+        p,
+      );
     }
   }
 
@@ -206,13 +266,22 @@ class _WavePainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
-    _wave(canvas, paid, x, y, AppColors.info, dashed: false);
-    _wave(canvas, got, x, y, AppColors.success, dashed: true);
+    // ⚠ THE LINE AND ITS KEY MUST MOVE TOGETHER. A legend in one colour over a
+    //   wave in another is a chart that lies quietly.
+    _wave(canvas, paid, x, y, AppColors.success, dashed: false);
+    _wave(canvas, got, x, y, AppColors.danger, dashed: true);
 
     // ── The months ─────────────────────────────────────────────────────────
     // ⚠ MUTED, and this is the one written exception to «a month is blue» —
-    //   see AppColors.month. On this chart AppColors.info is ALREADY the
-    //   «دفعتَ» series, so a blue axis would read as belonging to it.
+    //   see AppColors.month.
+    //
+    // ⚠ ITS ORIGINAL REASON HAS EXPIRED AND THE EXCEPTION HAS NOT. The note
+    //   here used to say «AppColors.info is ALREADY the دفعتَ series, so a
+    //   blue axis would read as belonging to it» — true until «دفعتَ» became
+    //   red. Blue is free now, and the axis still must not take it: a chart
+    //   carrying two data series does not need a third hue underneath them,
+    //   and an axis that competes with the lines is an axis nobody reads
+    //   through. Same decision, honest reason.
     for (final int i in _labelled) {
       if (i >= n) continue;
       _text(
@@ -317,10 +386,7 @@ class _WavePainter extends CustomPainter {
         ? size.width - tp.width
         : atEnd
         ? 0
-        : (cx - tp.width / 2).clamp(
-            0.0,
-            math.max(0.0, size.width - tp.width),
-          );
+        : (cx - tp.width / 2).clamp(0.0, math.max(0.0, size.width - tp.width));
     tp.paint(canvas, Offset(dx, top));
   }
 

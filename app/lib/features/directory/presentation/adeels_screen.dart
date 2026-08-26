@@ -174,7 +174,7 @@ class _AdeelCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.chevron_left,
                     color: AppColors.muted,
                     size: 20,
@@ -258,7 +258,7 @@ class _OutstandingBar extends ConsumerWidget {
             ),
             Text(
               formatMoney(summary.outstanding),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: AppColors.danger,

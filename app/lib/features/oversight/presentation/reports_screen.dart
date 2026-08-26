@@ -166,7 +166,7 @@ class ReportsScreen extends ConsumerWidget {
                               Text(
                                 '${formatDate(row.paidAt)} • ${row.method}'
                                 '${row.reference.isEmpty ? '' : ' • ${row.reference}'}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.muted,
                                 ),
@@ -176,7 +176,7 @@ class ReportsScreen extends ConsumerWidget {
                         ),
                         Text(
                           formatMoney(row.amount),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             color: AppColors.success,
                           ),

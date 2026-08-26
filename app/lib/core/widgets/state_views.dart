@@ -83,7 +83,7 @@ class ErrorStateView extends StatelessWidget {
               color: AppColors.dangerSoft,
               borderRadius: BorderRadius.circular(AppRadius.pane),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.error_outline,
               size: 30,
               color: AppColors.danger,
@@ -254,7 +254,7 @@ class CenteredMessage extends StatelessWidget {
                         Text(
                           footnote!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: AppColors.muted,
                             fontWeight: FontWeight.w700,

@@ -57,7 +57,12 @@ List<MemberMonth> _year() => _series(<(String, String, String)>[
   ('2026-12', '0.00', '0.00'),
 ]);
 
-Future<void> _pump(WidgetTester tester, List<MemberMonth> months) async {
+Future<void> _pump(
+  WidgetTester tester,
+  List<MemberMonth> months, {
+  String paid = '1200.00',
+  String received = '300.00',
+}) async {
   tester.view.physicalSize = const Size(411, 900);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -72,7 +77,11 @@ Future<void> _pump(WidgetTester tester, List<MemberMonth> months) async {
       home: Scaffold(
         body: Directionality(
           textDirection: TextDirection.rtl,
-          child: MemberMonthsChart(months: months),
+          child: MemberMonthsChart(
+            months: months,
+            paid: paid,
+            received: received,
+          ),
         ),
       ),
     ),
@@ -205,15 +214,11 @@ void main() {
 void _preview() {
   const bool write = bool.fromEnvironment('WRITE_PREVIEW', defaultValue: false);
 
-  testWidgets(
-    'preview',
-    (WidgetTester tester) async {
-      await _pump(tester, _year());
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('goldens/member_months_chart.png'),
-      );
-    },
-    skip: !write,
-  );
+  testWidgets('preview', (WidgetTester tester) async {
+    await _pump(tester, _year());
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/member_months_chart.png'),
+    );
+  }, skip: !write);
 }

@@ -96,7 +96,7 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
           children: <Widget>[
             Text(
               widget.message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 color: AppColors.muted,
                 height: 1.5,

@@ -101,8 +101,18 @@ class _Body extends StatelessWidget {
               Expanded(
                 child: _Figure(
                   label: l.valuePaid,
+                  // ── ⚠ دفعتَ أخضر، استلمتَ أحمر ───────────────────────
+                  //
+                  //   They were the other way round for one revision, on the
+                  //   reasoning that «money leaving him is red». The
+                  //   association reversed it, and the reversed pair is the
+                  //   coherent one: these two figures now AGREE WITH THE
+                  //   VERDICT UNDER THEM. Paying more ends in «رصيد مستحق لك»
+                  //   in green; receiving more ends in «رصيد مستحق عليه» in
+                  //   red. A figure that argued with the conclusion drawn from
+                  //   it would be a card at war with itself.
+                  tone: AppColors.success,
                   amount: value.paid,
-                  tone: AppColors.info,
                 ),
               ),
               Container(width: 1, height: 44, color: GlassColors.wellEdge),
@@ -110,7 +120,7 @@ class _Body extends StatelessWidget {
                 child: _Figure(
                   label: l.valueReceived,
                   amount: value.received,
-                  tone: AppColors.success,
+                  tone: AppColors.danger,
                 ),
               ),
             ],
@@ -134,9 +144,14 @@ class _Body extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
+              // ⚠ ONE LINE, AND «ونالها 1 من 8» WAS DELETED RATHER THAN
+              //   REWORDED. It counted how many men had received something —
+              //   a ratio of the helped to the whole register — and there is
+              //   no kind way to say that: it is either a boast about the fund
+              //   or a remark about the seven who did not need it. The figure
+              //   the page exists for sits below and answers the question on
+              //   its own.
               _Line(text: l.valueBackToMembers(_rate(value))),
-              const SizedBox(height: AppSpacing.sm),
-              _Line(text: l.valueHelped(value.helped, value.members)),
               const SizedBox(height: AppSpacing.md),
               // ⚠ THE FIGURE THAT ANSWERS THE QUESTION. What the association has
               //   actually put behind one man when something happened to him —
@@ -146,7 +161,7 @@ class _Body extends StatelessWidget {
                   Expanded(
                     child: Text(
                       l.valueLargest,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         color: AppColors.muted,
                       ),
@@ -154,7 +169,7 @@ class _Body extends StatelessWidget {
                   ),
                   Text(
                     formatMoney(value.largest),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                       color: AppColors.success,
@@ -192,7 +207,11 @@ class _Body extends StatelessWidget {
         //   anything. The association asked for the year; the year is what it
         //   gets.
         const SizedBox(height: AppSpacing.xl),
-        MemberMonthsChart(months: value.months),
+        MemberMonthsChart(
+          months: value.months,
+          paid: value.paid,
+          received: value.received,
+        ),
 
         const SizedBox(height: AppSpacing.xl),
       ],
@@ -226,7 +245,7 @@ class _Figure extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
-      Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+      Text(label, style: TextStyle(fontSize: 12, color: AppColors.muted)),
       const SizedBox(height: 2),
       Text(
         formatMoney(amount),
@@ -267,8 +286,23 @@ class _Verdict extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          // ── ⚠ رصيدٌ لك، أو رصيدٌ عليك ────────────────────────────────
+          //
+          //   «أعطتك الجمعية أكثر مما دفعتَ» / «فائض تكافلك» were the old
+          //   headings, and they deliberately avoided the word «رصيد» — see
+          //   the ARB descriptions, which are kept and now record why that
+          //   changed. The association asked for a plain ledger reading:
+          //   paid more → a balance in his favour, received more → a balance
+          //   against him, green and red accordingly.
+          //
+          // ⚠ AND IT IS A READING, NOT AN OBLIGATION. Nothing in the database
+          //   moved: a disbursement still writes no receivable, no payment and
+          //   no allocation, so this figure can never appear in his statement
+          //   and can never be collected from him. «الجمعية خيرية» is enforced
+          //   by the schema, not by these two words — which is exactly why
+          //   changing them is safe.
           Text(
-            ahead ? l.valueAhead : l.valueSurplus,
+            ahead ? l.valueOwedByHim : l.valueOwedToHim,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
           ),
@@ -280,10 +314,12 @@ class _Verdict extends StatelessWidget {
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w900,
-              // ⚠ NEITHER GREEN NOR RED for the surplus. Green would read as a
-              //   gain he can spend and red as a loss the association owes him,
-              //   and it is neither — see the class note.
-              color: ahead ? AppColors.success : AppColors.info,
+              // ⚠ RED WHEN HE RECEIVED MORE, GREEN WHEN HE PAID MORE — the
+              //   opposite of what this line used to do, and asked for in
+              //   those words. It used to paint «the association gave you
+              //   more» green as good news; it now reads as a balance
+              //   standing against him, which is what a ledger says.
+              color: ahead ? AppColors.danger : AppColors.success,
             ),
           ),
           // ⚠ THE SENTENCE UNDER THE FIGURE IS GONE, at the association’s

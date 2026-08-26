@@ -289,7 +289,7 @@ class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
                 if (_query.trim().isNotEmpty) ...<Widget>[
                   Text(
                     l.receivableSearchCount(shown.length, data.items.length),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppColors.muted,
                     ),
@@ -332,7 +332,7 @@ class _Summary extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: AppColors.muted),
+              style: TextStyle(fontSize: 10, color: AppColors.muted),
             ),
             const SizedBox(height: 4),
             Text(
@@ -385,14 +385,14 @@ class _ReceivableCard extends StatelessWidget {
                             TextSpan(text: '${item.adeelCode} • '),
                             TextSpan(
                               text: item.periodLabel,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.month,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.muted,
                         ),

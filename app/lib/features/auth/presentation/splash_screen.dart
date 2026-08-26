@@ -18,22 +18,27 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.diversity_3, size: 64, color: AppColors.onFill),
+            Icon(Icons.diversity_3, size: 64, color: AppColors.onFill),
             const SizedBox(height: AppSpacing.lg),
             Text(
               l.appTitle,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.onFill,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: AppSpacing.xl * 2),
-            const SizedBox.square(
+            SizedBox.square(
               dimension: 24,
+              // ⚠ brand, NOT white@70%. The splash sits on the aurora
+              //   field, which is PALE in the light palette — a white spinner
+              //   on it was already faint and in الوضع الليلي it is the only
+              //   bright thing on the screen. The brand colour inverts with
+              //   the palette and reads on both.
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xB3FFFFFF),
+                color: AppColors.brand,
               ),
             ),
           ],

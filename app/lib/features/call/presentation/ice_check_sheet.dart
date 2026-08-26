@@ -93,7 +93,7 @@ class _IceSheetState extends ConsumerState<_IceSheet> {
                 Text(
                   l.iceRunning,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.muted,
                   ),
@@ -135,7 +135,7 @@ class _IceSheetState extends ConsumerState<_IceSheet> {
                   Text(
                     l.iceRelayNote,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppColors.muted,
                       height: 1.5,

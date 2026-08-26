@@ -116,7 +116,7 @@ class _StatementBody extends ConsumerWidget {
                     ),
                     Text(
                       formatMoney(data.closingBalance),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 17,
                         color: AppColors.brandDark,
@@ -179,7 +179,7 @@ class _MovementCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   formatDate(movement.date),
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
                 Text(
                   '${l.movementBalance}: ${formatMoney(movement.balance)}',
@@ -194,7 +194,7 @@ class _MovementCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 movement.note,
-                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                style: TextStyle(fontSize: 11, color: AppColors.muted),
               ),
             ],
           ],

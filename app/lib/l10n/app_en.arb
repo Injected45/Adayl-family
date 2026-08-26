@@ -253,12 +253,10 @@
   "valueTitle": "What it is worth",
   "valuePaid": "You paid",
   "valueReceived": "You received",
-  "valueAhead": "The association gave you more than you paid, by",
-  "valueSurplus": "Your share of others' need",
   "valueEven": "You paid and received the same",
   "valueFund": "The association",
   "valueShareTitle": "What came back to you",
-  "valueShareOf": "Of every 100 you paid, {percent} came back",
+  "valueShareOf": "{percent}% of what you paid came back to you",
   "@valueShareOf": {
     "placeholders": {
       "percent": {
@@ -266,7 +264,7 @@
       }
     }
   },
-  "valueShareOver": "You received {percent} of every 100 you paid — more than you paid",
+  "valueShareOver": "{percent}% of what you paid came back — more than you paid",
   "@valueShareOver": {
     "placeholders": {
       "percent": {
@@ -275,8 +273,7 @@
     }
   },
   "valueMonths": "Your year",
-  "valueBackToMembers": "Of every 100 collected, {rate} went to members",
-  "valueHelped": "It stood behind {helped} of {members} members",
+  "valueBackToMembers": "{rate}% of everything collected went back to members",
   "valueLargest": "Largest single payment to one member",
   "aidColDate": "Date",
   "aidColSerial": "#",
@@ -514,5 +511,23 @@
         "type": "int"
       }
     }
-  }
+  },
+  "@valueBackToMembers": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "valueOwedByHim": "Balance against him",
+  "@valueOwedByHim": {
+    "description": "He received more than he paid."
+  },
+  "valueOwedToHim": "Balance in your favour",
+  "@valueOwedToHim": {
+    "description": "He paid more than he received."
+  },
+  "themeLabel": "Appearance",
+  "themeLight": "Light",
+  "themeDark": "Dark"
 }

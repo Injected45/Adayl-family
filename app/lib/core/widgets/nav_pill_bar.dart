@@ -156,7 +156,7 @@ class _NavPillItemView extends StatelessWidget {
                         ),
                         child: Text(
                           item.badge > 99 ? '+99' : '${item.badge}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
                             color: AppColors.onFill,

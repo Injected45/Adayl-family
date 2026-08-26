@@ -167,7 +167,7 @@ class _DemoScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const Row(
+          Row(
             children: <Widget>[
               Expanded(
                 child: _Stat(

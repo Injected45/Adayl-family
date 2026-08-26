@@ -376,7 +376,7 @@ class _AidTotalBlock extends StatelessWidget {
       children: <Widget>[
         Text(
           formatMoney(aid.total),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 30,
             fontWeight: FontWeight.w900,
             // ⚠ RED, and every figure on this screen now is. It was briefly
@@ -496,12 +496,12 @@ class _AidRowState extends State<_AidRow> {
                 ),
                 Text(
                   widget.trailing,
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Text(
                   formatMoney(widget.amount),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     // Red like every other figure here: one kind of money on
                     // one page needs one colour. See _AidTotalBlock.
@@ -553,7 +553,7 @@ class _AidVoucherBrief extends StatelessWidget {
             children: <Widget>[
               Text(
                 voucher.voucherNo,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: AppColors.muted,
@@ -563,12 +563,12 @@ class _AidVoucherBrief extends StatelessWidget {
               Expanded(
                 child: Text(
                   formatDate(voucher.spentAt),
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
               ),
               Text(
                 formatMoney(voucher.amount),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: AppColors.success,
@@ -632,7 +632,7 @@ class _AidPanelState extends State<_AidPanel> {
       trailing: widget.filtered
           ? Text(
               l.aidShowing(widget.rows.length, widget.aid.ledger.length),
-              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              style: TextStyle(fontSize: 11, color: AppColors.muted),
             )
           : null,
       child: Column(

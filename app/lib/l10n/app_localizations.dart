@@ -1471,18 +1471,6 @@ abstract class L {
   /// **'استلمتَ'**
   String get valueReceived;
 
-  /// Shown when a member has received MORE than he paid. States the fact and nothing else — no «ربح», which would make the next man expect one.
-  ///
-  /// In ar, this message translates to:
-  /// **'أعطتك الجمعية أكثر مما دفعتَ بـ'**
-  String get valueAhead;
-
-  /// Shown when he has paid MORE than he received, and the most important string in the app. It is NOT a loss and NOT a debt the association owes him: in a mutual fund the surplus of the men nothing happened to is exactly what covers the man something happened to. Calling it anything else would teach members to stop paying once they are «ahead».
-  ///
-  /// In ar, this message translates to:
-  /// **'فائض تكافلك'**
-  String get valueSurplus;
-
   /// No description provided for @valueEven.
   ///
   /// In ar, this message translates to:
@@ -1501,16 +1489,16 @@ abstract class L {
   /// **'ما عاد إليك من اشتراكك'**
   String get valueShareTitle;
 
-  /// The whole of «الجدوى» in one sentence, and the bar beneath it is the illustration. Deliberately NOT «نسبة الاسترداد»: this is a charitable fund, not a savings account, and nothing is owed back.
+  /// His own ratio: received ÷ paid. «من كل 100 دفعتَها» was the old form; a percentage reads more directly and is what the association asked for.
   ///
   /// In ar, this message translates to:
-  /// **'من كل 100 دفعتَها، عاد إليك {percent}'**
+  /// **'عاد إليك {percent}% من قيمة اشتراكاتك المدفوعة'**
   String valueShareOf(int percent);
 
   /// A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden.
   ///
   /// In ar, this message translates to:
-  /// **'استلمتَ {percent} من كل 100 دفعتَها — أكثر مما دفعت'**
+  /// **'عاد إليك {percent}% من اشتراكاتك — أكثر مما دفعت'**
   String valueShareOver(int percent);
 
   /// No description provided for @valueMonths.
@@ -1519,17 +1507,11 @@ abstract class L {
   /// **'حركتك خلال السنة'**
   String get valueMonths;
 
-  /// No description provided for @valueBackToMembers.
+  /// ⚠ THE ASSOCIATION-WIDE RATIO: toMembers ÷ collected. It is NOT «what came back to YOU» — that figure is valueShareOf, and it is a different number for every man. Writing the personal wording onto this one would tell a member who received nothing that 17% of his own subscriptions came back, which is a lie the screen has no way to correct.
   ///
   /// In ar, this message translates to:
-  /// **'من كل 100 محصَّلة، صُرف {rate} على المشتركين'**
+  /// **'عاد إلى العدايل {rate}% من إجمالي المحصَّل'**
   String valueBackToMembers(String rate);
-
-  /// No description provided for @valueHelped.
-  ///
-  /// In ar, this message translates to:
-  /// **'وقفت خلف {helped} من {members} مشتركين'**
-  String valueHelped(int helped, int members);
 
   /// No description provided for @valueLargest.
   ///
@@ -2754,6 +2736,36 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'{body}  (و{more} أخرى)'**
   String chatNotifyAndMore(String body, int more);
+
+  /// Shown when he has RECEIVED more than he paid. ⚠ It replaces «أعطتك الجمعية أكثر مما دفعتَ». The old wording avoided any word implying a debt, and the reason still stands: a disbursement is never a charge against his subscription — it writes no receivable, no payment and no allocation, so it cannot reach his statement and cannot be collected. This is a ledger reading of the same two figures, not an obligation, and the schema is what guarantees that.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيد مستحق عليه'**
+  String get valueOwedByHim;
+
+  /// Shown when he has PAID more than he received. ⚠ It replaces «فائض تكافلك», whose note warned that calling it anything else «would teach members to stop paying once they are ahead» — the surplus of the men nothing happened to is exactly what covers the man something happened to. The association asked for the ledger wording knowingly; the warning is kept here so the trade is not forgotten.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيد مستحق لك'**
+  String get valueOwedToHim;
+
+  /// No description provided for @themeLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'شكل التطبيق'**
+  String get themeLabel;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In ar, this message translates to:
+  /// **'عادي'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In ar, this message translates to:
+  /// **'داكن'**
+  String get themeDark;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

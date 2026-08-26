@@ -167,14 +167,14 @@ class DashboardScreen extends ConsumerWidget {
                               ),
                               subtitle: Text(
                                 debtor.adeelCode,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.muted,
                                 ),
                               ),
                               trailing: Text(
                                 formatMoney(debtor.debt),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   color: AppColors.danger,
                                 ),
@@ -335,7 +335,7 @@ class _PeriodPickerDialog extends ConsumerWidget {
                             : p.closed
                             ? l.periodClosedNote
                             : l.periodBlockedNote,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppColors.muted,
                         ),
@@ -346,12 +346,12 @@ class _PeriodPickerDialog extends ConsumerWidget {
                               tone: AppColors.success,
                             )
                           : p.selectable
-                          ? const Icon(
+                          ? Icon(
                               Icons.chevron_left,
                               size: 20,
                               color: AppColors.muted,
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.lock_outline,
                               size: 18,
                               color: AppColors.muted,

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:family_app/core/config/glass.dart';
+import 'package:family_app/core/config/palette.dart';
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/widgets/app_background.dart';
 import 'package:flutter/material.dart';
@@ -76,254 +77,305 @@ Color get chromeSurface => over(GlassColors.chrome, worstField);
 Color get wellSurface => over(GlassColors.well, contentSurface);
 
 void main() {
-  // ───────────────────────────────────────────────────────────────────────────
-  group('contrast (WCAG AA, 4.5:1)', () {
-    test('the ratio maths itself is right', () {
-      // Anchors with known answers, so a bug in the helper cannot silently pass
-      // every colour below.
-      expect(contrast(Colors.black, Colors.white), closeTo(21.0, 0.05));
-      expect(contrast(Colors.white, Colors.white), closeTo(1.0, 0.001));
-      // #767676 on white is the canonical 4.54:1 boundary case.
-      expect(
-        contrast(const Color(0xFF767676), Colors.white),
-        closeTo(4.54, 0.05),
-      );
+  // ── ⚠ EVERY CONTRAST CHECK BELOW RUNS IN BOTH PALETTES ───────────────────
+  //
+  //   The app gained الوضع الليلي, and a dark palette is exactly where
+  //   glassmorphism fails: translucent panes over a dark field, with accents
+  //   that were chosen against white. Proving the light palette and shipping
+  //   the dark one would be worse than having no suite at all — it would say
+  //   «contrast is tested» about half the app.
+  //
+  // ⚠ setUp/tearDown, NOT A LOOP INSIDE EACH TEST. The tokens are plain
+  //   statics; a test that flipped them and threw would leave the palette
+  //   switched for every test after it, in a random order. tearDown puts the
+  //   light palette back whatever happens.
+  //
+  // ⚠ AND THE SURFACE GETTERS ABOVE READ THE TOKENS LIVE, so they follow the
+  //   switch with no change: worstField, contentSurface, chromeSurface and
+  //   wellSurface are all computed from AppColors/GlassColors at call time.
+  for (final AppThemeMode palette in AppThemeMode.values) {
+    group('palette: ${palette.name}', () {
+      setUp(() => applyAppTheme(palette));
+      tearDown(() => applyAppTheme(AppThemeMode.light));
+
+      _contrastTests();
+    });
+  }
+
+  _designTests();
+}
+
+void _contrastTests() {
+  {
+    // ───────────────────────────────────────────────────────────────────────────
+    group('contrast (WCAG AA, 4.5:1)', () {
+      test('the ratio maths itself is right', () {
+        // Anchors with known answers, so a bug in the helper cannot silently pass
+        // every colour below.
+        expect(contrast(Colors.black, Colors.white), closeTo(21.0, 0.05));
+        expect(contrast(Colors.white, Colors.white), closeTo(1.0, 0.001));
+        // #767676 on white is the canonical 4.54:1 boundary case.
+        expect(
+          contrast(const Color(0xFF767676), Colors.white),
+          closeTo(4.54, 0.05),
+        );
+      });
+
+      test('body and secondary text clear AA on a content pane', () {
+        expect(
+          contrast(AppColors.ink, contentSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          contrast(AppColors.inkMuted, contentSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+
+      test('text clears AA on floating chrome, which is more transparent', () {
+        expect(
+          contrast(AppColors.ink, chromeSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          contrast(AppColors.inkMuted, chromeSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+
+      test('text clears AA inside a recessed well', () {
+        expect(contrast(AppColors.ink, wellSurface), greaterThanOrEqualTo(4.5));
+        expect(
+          contrast(AppColors.inkMuted, wellSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+
+      /// ── A TINTED KPI CARD ───────────────────────────────────────────────
+      ///
+      /// One card in the عديل summary wears its tone instead of merely printing
+      /// in it — العهدة, filled at 10% and bordered at 30% of AppColors.warning,
+      /// with the LABEL in that tone too. So the label and the figure sit on a
+      /// background made of themselves, which is the pairing most likely to fail:
+      /// both sides move together, and darkening the tone darkens the fill with
+      /// it.
+      test('a tinted KPI card stays legible on a fill made of its own tone', () {
+        // The design permits exactly one tinted card, but not one tinted COLOUR —
+        // the next one the association asks for will pick a different tone, and
+        // this should already have judged it.
+        final Map<String, Color> tones = <String, Color>{
+          'warning': AppColors.warning,
+          'danger': AppColors.danger,
+          'success': AppColors.success,
+          'info': AppColors.info,
+          'brandDeep': AppColors.brandDeep,
+          'dues': AppColors.dues,
+        };
+        tones.forEach((String name, Color tone) {
+          final Color card = over(tone.withValues(alpha: 0.10), wellSurface);
+          expect(
+            contrast(tone, card),
+            greaterThanOrEqualTo(4.5),
+            reason: '$name label and figure on their own 10% fill',
+          );
+        });
+      });
+
+      test('every accent is legible as text on a pane', () {
+        final Map<String, Color> accents = <String, Color>{
+          'brand': AppColors.brand,
+          'brandDeep': AppColors.brandDeep,
+          'danger': AppColors.danger,
+          'success': AppColors.success,
+          'warning': AppColors.warning,
+          'info': AppColors.info,
+          'accent': AppColors.accent,
+          'dues': AppColors.dues,
+        };
+        accents.forEach((String name, Color c) {
+          expect(
+            contrast(c, contentSurface),
+            greaterThanOrEqualTo(4.5),
+            reason: '$name on a glass content pane',
+          );
+        });
+      });
+
+      test('badge labels clear AA on their own tinted fill', () {
+        // StatusBadge draws the label in `tone` over `tone` at 14% — the pairing
+        // most likely to fail, because both sides move together.
+        final Map<String, Color> tones = <String, Color>{
+          'danger': AppColors.danger,
+          'success': AppColors.success,
+          'warning': AppColors.warning,
+          'info': AppColors.info,
+          'inkMuted': AppColors.inkMuted,
+          'brandDeep': AppColors.brandDeep,
+        };
+        tones.forEach((String name, Color tone) {
+          final Color fill = over(tone.withValues(alpha: 0.14), contentSurface);
+          expect(
+            contrast(tone, fill),
+            greaterThanOrEqualTo(4.5),
+            reason: '$name badge label on its 14% fill',
+          );
+        });
+      });
+
+      test('soft container fills carry their paired text colour', () {
+        final List<(String, Color, Color)> pairs = <(String, Color, Color)>[
+          ('danger', AppColors.danger, AppColors.dangerSoft),
+          ('success', AppColors.success, AppColors.successSoft),
+          ('warning', AppColors.warning, AppColors.warningSoft),
+          ('info', AppColors.info, AppColors.infoSoft),
+          ('brand', AppColors.brandDeep, AppColors.brandSoft),
+        ];
+        for (final (String name, Color fg, Color bg) in pairs) {
+          expect(
+            contrast(fg, bg),
+            greaterThanOrEqualTo(4.5),
+            reason: '$name on its soft fill',
+          );
+        }
+      });
+
+      test('white labels clear AA on every solid flat fill', () {
+        for (final Color fill in <Color>[
+          AppColors.brand,
+          AppColors.brandDeep,
+          AppColors.danger,
+          AppColors.success,
+          AppColors.info,
+          AppColors.accent,
+          AppColors.ink,
+        ]) {
+          expect(contrast(AppColors.onFill, fill), greaterThanOrEqualTo(4.5));
+        }
+      });
+
+      test('the glass fills are opaque enough to be predictable at all', () {
+        // The guidance is explicit: a light-mode glass card needs ~80% white, not
+        // 10%. Below roughly 70% the effective background — and therefore the
+        // contrast ratio — becomes a function of whatever scrolls past.
+        expect(GlassColors.surface.a, greaterThanOrEqualTo(0.80));
+        expect(GlassColors.chrome.a, greaterThanOrEqualTo(0.70));
+      });
+
+      test('the field stays far from the ink that sits on it', () {
+        // A saturated backdrop is the usual reason glass UIs fail contrast. If the
+        // worst point of the field drifts towards the text, this catches it
+        // before the text assertions do.
+        //
+        // ⚠ IT WAS «luminance > 0.6» AND THAT IS A LIGHT-PALETTE SENTENCE. In
+        //   الوضع الليلي the field is dark BY DEFINITION — it measured 0.02 and
+        //   failed, which is the rule being wrong rather than the palette. What
+        //   the check is really for is the DISTANCE between the field and the
+        //   ink on it, and that is the same demand in both directions.
+        expect(
+          contrast(AppColors.ink, worstField),
+          greaterThanOrEqualTo(4.5),
+          reason: 'the field must stay far from the ink that sits on it',
+        );
+      });
     });
 
-    test('body and secondary text clear AA on a content pane', () {
-      expect(
-        contrast(AppColors.ink, contentSurface),
-        greaterThanOrEqualTo(4.5),
-      );
-      expect(
-        contrast(AppColors.inkMuted, contentSurface),
-        greaterThanOrEqualTo(4.5),
-      );
-    });
-
-    test('text clears AA on floating chrome, which is more transparent', () {
-      expect(contrast(AppColors.ink, chromeSurface), greaterThanOrEqualTo(4.5));
-      expect(
-        contrast(AppColors.inkMuted, chromeSurface),
-        greaterThanOrEqualTo(4.5),
-      );
-    });
-
-    test('text clears AA inside a recessed well', () {
-      expect(contrast(AppColors.ink, wellSurface), greaterThanOrEqualTo(4.5));
-      expect(
-        contrast(AppColors.inkMuted, wellSurface),
-        greaterThanOrEqualTo(4.5),
-      );
-    });
-
-    /// ── A TINTED KPI CARD ───────────────────────────────────────────────
+    // ───────────────────────────────────────────────────────────────────────────
+    /// لونٌ خاصٌّ بكل عديل، ويجب أن يبقى مقروءاً.
     ///
-    /// One card in the عديل summary wears its tone instead of merely printing
-    /// in it — العهدة, filled at 10% and bordered at 30% of AppColors.warning,
-    /// with the LABEL in that tone too. So the label and the figure sit on a
-    /// background made of themselves, which is the pairing most likely to fail:
-    /// both sides move together, and darkening the tone darkens the fill with
-    /// it.
-    test('a tinted KPI card stays legible on a fill made of its own tone', () {
-      // The design permits exactly one tinted card, but not one tinted COLOUR —
-      // the next one the association asks for will pick a different tone, and
-      // this should already have judged it.
-      final Map<String, Color> tones = <String, Color>{
-        'warning': AppColors.warning,
-        'danger': AppColors.danger,
-        'success': AppColors.success,
-        'info': AppColors.info,
-        'brandDeep': AppColors.brandDeep,
-        'dues': AppColors.dues,
-      };
-      tones.forEach((String name, Color tone) {
-        final Color card = over(tone.withValues(alpha: 0.10), wellSurface);
-        expect(
-          contrast(tone, card),
-          greaterThanOrEqualTo(4.5),
-          reason: '$name label and figure on their own 10% fill',
-        );
-      });
-    });
-
-    test('every accent is legible as text on a pane', () {
-      final Map<String, Color> accents = <String, Color>{
-        'brand': AppColors.brand,
-        'brandDeep': AppColors.brandDeep,
-        'danger': AppColors.danger,
-        'success': AppColors.success,
-        'warning': AppColors.warning,
-        'info': AppColors.info,
-        'accent': AppColors.accent,
-        'dues': AppColors.dues,
-      };
-      accents.forEach((String name, Color c) {
-        expect(
-          contrast(c, contentSurface),
-          greaterThanOrEqualTo(4.5),
-          reason: '$name on a glass content pane',
-        );
-      });
-    });
-
-    test('badge labels clear AA on their own tinted fill', () {
-      // StatusBadge draws the label in `tone` over `tone` at 14% — the pairing
-      // most likely to fail, because both sides move together.
-      final Map<String, Color> tones = <String, Color>{
-        'danger': AppColors.danger,
-        'success': AppColors.success,
-        'warning': AppColors.warning,
-        'info': AppColors.info,
-        'inkMuted': AppColors.inkMuted,
-        'brandDeep': AppColors.brandDeep,
-      };
-      tones.forEach((String name, Color tone) {
-        final Color fill = over(tone.withValues(alpha: 0.14), contentSurface);
-        expect(
-          contrast(tone, fill),
-          greaterThanOrEqualTo(4.5),
-          reason: '$name badge label on its 14% fill',
-        );
-      });
-    });
-
-    test('soft container fills carry their paired text colour', () {
-      final List<(String, Color, Color)> pairs = <(String, Color, Color)>[
-        ('danger', AppColors.danger, AppColors.dangerSoft),
-        ('success', AppColors.success, AppColors.successSoft),
-        ('warning', AppColors.warning, AppColors.warningSoft),
-        ('info', AppColors.info, AppColors.infoSoft),
-        ('brand', AppColors.brandDeep, AppColors.brandSoft),
-      ];
-      for (final (String name, Color fg, Color bg) in pairs) {
-        expect(
-          contrast(fg, bg),
-          greaterThanOrEqualTo(4.5),
-          reason: '$name on its soft fill',
-        );
-      }
-    });
-
-    test('white labels clear AA on every solid flat fill', () {
-      for (final Color fill in <Color>[
-        AppColors.brand,
-        AppColors.brandDeep,
-        AppColors.danger,
-        AppColors.success,
-        AppColors.info,
-        AppColors.accent,
-        AppColors.ink,
-      ]) {
-        expect(contrast(AppColors.onFill, fill), greaterThanOrEqualTo(4.5));
-      }
-    });
-
-    test('the glass fills are opaque enough to be predictable at all', () {
-      // The guidance is explicit: a light-mode glass card needs ~80% white, not
-      // 10%. Below roughly 70% the effective background — and therefore the
-      // contrast ratio — becomes a function of whatever scrolls past.
-      expect(GlassColors.surface.a, greaterThanOrEqualTo(0.80));
-      expect(GlassColors.chrome.a, greaterThanOrEqualTo(0.70));
-    });
-
-    test('the field itself stays pale enough to be a background', () {
-      // A saturated backdrop is the usual reason glass UIs fail contrast. If the
-      // worst point of the field ever gets dark, this catches it before the text
-      // assertions do.
-      expect(luminance(worstField), greaterThan(0.6));
-    });
-  });
-
-  // ───────────────────────────────────────────────────────────────────────────
-  /// لونٌ خاصٌّ بكل عديل، ويجب أن يبقى مقروءاً.
-  ///
-  /// AppColors.identityTone GENERATES a colour per عديل instead of cycling a
-  /// fixed list, so nobody can look at «the palette» and judge it — there are
-  /// as many colours as there are members. That is precisely why it has to be
-  /// asserted across a long run rather than eyeballed on the first eight.
-  group('identity tones', () {
-    /// The register runs to hundreds at most; two hundred covers it with room.
-    Iterable<int> ids() sync* {
-      for (int i = 1; i <= 200; i++) {
-        yield i;
-      }
-    }
-
-    test('every one of them clears AA on its own badge fill', () {
-      // ⚠ 14%, NOT THE 10% StatusBadge ACTUALLY DRAWS. A lighter fill only
-      //   raises the ratio against a dark label, so testing the heavier one
-      //   tests the worse case — and leaves the badge free to darken its fill
-      //   later without silently crossing the line.
-      for (final int id in ids()) {
-        final Color tone = AppColors.identityTone(id);
-        final Color fill = over(tone.withValues(alpha: 0.14), contentSurface);
-        expect(
-          contrast(tone, fill),
-          greaterThanOrEqualTo(4.5),
-          reason: 'A-$id (${tone.toARGB32().toRadixString(16)}) on its fill',
-        );
-      }
-    });
-
-    test('and on a plain content pane, for the day one is used as text', () {
-      for (final int id in ids()) {
-        expect(
-          contrast(AppColors.identityTone(id), contentSurface),
-          greaterThanOrEqualTo(4.5),
-          reason: 'A-$id as text on glass',
-        );
-      }
-    });
-
-    /// ⚠ THE POINT OF THE GOLDEN ANGLE, stated as a number.
-    ///
-    ///   Stepping the hue by 360/n would make A-01 and A-02 neighbours on the
-    ///   wheel — two teals, indistinguishable in an 11px chip. A register is
-    ///   read as a RUN of consecutive numbers, so consecutive is exactly where
-    ///   the separation has to be.
-    test('a screenful of consecutive عدايل are visibly different hues', () {
-      final List<double> hues = <double>[
-        for (int id = 1; id <= 12; id++)
-          HSLColor.fromColor(AppColors.identityTone(id)).hue,
-      ];
-      double gap = 360;
-      for (int i = 0; i < hues.length; i++) {
-        for (int j = i + 1; j < hues.length; j++) {
-          final double d = (hues[i] - hues[j]).abs();
-          gap = math.min(gap, math.min(d, 360 - d));
+    /// AppColors.identityTone GENERATES a colour per عديل instead of cycling a
+    /// fixed list, so nobody can look at «the palette» and judge it — there are
+    /// as many colours as there are members. That is precisely why it has to be
+    /// asserted across a long run rather than eyeballed on the first eight.
+    group('identity tones', () {
+      /// The register runs to hundreds at most; two hundred covers it with room.
+      Iterable<int> ids() sync* {
+        for (int i = 1; i <= 200; i++) {
+          yield i;
         }
       }
-      // ⚠ THE FIRST VERSION ASSERTED 20° AND MEASURED 19.58°, which is the
-      //   right way for a threshold to be wrong: guessed, then corrected by
-      //   the thing it was guarding. Twelve golden-angle points really do come
-      //   within ~19.6° of each other somewhere in the set.
-      expect(gap, greaterThan(15));
 
-      // ⚠ AND THIS IS THE ASSERTION THAT ACTUALLY MATTERS. A register is read
-      //   as a RUN — A-01 above A-02 above A-03 — so the separation has to be
-      //   between NEIGHBOURS, and a global minimum says nothing about them.
-      //   The golden angle puts consecutive ids 137.5° apart; a naive 360/n
-      //   stepping would put them 30° apart and they would read as one colour.
-      for (int i = 1; i < hues.length; i++) {
-        final double d = (hues[i] - hues[i - 1]).abs();
-        expect(
-          math.min(d, 360 - d),
-          greaterThan(100),
-          reason: 'A-$i and A-${i + 1} sit side by side',
-        );
-      }
+      test('every one of them clears AA on its own badge fill', () {
+        // ⚠ 14%, NOT THE 10% StatusBadge ACTUALLY DRAWS. A lighter fill only
+        //   raises the ratio against a dark label, so testing the heavier one
+        //   tests the worse case — and leaves the badge free to darken its fill
+        //   later without silently crossing the line.
+        for (final int id in ids()) {
+          final Color tone = AppColors.identityTone(id);
+          final Color fill = over(tone.withValues(alpha: 0.14), contentSurface);
+          expect(
+            contrast(tone, fill),
+            greaterThanOrEqualTo(4.5),
+            reason: 'A-$id (${tone.toARGB32().toRadixString(16)}) on its fill',
+          );
+        }
+      });
+
+      test('and on a plain content pane, for the day one is used as text', () {
+        for (final int id in ids()) {
+          expect(
+            contrast(AppColors.identityTone(id), contentSurface),
+            greaterThanOrEqualTo(4.5),
+            reason: 'A-$id as text on glass',
+          );
+        }
+      });
+
+      /// ⚠ THE POINT OF THE GOLDEN ANGLE, stated as a number.
+      ///
+      ///   Stepping the hue by 360/n would make A-01 and A-02 neighbours on the
+      ///   wheel — two teals, indistinguishable in an 11px chip. A register is
+      ///   read as a RUN of consecutive numbers, so consecutive is exactly where
+      ///   the separation has to be.
+      test('a screenful of consecutive عدايل are visibly different hues', () {
+        final List<double> hues = <double>[
+          for (int id = 1; id <= 12; id++)
+            HSLColor.fromColor(AppColors.identityTone(id)).hue,
+        ];
+        double gap = 360;
+        for (int i = 0; i < hues.length; i++) {
+          for (int j = i + 1; j < hues.length; j++) {
+            final double d = (hues[i] - hues[j]).abs();
+            gap = math.min(gap, math.min(d, 360 - d));
+          }
+        }
+        // ⚠ THE FIRST VERSION ASSERTED 20° AND MEASURED 19.58°, which is the
+        //   right way for a threshold to be wrong: guessed, then corrected by
+        //   the thing it was guarding. Twelve golden-angle points really do come
+        //   within ~19.6° of each other somewhere in the set.
+        expect(gap, greaterThan(15));
+
+        // ⚠ AND THIS IS THE ASSERTION THAT ACTUALLY MATTERS. A register is read
+        //   as a RUN — A-01 above A-02 above A-03 — so the separation has to be
+        //   between NEIGHBOURS, and a global minimum says nothing about them.
+        //   The golden angle puts consecutive ids 137.5° apart; a naive 360/n
+        //   stepping would put them 30° apart and they would read as one colour.
+        for (int i = 1; i < hues.length; i++) {
+          final double d = (hues[i] - hues[i - 1]).abs();
+          expect(
+            math.min(d, 360 - d),
+            greaterThan(100),
+            reason: 'A-$i and A-${i + 1} sit side by side',
+          );
+        }
+      });
+
+      test('and a man keeps his colour — the same id gives the same tone', () {
+        // Seeded on adeel_id, which never changes. If this ever became random or
+        // position-based, a register would repaint itself on every sort.
+        expect(AppColors.identityTone(5), AppColors.identityTone(5));
+        expect(AppColors.identityTone(5), isNot(AppColors.identityTone(6)));
+      });
     });
 
-    test('and a man keeps his colour — the same id gives the same tone', () {
-      // Seeded on adeel_id, which never changes. If this ever became random or
-      // position-based, a register would repaint itself on every sort.
-      expect(AppColors.identityTone(5), AppColors.identityTone(5));
-      expect(AppColors.identityTone(5), isNot(AppColors.identityTone(6)));
-    });
-  });
+    // ───────────────────────────────────────────────────────────────────────────
+  }
+}
 
-  // ───────────────────────────────────────────────────────────────────────────
+/// ⚠ THESE DO NOT DEPEND ON THE PALETTE — blur radii, durations, touch
+///   targets, type scale and the ban on gradients are the same in both. They
+///   run ONCE, outside the loop, so a shared rule is not asserted twice and
+///   reported as two failures for one mistake.
+void _designTests() {
   group('blur budget', () {
     Widget host(Widget child) => MaterialApp(
       theme: buildAppTheme(),
@@ -337,7 +389,7 @@ void main() {
     testWidgets('GlassSurface does not blur unless asked', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(host(const GlassSurface(child: Text('x'))));
+      await tester.pumpWidget(host(GlassSurface(child: Text('x'))));
       expect(find.byType(BackdropFilter), findsNothing);
     });
 
@@ -345,7 +397,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        host(const GlassSurface(blurred: true, child: Text('x'))),
+        host(GlassSurface(blurred: true, child: Text('x'))),
       );
       expect(find.byType(BackdropFilter), findsOneWidget);
     });
@@ -383,10 +435,10 @@ void main() {
         host(
           Column(
             children: <Widget>[
-              const GlassSurface(blurred: true, child: Text('app bar')),
-              const GlassSurface(blurred: true, child: Text('hero')),
-              const GlassSurface(blurred: true, child: Text('dialog')),
-              const GlassSurface(blurred: true, child: Text('nav')),
+              GlassSurface(blurred: true, child: Text('app bar')),
+              GlassSurface(blurred: true, child: Text('hero')),
+              GlassSurface(blurred: true, child: Text('dialog')),
+              GlassSurface(blurred: true, child: Text('nav')),
               Expanded(
                 child: ListView(
                   children: <Widget>[

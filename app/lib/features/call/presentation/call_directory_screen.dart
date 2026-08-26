@@ -106,7 +106,7 @@ class _PeerRow extends ConsumerWidget {
           backgroundColor: AppColors.identityTone(peer.adeelId),
           child: Text(
             peer.code,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w900,
               color: AppColors.onFill,

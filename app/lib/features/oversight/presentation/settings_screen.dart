@@ -211,7 +211,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
             ),
             const SizedBox(height: AppSpacing.md),
             if (preview.isEmpty)
-              Text(l.noChanges, style: const TextStyle(color: AppColors.muted))
+              Text(l.noChanges, style: TextStyle(color: AppColors.muted))
             else
               for (final String line in preview)
                 Padding(
@@ -266,9 +266,14 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           ),
           child: Text(
             l.settingsWarning,
-            style: const TextStyle(
+            // ⚠ warning, NOT A LITERAL. This was #854D0E — the light
+            //   palette's amber, hand-copied — sitting on warningSoft. Both
+            //   sides invert in الوضع الليلي, so the literal would have put
+            //   dark amber on dark amber and made the DANGER-ZONE warning the
+            //   one paragraph nobody can read.
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF854D0E),
+              color: AppColors.warning,
               height: 1.5,
             ),
           ),
@@ -381,7 +386,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
         FilledButton.icon(
           onPressed: _saving ? null : () => _save(l),
           icon: _saving
-              ? const SizedBox.square(
+              ? SizedBox.square(
                   dimension: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
@@ -578,7 +583,7 @@ class _DangerCard extends StatelessWidget {
         children: <Widget>[
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
               color: AppColors.danger,
@@ -591,7 +596,7 @@ class _DangerCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             warning,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               height: 1.6,
               fontWeight: FontWeight.w700,
@@ -606,7 +611,7 @@ class _DangerCard extends StatelessWidget {
               foregroundColor: AppColors.onFill,
             ),
             icon: busy
-                ? const SizedBox.square(
+                ? SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
@@ -675,7 +680,7 @@ class _PurgeConfirmDialogState extends State<_PurgeConfirmDialog> {
           ],
           Text(
             l.purgeIrreversible,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               height: 1.6,
               fontWeight: FontWeight.w700,
@@ -779,7 +784,7 @@ class _OfficialPicker extends ConsumerWidget {
             value: null,
             child: Text(
               l.notAssigned,
-              style: const TextStyle(color: AppColors.muted),
+              style: TextStyle(color: AppColors.muted),
             ),
           ),
           for (final AdeelListItem a in options)
@@ -956,7 +961,7 @@ class _ExceptionRow extends StatelessWidget {
         children: <Widget>[
           Text(
             l.feeExceptionLabel,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -974,7 +979,7 @@ class _ExceptionRow extends StatelessWidget {
                       value: m.toString().padLeft(2, '0'),
                       child: Text(
                         monthName(m),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.month,
                           fontWeight: FontWeight.w700,
                         ),

@@ -632,7 +632,7 @@ class _WideLayout extends StatelessWidget {
                                     ),
                                   ),
                                   alignment: Alignment.center,
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.diversity_3,
                                     color: AppColors.onFill,
                                     size: 22,
@@ -745,7 +745,7 @@ class _AccountMenu extends ConsumerWidget {
       elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
-        side: const BorderSide(color: GlassColors.hairline),
+        side: BorderSide(color: GlassColors.hairline),
       ),
       icon: Container(
         width: 36,
@@ -757,7 +757,7 @@ class _AccountMenu extends ConsumerWidget {
         alignment: Alignment.center,
         child: Text(
           user.displayName.characters.take(1).toString(),
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: AppFonts.display,
             fontSize: 15,
             color: AppColors.onFill,
@@ -787,11 +787,11 @@ class _AccountMenu extends ConsumerWidget {
           value: 'signOut',
           child: Row(
             children: <Widget>[
-              const Icon(Icons.logout, size: 18, color: AppColors.danger),
+              Icon(Icons.logout, size: 18, color: AppColors.danger),
               const SizedBox(width: 10),
               Text(
                 l.signOut,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w700,
                   color: AppColors.danger,
@@ -839,7 +839,7 @@ class _RoleChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: AppFonts.body,
           fontSize: 11,
           fontWeight: FontWeight.w800,

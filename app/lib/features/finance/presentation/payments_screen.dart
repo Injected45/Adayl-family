@@ -67,7 +67,10 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
           FloatingActionButton.extended(
             onPressed: () => showPaymentSheet(context),
             backgroundColor: AppColors.success,
-            foregroundColor: Colors.white,
+            // ⚠ onFill, NOT Colors.white. In الوضع الليلي the accents are the LIGHT
+            //   ones — success is #4ADE80 — and white on them measures 1.5:1.
+            //   onFill inverts with the palette; a literal cannot.
+            foregroundColor: AppColors.onFill,
             icon: const Icon(Icons.south_west),
             label: Text(l.registerPayment),
           ),
@@ -75,7 +78,10 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
           FloatingActionButton.extended(
             onPressed: () => showDisbursementSheet(context),
             backgroundColor: AppColors.danger,
-            foregroundColor: Colors.white,
+            // ⚠ onFill, NOT Colors.white. In الوضع الليلي the accents are the LIGHT
+            //   ones — success is #4ADE80 — and white on them measures 1.5:1.
+            //   onFill inverts with the palette; a literal cannot.
+            foregroundColor: AppColors.onFill,
             icon: const Icon(Icons.north_east),
             label: Text(l.registerDisbursement),
           ),
@@ -96,9 +102,9 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                   value: _Ops.collections,
                   label: Text(
                     l.opsCollections,
-                    style: const TextStyle(color: AppColors.success),
+                    style: TextStyle(color: AppColors.success),
                   ),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.south_west,
                     size: 18,
                     color: AppColors.success,
@@ -108,9 +114,9 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                   value: _Ops.disbursements,
                   label: Text(
                     l.opsDisbursements,
-                    style: const TextStyle(color: AppColors.danger),
+                    style: TextStyle(color: AppColors.danger),
                   ),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.north_east,
                     size: 18,
                     color: AppColors.danger,
@@ -249,7 +255,7 @@ class _PaymentCard extends ConsumerWidget {
               children: <Widget>[
                 Text(
                   formatDateTime(payment.paidAt),
-                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
                 StatusBadge(
                   label: payment.status,
@@ -279,26 +285,29 @@ class _PaymentCard extends ConsumerWidget {
                   Text.rich(
                     TextSpan(
                       children: <InlineSpan>[
-                        for (int i = 0; i < payment.allocations.length; i++)
-                          ...<InlineSpan>[
-                            if (i > 0)
-                              const TextSpan(
-                                text: ArabicPunctuation.listSeparator,
-                              ),
-                            TextSpan(
-                              text: formatPeriodMonth(
-                                payment.allocations[i].period,
-                              ),
-                              style: const TextStyle(color: AppColors.month),
+                        for (
+                          int i = 0;
+                          i < payment.allocations.length;
+                          i++
+                        ) ...<InlineSpan>[
+                          if (i > 0)
+                            const TextSpan(
+                              text: ArabicPunctuation.listSeparator,
                             ),
-                            TextSpan(
-                              text:
-                                  ' ${formatMoney(payment.allocations[i].amount)}',
+                          TextSpan(
+                            text: formatPeriodMonth(
+                              payment.allocations[i].period,
                             ),
-                          ],
+                            style: TextStyle(color: AppColors.month),
+                          ),
+                          TextSpan(
+                            text:
+                                ' ${formatMoney(payment.allocations[i].amount)}',
+                          ),
+                        ],
                       ],
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -433,7 +442,7 @@ class _DisbursementsTab extends ConsumerWidget {
                                 ),
                                 Text(
                                   formatMoney(r.total),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.danger,
                                   ),
@@ -651,7 +660,7 @@ class _VoucherLine extends StatelessWidget {
           width: 92,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
         ),
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),

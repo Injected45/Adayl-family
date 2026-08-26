@@ -118,6 +118,16 @@ void main() {
     //   Widening the scan to `lib` surfaced them, and every one is a genuine
     //   exemption — but they are written down now rather than unseen, and the
     //   NEXT provider added under core will be asked the question.
+    // ── شكلُ التطبيق ────────────────────────────────────────────────────────
+    // ⚠ SWEEPING THE THEME WOULD REPAINT THE APP MID-USE. themeModeProvider is
+    //   watched at the ROOT and its value keys the whole subtree, so
+    //   invalidating it every forty-five seconds would rebuild every screen
+    //   the member is looking at — and, for one frame, in whichever palette
+    //   the statics happened to hold. It is a preference on his handset, not
+    //   an answer from the server: nothing upstream can change it.
+    'themeModeProvider': 'a preference, and the root is keyed on it',
+    'themeModeStoreProvider': 'a keystore handle, not data',
+
     'supabaseClientProvider': 'the client itself, not an answer',
     'supabaseConfiguredProvider': 'a boot fact, decided once',
     'authRepositoryProvider': 'a client, not data',

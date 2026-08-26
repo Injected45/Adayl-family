@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/glass.dart';
+import '../../../core/config/palette.dart';
 import '../../../core/config/theme.dart';
+import '../../../core/config/theme_mode_provider.dart';
 import '../../../core/domain/wire_values.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/router/destinations.dart';
@@ -480,7 +482,7 @@ class _OthersAidButton extends ConsumerWidget {
             formatMoney(aid.valueOrNull?.total ?? '0.00'),
             // ⚠ RED: what the fund paid out to everyone else — money that has
             //   LEFT, which is what red says on the الصندوق page too.
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w900,
               color: AppColors.danger,
               fontSize: 13,
@@ -531,7 +533,7 @@ class _MyAidButton extends ConsumerWidget {
             formatMoney(aid.valueOrNull?.total ?? '0.00'),
             // ⚠ GREEN: this is what the association GAVE HIM. It was red, which
             //   in this app means «عليك» — the opposite of what a gift is.
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w900,
               color: AppColors.success,
               fontSize: 13,
@@ -595,15 +597,22 @@ class _PortalMoreSheet extends ConsumerWidget {
               const SizedBox(height: AppSpacing.lg),
               PortalSectionMenu(adeelId: adeelId),
               const SizedBox(height: AppSpacing.md),
+              // ── شكلُ التطبيق ─────────────────────────────────────────────
+              // ⚠ A SEGMENTED CONTROL, NOT A SWITCH. «داكن / عادي» are two
+              //   named states a member picks between; a switch would need a
+              //   label saying which way is on, and «الوضع الليلي: مُطفأ» is a
+              //   sentence nobody reads twice.
+              const _ThemePicker(),
+              const SizedBox(height: AppSpacing.md),
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(context).pop();
                   ref.read(authControllerProvider.notifier).signOut();
                 },
-                icon: const Icon(Icons.logout, color: AppColors.danger),
+                icon: Icon(Icons.logout, color: AppColors.danger),
                 label: Text(
                   l.signOut,
-                  style: const TextStyle(color: AppColors.danger),
+                  style: TextStyle(color: AppColors.danger),
                 ),
               ),
             ],
@@ -739,7 +748,7 @@ class _BalanceHero extends StatelessWidget {
                       child: Text(
                         adeel.adeelCode,
                         maxLines: 1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: AppFonts.display,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -792,7 +801,7 @@ class _BalanceHero extends StatelessWidget {
               ),
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(
               height: 1,
@@ -840,7 +849,7 @@ class _BalanceHero extends StatelessWidget {
                     : inCredit
                     ? l.myWalletTitle
                     : l.myBalanceNow,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.muted,
@@ -899,7 +908,7 @@ class _BalanceHero extends StatelessWidget {
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   l.currency,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.muted,
@@ -915,7 +924,7 @@ class _BalanceHero extends StatelessWidget {
                 : inCredit
                 ? l.myWalletBody
                 : l.settledUpTitle,
-            style: const TextStyle(fontSize: 15, color: AppColors.muted),
+            style: TextStyle(fontSize: 15, color: AppColors.muted),
           ),
         ],
       ),
@@ -958,7 +967,16 @@ class _TotalsStrip extends StatelessWidget {
           // two operators on a phone — reading as a wall.
           _StripCell(label: l.myIssuedTotal, value: detail.issued),
           const _StripOperator('−'),
-          _StripCell(label: l.myPaidTotal, value: detail.paid),
+          // ⚠ GREEN, LIKE ITS LINE ON THE «الجدوى» CHART — «دفعتَ» is green and
+          //   «استلمتَ» is red across every container, by request. The other
+          //   two cells keep the muted tone: مستحق is a fact about the register
+          //   and الباقي already carries the emphasis of bold. A strip that
+          //   coloured everything would emphasise nothing.
+          _StripCell(
+            label: l.myPaidTotal,
+            value: detail.paid,
+            tone: AppColors.success,
+          ),
           const _StripOperator('='),
           _StripCell(label: l.myRemainingTotal, value: detail.debt, bold: true),
         ],
@@ -972,11 +990,17 @@ class _StripCell extends StatelessWidget {
     required this.label,
     required this.value,
     this.bold = false,
+    this.tone,
   });
 
   final String label;
   final String value;
   final bool bold;
+
+  /// The figure's colour. Null keeps the strip's own quiet tone, which is what
+  /// two of the three cells want — a strip that coloured everything would be a
+  /// strip that emphasises nothing.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) {
@@ -988,7 +1012,7 @@ class _StripCell extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 2),
           Text(
@@ -999,7 +1023,7 @@ class _StripCell extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-              color: bold ? AppColors.ink : AppColors.muted,
+              color: tone ?? (bold ? AppColors.ink : AppColors.muted),
             ),
           ),
         ],
@@ -1019,7 +1043,7 @@ class _StripOperator extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Text(
         symbol,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
           color: AppColors.muted,
@@ -1153,7 +1177,7 @@ class _LedgerState extends State<_Ledger> {
               child: Text(
                 l.noSearchResults,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: AppColors.muted),
+                style: TextStyle(fontSize: 15, color: AppColors.muted),
               ),
             )
           else
@@ -1346,7 +1370,7 @@ class _LedgerPager extends StatelessWidget {
       children: <Widget>[
         Text(
           l.statementShowing(shown, total),
-          style: const TextStyle(fontSize: 14, color: AppColors.muted),
+          style: TextStyle(fontSize: 14, color: AppColors.muted),
         ),
         if (remaining > 0)
           Wrap(
@@ -1374,7 +1398,7 @@ class _LedgerHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
-    const TextStyle style = TextStyle(
+    final TextStyle style = TextStyle(
       fontSize: _ledgerHeadSize,
       fontWeight: FontWeight.w800,
       color: AppColors.inkMuted,
@@ -1385,7 +1409,7 @@ class _LedgerHead extends StatelessWidget {
         vertical: AppSpacing.sm,
         horizontal: AppSpacing.xs,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.neutralSoft,
         border: Border(bottom: BorderSide(color: AppColors.inkMuted, width: 1)),
       ),
@@ -1428,9 +1452,7 @@ class _LedgerRow extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: shaded ? AppColors.neutralSoft : null,
-        border: const Border(
-          bottom: BorderSide(color: AppColors.line, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.line, width: 1)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1458,7 +1480,7 @@ class _LedgerRow extends StatelessWidget {
                   formatDate(movement.date),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: _ledgerNoteSize,
                     color: AppColors.muted,
                   ),
@@ -1519,7 +1541,7 @@ class _LedgerTotals extends StatelessWidget {
         vertical: AppSpacing.md,
         horizontal: AppSpacing.xs,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.inkMuted, width: 1)),
       ),
       child: Row(
@@ -1731,7 +1753,7 @@ class _DueTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   l.ofTotal(formatMoney(item.total)),
-                  style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                  style: TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
               ],
             ],
@@ -1757,3 +1779,57 @@ class _DueTile extends StatelessWidget {
 ///
 /// The count therefore rides on the BUTTON itself. Same provider, same number
 /// as the staff bell — one source, so the two can never disagree.
+
+/// شكلُ التطبيق: عاديّ أو ليليّ.
+///
+/// ⚠ IN THE «المزيد» SHEET AND NOWHERE ELSE. It is a preference, not a
+///   destination — putting it in the section menu beside «تفاصيل اشتراكي»
+///   would make it look like a page he can open, and it is one tap.
+///
+/// ⚠ AND IT WRITES BEFORE IT RETURNS, so the sheet he is looking at repaints
+///   under him. That is the confirmation: no snack bar, no «تم الحفظ», the
+///   change IS the feedback.
+class _ThemePicker extends ConsumerWidget {
+  const _ThemePicker();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final L l = L.of(context);
+    final AppThemeMode mode = ref.watch(themeModeProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
+          child: Text(
+            l.themeLabel,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.muted,
+            ),
+          ),
+        ),
+        SegmentedButton<AppThemeMode>(
+          segments: <ButtonSegment<AppThemeMode>>[
+            ButtonSegment<AppThemeMode>(
+              value: AppThemeMode.light,
+              icon: const Icon(Icons.light_mode_outlined, size: 18),
+              label: Text(l.themeLight),
+            ),
+            ButtonSegment<AppThemeMode>(
+              value: AppThemeMode.dark,
+              icon: const Icon(Icons.dark_mode_outlined, size: 18),
+              label: Text(l.themeDark),
+            ),
+          ],
+          selected: <AppThemeMode>{mode},
+          showSelectedIcon: false,
+          onSelectionChanged: (Set<AppThemeMode> v) =>
+              ref.read(themeModeProvider.notifier).set(v.first),
+        ),
+      ],
+    );
+  }
+}

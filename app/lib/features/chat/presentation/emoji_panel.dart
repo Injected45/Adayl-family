@@ -182,7 +182,7 @@ class _EmojiPanelState extends State<EmojiPanel> {
 
     return Container(
       height: widget.maxHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: GlassColors.well,
         border: Border(top: BorderSide(color: GlassColors.wellEdge)),
       ),

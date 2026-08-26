@@ -745,12 +745,6 @@ class LAr extends L {
   String get valueReceived => 'استلمتَ';
 
   @override
-  String get valueAhead => 'أعطتك الجمعية أكثر مما دفعتَ بـ';
-
-  @override
-  String get valueSurplus => 'فائض تكافلك';
-
-  @override
   String get valueEven => 'دفعتَ واستلمتَ سواءً';
 
   @override
@@ -761,12 +755,12 @@ class LAr extends L {
 
   @override
   String valueShareOf(int percent) {
-    return 'من كل 100 دفعتَها، عاد إليك $percent';
+    return 'عاد إليك $percent% من قيمة اشتراكاتك المدفوعة';
   }
 
   @override
   String valueShareOver(int percent) {
-    return 'استلمتَ $percent من كل 100 دفعتَها — أكثر مما دفعت';
+    return 'عاد إليك $percent% من اشتراكاتك — أكثر مما دفعت';
   }
 
   @override
@@ -774,12 +768,7 @@ class LAr extends L {
 
   @override
   String valueBackToMembers(String rate) {
-    return 'من كل 100 محصَّلة، صُرف $rate على المشتركين';
-  }
-
-  @override
-  String valueHelped(int helped, int members) {
-    return 'وقفت خلف $helped من $members مشتركين';
+    return 'عاد إلى العدايل $rate% من إجمالي المحصَّل';
   }
 
   @override
@@ -1499,4 +1488,19 @@ class LAr extends L {
   String chatNotifyAndMore(String body, int more) {
     return '$body  (و$more أخرى)';
   }
+
+  @override
+  String get valueOwedByHim => 'رصيد مستحق عليه';
+
+  @override
+  String get valueOwedToHim => 'رصيد مستحق لك';
+
+  @override
+  String get themeLabel => 'شكل التطبيق';
+
+  @override
+  String get themeLight => 'عادي';
+
+  @override
+  String get themeDark => 'داكن';
 }

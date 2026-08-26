@@ -55,7 +55,7 @@ class UsersScreen extends ConsumerWidget {
               if (pending.isNotEmpty) ...<Widget>[
                 Text(
                   '${l.pendingRequests} (${pending.length})',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: AppColors.warning,
@@ -123,7 +123,7 @@ class _UserCard extends ConsumerWidget {
                       ),
                       Text(
                         user.email,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppColors.muted,
                         ),
@@ -148,7 +148,7 @@ class _UserCard extends ConsumerWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               '${l.lastLogin}: ${user.lastLoginAt == null ? l.never : formatDateTime(user.lastLoginAt)}',
-              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              style: TextStyle(fontSize: 11, color: AppColors.muted),
             ),
 
             if (isSelf) ...<Widget>[
@@ -157,7 +157,7 @@ class _UserCard extends ConsumerWidget {
               // themselves out would leave nobody able to administer.
               Text(
                 l.cannotModifySelfNote,
-                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                style: TextStyle(fontSize: 11, color: AppColors.muted),
               ),
             ] else ...<Widget>[
               const SizedBox(height: AppSpacing.md),

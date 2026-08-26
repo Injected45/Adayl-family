@@ -51,7 +51,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: Center(child: VaultIcon(size: 18, color: AppColors.warning)),
         ),
@@ -69,7 +69,7 @@ void main() {
     // The reason `color` is nullable. Dropped into a disabled row, the safe must
     // grey out with the icons around it rather than staying black beside them.
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: IconTheme(
             data: IconThemeData(color: AppColors.danger),

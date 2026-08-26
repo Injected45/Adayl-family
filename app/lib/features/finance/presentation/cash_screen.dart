@@ -70,7 +70,7 @@ class CashScreen extends ConsumerWidget {
             // used to be five rows and a register of forty was hundreds.
             Text(
               l.opsCollections,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: AppColors.success,
@@ -133,7 +133,7 @@ class CashScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
             Text(
               l.kindCollective,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: AppColors.danger,
@@ -318,11 +318,11 @@ class _AdeelGroup extends StatelessWidget {
                 if (group.vouchers.isNotEmpty)
                   TextSpan(
                     text: ' • ${l.voucherCount(group.vouchers.length)}',
-                    style: const TextStyle(color: AppColors.danger),
+                    style: TextStyle(color: AppColors.danger),
                   ),
               ],
             ),
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           // His total sits on the closed row, so the screen answers "how much
           // has this man paid the association" without being opened.
@@ -331,14 +331,14 @@ class _AdeelGroup extends StatelessWidget {
             children: <Widget>[
               Text(
                 formatMoney(group.total),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: AppColors.success,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const Icon(Icons.expand_more, size: 20, color: AppColors.muted),
+              Icon(Icons.expand_more, size: 20, color: AppColors.muted),
             ],
           ),
           // ── HIS RECEIPTS, THEN HIS VOUCHERS ──────────────────────────────
@@ -408,7 +408,7 @@ class _MovementTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${movement.method} • ${formatDateTime(movement.occurredAt)}',
-        style: const TextStyle(fontSize: 11, color: AppColors.muted),
+        style: TextStyle(fontSize: 11, color: AppColors.muted),
       ),
       trailing: Text(
         formatMoney(movement.amount),
@@ -442,7 +442,7 @@ class _VoucherTile extends StatelessWidget {
     //   rule 9 keeps it on screen for exactly that reason. Its amount is
     //   already out of every total on this page, because they all filter on
     //   status, so the colour costs nothing in correctness.
-    const Color tone = AppColors.danger;
+    final Color tone = AppColors.danger;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -468,7 +468,7 @@ class _VoucherTile extends StatelessWidget {
           voucher.method,
           formatDateTime(voucher.spentAt),
         ].join(' • '),
-        style: const TextStyle(fontSize: 11, color: AppColors.muted),
+        style: TextStyle(fontSize: 11, color: AppColors.muted),
       ),
       trailing: Text(
         formatMoney(voucher.amount),

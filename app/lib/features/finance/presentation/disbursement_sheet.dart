@@ -224,7 +224,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     ),
                     child: Row(
                       children: <Widget>[
-                        const VaultIcon(size: 18, color: AppColors.muted),
+                        VaultIcon(size: 18, color: AppColors.muted),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(child: Text(l.associationBalance)),
                         Text(
@@ -463,7 +463,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   //   will not carry. One sentence, and no figure to doubt.
                   Row(
                     children: <Widget>[
-                      const Icon(
+                      Icon(
                         Icons.schedule,
                         size: 16,
                         color: AppColors.muted,
@@ -472,7 +472,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                       Expanded(
                         child: Text(
                           l.disbursementDateAuto,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: AppColors.muted,
                           ),
@@ -485,7 +485,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     const SizedBox(height: AppSpacing.md),
                     Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.danger),
+                      style: TextStyle(color: AppColors.danger),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.lg),

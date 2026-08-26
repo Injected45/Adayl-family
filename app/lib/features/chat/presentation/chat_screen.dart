@@ -900,7 +900,7 @@ class _Body extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.do_not_disturb_on_outlined,
               size: 14,
               color: AppColors.muted,
@@ -908,7 +908,7 @@ class _Body extends StatelessWidget {
             const SizedBox(width: AppSpacing.xs),
             Text(
               l.chatDeleted,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
                 color: AppColors.muted,
@@ -945,7 +945,7 @@ class _Body extends StatelessWidget {
               Text(message.body, style: const TextStyle(fontSize: 40)),
               Text(
                 formatTime(message.createdAt),
-                style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                style: TextStyle(fontSize: 10, color: AppColors.muted),
               ),
             ],
           ),
@@ -1050,7 +1050,7 @@ class _StaffTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w800,
           color: AppColors.brandDeep,
@@ -1072,19 +1072,19 @@ class _DayDivider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Row(
         children: <Widget>[
-          const Expanded(child: Divider(color: GlassColors.wellEdge)),
+          Expanded(child: Divider(color: GlassColors.wellEdge)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             child: Text(
               formatDate(iso),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: AppColors.muted,
               ),
             ),
           ),
-          const Expanded(child: Divider(color: GlassColors.wellEdge)),
+          Expanded(child: Divider(color: GlassColors.wellEdge)),
         ],
       ),
     );
@@ -1279,7 +1279,7 @@ class _ComposerState extends State<_Composer> {
               IconButton.filled(
                 onPressed: sending ? null : widget.onSend,
                 icon: sending
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
@@ -1482,7 +1482,7 @@ class _UnreadDivider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
         children: <Widget>[
-          const Expanded(child: Divider(color: AppColors.danger, height: 1)),
+          Expanded(child: Divider(color: AppColors.danger, height: 1)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             child: Container(
@@ -1496,7 +1496,7 @@ class _UnreadDivider extends StatelessWidget {
               ),
               child: Text(
                 l.chatNewMessages,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: AppColors.danger,
@@ -1504,7 +1504,7 @@ class _UnreadDivider extends StatelessWidget {
               ),
             ),
           ),
-          const Expanded(child: Divider(color: AppColors.danger, height: 1)),
+          Expanded(child: Divider(color: AppColors.danger, height: 1)),
         ],
       ),
     );
@@ -1613,7 +1613,7 @@ class _BoardRow extends StatelessWidget {
     child: ListTile(
       contentPadding: EdgeInsets.zero,
       onTap: onTap,
-      leading: const CircleAvatar(
+      leading: CircleAvatar(
         backgroundColor: AppColors.brand,
         child: Icon(Icons.shield_outlined, color: AppColors.onFill),
       ),
@@ -1622,7 +1622,7 @@ class _BoardRow extends StatelessWidget {
         l.chatBoardHint,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+        style: TextStyle(fontSize: 12, color: AppColors.muted),
       ),
     ),
   );
@@ -1671,13 +1671,13 @@ class _PeerList extends ConsumerWidget {
               ),
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.lock_outline, size: 14,
+                  Icon(Icons.lock_outline, size: 14,
                       color: AppColors.muted),
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
                       l.chatDirectPrivate,
-                      style: const TextStyle(fontSize: 11,
+                      style: TextStyle(fontSize: 11,
                           color: AppColors.muted),
                     ),
                   ),
@@ -1694,7 +1694,7 @@ class _PeerList extends ConsumerWidget {
                   leading: CircleAvatar(
                     backgroundColor: AppColors.identityTone(p.adeelId),
                     child: Text(p.name.characters.first,
-                        style: const TextStyle(color: AppColors.onFill)),
+                        style: TextStyle(color: AppColors.onFill)),
                   ),
                   title: Text(p.name, maxLines: 1,
                       overflow: TextOverflow.ellipsis),
@@ -1702,7 +1702,7 @@ class _PeerList extends ConsumerWidget {
                     lastWith(p.adeelId) ?? p.code,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12,
+                    style: TextStyle(fontSize: 12,
                         color: AppColors.muted),
                   ),
                   // ⚠ IconButton, NEVER a FilledButton: every filled button in

@@ -95,7 +95,7 @@ class FigureBar extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         sub!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppColors.muted,
                         ),
@@ -118,7 +118,7 @@ class FigureBar extends StatelessWidget {
               // The affordance. A card that opens something and does not say so
               // is a feature nobody finds — and this is the only way to the
               // figures that used to be on the page.
-              const Icon(Icons.expand_more, size: 20, color: AppColors.muted),
+              Icon(Icons.expand_more, size: 20, color: AppColors.muted),
             ],
           ),
         ),
@@ -246,7 +246,7 @@ class _BreakdownRow extends StatelessWidget {
               padding: const EdgeInsetsDirectional.only(start: 11, top: 2),
               child: Text(
                 row.trailing!,
-                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                style: TextStyle(fontSize: 11, color: AppColors.muted),
               ),
             ),
         ],

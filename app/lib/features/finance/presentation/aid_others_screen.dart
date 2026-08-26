@@ -115,7 +115,7 @@ class _Body extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       formatMoney(aid.total),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         color: AppColors.danger,
@@ -126,7 +126,7 @@ class _Body extends StatelessWidget {
               ),
               Text(
                 l.aidVoucherCount(aid.count),
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
               ),
             ],
           ),
