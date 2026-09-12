@@ -77,9 +77,26 @@ This dictates the data-access shape — do not deviate from it:
   **Closing a month is a one-way, in-order act (rule 15).** `generate_period`
   raises one receivable per نشط عديل and then records the month in
   `closed_periods`. Three refusals guard it, all `RUL15`: **15c** the month must
-  fall between `system_start` and last month (the future and the pre-history are
-  both out); **15a** it must not already be closed; **15b** no earlier month may
-  still be open.
+  fall between `system_start` and **this** month (the future and the pre-history
+  are both out); **15a** it must not already be closed; **15b** no earlier month
+  may still be open.
+
+  ⚠ **15c USED TO REQUIRE THE MONTH TO HAVE ENDED, and that was wrong for this
+  association.** The اشتراك is not earned across a month, it is DUE at its
+  start — the منظومة this replaced raised سبتمبر on 6 September and four men had
+  paid it before the month was half over. So every September the treasurer
+  opened الإقفال, found أغسطس as the newest month, and had no way to record a
+  charge whose money was already in the safe: «موجود امامي الا اخر اقفال شهر
+  اغسطس». `PATCH_20260911` turned `>=` into `>`: a month is closable **on its
+  first day**, and only the NEXT month is refused (`PERIOD_IN_THE_FUTURE`).
+
+  ⚠ **FOUR functions answer "which month?", and changing one is worse than
+  changing none** — a button that refuses what the RPC accepts reads as a broken
+  app. `generate_period` is the rule; `api_closable_periods` is what the screen
+  paints; `auto_close_periods` is «أقفل كل ما فات»; and `api_dashboard` no
+  longer computes the month from the calendar at all — it asks the same question
+  the picker asks, the earliest month still open, so the two cannot disagree
+  again.
 
   `closed_periods` is a table rather than an inference from the receivables
   because a month that bills nobody — every عديل موقوف, or the register still
@@ -87,10 +104,17 @@ This dictates the data-access shape — do not deviate from it:
   permanently open, and 15b then blocks every month after it forever.
 
   `api_closable_periods()` returns each month with `closed` and `selectable`,
-  where `selectable` is true for exactly one row: the earliest open month. The
+  where `selectable` is true for at most one row: the earliest open month. The
   Dart picker only paints those flags — recomputing 15b client-side would be a
   second implementation of a money rule, free to disagree with the one that
   actually decides.
+
+  ⚠ **At most one, and often NONE** — `selectable` is `coalesce(…, false)` for
+  that reason. Once the current month became closable, «every month closed»
+  stopped being a rare end-state and became the ORDINARY condition for most of
+  each month. The bare comparison yielded SQL NULL there; Dart's
+  `json['selectable'] == true` survived it, which is exactly why it would have
+  gone unnoticed until a second client read the field.
 
   `delete_adeel` is the escape hatch for a mistyped entry: it refuses the moment
   he has any receivable or payment, because a receipt must never point at
