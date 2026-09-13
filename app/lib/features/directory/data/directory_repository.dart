@@ -103,19 +103,47 @@ class DirectoryRepository {
     return AdeelDetail.fromJson(_obj(payload));
   });
 
-  Future<Statement> statement(int adeelId) => SupabaseFailures.guard(() async {
-    final dynamic payload = await _db.rpc<dynamic>(
-      'api_adeel_statement',
-      params: <String, dynamic>{'p_adeel_id': adeelId},
-    );
-    final Map<String, dynamic> body = _obj(payload);
-    return Statement(
-      movements: (body['movements'] as List<dynamic>)
-          .map((dynamic e) => StatementMovement.fromJson(_obj(e)))
-          .toList(),
-      closingBalance: body['closingBalance'] as String? ?? '0.00',
-    );
-  });
+  /// كشفُ حساب العديل، كلَّه أو في مدّة.
+  ///
+  /// ⚠ `from`/`to` are sent ONLY when given. `api_adeel_statement` defaults
+  /// them to NULL and reads "no range", so omitting the keys is what asks for
+  /// the whole history — sending explicit nulls would do the same thing here,
+  /// but the day one of those parameters grows a non-null default, an absent
+  /// key inherits it and a null key overrides it. Absent is the honest way to
+  /// say "I am not choosing".
+  Future<Statement> statement(int adeelId, {DateTime? from, DateTime? to}) =>
+      SupabaseFailures.guard(() async {
+        final Map<String, dynamic> params = <String, dynamic>{
+          'p_adeel_id': adeelId,
+          if (from != null) 'p_from': _isoDay(from),
+          if (to != null) 'p_to': _isoDay(to),
+        };
+        final dynamic payload = await _db.rpc<dynamic>(
+          'api_adeel_statement',
+          params: params,
+        );
+        final Map<String, dynamic> body = _obj(payload);
+        return Statement(
+          movements: (body['movements'] as List<dynamic>)
+              .map((dynamic e) => StatementMovement.fromJson(_obj(e)))
+              .toList(),
+          closingBalance: body['closingBalance'] as String? ?? '0.00',
+          openingBalance: body['openingBalance'] as String? ?? '0.00',
+          periodDebit: body['periodDebit'] as String? ?? '0.00',
+          periodCredit: body['periodCredit'] as String? ?? '0.00',
+          from: body['from'] as String?,
+          to: body['to'] as String?,
+        );
+      });
+
+  /// ⚠ A BARE DAY, NOT AN INSTANT. The bound is a Libyan calendar day and the
+  /// server turns it into an instant in Africa/Tripoli; sending an ISO instant
+  /// would hand the server the DEVICE's timezone, which is a setting, and the
+  /// same day would mean different things on two handsets.
+  static String _isoDay(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 
   Future<ReceivablesPage> receivables({String? period}) =>
       SupabaseFailures.guard(() async {

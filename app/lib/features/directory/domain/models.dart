@@ -375,10 +375,36 @@ class StatementMovement {
 }
 
 class Statement {
-  const Statement({required this.movements, required this.closingBalance});
+  const Statement({
+    required this.movements,
+    required this.closingBalance,
+    this.openingBalance = '0.00',
+    this.periodDebit = '0.00',
+    this.periodCredit = '0.00',
+    this.from,
+    this.to,
+  });
 
   final List<StatementMovement> movements;
   final String closingBalance;
+
+  /// ما كان على الرجل أو له قبل أوّل يومٍ في المدّة.
+  ///
+  /// Zero when no range was asked for, because then the statement starts at the
+  /// beginning and there is nothing before it.
+  final String openingBalance;
+
+  /// ⚠ THE PERIOD'S OWN TOTALS, WITH THE OPENING BALANCE DELIBERATELY OUT.
+  /// The منظومة's own screen sums the grid columns, and its «رصيد سابق» row
+  /// carries the opening figure in one of them — so an old balance is counted
+  /// as a receipt of the period, and «إجمالي المقبوضات» reads high by exactly
+  /// that. The closing figure still comes out right (credit − debit is the
+  /// balance either way), which is what lets the error survive unnoticed.
+  final String periodDebit;
+  final String periodCredit;
+
+  final String? from;
+  final String? to;
 }
 
 /// The association's treasury, in totals, as an عديل may read it.

@@ -1231,3 +1231,60 @@ them. See `docs/SUPABASE_SETUP.md`.
   and do not rely on removing the line (it's in git history).
 - The `service_role` key and DB password are **not** in the repo and must never be —
   `service_role` bypasses RLS entirely.
+
+## التاريخ كلّه — من أين جاءت الأرقام (2026-09-12)
+
+The ledger in the live project is NOT the 2026 system alone. It is the whole
+association, 2015→2026, reconstructed from **five** SQL Server databases and
+loaded by `supabase/MIGRATE_FULL_HISTORY.sql` (one transaction, self-verifying,
+TRUNCATEs the seven financial tables and rebuilds them).
+
+The authority for "what counts as a member's movement" is the منظومة's own
+stored procedure **`EXCHANGESYS2026.dbo.ASSMember_Statment`** — read it before
+changing any figure. It UNIONs five sources, and three of them are the 2025
+archive restored under names with **no year**: `ExAssociationAct`,
+`ExSyAccounts`, `EXCHANGESYS`. A statement built from the 2026 databases alone
+is missing eleven years.
+
+| era | in | out |
+|---|---|---|
+| ≤2024 (one «رصيد افتتاحي» block dated 2025-01-01 in the منظومة) | 36,580 subscriptions | **52 aid vouchers** = 36,675 |
+| 2025 | 92 receipts = 14,400 · 96 charges = 12,000 | 5 vouchers = 8,680 |
+| 2026 | 46 receipts = 6,900 · 72 charges = 8,800 | 4 vouchers = 8,295 |
+| | **57,880** | **53,650** → **رصيد الجمعية 4,230** |
+
+`ASSMember_Statment @AccID=916` returns 4,230.000 for the fund and −300 for
+هيثم; `api_association_finance()` and `api_adeel_statement` return the same.
+That is the parity test — run both sides, never one.
+
+⚠ **THE PRE-2025 BLOCK IS ONE LINE PER MAN, AND IT HAS TO BE.** His subscriptions
+to the end of 2024 are a single lump in the منظومة with no monthly breakdown
+anywhere, so the migration raises ONE receivable at period `2024-12` and one
+receipt settling it. `system_start` is therefore `2024-12-01` and
+`closed_periods` holds 22 months. Spreading that lump over invented months would
+be fabricating a ledger; starting at 2015 would mean 141 closed months, 120 of
+them empty, and a picker nobody can use.
+
+⚠ **THE 2,400 «لمّة» IS BILLED, NOT CREDITED — and this is a money decision the
+association made, not a convenience.** In May 2025 each man paid 300 toward
+تعزية أم رابحة; it is a contribution, not a subscription, and the app has no
+"other income" — every inflow is a payment by a member against a receivable.
+Left unallocated it becomes CREDIT, and then each man shows «عليه 300» and «له
+300» at once, and `settle_from_credit` would eat it into 2026 and move figures
+the منظومة does not move. So the 2025-05 receivable is **400** (100 + 300), which
+reproduces exactly what the منظومة did when it moved the surplus to رأس المال on
+2025-09-08 and closed every man at zero. ⚠ `receivables` has no note column, so
+the only record of WHY May is 400 is this paragraph and the eight receipts whose
+`notes` still read «لم في تعزية امي رابحة».
+
+⚠ **`fee_exceptions` CANNOT EXPRESS BOTH YEARS.** It is keyed by calendar month,
+and 2025 charged 200 in 01/02/03 while 2026 charges 200 in 01/06. The settings
+hold the 2026 rule because that is the one a FUTURE month will be billed by;
+every 2025 month is written with its own explicit total and is closed, so rule
+15a means `generate_period` can never re-bill one through the wrong rule.
+
+⚠ **FIFTEEN of the 52 historical vouchers carry only a YEAR in their text**, so
+they are dated 31 December of that year. The original wording is copied verbatim
+into `disbursements.note`, which is where the truth lives; the date exists to
+order the ledger and to put the voucher in the right year for
+`api_adeel_aid`'s by-year breakdown, and it does both.
