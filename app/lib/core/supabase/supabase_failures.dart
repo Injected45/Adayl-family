@@ -90,6 +90,9 @@ abstract final class SupabaseFailures {
     // as a server fault; the Arabic message still reached the screen, because
     // _isDisplayable keys on the RUL prefix rather than on this map.
     'RUL17': 422,
+    // A message that cannot be sent as written — empty, or longer than its
+    // column — in the chat and in the admin's message to every member.
+    'RUL18': 422,
   };
 
   static ApiException _fromPostgrest(PostgrestException error) {

@@ -49,6 +49,17 @@ abstract final class NotifyText {
   static String callChannelDesc = '';
   static String chatChannel = '';
   static String chatChannelDesc = '';
+  static String noticeChannel = '';
+  static String noticeChannelDesc = '';
+
+  /// Used only when the newest notice cannot be read at the moment of posting —
+  /// the server's own title and sentence are what normally appear.
+  static String noticeFallbackTitle = '';
+  static String noticeFallbackBody = '';
+
+  /// «… و ٣ إشعارات أخرى».
+  static String Function(String, int) noticeAndMore = (String body, int more) =>
+      body;
 
   /// Call once, from main(), before runApp.
   static void fill(L l) {
@@ -63,5 +74,10 @@ abstract final class NotifyText {
     callChannelDesc = l.notifyCallChannelDesc;
     chatChannel = l.notifyChatChannel;
     chatChannelDesc = l.notifyChatChannelDesc;
+    noticeChannel = l.notifyNoticeChannel;
+    noticeChannelDesc = l.notifyNoticeChannelDesc;
+    noticeFallbackTitle = l.noticesTitle;
+    noticeFallbackBody = l.noticeFallbackBody;
+    noticeAndMore = l.noticeAndMore;
   }
 }

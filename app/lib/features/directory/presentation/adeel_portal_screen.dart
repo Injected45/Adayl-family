@@ -23,6 +23,8 @@ import '../../finance/presentation/adeel_aid_screen.dart';
 import '../../finance/presentation/aid_others_screen.dart';
 import '../../finance/presentation/member_value_screen.dart';
 import '../../finance/presentation/providers.dart';
+import '../../notifications/presentation/notifications_screen.dart';
+import '../../notifications/presentation/providers.dart';
 import '../domain/models.dart';
 import 'portal_sections.dart';
 import 'providers.dart';
@@ -154,6 +156,22 @@ class AdeelPortalScreen extends ConsumerWidget {
             label: l.navChat,
             badge: ref.watch(chatUnreadProvider).valueOrNull ?? 0,
             onTap: () => context.go(AppRoutes.chat),
+          ),
+          // ── الإشعارات ────────────────────────────────────────────────────
+          // Everything the association told him — his receipts, his months,
+          // a voucher paid to him, and what went to everyone. A PUSH, like
+          // «الجدوى» below and for its reason. ⚠ Its count rides here, as the
+          // room's does: he has no app bar and therefore no other bell.
+          NavPillItem(
+            icon: Icons.notifications_outlined,
+            selectedIcon: Icons.notifications,
+            label: l.navNotifications,
+            badge: ref.watch(noticesUnreadProvider).valueOrNull ?? 0,
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const NotificationsScreen(portal: true),
+              ),
+            ),
           ),
           // ── ما جدوى العضوية ─────────────────────────────────────────────
           // What he put in, what he got out, and what the fund did with the

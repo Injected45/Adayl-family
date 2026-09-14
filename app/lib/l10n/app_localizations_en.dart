@@ -1524,4 +1524,85 @@ class LEn extends L {
 
   @override
   String get voiceTooShort => 'That clip was too short';
+
+  @override
+  String get navNotifications => 'Notifications';
+
+  @override
+  String get noticesTitle => 'Notifications';
+
+  @override
+  String get noticesEmpty => 'No notifications yet';
+
+  @override
+  String get noticesEmptyBody =>
+      'Everything about you arrives here: payments, monthly dues, disbursements and messages from the board.';
+
+  @override
+  String noticesUnreadCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new notifications',
+      one: '1 new notification',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noticeNew => 'New';
+
+  @override
+  String get noticeToEveryone => 'Everyone';
+
+  @override
+  String get noticeFallbackBody =>
+      'You have a new notification from the association';
+
+  @override
+  String noticeAndMore(String body, int more) {
+    return '$body  (+$more more)';
+  }
+
+  @override
+  String get notifyNoticeChannel => 'Association notices';
+
+  @override
+  String get notifyNoticeChannelDesc =>
+      'Payments, dues, disbursements and board messages';
+
+  @override
+  String get noticesLogHeading => 'Everything sent';
+
+  @override
+  String get noticesAdminRule =>
+      'Payments, dues and individual disbursements reach their member only; collective disbursements and board messages reach everyone.';
+
+  @override
+  String get broadcastHeading => 'Message to all members';
+
+  @override
+  String get broadcastTitleLabel => 'Title (optional)';
+
+  @override
+  String get broadcastTitleHint => 'A message from the board';
+
+  @override
+  String get broadcastBodyLabel => 'Message';
+
+  @override
+  String get broadcastSend => 'Send';
+
+  @override
+  String get broadcastEmpty => 'Write the message first';
+
+  @override
+  String get broadcastConfirmTitle => 'Send to everyone?';
+
+  @override
+  String get broadcastConfirmBody =>
+      'This message reaches every member at once and cannot be withdrawn once sent.';
+
+  @override
+  String get broadcastSent => 'Message sent to all members';
 }

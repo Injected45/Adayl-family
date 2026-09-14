@@ -1071,6 +1071,23 @@ RLS already scopes them.
 **Google sign-in must be enabled in the Supabase dashboard** for any of this to
 work — the dev email/password login is a staff-only convenience.
 
+⚠ **PHONE + WHATSAPP SIGN-IN WAS BUILT, APPLIED TO THE LIVE PROJECT, AND
+REVERTED — ALL ON 2026-09-13.** WhatsApp codes through Supabase need Twilio,
+and since March 2024 Twilio requires the association's OWN WhatsApp Business
+sender approved by Meta; the association chose to stay on Google rather than
+set that up. `PATCH_20260913b_revert_phone_login.sql` undoes the live changes
+(the phone functions, the hook, the numbers attached to two members' accounts,
+and the release exemption in `guard_profile_change`, restored from an unpatched
+body). The app code, the three SQL files and 39 tests are shelved in
+`git stash` («الدخول بالهاتف وواتساب — مؤجَّل») — `git stash pop` brings them
+back if Twilio is ever configured.
+
+One change was KEPT on purpose: `uq_profiles_email` is now a partial index
+(`WHERE email <> ''`). The full UNIQUE made a second account with an empty email
+collide, `handle_new_user` swallowed the error by design, and the account was
+left with no profile — which `assert_signin_intact` then refuses on every later
+patch. A Google account's email is never empty, so for Google nothing changed.
+
 ## Commands (run from `app/` unless noted)
 
 ```bash
@@ -1288,3 +1305,75 @@ they are dated 31 December of that year. The original wording is copied verbatim
 into `disbursements.note`, which is where the truth lives; the date exists to
 order the ledger and to put the voucher in the right year for
 `api_adeel_aid`'s by-year breakdown, and it does both.
+
+## الإشعارات (2026-09-13)
+
+`PATCH_20260913c_notifications.sql` + `features/notifications/`. A notice is a
+ROW in `public.notifications`, written by the DATABASE — never composed in Dart:
+
+| what | trigger | who reads it |
+|---|---|---|
+| a receivable raised (closing a month) | `trg_notify_receivable` AFTER INSERT | that عديل |
+| a receipt / its cancellation | `trg_notify_payment` AFTER INSERT OR UPDATE OF status | that عديل |
+| a collective voucher / its cancellation | `trg_notify_disbursement` | everyone |
+| a voucher TO a member / its cancellation | same trigger | **that عديل only** |
+| the admin's message | `send_broadcast(text,text)` — admin, RUL18 on empty/over 1000 | everyone |
+
+⚠ **NOT ONE FINANCIAL FUNCTION, TABLE OR NUMBER CHANGED**, and the design is what
+guarantees it rather than care. The triggers are AFTER, write to a separate
+table, and wrap their WHOLE body — including reading `auth.uid()`, which throws
+on a malformed header — in `EXCEPTION WHEN OTHERS → RAISE WARNING`. With a
+`CHECK (false)` forced onto the table, a receipt and a voucher still landed and
+simply produced no notice; that is one of the 26 checks run against a copy of
+the live ledger before hand-over. A notice is a service on top of the ledger,
+never a condition of it.
+
+⚠ **AN INDIVIDUAL VOUCHER IS NOT ANNOUNCED TO EVERYONE.** The association had
+already dropped `read_all_disbursements_adeel` because «what a man was given
+for a bereavement» is the most private fact here; announcing it to eight phones
+would publish exactly what the screen hides. The clause is
+`payee_adeel_id IS NULL`, like `read_collective_disbursements`, for its reason.
+
+⚠ **THE SQL EDITOR AND MIGRATIONS NOTIFY NOBODY.** Every trigger returns early
+when `auth.uid()` is NULL. Re-running `MIGRATE_FULL_HISTORY.sql` inserts
+hundreds of receipts; without this every phone would receive hundreds of
+notices about 2015.
+
+⚠ **NO FOREIGN KEY, ON PURPOSE** — `purge_all_data` TRUNCATEs `adeels`, and a
+table pointing at it would make that purge FAIL (the chat_messages lesson). The
+cost: after a full purge, identities restart and a new A-01 would inherit the
+old A-01's notices — so `read_notifications_member` only admits rows created
+AFTER the reader's own `adeels.created_at`. Neither purge clears the table;
+that was left alone deliberately rather than editing a purge function.
+
+⚠ **INSTANT FROM THE SERVER.** `notify_insert()` calls
+`realtime.send({kind: notify}, 'ring', 'association', true)` behind
+`to_regprocedure` and inside its own exception block — the doorbell's private
+channel and policies, carrying one word. `Ring.notify` is the fourth kind.
+
+⚠ **AND THE DOORBELL HAD NEVER RUNG, FOR ANY KIND, UNTIL THIS.**
+`realtime_client`'s `onBroadcast` hands the callback the ENVELOPE
+(`{type, event, payload: {kind}}`) — `trigger()` matches the binding by
+`payload['event']` and passes the same map on — and `doorbell.dart` read
+`payload['kind']` at the top, which is null for every message. The polls hid it
+completely. `Doorbell.parseRing` reads one level down, and `doorbell_test.dart`
+drives a real `RealtimeChannel.trigger` so the shape is the library's. Fixing it
+also switched on the instant chat, call and key-revocation rings that were
+designed three weeks earlier.
+
+In Dart: a member reaches الإشعارات by a PUSH from his bar (fourth item, with
+its own red badge); the admin reaches `/notifications` behind «المزيد», with
+the compose box (confirmation dialog, the database's limits) above the log of
+everything sent and to whom. `NoticesUnread` is NOT auto-disposed — the portal
+leaves the tree when he opens المحادثات, and a badge that died with it would
+announce a receipt only when he came back — and it watches only WHO he is
+(`select`), because `refreshProfile()` emits a new AuthState every 45 s and a
+rebuild re-arms silently. The admin gets no badge: he is where every notice
+comes from. Read marks are per ACCOUNT on the device (`notice_last_seen_<uid>`),
+since notice ids are shared by everyone.
+
+⚠ **`NavPillBar` labels now shrink rather than ellipsise** (`FittedBox`
+scaleDown): four items at 320px is 72px a slot, and «المحادثات» printed as
+«المحادث…» in the test font. That font draws every letter as a full square,
+so real Arabic is far narrower and should stay at full size on a handset — not
+verified on one yet; the shrink is the floor, not the expected case.

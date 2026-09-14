@@ -63,6 +63,20 @@ enum Ring {
   ///   which is the same authenticated call the timer would have made, only
   ///   sooner. A man learns nothing about anyone else from it.
   access,
+
+  /// ── إشعارٌ من الجمعية ─────────────────────────────────────────────────────
+  ///
+  /// ⚠ THE ONE RING THE SERVER SENDS, NOT A HANDSET. Every other kind is rung
+  ///   by the phone that did the thing. A notification is written by a TRIGGER
+  ///   — a receipt, a voucher, a closed month, a message from the admin — and
+  ///   `notify_insert()` rings with `realtime.send` in the same breath
+  ///   (PATCH_20260913c). So it arrives for a payment recorded from any device,
+  ///   or from none.
+  ///
+  /// ⚠ AND IT CARRIES NOTHING EITHER. Every handset asks `v_notifications`, and
+  ///   RLS hands each man his own rows and the association's — never another
+  ///   member's voucher.
+  notify,
 }
 
 class Doorbell {
@@ -90,6 +104,37 @@ class Doorbell {
   RealtimeChannel? _channel;
   final Set<void Function(Ring)> _listeners = <void Function(Ring)>{};
 
+  /// What a heard message says, or null for anything that is not a ring.
+  ///
+  /// ⚠ THE KIND IS ONE LEVEL DOWN, AND FOR THREE WEEKS IT WAS READ AT THE TOP.
+  ///   `realtime_client` hands `onBroadcast` the WHOLE ENVELOPE —
+  ///   `{type: broadcast, event: ring, payload: {kind: chat}}` — because its
+  ///   `trigger()` matches the binding by `payload['event']` and then passes
+  ///   the same map on. So `payload['kind']` was null on every message, every
+  ///   ring fell into the default arm, and the bell had never once rung. The
+  ///   polls underneath hid it completely: the app was exactly as fast as it
+  ///   had been, which is what «never a dependency» promises and also why
+  ///   nobody could see it. `doorbell_test.dart` now drives a real
+  ///   `RealtimeChannel.trigger` so the shape is the library's, not ours.
+  ///
+  /// ⚠ The flat shape is still accepted, in case a later client unwraps it.
+  @visibleForTesting
+  static Ring? parseRing(Map<String, dynamic> message) {
+    final Object? inner = message['payload'];
+    final Object? kind = inner is Map ? inner['kind'] : message['kind'];
+    return switch (kind) {
+      'chat' => Ring.chat,
+      'call' => Ring.call,
+      // ⚠ THE THIRD CASE WAS MISSING ONCE, so every access ring was
+      //   BROADCAST and then DROPPED at the ear. A default arm that silently
+      //   returns null is how a whole feature disappears without one error
+      //   anywhere — and why every kind is pinned in doorbell_test.dart.
+      'access' => Ring.access,
+      'notify' => Ring.notify,
+      _ => null,
+    };
+  }
+
   /// Whether the bell is actually connected. Read by nothing that decides
   /// anything — it exists so a failure can be seen rather than guessed at.
   bool connected = false;
@@ -107,21 +152,7 @@ class Doorbell {
       c.onBroadcast(
         event: 'ring',
         callback: (Map<String, dynamic> payload) {
-          final Object? kind = payload['kind'];
-          final Ring? ring = switch (kind) {
-            'chat' => Ring.chat,
-            'call' => Ring.call,
-            // ⚠ THE THIRD CASE WAS MISSING, so every access ring was
-            //   BROADCAST and then DROPPED at the ear. adeel_detail_screen
-            //   rings it the moment a key is issued, the enum carries it, and
-            //   nothing here mapped it — so the revoked handset went on
-            //   showing his dues until the forty-five-second tick, which is
-            //   the exact delay the ring exists to remove. A default arm that
-            //   silently returns null is how a whole feature disappears
-            //   without one error anywhere.
-            'access' => Ring.access,
-            _ => null,
-          };
+          final Ring? ring = parseRing(payload);
           if (ring == null) return;
           // ⚠ A COPY, BECAUSE A LISTENER MAY REMOVE ITSELF. Iterating the live
           //   set while a provider disposes during the callback throws a

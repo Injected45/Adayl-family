@@ -169,15 +169,29 @@ class _NavPillItemView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: 10.5,
-                fontWeight: item.selected ? FontWeight.w800 : FontWeight.w600,
-                color: item.selected ? AppColors.brandDeep : AppColors.inkMuted,
+            // ⚠ SHRINK, NEVER CUT. The member's bar went to FOUR items on 13/09
+            //   (الإشعارات), which is 72px a slot on a 320-wide phone — and an
+            //   ellipsis there printed «المحادث…». scaleDown leaves every label
+            //   at 10.5 wherever it fits and takes a point or two off only the
+            //   one that does not; notifications_test.dart measures it.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontFamily: AppFonts.body,
+                    fontSize: 10.5,
+                    fontWeight: item.selected
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                    color: item.selected
+                        ? AppColors.brandDeep
+                        : AppColors.inkMuted,
+                  ),
+                ),
               ),
             ),
           ],

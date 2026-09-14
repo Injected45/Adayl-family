@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:family_app/core/realtime/doorbell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ── جرس الباب: ما يحمله، ومن يسمعه، وماذا يحدث إن سقط ─────────────────────
 ///
@@ -74,11 +75,72 @@ void main() {
     //   forty-five-second tick. It carries no id and no name, like the other
     //   two, so every phone that hears it asks api_me() about ITSELF and the
     //   security argument above is untouched.
-    test('there are exactly three kinds, and all are bare words', () {
-      expect(Ring.values, <Ring>[Ring.chat, Ring.call, Ring.access]);
+    //
+    // ⚠ AND FROM THREE TO FOUR ON 13/09. Ring.notify is the first kind the
+    //   SERVER rings rather than a handset — `notify_insert()` calls
+    //   realtime.send with `{kind: notify}` and nothing else — so the argument
+    //   above holds unchanged: every phone asks v_notifications and RLS
+    //   decides what it gets.
+    test('there are exactly four kinds, and all are bare words', () {
+      expect(Ring.values, <Ring>[
+        Ring.chat,
+        Ring.call,
+        Ring.access,
+        Ring.notify,
+      ]);
       expect(Ring.chat.name, 'chat');
       expect(Ring.call.name, 'call');
       expect(Ring.access.name, 'access');
+      expect(Ring.notify.name, 'notify');
+    });
+
+    // ⚠ THE BUG THAT KEPT THE BELL SILENT FROM THE DAY IT WAS BUILT. The
+    //   callback reads what realtime_client hands it, and that is the whole
+    //   envelope — so the kind is under `payload`. This drives the library's
+    //   OWN dispatch (`RealtimeChannel.trigger`, which is what the socket
+    //   calls for every frame) instead of a map written here, because a map
+    //   written here is exactly the assumption that was wrong.
+    test('⚠ a ring delivered by the real channel dispatch is understood', () {
+      final RealtimeClient socket = RealtimeClient(
+        'ws://127.0.0.1:9/realtime/v1',
+      );
+      final RealtimeChannel channel = socket.channel(Doorbell.topic);
+      final List<Ring?> heard = <Ring?>[];
+      channel.onBroadcast(
+        event: 'ring',
+        callback: (Map<String, dynamic> m) => heard.add(Doorbell.parseRing(m)),
+      );
+
+      for (final Ring kind in Ring.values) {
+        channel.trigger('broadcast', <String, dynamic>{
+          'type': 'broadcast',
+          'event': 'ring',
+          'payload': <String, dynamic>{'kind': kind.name},
+        });
+      }
+      expect(heard, Ring.values);
+
+      // Another event on the same topic reaches no ring listener at all.
+      channel.trigger('broadcast', <String, dynamic>{
+        'type': 'broadcast',
+        'event': 'typing',
+        'payload': <String, dynamic>{'kind': 'chat'},
+      });
+      expect(heard.length, Ring.values.length);
+    });
+
+    test('an unknown kind is ignored, and the flat shape still parses', () {
+      expect(
+        Doorbell.parseRing(<String, dynamic>{
+          'payload': <String, dynamic>{'kind': 'surprise'},
+        }),
+        isNull,
+      );
+      expect(Doorbell.parseRing(<String, dynamic>{}), isNull);
+      expect(
+        Doorbell.parseRing(<String, dynamic>{'kind': 'notify'}),
+        Ring.notify,
+      );
     });
 
     // ⚠ ONE TOPIC, AND THE POLICY IS WRITTEN AGAINST THIS EXACT STRING.

@@ -22,6 +22,7 @@ import '../../features/finance/presentation/cash_screen.dart';
 import '../../features/finance/presentation/member_value_screen.dart';
 import '../../features/finance/presentation/payments_screen.dart';
 import '../../features/home/presentation/placeholder_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/oversight/presentation/audit_screen.dart';
 import '../../features/oversight/presentation/dashboard_screen.dart';
 import '../../features/oversight/presentation/reports_screen.dart';
@@ -81,6 +82,10 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       ),
       GoRoute(path: AppRoutes.home, builder: (_, _) => const DashboardScreen()),
       GoRoute(path: AppRoutes.chat, builder: (_, _) => const ChatScreen()),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (_, _) => const NotificationsScreen(),
+      ),
 
       // ── Phase 4: the read-only screens ──────────────────────────────
       GoRoute(

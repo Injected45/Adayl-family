@@ -53,6 +53,17 @@ void main() {
     'roomUnreadProvider': 'rides the bell it watches',
     'chatReadStateProvider': 'device storage, not a read',
 
+    // ── الإشعارات ──────────────────────────────────────────────────────────
+    // ⚠ THE BADGE OWNS A TIMER, A DOORBELL SUBSCRIPTION AND A BASELINE, and a
+    //   sweep would re-arm it: its build() counts what is waiting WITHOUT
+    //   announcing, so a notice landing just before each forty-five-second
+    //   sweep would never reach the lock screen. The same reason as the chat's
+    //   bell and chime. The LIST, noticesProvider, is swept like any read.
+    'notificationsRepositoryProvider': 'a client, not data',
+    'noticeReadStateProvider': 'device storage, not a read',
+    'noticesUnreadProvider': 'polls itself, and owns its own timer',
+    'noticesScreenOpenProvider': 'written by the screen, not fetched',
+
     // ⚠ NEITHER OF THESE HOLDS AN ANSWER, and throwing them away would do
     //   real harm rather than nothing. chatChimeProvider owns the audio player
     //   AND the baseline count the chime compares against — reset it every

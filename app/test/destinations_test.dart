@@ -18,8 +18,11 @@ void main() {
       // The number is the point of this test: a destination removed without
       // its route, or a route left behind without its destination, both look
       // like nothing at all until somebody navigates.
-      expect(appDestinations.length, 12);
-      expect(_routesVisibleTo(AppRole.admin).length, 12);
+      //
+      // ⚠ THIRTEEN SINCE 13/09: الإشعارات — the admin's log of every notice,
+      // and the box to write to every member.
+      expect(appDestinations.length, 13);
+      expect(_routesVisibleTo(AppRole.admin).length, 13);
     });
 
     test('a viewer cannot see the audit log, settings, or user management', () {

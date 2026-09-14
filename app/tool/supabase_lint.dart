@@ -60,6 +60,7 @@ const Set<String> baseTables = <String>{
   'payment_allocations',
   'cash_movements',
   'audit_log',
+  'notifications',
 };
 
 /// Which RPC replaces a direct write, so the error says what to do instead.
@@ -73,6 +74,7 @@ const Map<String, String> writeReplacement = <String, String>{
   'association_settings': 'update_settings()',
   'profiles': 'set_user_access()',
   'audit_log': 'nothing — the audit trail is written by triggers',
+  'notifications': 'send_broadcast() — every other notice is written by a trigger',
 };
 
 class Finding {

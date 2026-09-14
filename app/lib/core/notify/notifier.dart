@@ -92,11 +92,32 @@ class AppNotifier {
         playSound: true,
       );
 
+  /// ⚠ A THIRD CHANNEL, NOT THE CHAT'S. A receipt, a voucher or a closed month
+  ///   is the association speaking, not a neighbour — and Android lets a man
+  ///   silence one channel from his phone's settings. Sharing the chat's would
+  ///   make «mute the room» also mute «your payment was recorded».
+  static AndroidNotificationDetails get _noticeChannel =>
+      AndroidNotificationDetails(
+        'association_notices',
+        NotifyText.noticeChannel,
+        channelDescription: NotifyText.noticeChannelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.status,
+        playSound: true,
+        enableVibration: true,
+        // The whole sentence on the lock screen: «صُرف 400.00 د.ل — فطور
+        // رمضان («…»). سند رقم EXP-62.» does not fit one line, and a
+        // truncated amount is worse than none.
+        styleInformation: const BigTextStyleInformation(''),
+      );
+
   /// Ids. Fixed, so a second call REPLACES the first rather than stacking —
   /// there is only ever one live call, and two ringing notifications would be
   /// two things to dismiss for one event.
   static const int _callId = 1;
   static const int _chatId = 2;
+  static const int _noticeId = 3;
 
   static Future<void> init() async {
     if (_ready) return;
@@ -141,6 +162,13 @@ class AppNotifier {
   }
 
   static Future<void> clearMessages() async => _cancel(_chatId);
+
+  /// إشعارٌ من الجمعية — a receipt, a voucher, a month, or the admin's message.
+  static Future<void> notice(String title, String body) async {
+    await _show(_noticeId, title, body, _noticeChannel);
+  }
+
+  static Future<void> clearNotices() async => _cancel(_noticeId);
 
   static Future<void> _show(
     int id,

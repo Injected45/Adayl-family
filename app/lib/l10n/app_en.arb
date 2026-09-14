@@ -536,5 +536,44 @@
   "voiceRecording": "Recording…",
   "voiceCancel": "Cancel",
   "voiceNoMic": "Recording needs microphone permission",
-  "voiceTooShort": "That clip was too short"
+  "voiceTooShort": "That clip was too short",
+  "navNotifications": "Notifications",
+  "noticesTitle": "Notifications",
+  "noticesEmpty": "No notifications yet",
+  "noticesEmptyBody": "Everything about you arrives here: payments, monthly dues, disbursements and messages from the board.",
+  "noticesUnreadCount": "{count, plural, =1{1 new notification} other{{count} new notifications}}",
+  "@noticesUnreadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticeNew": "New",
+  "noticeToEveryone": "Everyone",
+  "noticeFallbackBody": "You have a new notification from the association",
+  "noticeAndMore": "{body}  (+{more} more)",
+  "@noticeAndMore": {
+    "placeholders": {
+      "body": {
+        "type": "String"
+      },
+      "more": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyNoticeChannel": "Association notices",
+  "notifyNoticeChannelDesc": "Payments, dues, disbursements and board messages",
+  "noticesLogHeading": "Everything sent",
+  "noticesAdminRule": "Payments, dues and individual disbursements reach their member only; collective disbursements and board messages reach everyone.",
+  "broadcastHeading": "Message to all members",
+  "broadcastTitleLabel": "Title (optional)",
+  "broadcastTitleHint": "A message from the board",
+  "broadcastBodyLabel": "Message",
+  "broadcastSend": "Send",
+  "broadcastEmpty": "Write the message first",
+  "broadcastConfirmTitle": "Send to everyone?",
+  "broadcastConfirmBody": "This message reaches every member at once and cannot be withdrawn once sent.",
+  "broadcastSent": "Message sent to all members"
 }

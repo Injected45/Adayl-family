@@ -897,5 +897,50 @@
   "voiceRecording": "جارٍ التسجيل…",
   "voiceCancel": "إلغاء",
   "voiceNoMic": "لا يمكن التسجيل بدون إذن الميكروفون",
-  "voiceTooShort": "المقطع قصير جداً"
+  "voiceTooShort": "المقطع قصير جداً",
+  "navNotifications": "الإشعارات",
+  "noticesTitle": "الإشعارات",
+  "@noticesTitle": {
+    "description": "The notifications tab, for a member and for the admin. The notices themselves — their titles and sentences — are written by the database (PATCH_20260913c), not by the ARB, so an older APK reads the same words a newer one does."
+  },
+  "noticesEmpty": "لا توجد إشعارات بعد",
+  "noticesEmptyBody": "هنا يصلك كل ما يخصّك: السداد، والاستحقاق الشهري، والصرف، ورسائل الإدارة.",
+  "noticesUnreadCount": "{count, plural, =1{إشعار جديد} =2{إشعاران جديدان} few{{count} إشعارات جديدة} other{{count} إشعار جديد}}",
+  "@noticesUnreadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticeNew": "جديد",
+  "noticeToEveryone": "للجميع",
+  "noticeFallbackBody": "لديك إشعار جديد من جمعية العدايل",
+  "noticeAndMore": "{body}  (و{more} أخرى)",
+  "@noticeAndMore": {
+    "placeholders": {
+      "body": {
+        "type": "String"
+      },
+      "more": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyNoticeChannel": "إشعارات الجمعية",
+  "notifyNoticeChannelDesc": "السداد والاستحقاقات والصرف ورسائل الإدارة",
+  "noticesLogHeading": "كل ما أُرسل",
+  "noticesAdminRule": "السداد والاستحقاق والصرف الفردي تصل لصاحبها وحده، والصرف الجماعي ورسائل الإدارة تصل للجميع.",
+  "@noticesAdminRule": {
+    "description": "Printed above the admin's log so the privacy rule is stated in words: an individual voucher is never announced to everyone, matching read_collective_disbursements."
+  },
+  "broadcastHeading": "رسالة إلى جميع المشتركين",
+  "broadcastTitleLabel": "العنوان (اختياري)",
+  "broadcastTitleHint": "رسالة من الإدارة",
+  "broadcastBodyLabel": "نص الرسالة",
+  "broadcastSend": "إرسال",
+  "broadcastEmpty": "اكتب نصّ الرسالة أولاً",
+  "broadcastConfirmTitle": "إرسال إلى الجميع؟",
+  "broadcastConfirmBody": "ستصل هذه الرسالة إلى جميع المشتركين فوراً، ولا يمكن سحبها بعد الإرسال.",
+  "broadcastSent": "أُرسلت الرسالة إلى جميع المشتركين"
 }

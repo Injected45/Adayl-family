@@ -21,6 +21,11 @@ abstract final class AppRoutes {
   /// see the guard in app_router.dart, and the note on [myDues].
   static const String chat = '/chat';
 
+  /// الإشعارات — for the admin, the log of every notice and the box to write
+  /// to everyone. A member reaches the same screen by a push from his bar, not
+  /// by this route: the guard pins him to [myDues] and [chat].
+  static const String notifications = '/notifications';
+
   /// The register. ONE route where there were two — `/families` listed
   /// households and `/members` listed the people inside them, and they describe
   /// the same rows now.
@@ -119,6 +124,15 @@ const List<AppDestination> appDestinations = <AppDestination>[
     selectedIcon: Icons.forum,
     label: _chatLabel,
   ),
+  // الإشعارات. Not primary, for the room's reason: the bar's four slots are the
+  // money path, and the admin is where every notice comes FROM — he visits this
+  // to write to everyone or to see what went out, not to be told.
+  AppDestination(
+    route: AppRoutes.notifications,
+    icon: Icons.notifications_outlined,
+    selectedIcon: Icons.notifications,
+    label: _notificationsLabel,
+  ),
   AppDestination(
     route: AppRoutes.payments,
     icon: Icons.payments_outlined,
@@ -184,6 +198,7 @@ const List<AppDestination> appDestinations = <AppDestination>[
 // Top-level functions, because a const list cannot hold closures.
 String _homeLabel(L l) => l.navHome;
 String _chatLabel(L l) => l.navChat;
+String _notificationsLabel(L l) => l.navNotifications;
 String _registerLabel(L l) => l.navRegister;
 String _receivablesLabel(L l) => l.navReceivables;
 String _paymentsLabel(L l) => l.navPayments;

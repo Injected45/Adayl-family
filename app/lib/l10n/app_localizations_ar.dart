@@ -1524,4 +1524,86 @@ class LAr extends L {
 
   @override
   String get voiceTooShort => 'المقطع قصير جداً';
+
+  @override
+  String get navNotifications => 'الإشعارات';
+
+  @override
+  String get noticesTitle => 'الإشعارات';
+
+  @override
+  String get noticesEmpty => 'لا توجد إشعارات بعد';
+
+  @override
+  String get noticesEmptyBody =>
+      'هنا يصلك كل ما يخصّك: السداد، والاستحقاق الشهري، والصرف، ورسائل الإدارة.';
+
+  @override
+  String noticesUnreadCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count إشعار جديد',
+      few: '$count إشعارات جديدة',
+      two: 'إشعاران جديدان',
+      one: 'إشعار جديد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noticeNew => 'جديد';
+
+  @override
+  String get noticeToEveryone => 'للجميع';
+
+  @override
+  String get noticeFallbackBody => 'لديك إشعار جديد من جمعية العدايل';
+
+  @override
+  String noticeAndMore(String body, int more) {
+    return '$body  (و$more أخرى)';
+  }
+
+  @override
+  String get notifyNoticeChannel => 'إشعارات الجمعية';
+
+  @override
+  String get notifyNoticeChannelDesc =>
+      'السداد والاستحقاقات والصرف ورسائل الإدارة';
+
+  @override
+  String get noticesLogHeading => 'كل ما أُرسل';
+
+  @override
+  String get noticesAdminRule =>
+      'السداد والاستحقاق والصرف الفردي تصل لصاحبها وحده، والصرف الجماعي ورسائل الإدارة تصل للجميع.';
+
+  @override
+  String get broadcastHeading => 'رسالة إلى جميع المشتركين';
+
+  @override
+  String get broadcastTitleLabel => 'العنوان (اختياري)';
+
+  @override
+  String get broadcastTitleHint => 'رسالة من الإدارة';
+
+  @override
+  String get broadcastBodyLabel => 'نص الرسالة';
+
+  @override
+  String get broadcastSend => 'إرسال';
+
+  @override
+  String get broadcastEmpty => 'اكتب نصّ الرسالة أولاً';
+
+  @override
+  String get broadcastConfirmTitle => 'إرسال إلى الجميع؟';
+
+  @override
+  String get broadcastConfirmBody =>
+      'ستصل هذه الرسالة إلى جميع المشتركين فوراً، ولا يمكن سحبها بعد الإرسال.';
+
+  @override
+  String get broadcastSent => 'أُرسلت الرسالة إلى جميع المشتركين';
 }

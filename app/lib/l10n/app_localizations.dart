@@ -2808,6 +2808,138 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'المقطع قصير جداً'**
   String get voiceTooShort;
+
+  /// No description provided for @navNotifications.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإشعارات'**
+  String get navNotifications;
+
+  /// The notifications tab, for a member and for the admin. The notices themselves — their titles and sentences — are written by the database (PATCH_20260913c), not by the ARB, so an older APK reads the same words a newer one does.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإشعارات'**
+  String get noticesTitle;
+
+  /// No description provided for @noticesEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد إشعارات بعد'**
+  String get noticesEmpty;
+
+  /// No description provided for @noticesEmptyBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'هنا يصلك كل ما يخصّك: السداد، والاستحقاق الشهري، والصرف، ورسائل الإدارة.'**
+  String get noticesEmptyBody;
+
+  /// No description provided for @noticesUnreadCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =1{إشعار جديد} =2{إشعاران جديدان} few{{count} إشعارات جديدة} other{{count} إشعار جديد}}'**
+  String noticesUnreadCount(int count);
+
+  /// No description provided for @noticeNew.
+  ///
+  /// In ar, this message translates to:
+  /// **'جديد'**
+  String get noticeNew;
+
+  /// No description provided for @noticeToEveryone.
+  ///
+  /// In ar, this message translates to:
+  /// **'للجميع'**
+  String get noticeToEveryone;
+
+  /// No description provided for @noticeFallbackBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'لديك إشعار جديد من جمعية العدايل'**
+  String get noticeFallbackBody;
+
+  /// No description provided for @noticeAndMore.
+  ///
+  /// In ar, this message translates to:
+  /// **'{body}  (و{more} أخرى)'**
+  String noticeAndMore(String body, int more);
+
+  /// No description provided for @notifyNoticeChannel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إشعارات الجمعية'**
+  String get notifyNoticeChannel;
+
+  /// No description provided for @notifyNoticeChannelDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'السداد والاستحقاقات والصرف ورسائل الإدارة'**
+  String get notifyNoticeChannelDesc;
+
+  /// No description provided for @noticesLogHeading.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل ما أُرسل'**
+  String get noticesLogHeading;
+
+  /// Printed above the admin's log so the privacy rule is stated in words: an individual voucher is never announced to everyone, matching read_collective_disbursements.
+  ///
+  /// In ar, this message translates to:
+  /// **'السداد والاستحقاق والصرف الفردي تصل لصاحبها وحده، والصرف الجماعي ورسائل الإدارة تصل للجميع.'**
+  String get noticesAdminRule;
+
+  /// No description provided for @broadcastHeading.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسالة إلى جميع المشتركين'**
+  String get broadcastHeading;
+
+  /// No description provided for @broadcastTitleLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'العنوان (اختياري)'**
+  String get broadcastTitleLabel;
+
+  /// No description provided for @broadcastTitleHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسالة من الإدارة'**
+  String get broadcastTitleHint;
+
+  /// No description provided for @broadcastBodyLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'نص الرسالة'**
+  String get broadcastBodyLabel;
+
+  /// No description provided for @broadcastSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال'**
+  String get broadcastSend;
+
+  /// No description provided for @broadcastEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب نصّ الرسالة أولاً'**
+  String get broadcastEmpty;
+
+  /// No description provided for @broadcastConfirmTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال إلى الجميع؟'**
+  String get broadcastConfirmTitle;
+
+  /// No description provided for @broadcastConfirmBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستصل هذه الرسالة إلى جميع المشتركين فوراً، ولا يمكن سحبها بعد الإرسال.'**
+  String get broadcastConfirmBody;
+
+  /// No description provided for @broadcastSent.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُرسلت الرسالة إلى جميع المشتركين'**
+  String get broadcastSent;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

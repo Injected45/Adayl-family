@@ -23,12 +23,14 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('the doorbell knows how to say «a key changed»', () {
     expect(Ring.values, contains(Ring.access));
-    // ⚠ Three and only three. A fourth kind added without a listener is a ring
-    //   nobody answers; one added without a ringer is a listener that never
-    //   fires. Both are silent, so the count is asserted rather than assumed.
+    // ⚠ Four and only four. A kind added without a listener is a ring nobody
+    //   answers; one added without a ringer is a listener that never fires.
+    //   Both are silent, so the count is asserted rather than assumed.
+    //   The fourth, Ring.notify (13/09), is rung by the SERVER — notify_insert()
+    //   in PATCH_20260913c — and heard by NoticesUnread.
     expect(
       Ring.values.length,
-      3,
+      4,
       reason:
           'a Ring was added or removed — make sure something rings it AND '
           'something listens for it, then update this count.',

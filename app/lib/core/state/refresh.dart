@@ -4,6 +4,7 @@ import '../../features/call/presentation/providers.dart' as call;
 import '../../features/chat/presentation/providers.dart' as chat;
 import '../../features/directory/presentation/providers.dart' as directory;
 import '../../features/finance/presentation/providers.dart' as finance;
+import '../../features/notifications/presentation/providers.dart' as notices;
 import '../../features/oversight/presentation/providers.dart' as oversight;
 
 /// Throws away every cached read so the next build refetches from the database.
@@ -72,6 +73,10 @@ void refreshAll(WidgetRef ref) {
   // The board’s inbox of private conversations. The messages themselves have
   // their own clock; this is the LIST, which nothing else refreshes.
   ref.invalidate(chat.chatThreadsProvider);
+
+  // الإشعارات — the list. Its badge has its own clock and is exempt, like the
+  // chat's; the LIST is what a pull on that screen must bring back.
+  ref.invalidate(notices.noticesProvider);
 
   // ⚠ WHO MAY BE CALLED CHANGES WITHOUT ANYBODY ON THIS PHONE DOING
   //   ANYTHING. api_call_directory lists only men whose app is bound to a

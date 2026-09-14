@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/call/presentation/providers.dart';
 import '../../features/chat/presentation/unread_bell.dart';
+import '../../features/notifications/presentation/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../notify/background_service.dart';
 import '../notify/notify_text.dart';
@@ -133,6 +134,11 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
     // instances rather than creating one and throwing it away.
     unawaited(ref.read(chatUnreadProvider.notifier).refresh());
     unawaited(ref.read(incomingCallProvider.notifier).refresh());
+    // ⚠ AND THE ASSOCIATION'S NOTICES, for the same reason: a receipt recorded
+    //   while his phone is in a pocket should reach the lock screen within the
+    //   beat, not when he next opens the app. One capped column, like the
+    //   bell's — and nothing at all for an admin, for whom the notifier is 0.
+    unawaited(ref.read(noticesUnreadProvider.notifier).refresh());
   }
 
   @override
