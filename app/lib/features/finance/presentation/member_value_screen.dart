@@ -9,8 +9,8 @@ import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/models.dart';
-import 'member_months_chart.dart';
 import 'member_value_bar.dart';
+import 'member_years_chart.dart';
 import 'providers.dart';
 
 /// «الجدوى» — what a man put in, what he got out, and what the fund did.
@@ -34,15 +34,12 @@ import 'providers.dart';
 ///   happened to IS what covers the man something happened to. That is not a
 ///   consolation for a bad number; it is what the number means.
 ///
-/// ── AND WHY THESE FOUR STATISTICS AND NOT AN AVERAGE ────────────────────────
-/// «ما الجدوى» is a question about COVER, not about return. An average payout
-/// answers neither: most members receive nothing in a good year, and the mean
-/// of mostly-zero is a small number that makes the fund look pointless.
-///
-/// So: how much of every hundred collected comes back to members, how many men
-/// the fund has actually stood behind, and — the one that answers the question —
-/// the LARGEST single payment it has ever made to one man. That last figure is
-/// what a member is buying, and no average can say it.
+/// ── HIS ACCOUNT, AND NOTHING OF THE FUND'S ──────────────────────────────────
+/// The page once carried a «الجمعية» card — the share of everything collected
+/// that went back to members, and the largest single payment to one man. The
+/// association removed it entirely on 14/09. What is left is his own: what he
+/// paid, what he received, the balance between them, his ratio by the
+/// association's formula, and the two year by year.
 ///
 /// Nothing is computed here. Every figure is summed by `api_member_value`,
 /// because money is text end to end in this app.
@@ -131,55 +128,13 @@ class _Body extends StatelessWidget {
         // ── The difference, named ─────────────────────────────────────────
         _Verdict(gap: gap, ahead: got > paid, even: got == paid),
 
-        const SizedBox(height: AppSpacing.xl),
-        Text(
-          l.valueFund,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-
-        // ── What the fund does, in three lines and no prose ────────────────
-        GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              // ⚠ ONE LINE, AND «ونالها 1 من 8» WAS DELETED RATHER THAN
-              //   REWORDED. It counted how many men had received something —
-              //   a ratio of the helped to the whole register — and there is
-              //   no kind way to say that: it is either a boast about the fund
-              //   or a remark about the seven who did not need it. The figure
-              //   the page exists for sits below and answers the question on
-              //   its own.
-              _Line(text: l.valueBackToMembers(_rate(value))),
-              const SizedBox(height: AppSpacing.md),
-              // ⚠ THE FIGURE THAT ANSWERS THE QUESTION. What the association has
-              //   actually put behind one man when something happened to him —
-              //   which is what a member is buying, and what no average says.
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      l.valueLargest,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    formatMoney(value.largest),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.success,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+        // ── ⚠ حاويةُ «الجمعية» أُزيلت بالكامل (14/09) ─────────────────────
+        // It held «عاد إلى العدايل X% من إجمالي المحصَّل» — one association-wide
+        // number read by every man as his own — and «أكبر ما صُرف لمشترك
+        // واحد». The association asked for the heading and everything under it
+        // gone: «اريدك ان تخفيها تمام من التطبيق ولا اريد ظهورها بالمره». This
+        // screen is his own account now; what came back to HIM is the card
+        // below, by the association's formula.
 
         // ── حركته، في الفراغ أسفل الشاشة ──────────────────────────────────
         // ⚠ IT DRAWS ITSELF ONLY IF THERE IS MOVEMENT. A man who has never
@@ -187,46 +142,25 @@ class _Body extends StatelessWidget {
         //   full-width graphic of twelve empty columns on the one screen
         //   built to answer «ما الجدوى».
         const SizedBox(height: AppSpacing.xl),
-        // ── النسبة أولاً، والاتجاه إن وُجد ───────────────────────────────
-        // ⚠ THE BAR ALWAYS, THE TIME CHART ONLY WHEN THERE IS A TIME IN THE
-        //   DATA. The association looked at twelve months of which one had
-        //   anything in it and said «لا يفيدني بشيء» — eleven flat months and
-        //   a vertical jump is what a trend looks like before there is a
-        //   trend. A proportion is answerable from the first receipt.
-        //
-        // ⚠ AND THE THRESHOLD IS THREE, not one: two points make a line
-        //   between two facts, which is a shape the eye reads as a direction
-        //   and which is not one. See MemberMonthsChart for what it draws once
-        //   there is history worth drawing.
+        // ── النسبة أولاً، ثمّ السنوات ───────────────────────────────────
+        // ⚠ THE PROPORTION IS ANSWERABLE FROM THE FIRST RECEIPT, so it comes
+        //   first: ما استلمتَ ÷ ما دفعتَ × 100, to two decimals, with the
+        //   formula under it. The years beneath are the same two figures
+        //   spread over time.
         MemberValueBar(paid: value.paid, received: value.received),
-        // ⚠ ALWAYS, NOT ONLY WITH THREE MONTHS OF HISTORY. The gate was there
-        //   because a CUMULATIVE chart on one month of data is eleven flat
-        //   months and a jump. A calendar year of waves is a different object:
-        //   the empty months are the part of the year that has not happened
-        //   yet, and showing them is what makes «يناير إلى ديسمبر» mean
-        //   anything. The association asked for the year; the year is what it
-        //   gets.
+        // ⚠ YEAR BY YEAR SINCE 14/09, NOT A CALENDAR YEAR OF WAVES. The waves
+        //   were called «غير منطقي وغير واضح»: a curve invents the months
+        //   between readings, and one calendar year holds none of a member's
+        //   aid when it came in 2018 and 2022. See MemberYearsChart.
+        //
+        // ⚠ AND IT DRAWS NOTHING ON A DATABASE WITHOUT PATCH_20260914 — `years`
+        //   parses empty there — rather than failing the whole screen.
         const SizedBox(height: AppSpacing.xl),
-        MemberMonthsChart(
-          months: value.months,
-          paid: value.paid,
-          received: value.received,
-        ),
+        MemberYearsChart(years: value.years),
 
         const SizedBox(height: AppSpacing.xl),
       ],
     );
-  }
-
-  /// How much of every hundred collected has gone back to named members.
-  ///
-  /// Rounded to a whole number: «٧٨ من ١٠٠» is read at a glance and «77.63» is
-  /// not, and the second digit of a ratio nobody acts on is noise.
-  String _rate(MemberValue v) {
-    final double collected = double.tryParse(v.collected) ?? 0;
-    if (collected <= 0) return '0';
-    final double back = double.tryParse(v.toMembers) ?? 0;
-    return (back / collected * 100).round().toString();
   }
 }
 
@@ -331,14 +265,4 @@ class _Verdict extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Line extends StatelessWidget {
-  const _Line({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontSize: 13, height: 1.5));
 }

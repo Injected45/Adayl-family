@@ -653,6 +653,7 @@ class MemberValue {
     required this.members,
     required this.largest,
     this.months = const <MemberMonth>[],
+    this.years = const <MemberYear>[],
   });
 
   /// What HE has paid — receipts, not what he was billed.
@@ -690,6 +691,16 @@ class MemberValue {
   ///   instead of failing to parse.
   final List<MemberMonth> months;
 
+  /// His movement YEAR BY YEAR, newest first — what the chart at the foot of
+  /// «الجدوى» draws since 14/09. Empty on a database without PATCH_20260914,
+  /// and the screen then draws no chart rather than failing to parse.
+  final List<MemberYear> years;
+
+  /// «ما استلمه ÷ ما دفعه × 100», to two decimals — or null when he has paid
+  /// nothing, because a ratio against zero is not a small number, it is no
+  /// number at all.
+  String? get returnPercent => returnPercentOf(paid: paid, received: received);
+
   // ⚠ EVERY AMOUNT DEFAULTS TO '0.00', NEVER TO AN EMPTY STRING. A blank in a
   //   money column reads as a figure that failed to load, and on the one screen
   //   whose entire purpose is figures that is the worst possible ambiguity —
@@ -707,7 +718,110 @@ class MemberValue {
           in (json['months'] as List<dynamic>? ?? const <dynamic>[]))
         MemberMonth.fromJson(m as Map<String, dynamic>),
     ],
+    years: <MemberYear>[
+      for (final dynamic y
+          in (json['years'] as List<dynamic>? ?? const <dynamic>[]))
+        MemberYear.fromJson(y as Map<String, dynamic>),
+    ],
   );
+}
+
+/// نسبةُ ما عاد إليه: ما استلمه ÷ ما دفعه × 100، مقرّبةً إلى منزلتين.
+///
+/// ── المعادلة كما كتبتها الجمعية ─────────────────────────────────────────────
+/// «قيمة ما استلمه المشترك ÷ ما تم دفعه × 100». أيمن صالح: 1,950 ÷ 8,015 × 100
+/// = 24.3294… → **24.33**.
+///
+/// ⚠ IN WHOLE HUNDREDTHS, NEVER A DOUBLE. Both figures arrive as the server's
+///   text («8015.00»), so they are read as integer hundredths and divided with
+///   integer arithmetic, rounding half up at the second decimal. A double is
+///   fine for a pixel and not for a number printed to two places that eight
+///   men will check by hand.
+///
+/// ⚠ AND IT REPLACED A FIGURE THAT WAS NOT HIS. The screen used to print
+///   «عاد إلى العدايل X% من إجمالي المحصَّل» — everything paid to named
+///   members ÷ everything collected — which is ONE number, the same on every
+///   member's phone. Read as «my return», it was wrong for all eight of them.
+String? returnPercentOf({required String paid, required String received}) {
+  final BigInt? p = _hundredths(paid);
+  final BigInt? r = _hundredths(received);
+  if (p == null || r == null || p <= BigInt.zero) return null;
+  // percent × 100, rounded half up: (r × 10000 × 2 + p) ÷ (2p)
+  final BigInt scaled = (r * BigInt.from(20000) + p) ~/ (p * BigInt.two);
+  final BigInt whole = scaled ~/ BigInt.from(100);
+  final String cents = (scaled % BigInt.from(100)).toString().padLeft(2, '0');
+  return '$whole.$cents';
+}
+
+/// «8015.00» → 801500. Null for anything that is not a plain decimal.
+BigInt? _hundredths(String text) {
+  final RegExpMatch? m = RegExp(r'^\s*(\d+)(?:\.(\d*))?\s*$').firstMatch(text);
+  if (m == null) return null;
+  final String frac = (m.group(2) ?? '').padRight(3, '0');
+  BigInt v =
+      BigInt.parse(m.group(1)!) * BigInt.from(100) +
+      BigInt.parse(frac.substring(0, 2));
+  // The third decimal rounds the second, so «1.005» is 101 hundredths.
+  if (int.parse(frac[2]) >= 5) v += BigInt.one;
+  return v;
+}
+
+/// سنةٌ من حركته: ما دفع وما استلم فيها، وتحتها ما فيه حركةٌ من شهورها.
+///
+/// ⚠ [opening] IS THE «حتى 2024» ROW. Everything before the year the app
+///   started folds into it on the server — his subscriptions before 2025 are
+///   ONE opening receipt while his aid is spread over a decade, and splitting
+///   them by year would show him receiving in 2018 and paying nothing. Its
+///   [parts] are YEARS («2018»); every other row's are MONTHS («2026-04»).
+class MemberYear {
+  const MemberYear({
+    required this.year,
+    required this.opening,
+    required this.paid,
+    required this.received,
+    this.parts = const <MemberYearPart>[],
+  });
+
+  factory MemberYear.fromJson(Map<String, dynamic> json) => MemberYear(
+    year: _string(json['year']),
+    opening: json['opening'] == true,
+    paid: _stringOr(json['paid'], '0.00'),
+    received: _stringOr(json['received'], '0.00'),
+    parts: <MemberYearPart>[
+      for (final dynamic p
+          in (json['parts'] as List<dynamic>? ?? const <dynamic>[]))
+        MemberYearPart.fromJson(p as Map<String, dynamic>),
+    ],
+  );
+
+  final String year;
+  final bool opening;
+  final String paid;
+  final String received;
+  final List<MemberYearPart> parts;
+}
+
+/// One line inside an opened year: a month («2026-04») or, in the opening row,
+/// a year («2018»). Only the ones that held something are sent.
+class MemberYearPart {
+  const MemberYearPart({
+    required this.key,
+    required this.paid,
+    required this.received,
+  });
+
+  factory MemberYearPart.fromJson(Map<String, dynamic> json) => MemberYearPart(
+    key: _string(json['key']),
+    paid: _stringOr(json['paid'], '0.00'),
+    received: _stringOr(json['received'], '0.00'),
+  );
+
+  final String key;
+  final String paid;
+  final String received;
+
+  /// «2026-04» rather than «2018».
+  bool get isMonth => key.length == 7;
 }
 
 /// One column of the «الجدوى» chart: a calendar month, what he paid into the

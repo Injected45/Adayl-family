@@ -41,9 +41,7 @@ void applyAppTheme(AppThemeMode mode) {
 
   // ── الحبر ────────────────────────────────────────────────────────────────
   AppColors.ink = dark ? const Color(0xFFE8EEF5) : const Color(0xFF0B1220);
-  AppColors.inkMuted = dark
-      ? const Color(0xFF9FB0C4)
-      : const Color(0xFF475569);
+  AppColors.inkMuted = dark ? const Color(0xFF9FB0C4) : const Color(0xFF475569);
 
   // ⚠ onFill INVERTS, AND I HAD IT BACKWARDS. The first version pinned it to
   //   white with a confident note saying «flipping it would put white text on
@@ -71,6 +69,12 @@ void applyAppTheme(AppThemeMode mode) {
   AppColors.accent = dark ? const Color(0xFFFDBA74) : const Color(0xFFB45309);
   AppColors.dues = dark ? const Color(0xFFD8B4FE) : const Color(0xFF6B21A8);
 
+  // ── عمودا «سنةً بسنة» — علامات، لا نصوص. مقيسةٌ بالمُدقِّق، انظر AppColors.
+  AppColors.chartPaid = const Color(0xFF059669);
+  AppColors.chartReceived = dark
+      ? const Color(0xFFF43F5E)
+      : const Color(0xFF9F1239);
+
   // ── الظِّلال الفاتحة: تنقلب إلى غامقةٍ مشبعة ─────────────────────────────
   AppColors.dangerSoft = dark
       ? const Color(0xFF4C1D24)
@@ -81,9 +85,7 @@ void applyAppTheme(AppThemeMode mode) {
   AppColors.warningSoft = dark
       ? const Color(0xFF422006)
       : const Color(0xFFFEF3C7);
-  AppColors.infoSoft = dark
-      ? const Color(0xFF262B57)
-      : const Color(0xFFE0E7FF);
+  AppColors.infoSoft = dark ? const Color(0xFF262B57) : const Color(0xFFE0E7FF);
   AppColors.neutralSoft = dark
       ? const Color(0xFF1B2536)
       : const Color(0xFFEEF2F6);
@@ -122,9 +124,7 @@ void applyAppTheme(AppThemeMode mode) {
   GlassColors.surface = dark
       ? const Color(0xD1111C2E)
       : const Color(0xD1FFFFFF);
-  GlassColors.chrome = dark
-      ? const Color(0xBF111C2E)
-      : const Color(0xBFFFFFFF);
+  GlassColors.chrome = dark ? const Color(0xBF111C2E) : const Color(0xBFFFFFFF);
   GlassColors.overlay = dark
       ? const Color(0xF70E1726)
       : const Color(0xF7FFFFFF);
@@ -134,9 +134,7 @@ void applyAppTheme(AppThemeMode mode) {
   //   palette. See the note on GlassColors.menu.
   GlassColors.menu = dark ? const Color(0xFF16213A) : const Color(0xFFFFFFFF);
 
-  GlassColors.well = dark
-      ? const Color(0x2900000F)
-      : const Color(0x120F766E);
+  GlassColors.well = dark ? const Color(0x2900000F) : const Color(0x120F766E);
 
   // ── حوافُّ الزجاج، وهي ما يجعله زجاجاً ───────────────────────────────────
   //
@@ -154,9 +152,7 @@ void applyAppTheme(AppThemeMode mode) {
   // ⚠ ولونُ كلّ عديل: إضاءةٌ مقيسة، لا مقلوبة. See identityTone.
   AppColors.identityLight = dark ? 0.76 : 0.24;
 
-  GlassColors.stroke = dark
-      ? const Color(0x38FFFFFF)
-      : const Color(0xB3FFFFFF);
+  GlassColors.stroke = dark ? const Color(0x38FFFFFF) : const Color(0xB3FFFFFF);
   GlassColors.hairline = dark
       ? const Color(0x1FFFFFFF)
       : const Color(0x14101828);
@@ -167,7 +163,5 @@ void applyAppTheme(AppThemeMode mode) {
   // ⚠ THE LIFT GOES DEEPER, NOT LIGHTER. It is the one soft shadow this design
   //   permits, and a shadow on a dark field has to be darker than the field to
   //   be seen at all.
-  GlassColors.lift = dark
-      ? const Color(0x66000000)
-      : const Color(0x140B1220);
+  GlassColors.lift = dark ? const Color(0x66000000) : const Color(0x140B1220);
 }

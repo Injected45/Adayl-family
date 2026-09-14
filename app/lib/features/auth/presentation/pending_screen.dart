@@ -31,11 +31,23 @@ class PendingScreen extends ConsumerWidget {
     final AuthState auth = ref.watch(authControllerProvider);
     final String? email = auth.pendingEmail;
 
+    // ── عضوٌ مربوط، ودخولُه ليس الذي فُتح بالمفتاح ──────────────────────────
+    // ⚠ «بانتظار الموافقة — تم إرسال طلبك» was what he read here, and it was
+    //   false: nothing was sent and nobody is reviewing anything. Since 14/09
+    //   the database binds a member's key to his PHONE and his LOGIN, so a man
+    //   who signed out, cleared the app or changed phones lands here — and the
+    //   one true sentence is that he needs a new key from the admin.
+    final bool keyNeeded =
+        (auth.user?.isAdeelPortal ?? false) &&
+        (auth.user?.deviceLocked ?? false);
+
     return CenteredMessage(
-      icon: Icons.hourglass_top,
+      icon: keyNeeded ? Icons.key_outlined : Icons.hourglass_top,
       iconColor: AppColors.warning,
-      title: l.pendingTitle,
-      body: auth.serverMessage ?? l.pendingBody,
+      title: keyNeeded ? l.deviceLockedTitle : l.pendingTitle,
+      body: keyNeeded
+          ? l.deviceLockedBody
+          : (auth.serverMessage ?? l.pendingBody),
       footnote: email == null ? null : l.pendingSignedInAs(email),
       actions: <Widget>[
         const _FamilyCodeBox(),

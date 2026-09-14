@@ -101,6 +101,21 @@ abstract final class AppColors {
   ///   the darker end and the margin costs nothing.
   static Color dues = Color(0xFF6B21A8);
 
+  /// The two BAR FILLS of «دفعتَ واستلمتَ سنةً بسنة» — marks, never text.
+  ///
+  /// ⚠ NOT [success] AND [danger], AND THE VALIDATOR IS WHY. As chart marks
+  ///   that pair measured CVD ΔE 7.7 in light (the floor band) and FAILED the
+  ///   lightness band in dark (#4ADE80 at L 0.80). These were picked by running
+  ///   the dataviz validator over candidate steps: light #059669 / #9F1239
+  ///   passes every check at ΔE 13.1; dark #059669 / #F43F5E at ΔE 8.3. The
+  ///   FIGURES beside the bars stay success/danger, because every other
+  ///   «دفعتَ» and «استلمتَ» in the app is those — see value_colours_test.
+  ///
+  /// ⚠ AND COLOUR IS STILL NOT THE ONLY CHANNEL: every bar carries its word
+  ///   and its figure on the same line, and «دفعتَ» is always the upper one.
+  static Color chartPaid = Color(0xFF059669);
+  static Color chartReceived = Color(0xFF9F1239);
+
   /// ⚠ A GETTER for the same reason as the aliases above: a copy taken at
   ///   class-load would keep the light indigo after the theme changed.
   static Color get month => info;
@@ -156,7 +171,6 @@ abstract final class AppColors {
 
   /// إضاءةُ لون العديل — تتبع اللوحة. See [identityTone].
   static double identityLight = 0.24;
-
 
   // ── The vibrant field that makes glass legible ─────────────────────────────
   static Color fieldBase = Color(0xFFE6F2F0);

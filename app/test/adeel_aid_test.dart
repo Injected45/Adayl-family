@@ -171,6 +171,7 @@ AdeelAid _aid({
 
 void main() {
   _aidToneTests();
+  _foldingTests();
   final L l = LAr();
 
   Widget host(AdeelAid aid, {bool mine = false}) => ProviderScope(
@@ -552,6 +553,9 @@ void main() {
     );
 
     await open(tester, one, mine: true);
+    // The member's «الإجمالي» is folded until he opens it (14/09).
+    await tester.tap(find.text(l.aidPanelTitle));
+    await tester.pumpAndSettle();
 
     // Closed: the heading is on the line, the note is nowhere.
     expect(find.text('مولود'), findsOneWidget);
@@ -726,7 +730,9 @@ void main() {
     // separate things when they are one answer to one question. The search sits
     // above that container and outside it, because it is a control acting on
     // what follows rather than another row of the record.
-    await open(tester, _aid(), mine: true);
+    // Staff: the page as it has always been — the member's folds (see
+    // _foldingTests), and its search then lives inside the panel it filters.
+    await open(tester, _aid());
 
     final Finder panel = find.ancestor(
       of: find.text(l.aidPanelTitle).first,
@@ -1812,5 +1818,144 @@ void _aidToneTests() {
           'money leaving the treasury, which is the other screen.',
     );
     expect(src, contains('tone: AppColors.success'));
+  });
+}
+
+/// «أسلافي» على صفحة المشترك: الحاويتان مطويّتان، وفتحُ واحدةٍ يُغلق الأخرى.
+///
+/// «اجعل الحاويتين مطوية ولا تفتح الا بامر المستخدم وعند فتح الثانية تقفل
+/// الاولي والعكس» — the member's page only. Staff open this screen to work a
+/// man's record, and it stays open for them.
+void _foldingTests() {
+  final L l = LAr();
+
+  AdeelAid twoYears() => _aid(
+    byYear: const <AidByYear>[
+      AidByYear(year: '2026', total: '500.00', count: 1),
+      AidByYear(year: '2025', total: '100.00', count: 1),
+    ],
+  );
+
+  Future<void> pumpAid(WidgetTester tester, {required bool mine}) async {
+    tester.view.physicalSize = const Size(411, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final AdeelAid aid = twoYears();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          authControllerProvider.overrideWith(() => _StubAuth(AppRole.admin)),
+          adeelAidProvider(1).overrideWith((Ref ref) async => aid),
+        ],
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          locale: const Locale('ar'),
+          localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
+          supportedLocales: L.supportedLocales,
+          home: AdeelAidScreen(adeelId: 1, mine: mine),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  group('the member\'s two containers fold', () {
+    testWidgets('both start closed, and the total stays in sight', (
+      WidgetTester tester,
+    ) async {
+      await pumpAid(tester, mine: true);
+
+      expect(find.text(l.aidByYear), findsOneWidget);
+      expect(find.text(l.aidPanelTitle), findsOneWidget);
+      // Nothing inside either: no year rows, no table, no search box.
+      expect(find.text(l.aidVoucherCount(1)), findsNothing);
+      expect(find.text(l.aidColCategory), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      // ...but the figure the page exists for rides the closed heading.
+      expect(find.text(formatMoney('600.00')), findsOneWidget);
+    });
+
+    testWidgets('opening one closes the other, both ways', (
+      WidgetTester tester,
+    ) async {
+      await pumpAid(tester, mine: true);
+
+      await tester.tap(find.text(l.aidByYear));
+      await tester.pumpAndSettle();
+      expect(find.text(l.aidVoucherCount(1)), findsNWidgets(2));
+      expect(find.text(l.aidColCategory), findsNothing);
+
+      await tester.tap(find.text(l.aidPanelTitle).first);
+      await tester.pumpAndSettle();
+      expect(find.text(l.aidColCategory), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(
+        find.text(l.aidVoucherCount(1)),
+        findsNothing,
+        reason: 'opening «الإجمالي» must close «حسب السنة»',
+      );
+
+      await tester.tap(find.text(l.aidByYear));
+      await tester.pumpAndSettle();
+      expect(find.text(l.aidVoucherCount(1)), findsNWidgets(2));
+      expect(
+        find.text(l.aidColCategory),
+        findsNothing,
+        reason: 'and opening «حسب السنة» closes «الإجمالي»',
+      );
+    });
+
+    testWidgets('tapping the open one closes it', (WidgetTester tester) async {
+      await pumpAid(tester, mine: true);
+      await tester.tap(find.text(l.aidByYear));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.aidByYear));
+      await tester.pumpAndSettle();
+      expect(find.text(l.aidVoucherCount(1)), findsNothing);
+      expect(find.text(l.aidColCategory), findsNothing);
+    });
+
+    testWidgets('the staff page is NOT folded', (WidgetTester tester) async {
+      await pumpAid(tester, mine: false);
+      expect(find.text(l.aidVoucherCount(1)), findsNWidgets(2));
+      expect(find.text(l.aidColCategory), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    for (final double width in <double>[320, 411]) {
+      testWidgets('an open container fits at ${width.toInt()}px', (
+        WidgetTester tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 2600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        final AdeelAid aid = twoYears();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: <Override>[
+              authControllerProvider.overrideWith(
+                () => _StubAuth(AppRole.admin),
+              ),
+              adeelAidProvider(1).overrideWith((Ref ref) async => aid),
+            ],
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: buildAppTheme(),
+              locale: const Locale('ar'),
+              localizationsDelegates: latinDigitDelegates(
+                L.localizationsDelegates,
+              ),
+              supportedLocales: L.supportedLocales,
+              home: const AdeelAidScreen(adeelId: 1, mine: true),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l.aidPanelTitle));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 }

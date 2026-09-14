@@ -730,7 +730,7 @@ class LEn extends L {
   String get aidSearchHint => 'Search';
 
   @override
-  String get aidOthersTitle => 'Collective spending';
+  String get aidOthersTitle => 'Shared spending';
 
   @override
   String get aidOthersEmpty => 'No collective spending yet';
@@ -754,31 +754,39 @@ class LEn extends L {
   String get valueEven => 'You paid and received the same';
 
   @override
-  String get valueFund => 'The association';
-
-  @override
   String get valueShareTitle => 'What came back to you';
 
   @override
-  String valueShareOf(int percent) {
+  String valueShareOf(String percent) {
     return '$percent% of what you paid came back to you';
   }
 
   @override
-  String valueShareOver(int percent) {
+  String valueShareOver(String percent) {
     return '$percent% of what you paid came back — more than you paid';
   }
 
   @override
-  String get valueMonths => 'Your year';
-
-  @override
-  String valueBackToMembers(String rate) {
-    return '$rate% of everything collected went back to members';
+  String valueShareFormula(String received, String paid) {
+    return '$received ÷ $paid × 100';
   }
 
   @override
-  String get valueLargest => 'Largest single payment to one member';
+  String get valueMonths => 'Paid and received, year by year';
+
+  @override
+  String get valueYearsHint => 'Tap a year to see its detail';
+
+  @override
+  String valueOpeningYear(String year) {
+    return 'Up to $year';
+  }
+
+  @override
+  String get valueColMonth => 'Month';
+
+  @override
+  String get valueColYear => 'Year';
 
   @override
   String get aidColDate => 'Date';
@@ -1183,76 +1191,6 @@ class LEn extends L {
   String get issueCodeCopied => 'Code copied';
 
   @override
-  String get dangerZoneSection => 'Danger zone';
-
-  @override
-  String get purgeTitle => 'Erase financial data';
-
-  @override
-  String get purgeIntro =>
-      'Permanently deletes every receivable, payment, cash movement and audit entry. Intended to be used once, to clear trial figures before going live.';
-
-  @override
-  String get purgeKeeps =>
-      'Kept: subscribers, association settings and user accounts.';
-
-  @override
-  String get purgeIrreversible =>
-      'This cannot be undone, and no trace of it is left in the audit trail.';
-
-  @override
-  String get purgeButton => 'Erase financial data';
-
-  @override
-  String get purgeConfirmTitle => 'Permanently erase financial data';
-
-  @override
-  String purgeConfirmPrompt(String phrase) {
-    return 'To confirm, type: $phrase';
-  }
-
-  @override
-  String get purgeConfirmField => 'Confirmation phrase';
-
-  @override
-  String get purgeConfirmAction => 'Erase permanently';
-
-  @override
-  String purgeDone(int count) {
-    return 'Erased $count rows; numbering starts over';
-  }
-
-  @override
-  String get purgeNothingToDo => 'There is no financial data to erase';
-
-  @override
-  String get purgeAllTitle => 'Erase the subscriber register';
-
-  @override
-  String get purgeAllIntro =>
-      'Permanently deletes every subscriber, and all financial data with them. The database returns to empty, as if the system had never been used.';
-
-  @override
-  String get purgeAllWhyFinancial =>
-      'Why the financial data goes too: every receivable and receipt belongs to a subscriber, so a subscriber cannot be deleted while his receipt survives.';
-
-  @override
-  String get purgeAllKeeps =>
-      'Kept: association settings and user accounts, so your own sign-in still works.';
-
-  @override
-  String get purgeAllButton => 'Erase everything';
-
-  @override
-  String get purgeAllConfirmTitle => 'Permanently erase everything';
-
-  @override
-  String get purgeAllConfirmAction => 'Erase everything';
-
-  @override
-  String get purgeAllNothingToDo => 'There is no data to erase';
-
-  @override
   String get pendingRequests => 'Pending requests';
 
   @override
@@ -1378,11 +1316,11 @@ class LEn extends L {
   }
 
   @override
-  String get deviceLockedTitle => 'This subscription is tied to another device';
+  String get deviceLockedTitle => 'A new key is needed';
 
   @override
   String get deviceLockedBody =>
-      'Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.';
+      'After signing out, or on a phone other than the registered one, the app opens only with a new key from the association. Ask for one and type it below.';
 
   @override
   String get portalDetailsHint => '';

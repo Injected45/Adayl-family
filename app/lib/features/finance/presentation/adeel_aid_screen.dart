@@ -92,9 +92,16 @@ class AdeelAidScreen extends ConsumerStatefulWidget {
   ConsumerState<AdeelAidScreen> createState() => _AdeelAidScreenState();
 }
 
+/// The two containers a member's «أسلافي» folds.
+enum _AidSection { byYear, total }
+
 class _AdeelAidScreenState extends ConsumerState<AdeelAidScreen> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
+
+  /// Which container is open on the member's page — at most one, and none
+  /// until he taps. See [_FoldingPanel].
+  _AidSection? _open;
 
   @override
   void dispose() {
@@ -126,6 +133,9 @@ class _AdeelAidScreenState extends ConsumerState<AdeelAidScreen> {
           query: _query,
           search: _search,
           onQuery: (String q) => setState(() => _query = q),
+          open: _open,
+          onToggle: (_AidSection s) =>
+              setState(() => _open = _open == s ? null : s),
         ),
       ),
     );
@@ -168,6 +178,8 @@ class _AidBody extends StatelessWidget {
     required this.query,
     required this.search,
     required this.onQuery,
+    required this.open,
+    required this.onToggle,
   });
 
   final AdeelAid aid;
@@ -175,6 +187,16 @@ class _AidBody extends StatelessWidget {
   final String query;
   final TextEditingController search;
   final ValueChanged<String> onQuery;
+
+  /// ── مطويّتان على صفحة المشترك، وواحدةٌ مفتوحة على الأكثر ─────────────
+  ///
+  /// ⚠ THE MEMBER'S PAGE ONLY, AS ASKED: «في واجهة المشترك … اجعل الحاويتين
+  ///   مطوية ولا تفتح الا بامر المستخدم وعند فتح الثانية تقفل الاولي». Staff
+  ///   open this page to WORK a man's record, and folding it would put a tap
+  ///   in front of every figure they came for; a member opens his own page to
+  ///   look, and two closed headings are a calmer first screen than a ledger.
+  final _AidSection? open;
+  final ValueChanged<_AidSection> onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +212,69 @@ class _AidBody extends StatelessWidget {
         : aid.ledger
               .where((AidLedgerEntry e) => e.haystack.contains(needle))
               .toList();
+
+    final Widget yearRows = Column(
+      children: <Widget>[
+        for (final AidByYear y in aid.byYear)
+          _AidRow(
+            label: y.year,
+            trailing: l.aidVoucherCount(y.count),
+            amount: y.total,
+            // The first four characters of `spentAt`, not a parsed
+            // DateTime: api_adeel_aid derives the year with
+            // `AT TIME ZONE 'UTC'` and v_disbursements renders the
+            // date the same way, so the strings agree by
+            // construction. Parsing to local time would disagree with
+            // the heading for a voucher written near midnight.
+            vouchers: _liveUnder(
+              aid,
+              (DisbursementView v) => v.spentAt.startsWith(y.year),
+            ),
+          ),
+      ],
+    );
+
+    final Widget searchField = TextField(
+      controller: search,
+      onChanged: onQuery,
+      textInputAction: TextInputAction.search,
+      // ── SHORTER, and one word inside it ─────────────────────────────
+      // «ابحث بالبند أو الملاحظة أو رقم السند» described the mechanism to
+      // somebody who had not asked how it worked, and a full-height field
+      // gave a control the presence of a record. `isDense` with a tight
+      // vertical padding takes roughly a third off it; the box is still
+      // comfortably above the 48dp a thumb needs.
+      //
+      // The hint stays a hint: what it searches is discovered by typing,
+      // which costs nothing and is how everyone uses a search box anyway.
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        hintText: l.aidSearchHint,
+        prefixIcon: const Icon(Icons.search, size: 18),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 38,
+          minHeight: 32,
+        ),
+        suffixIcon: needle.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  search.clear();
+                  onQuery('');
+                },
+              ),
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 38,
+          minHeight: 32,
+        ),
+      ),
+    );
 
     return ListView(
       padding: screenPadding(context),
@@ -265,83 +350,78 @@ class _AidBody extends StatelessWidget {
           // Only when there is more than one year to compare: on a member helped
           // once, a single-row "by year" restates the headline and says nothing.
           if (aid.byYear.length > 1) ...<Widget>[
-            GlassPanel(
-              title: l.aidByYear,
-              icon: Icons.calendar_month_outlined,
-              child: Column(
-                children: <Widget>[
-                  for (final AidByYear y in aid.byYear)
-                    _AidRow(
-                      label: y.year,
-                      trailing: l.aidVoucherCount(y.count),
-                      amount: y.total,
-                      // The first four characters of `spentAt`, not a parsed
-                      // DateTime: api_adeel_aid derives the year with
-                      // `AT TIME ZONE 'UTC'` and v_disbursements renders the
-                      // date the same way, so the strings agree by
-                      // construction. Parsing to local time would disagree with
-                      // the heading for a voucher written near midnight.
-                      vouchers: _liveUnder(
-                        aid,
-                        (DisbursementView v) => v.spentAt.startsWith(y.year),
-                      ),
-                    ),
-                ],
+            if (mine)
+              _FoldingPanel(
+                title: l.aidByYear,
+                icon: Icons.calendar_month_outlined,
+                open: open == _AidSection.byYear,
+                onTap: () => onToggle(_AidSection.byYear),
+                child: yearRows,
+              )
+            else
+              GlassPanel(
+                title: l.aidByYear,
+                icon: Icons.calendar_month_outlined,
+                child: yearRows,
               ),
-            ),
             const SizedBox(height: AppSpacing.lg),
           ],
 
-          // The search sits ABOVE the panel it filters, and outside it. Inside
-          // the panel it would read as one more row of the record; above it, it
-          // is plainly a control acting on what follows.
-          TextField(
-            controller: search,
-            onChanged: onQuery,
-            textInputAction: TextInputAction.search,
-            // ── SHORTER, and one word inside it ─────────────────────────────
-            // «ابحث بالبند أو الملاحظة أو رقم السند» described the mechanism to
-            // somebody who had not asked how it worked, and a full-height field
-            // gave a control the presence of a record. `isDense` with a tight
-            // vertical padding takes roughly a third off it; the box is still
-            // comfortably above the 48dp a thumb needs.
+          if (mine)
+            // ── الإجمالي، مطويّاً ─────────────────────────────────────────
+            // ⚠ THE FIGURE RIDES THE HEADING WHILE IT IS CLOSED. Two closed
+            //   headings and no number would be a page that answers nothing
+            //   until tapped; the total is the one figure this page exists
+            //   for, so it stays in sight and the ledger is what folds.
             //
-            // The hint stays a hint: what it searches is discovered by typing,
-            // which costs nothing and is how everyone uses a search box anyway.
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
+            // ⚠ AND THE SEARCH FOLDS WITH THE TABLE IT FILTERS. A search box
+            //   above a closed container searches nothing the reader can see.
+            _FoldingPanel(
+              title: l.aidPanelTitle,
+              icon: Icons.receipt_long_outlined,
+              open: open == _AidSection.total,
+              onTap: () => onToggle(_AidSection.total),
+              trailing: Text(
+                formatMoney(aid.total),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.success,
+                ),
               ),
-              hintText: l.aidSearchHint,
-              prefixIcon: const Icon(Icons.search, size: 18),
-              prefixIconConstraints: const BoxConstraints(
-                minWidth: 38,
-                minHeight: 32,
-              ),
-              suffixIcon: needle.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        search.clear();
-                        onQuery('');
-                      },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  searchField,
+                  if (needle.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      l.aidShowing(rows.length, aid.ledger.length),
+                      style: TextStyle(fontSize: 11, color: AppColors.muted),
                     ),
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 38,
-                minHeight: 32,
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  AidLedger(
+                    all: aid.ledger,
+                    rows: rows,
+                    tone: AppColors.success,
+                  ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
+            )
+          else ...<Widget>[
+            // The search sits ABOVE the panel it filters, and outside it. Inside
+            // the panel it would read as one more row of the record; above it,
+            // it is plainly a control acting on what follows.
+            searchField,
+            const SizedBox(height: AppSpacing.md),
 
-          // ONE container for the record: the total and the vouchers it is made
-          // as two separate things when they are one answer to one question.
-          // of. They were two — a headline card above a ledger panel — and read
-          _AidPanel(rows: rows, aid: aid, filtered: needle.isNotEmpty),
+            // ONE container for the record: the total and the vouchers it is
+            // made of. They were two — a headline card above a ledger panel —
+            // and read as two separate things when they are one answer to one
+            // question.
+            _AidPanel(rows: rows, aid: aid, filtered: needle.isNotEmpty),
+          ],
         ],
       ],
     );
@@ -616,7 +696,6 @@ class _AidPanel extends StatefulWidget {
 }
 
 class _AidPanelState extends State<_AidPanel> {
-
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
@@ -658,6 +737,96 @@ class _AidPanelState extends State<_AidPanel> {
             rows: widget.rows,
             tone: AppColors.success,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A container that shows only its heading until it is tapped.
+///
+/// ── WHY NOT ExpansionTile ───────────────────────────────────────────────────
+/// ExpansionTile keeps its own open state, and this page needs the OPPOSITE of
+/// independent tiles: «عند فتح الثانية تقفل الاولي». The state lives in the
+/// screen (`_open`), and each panel is told whether it is the open one — the
+/// only arrangement in which two panels cannot both be open by accident.
+///
+/// ⚠ THE WHOLE HEADING IS THE TARGET, not the chevron. A 20px icon is a
+///   precision tap on a moving phone; the heading row is the width of the card.
+class _FoldingPanel extends StatelessWidget {
+  const _FoldingPanel({
+    required this.title,
+    required this.icon,
+    required this.open,
+    required this.onTap,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final IconData icon;
+  final bool open;
+  final VoidCallback onTap;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Semantics(
+            button: true,
+            expanded: open,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(AppRadius.control),
+              child: Row(
+                children: <Widget>[
+                  // The same tile GlassPanel draws, so a folded panel and an
+                  // open one are recognisably the same container.
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.brandSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.chip),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(icon, size: 18, color: AppColors.brandDeep),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  if (trailing != null) ...<Widget>[
+                    const SizedBox(width: AppSpacing.sm),
+                    // ⚠ A CAP, NOT A Flexible. Flexible beside the Expanded
+                    //   title split the row in half and left the chevron in
+                    //   the middle of the card instead of at its edge.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: trailing,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: AppSpacing.xs),
+                  Icon(
+                    open ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.muted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open) ...<Widget>[const SizedBox(height: AppSpacing.lg), child],
         ],
       ),
     );

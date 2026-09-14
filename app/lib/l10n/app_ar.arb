@@ -382,9 +382,9 @@
     "description": "The same page in the member's own voice, inside his portal. The association's own wording."
   },
   "aidSearchHint": "بحث",
-  "aidOthersTitle": "أسلاف للغير",
+  "aidOthersTitle": "أسلاف الأنساب",
   "@aidOthersTitle": {
-    "description": "What the association gave every OTHER member, in a member’s portal, beside «أسلافي». The association chose full transparency — «كل شيء بالأسماء» — and the widening is a policy on the table, not a filter in the app: drop read_all_disbursements_adeel and this screen empties itself."
+    "description": "The COLLECTIVE spending, in a member's portal, beside «أسلافي». Renamed from «أسلاف للغير» to «أسلاف الأنساب» on 14/09 at the association's request. It lists vouchers with no payee only — read_collective_disbursements — so no member's name can appear on it."
   },
   "aidOthersEmpty": "لا صرف جماعي بعد",
   "aidOthersRecipients": "حسب الوجه",
@@ -396,37 +396,50 @@
   "valuePaid": "دفعتَ",
   "valueReceived": "استلمتَ",
   "valueEven": "دفعتَ واستلمتَ سواءً",
-  "valueFund": "الجمعية",
   "valueShareTitle": "ما عاد إليك من اشتراكك",
-  "valueShareOf": "عاد إليك {percent}% من قيمة اشتراكاتك المدفوعة",
+  "valueShareOf": "عاد إليك {percent}% مما دفعت",
   "@valueShareOf": {
-    "description": "His own ratio: received ÷ paid. «من كل 100 دفعتَها» was the old form; a percentage reads more directly and is what the association asked for.",
+    "description": "His own ratio, the association's formula: received ÷ paid × 100, to two decimals (returnPercentOf — integer hundredths, never a double). أيمن: 1,950 ÷ 8,015 × 100 = 24.33.",
     "placeholders": {
       "percent": {
-        "type": "int"
-      }
-    }
-  },
-  "valueShareOver": "عاد إليك {percent}% من اشتراكاتك — أكثر مما دفعت",
-  "@valueShareOver": {
-    "description": "A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden.",
-    "placeholders": {
-      "percent": {
-        "type": "int"
-      }
-    }
-  },
-  "valueMonths": "حركتك خلال السنة",
-  "valueBackToMembers": "عاد إلى العدايل {rate}% من إجمالي المحصَّل",
-  "@valueBackToMembers": {
-    "description": "⚠ THE ASSOCIATION-WIDE RATIO: toMembers ÷ collected. It is NOT «what came back to YOU» — that figure is valueShareOf, and it is a different number for every man. Writing the personal wording onto this one would tell a member who received nothing that 17% of his own subscriptions came back, which is a lie the screen has no way to correct.",
-    "placeholders": {
-      "rate": {
         "type": "String"
       }
     }
   },
-  "valueLargest": "أكبر ما صُرف لمشترك واحد",
+  "valueShareOver": "عاد إليك {percent}% مما دفعت — أكثر مما دفعت",
+  "@valueShareOver": {
+    "description": "A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "valueShareFormula": "{received} ÷ {paid} × 100",
+  "@valueShareFormula": {
+    "description": "The formula under the percentage, with his own two figures, so the number can be checked by hand. Written in the RTL paragraph exactly as the association wrote it: ما استلمه ÷ ما دفعه × 100.",
+    "placeholders": {
+      "received": {
+        "type": "String"
+      },
+      "paid": {
+        "type": "String"
+      }
+    }
+  },
+  "valueMonths": "دفعتَ واستلمتَ سنةً بسنة",
+  "valueYearsHint": "اضغط على السنة لترى تفاصيلها",
+  "valueOpeningYear": "حتى {year}",
+  "@valueOpeningYear": {
+    "description": "The row that folds everything before the app began: his subscriptions before 2025 are one opening receipt, while his aid is spread over a decade, so the years cannot be split honestly.",
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "valueColMonth": "الشهر",
+  "valueColYear": "السنة",
   "aidColDate": "التاريخ",
   "aidColSerial": "#",
   "@aidColSerial": {
@@ -697,40 +710,6 @@
   "issueCodeAction": "إصدار رمز دخول",
   "issueCodeRegenerate": "إصدار رمز جديد",
   "issueCodeCopied": "تم نسخ الرمز",
-  "dangerZoneSection": "منطقة الخطر",
-  "purgeTitle": "مسح البيانات المالية",
-  "purgeIntro": "يحذف نهائياً كل الاستحقاقات والتحصيلات وحركات الخزينة وسجل العمليات. يُستعمل مرة واحدة لتصفير بيانات التجربة قبل بدء العمل الفعلي.",
-  "purgeKeeps": "لا يُحذف: المشتركون وإعدادات الجمعية وحسابات المستخدمين.",
-  "purgeIrreversible": "لا يمكن التراجع عن هذه العملية، ولا يبقى منها أثر في سجل العمليات.",
-  "purgeButton": "مسح البيانات المالية",
-  "purgeConfirmTitle": "مسح نهائي للبيانات المالية",
-  "purgeConfirmPrompt": "للتأكيد، اكتب: {phrase}",
-  "@purgeConfirmPrompt": {
-    "placeholders": {
-      "phrase": {
-        "type": "String"
-      }
-    }
-  },
-  "purgeConfirmField": "عبارة التأكيد",
-  "purgeConfirmAction": "مسح نهائي",
-  "purgeDone": "تم مسح {count} سجل، وأصبح الترقيم يبدأ من جديد",
-  "@purgeDone": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "purgeNothingToDo": "لا توجد بيانات مالية لمسحها",
-  "purgeAllTitle": "مسح بيانات المشتركين",
-  "purgeAllIntro": "يحذف نهائياً كل المشتركين، ومعهم كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.",
-  "purgeAllWhyFinancial": "لماذا تُحذف البيانات المالية معهم: كل استحقاق وكل إيصال مرتبط بمشترك، فلا يمكن حذف المشترك وإبقاء إيصاله.",
-  "purgeAllKeeps": "لا يُحذف: إعدادات الجمعية وحسابات المستخدمين، فيبقى دخولك للتطبيق كما هو.",
-  "purgeAllButton": "مسح كل البيانات",
-  "purgeAllConfirmTitle": "مسح نهائي لكل البيانات",
-  "purgeAllConfirmAction": "مسح كل البيانات",
-  "purgeAllNothingToDo": "لا توجد بيانات لمسحها",
   "pendingRequests": "طلبات معلقة",
   "allUsers": "المستخدمون",
   "approve": "اعتماد",
@@ -791,11 +770,11 @@
       }
     }
   },
-  "deviceLockedTitle": "هذا الاشتراك مرتبط بجهاز آخر",
+  "deviceLockedTitle": "يلزمك مفتاح جديد",
   "@deviceLockedTitle": {
     "description": "Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app."
   },
-  "deviceLockedBody": "رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.",
+  "deviceLockedBody": "لا يُفتح التطبيق بعد تسجيل الخروج، ولا على جهاز غير الجهاز المسجّل، إلا بمفتاح جديد تستلمه من إدارة الجمعية. اطلبه ثم اكتبه في الخانة أدناه.",
   "portalDetailsHint": "",
   "portalBankHint": "",
   "portalOfficialsHint": "",

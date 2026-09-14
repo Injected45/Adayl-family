@@ -724,7 +724,7 @@ class LAr extends L {
   String get aidSearchHint => 'بحث';
 
   @override
-  String get aidOthersTitle => 'أسلاف للغير';
+  String get aidOthersTitle => 'أسلاف الأنساب';
 
   @override
   String get aidOthersEmpty => 'لا صرف جماعي بعد';
@@ -748,31 +748,39 @@ class LAr extends L {
   String get valueEven => 'دفعتَ واستلمتَ سواءً';
 
   @override
-  String get valueFund => 'الجمعية';
-
-  @override
   String get valueShareTitle => 'ما عاد إليك من اشتراكك';
 
   @override
-  String valueShareOf(int percent) {
-    return 'عاد إليك $percent% من قيمة اشتراكاتك المدفوعة';
+  String valueShareOf(String percent) {
+    return 'عاد إليك $percent% مما دفعت';
   }
 
   @override
-  String valueShareOver(int percent) {
-    return 'عاد إليك $percent% من اشتراكاتك — أكثر مما دفعت';
+  String valueShareOver(String percent) {
+    return 'عاد إليك $percent% مما دفعت — أكثر مما دفعت';
   }
 
   @override
-  String get valueMonths => 'حركتك خلال السنة';
-
-  @override
-  String valueBackToMembers(String rate) {
-    return 'عاد إلى العدايل $rate% من إجمالي المحصَّل';
+  String valueShareFormula(String received, String paid) {
+    return '$received ÷ $paid × 100';
   }
 
   @override
-  String get valueLargest => 'أكبر ما صُرف لمشترك واحد';
+  String get valueMonths => 'دفعتَ واستلمتَ سنةً بسنة';
+
+  @override
+  String get valueYearsHint => 'اضغط على السنة لترى تفاصيلها';
+
+  @override
+  String valueOpeningYear(String year) {
+    return 'حتى $year';
+  }
+
+  @override
+  String get valueColMonth => 'الشهر';
+
+  @override
+  String get valueColYear => 'السنة';
 
   @override
   String get aidColDate => 'التاريخ';
@@ -1180,76 +1188,6 @@ class LAr extends L {
   String get issueCodeCopied => 'تم نسخ الرمز';
 
   @override
-  String get dangerZoneSection => 'منطقة الخطر';
-
-  @override
-  String get purgeTitle => 'مسح البيانات المالية';
-
-  @override
-  String get purgeIntro =>
-      'يحذف نهائياً كل الاستحقاقات والتحصيلات وحركات الخزينة وسجل العمليات. يُستعمل مرة واحدة لتصفير بيانات التجربة قبل بدء العمل الفعلي.';
-
-  @override
-  String get purgeKeeps =>
-      'لا يُحذف: المشتركون وإعدادات الجمعية وحسابات المستخدمين.';
-
-  @override
-  String get purgeIrreversible =>
-      'لا يمكن التراجع عن هذه العملية، ولا يبقى منها أثر في سجل العمليات.';
-
-  @override
-  String get purgeButton => 'مسح البيانات المالية';
-
-  @override
-  String get purgeConfirmTitle => 'مسح نهائي للبيانات المالية';
-
-  @override
-  String purgeConfirmPrompt(String phrase) {
-    return 'للتأكيد، اكتب: $phrase';
-  }
-
-  @override
-  String get purgeConfirmField => 'عبارة التأكيد';
-
-  @override
-  String get purgeConfirmAction => 'مسح نهائي';
-
-  @override
-  String purgeDone(int count) {
-    return 'تم مسح $count سجل، وأصبح الترقيم يبدأ من جديد';
-  }
-
-  @override
-  String get purgeNothingToDo => 'لا توجد بيانات مالية لمسحها';
-
-  @override
-  String get purgeAllTitle => 'مسح بيانات المشتركين';
-
-  @override
-  String get purgeAllIntro =>
-      'يحذف نهائياً كل المشتركين، ومعهم كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.';
-
-  @override
-  String get purgeAllWhyFinancial =>
-      'لماذا تُحذف البيانات المالية معهم: كل استحقاق وكل إيصال مرتبط بمشترك، فلا يمكن حذف المشترك وإبقاء إيصاله.';
-
-  @override
-  String get purgeAllKeeps =>
-      'لا يُحذف: إعدادات الجمعية وحسابات المستخدمين، فيبقى دخولك للتطبيق كما هو.';
-
-  @override
-  String get purgeAllButton => 'مسح كل البيانات';
-
-  @override
-  String get purgeAllConfirmTitle => 'مسح نهائي لكل البيانات';
-
-  @override
-  String get purgeAllConfirmAction => 'مسح كل البيانات';
-
-  @override
-  String get purgeAllNothingToDo => 'لا توجد بيانات لمسحها';
-
-  @override
   String get pendingRequests => 'طلبات معلقة';
 
   @override
@@ -1374,11 +1312,11 @@ class LAr extends L {
   }
 
   @override
-  String get deviceLockedTitle => 'هذا الاشتراك مرتبط بجهاز آخر';
+  String get deviceLockedTitle => 'يلزمك مفتاح جديد';
 
   @override
   String get deviceLockedBody =>
-      'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.';
+      'لا يُفتح التطبيق بعد تسجيل الخروج، ولا على جهاز غير الجهاز المسجّل، إلا بمفتاح جديد تستلمه من إدارة الجمعية. اطلبه ثم اكتبه في الخانة أدناه.';
 
   @override
   String get portalDetailsHint => '';

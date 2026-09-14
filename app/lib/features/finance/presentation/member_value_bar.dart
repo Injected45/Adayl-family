@@ -6,6 +6,7 @@ import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/format/formatters.dart';
 import '../../../l10n/app_localizations.dart';
+import '../domain/models.dart';
 
 /// «من كل مئة دفعتَها، كم عاد إليك» — الجدوى في صورة واحدة.
 ///
@@ -21,10 +22,9 @@ import '../../../l10n/app_localizations.dart';
 ///   being the same question in five years. A bar answers it; a time axis
 ///   answers a question nobody asked yet.
 ///
-/// ⚠ IT IS THE SAME SENTENCE THE ASSOCIATION BLOCK ALREADY MAKES — «من كل 100
-///   محصّلة، صُرف 17 على المشتركين» — read for one man instead of for the fund.
-///   Two scales, one idea, so the screen says one thing twice rather than two
-///   things once.
+/// ⚠ AND IT IS HIS NUMBER ALONE. The association-wide «عاد إلى العدايل X% من
+///   إجمالي المحصَّل» that sat above it was removed on 14/09: one figure on
+///   every phone, read by every man as his own. See [returnPercentOf].
 class MemberValueBar extends StatelessWidget {
   const MemberValueBar({required this.paid, required this.received, super.key});
 
@@ -50,7 +50,12 @@ class MemberValueBar extends StatelessWidget {
     //   paid is the point of a charitable fund, not an error — the bar fills
     //   and the line beneath says so in words.
     final double fill = math.min(share, 1);
-    final int percent = (share * 100).round();
+    // ⚠ THE PRINTED FIGURE IS NOT `share`. That double only sizes the fill;
+    //   the number a man reads is the association's formula — ما استلمه ÷ ما
+    //   دفعه × 100 — to two decimals in exact integer hundredths. It was
+    //   `(share * 100).round()`, which printed أيمن's 24.33 as «24».
+    final String percent =
+        returnPercentOf(paid: paid, received: received) ?? '0.00';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,9 +75,9 @@ class MemberValueBar extends StatelessWidget {
               //   in that order. A bar alone makes the reader estimate a
               //   percentage he could have been told.
               Text(
-                share >= 1
-                    ? l.valueShareOver(percent)
-                    : l.valueShareOf(percent),
+                // «أكثر مما دفعت» only when it IS more — at exactly 100% the
+                // plain sentence is the true one.
+                share > 1 ? l.valueShareOver(percent) : l.valueShareOf(percent),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -86,6 +91,15 @@ class MemberValueBar extends StatelessWidget {
                   //   marks who has drawn on the fund and who has carried it.
                   color: share >= 1 ? AppColors.success : AppColors.danger,
                 ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              // ── والمعادلة، بأرقامه هو ─────────────────────────────────────
+              // So the figure can be checked by hand, in the order the
+              // association wrote it: ما استلمتَ ÷ ما دفعتَ × 100.
+              Text(
+                l.valueShareFormula(formatMoney(received), formatMoney(paid)),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
               ),
               const SizedBox(height: AppSpacing.md),
 

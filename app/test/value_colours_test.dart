@@ -27,7 +27,7 @@ void main() {
 
   const List<String> files = <String>[
     'lib/features/finance/presentation/member_value_screen.dart',
-    'lib/features/finance/presentation/member_months_chart.dart',
+    'lib/features/finance/presentation/member_years_chart.dart',
     'lib/features/finance/presentation/member_value_bar.dart',
     'lib/features/directory/presentation/adeel_portal_screen.dart',
   ];
@@ -76,34 +76,47 @@ void main() {
   });
 
   test(
-    'and the chart draws its waves in the same two colours as its legend',
+    'and the year bars are drawn in the validated chart pair, word beside each',
     () {
-      // A legend in one colour over a wave in another is a chart that lies
-      // quietly — the reader believes the key and reads the wrong line.
+      // A legend in one colour over a bar in another is a chart that lies quietly.
+      // The FIGURE beside each bar keeps success/danger (checked above through
+      // its label: + tone:); the BAR fill is the validated pair — AppColors
+      // .chartPaid / .chartReceived — because success/danger as marks measured in
+      // the CVD floor band in light and failed the lightness band in dark.
       final String src = File(
-        'lib/features/finance/presentation/member_months_chart.dart',
+        'lib/features/finance/presentation/member_years_chart.dart',
       ).readAsStringSync();
 
       expect(
         src,
-        contains('_wave(canvas, paid, x, y, AppColors.success, dashed: false)'),
-        reason: 'the «دفعتَ» wave must be green, and solid',
+        contains('_Key(fill: AppColors.chartPaid, label: l.valuePaid)'),
       );
       expect(
         src,
-        contains('_wave(canvas, got, x, y, AppColors.danger, dashed: true)'),
-        reason: 'the «استلمتَ» wave must be red, and dashed',
+        contains('_Key(fill: AppColors.chartReceived, label: l.valueReceived)'),
+      );
+      for (final String pair in <String>[
+        'label: l.valuePaid,',
+        'label: l.valueReceived,',
+      ]) {
+        final int at = src.indexOf(pair);
+        expect(at, isNot(-1), reason: 'the bar line must carry its word');
+      }
+      final String paidLine = src.substring(src.indexOf('label: l.valuePaid,'));
+      expect(
+        paidLine.substring(0, 260),
+        allOf(contains('AppColors.chartPaid'), contains('AppColors.success')),
+      );
+      final String gotLine = src.substring(
+        src.indexOf('label: l.valueReceived,'),
+      );
+      expect(
+        gotLine.substring(0, 260),
+        allOf(
+          contains('AppColors.chartReceived'),
+          contains('AppColors.danger'),
+        ),
       );
     },
   );
-
-  test('⚠ and the dash survives, because colour alone is not identity', () {
-    // The pair validates at ΔE 6.4 under tritanopia — the floor band, legal
-    // only with a second channel. The dash IS that channel.
-    final String src = File(
-      'lib/features/finance/presentation/member_months_chart.dart',
-    ).readAsStringSync();
-    expect(src, contains('dashed: false'));
-    expect(src, contains('dashed: true'));
-  });
 }

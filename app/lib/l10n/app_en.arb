@@ -246,7 +246,7 @@
   "aidTitle": "Member expenses",
   "myAidTitle": "My aid",
   "aidSearchHint": "Search",
-  "aidOthersTitle": "Collective spending",
+  "aidOthersTitle": "Shared spending",
   "aidOthersEmpty": "No collective spending yet",
   "aidOthersRecipients": "By occasion",
   "aidOthersAll": "All vouchers",
@@ -254,13 +254,12 @@
   "valuePaid": "You paid",
   "valueReceived": "You received",
   "valueEven": "You paid and received the same",
-  "valueFund": "The association",
   "valueShareTitle": "What came back to you",
   "valueShareOf": "{percent}% of what you paid came back to you",
   "@valueShareOf": {
     "placeholders": {
       "percent": {
-        "type": "int"
+        "type": "String"
       }
     }
   },
@@ -268,13 +267,33 @@
   "@valueShareOver": {
     "placeholders": {
       "percent": {
-        "type": "int"
+        "type": "String"
       }
     }
   },
-  "valueMonths": "Your year",
-  "valueBackToMembers": "{rate}% of everything collected went back to members",
-  "valueLargest": "Largest single payment to one member",
+  "valueShareFormula": "{received} ÷ {paid} × 100",
+  "@valueShareFormula": {
+    "placeholders": {
+      "received": {
+        "type": "String"
+      },
+      "paid": {
+        "type": "String"
+      }
+    }
+  },
+  "valueMonths": "Paid and received, year by year",
+  "valueYearsHint": "Tap a year to see its detail",
+  "valueOpeningYear": "Up to {year}",
+  "@valueOpeningYear": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "valueColMonth": "Month",
+  "valueColYear": "Year",
   "aidColDate": "Date",
   "aidColSerial": "#",
   "aidColCategory": "Heading",
@@ -391,26 +410,6 @@
   "issueCodeAction": "Issue access code",
   "issueCodeRegenerate": "Issue a new code",
   "issueCodeCopied": "Code copied",
-  "dangerZoneSection": "Danger zone",
-  "purgeTitle": "Erase financial data",
-  "purgeIntro": "Permanently deletes every receivable, payment, cash movement and audit entry. Intended to be used once, to clear trial figures before going live.",
-  "purgeKeeps": "Kept: subscribers, association settings and user accounts.",
-  "purgeIrreversible": "This cannot be undone, and no trace of it is left in the audit trail.",
-  "purgeButton": "Erase financial data",
-  "purgeConfirmTitle": "Permanently erase financial data",
-  "purgeConfirmPrompt": "To confirm, type: {phrase}",
-  "purgeConfirmField": "Confirmation phrase",
-  "purgeConfirmAction": "Erase permanently",
-  "purgeDone": "Erased {count} rows; numbering starts over",
-  "purgeNothingToDo": "There is no financial data to erase",
-  "purgeAllTitle": "Erase the subscriber register",
-  "purgeAllIntro": "Permanently deletes every subscriber, and all financial data with them. The database returns to empty, as if the system had never been used.",
-  "purgeAllWhyFinancial": "Why the financial data goes too: every receivable and receipt belongs to a subscriber, so a subscriber cannot be deleted while his receipt survives.",
-  "purgeAllKeeps": "Kept: association settings and user accounts, so your own sign-in still works.",
-  "purgeAllButton": "Erase everything",
-  "purgeAllConfirmTitle": "Permanently erase everything",
-  "purgeAllConfirmAction": "Erase everything",
-  "purgeAllNothingToDo": "There is no data to erase",
   "pendingRequests": "Pending requests",
   "allUsers": "Users",
   "approve": "Approve",
@@ -457,8 +456,8 @@
   "myWalletTitle": "Held for you",
   "myWalletBody": "Paid in advance; each new month is deducted from it automatically",
   "creditNotice": "{amount} more than owed — it goes to his credit and covers coming months",
-  "deviceLockedTitle": "This subscription is tied to another device",
-  "deviceLockedBody": "Your access code opens on one device only, and this is not it. If your phone changed or was lost, ask the association to issue a new code.",
+  "deviceLockedTitle": "A new key is needed",
+  "deviceLockedBody": "After signing out, or on a phone other than the registered one, the app opens only with a new key from the association. Ask for one and type it below.",
   "portalDetailsHint": "",
   "portalBankHint": "",
   "portalOfficialsHint": "",
@@ -509,13 +508,6 @@
       },
       "more": {
         "type": "int"
-      }
-    }
-  },
-  "@valueBackToMembers": {
-    "placeholders": {
-      "rate": {
-        "type": "String"
       }
     }
   },

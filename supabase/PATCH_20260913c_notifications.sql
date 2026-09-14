@@ -379,7 +379,14 @@ BEGIN
   END LOOP;
 END $lockdown$;
 
--- == 9. الفحص: للقراءة فقط، وكلُّ صفٍّ يجب أن يقول true ====================
+-- == 9. الحرّاس ===========================================================
+SELECT public.assert_signin_intact();
+SELECT public.assert_function_grants();
+SELECT public.assert_no_public_execute();
+SELECT public.assert_views_security_invoker();
+SELECT public.assert_two_doors_only();
+
+-- == 10. النتيجة: آخرُ جدولٍ يظهر في المحرّر، وكلُّ صفٍّ يجب أن يقول true ====================
 SELECT 'جدولُ الإشعارات والعرض قائمان' AS "الفحص",
        to_regclass('public.notifications') IS NOT NULL
    AND to_regclass('public.v_notifications') IS NOT NULL AS "النتيجة"
@@ -404,12 +411,5 @@ UNION ALL SELECT 'ولم يتغيّر أيُّ رقمٍ ماليّ (المقبو
 -- ⚠ now() هو وقتُ بدء هذه المعاملة، فكلُّ صفٍّ أُدرج فيها يحمله بالضبط.
 UNION ALL SELECT 'ولم يُرسل هذا الملفُّ إشعارًا واحدًا لأحد',
        NOT EXISTS (SELECT 1 FROM public.notifications WHERE created_at = now());
-
--- == 10. الحرّاس ===========================================================
-SELECT public.assert_signin_intact();
-SELECT public.assert_function_grants();
-SELECT public.assert_no_public_execute();
-SELECT public.assert_views_security_invoker();
-SELECT public.assert_two_doors_only();
 
 COMMIT;

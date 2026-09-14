@@ -1377,3 +1377,67 @@ scaleDown): four items at 320px is 72px a slot, and «المحادثات» print
 «المحادث…» in the test font. That font draws every letter as a full square,
 so real Arabic is far narrower and should stay at full size on a handset — not
 verified on one yet; the shrink is the floor, not the expected case.
+
+## «الجدوى» و«أسلافي» (2026-09-14)
+
+- **النسبة بمعادلة الجمعية.** «ما استلمه ÷ ما دفعه × 100», to two decimals —
+  `returnPercentOf()` in `finance/domain/models.dart`, in integer HUNDREDTHS
+  (BigInt), never a double. أيمن: 1,950 ÷ 8,015 × 100 = **24.33**. The card
+  prints the formula under the figure with his own two numbers.
+  ⚠ «عاد إلى العدايل X% من إجمالي المحصَّل» was REMOVED: it was
+  toMembers ÷ collected — one number on every phone, read by every man as his
+  own. `member_years_chart_test.dart` pins all eight live members' ratios.
+- **الرسم سنةً بسنة.** `MemberMonthsChart` (two waves over one calendar year)
+  is gone — a curve invents the months between readings, and one year holds
+  none of a member's aid when it came in 2018. `MemberYearsChart` draws a
+  paired horizontal bar per year on ONE shared scale, word and figure on each
+  line; a year opens (one at a time) onto its months. Data is the new
+  `years` key of `api_member_value` (`PATCH_20260914_member_years.sql`, body
+  lifted from the live function, every old key byte-identical — md5-checked on
+  the replica). ⚠ Everything up to the year of `system_start` folds into ONE
+  «حتى 2024» row, because pre-2025 subscriptions are one opening receipt while
+  aid spans a decade; by-year they would show a man receiving before paying.
+  Bar fills are `AppColors.chartPaid/chartReceived`, validator-picked (CVD
+  ΔE 13.1 light / 8.3 dark); the figures stay success/danger.
+- **«أسلافي» على صفحة المشترك تُطوى.** «حسب السنة» and «الإجمالي» start
+  closed, open on tap, and opening one closes the other (`_open` in the screen
+  state, `_FoldingPanel`). The total rides the closed heading; the search folds
+  with the table. Staff's copy of the screen is NOT folded.
+- «أسلاف للغير» is now **«أسلاف الأنساب»** (ARB value only).
+- ⚠ The Supabase SQL editor shows only the LAST result set, so a patch's
+  check table now comes AFTER the `assert_*` guards, just before `COMMIT`.
+
+## منطقة الخطر أُلغيت، والمفتاح يربط الجهاز والدخول (2026-09-14 b)
+
+- ⚠ **THE TWO PURGES ARE NO LONGER REACHABLE FROM ANY APP.** The association
+  approved the app and loaded its real ledger, and asked for «منطقة الخطر» to be
+  removed completely. `PATCH_20260914b_session_lock.sql` takes
+  `purge_financial_data(text)` and `purge_all_data(text)` OFF the allow-list, so
+  the sweep revokes EXECUTE — an admin phone still running an old APK is
+  refused with 42501 and nothing is deleted. The functions still exist and the
+  SQL editor (postgres) can run them; everything written above about them is
+  history, not a feature. In Dart the danger zone, `PurgeWire`, `PurgeResult`,
+  the repository methods and the ARB strings are gone, and
+  `session_lock_test.dart` fails if any caller comes back.
+- ⚠ **A MEMBER'S KEY NOW BINDS HIS PHONE AND HIS LOGIN.** `profiles.session_id`
+  holds the JWT `session_id` of the login that redeemed the key. GoTrue keeps
+  that id across silent token refreshes (read from `supabase/auth`
+  `internal/tokens/service.go`: the refresh grant reuses `session.ID`) and makes
+  a new one only on a new sign-in — so sign-out, clearing app data and
+  reinstalling ALL end in a new login that does not match.
+  `my_adeel_id()` now also requires `my_session_ok()`, and since every
+  member-scoped policy goes through it, dues, statement, chat, calls and
+  notifications all close together. `api_me.deviceLocked` covers both cases and
+  the pending screen says «يلزمك مفتاح جديد» instead of «بانتظار الموافقة».
+- ⚠ **A USED KEY IS DEAD, EVEN FOR ITS OWNER.** `redeem_adeel_code` used to let
+  the same account re-redeem its own key for seven days — a signed-out member
+  could walk back in with the old slip. The only re-redemption accepted is an
+  exact retry: same account, same phone, same login, already bound.
+- ⚠ **NOBODY WAS THROWN OUT ON THE DAY.** `association_settings.
+  member_session_since` is stamped once (never moved by a re-run); a member with
+  no bound session whose CURRENT login is older than that stamp is let through.
+  Every login created after it needs a key. `issue_adeel_code` and
+  `unbind_adeel` clear `session_id` with `device_id`.
+- The admin is untouched: `my_role()` never looks at sessions.
+- Proved on a replica with `auth.sessions` stubbed: 20 checks, and the patch
+  re-applied cleanly on top of the notifications and «الجدوى» patches.

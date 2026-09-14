@@ -1429,10 +1429,10 @@ abstract class L {
   /// **'بحث'**
   String get aidSearchHint;
 
-  /// What the association gave every OTHER member, in a member’s portal, beside «أسلافي». The association chose full transparency — «كل شيء بالأسماء» — and the widening is a policy on the table, not a filter in the app: drop read_all_disbursements_adeel and this screen empties itself.
+  /// The COLLECTIVE spending, in a member's portal, beside «أسلافي». Renamed from «أسلاف للغير» to «أسلاف الأنساب» on 14/09 at the association's request. It lists vouchers with no payee only — read_collective_disbursements — so no member's name can appear on it.
   ///
   /// In ar, this message translates to:
-  /// **'أسلاف للغير'**
+  /// **'أسلاف الأنساب'**
   String get aidOthersTitle;
 
   /// No description provided for @aidOthersEmpty.
@@ -1477,47 +1477,59 @@ abstract class L {
   /// **'دفعتَ واستلمتَ سواءً'**
   String get valueEven;
 
-  /// No description provided for @valueFund.
-  ///
-  /// In ar, this message translates to:
-  /// **'الجمعية'**
-  String get valueFund;
-
   /// No description provided for @valueShareTitle.
   ///
   /// In ar, this message translates to:
   /// **'ما عاد إليك من اشتراكك'**
   String get valueShareTitle;
 
-  /// His own ratio: received ÷ paid. «من كل 100 دفعتَها» was the old form; a percentage reads more directly and is what the association asked for.
+  /// His own ratio, the association's formula: received ÷ paid × 100, to two decimals (returnPercentOf — integer hundredths, never a double). أيمن: 1,950 ÷ 8,015 × 100 = 24.33.
   ///
   /// In ar, this message translates to:
-  /// **'عاد إليك {percent}% من قيمة اشتراكاتك المدفوعة'**
-  String valueShareOf(int percent);
+  /// **'عاد إليك {percent}% مما دفعت'**
+  String valueShareOf(String percent);
 
   /// A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden.
   ///
   /// In ar, this message translates to:
-  /// **'عاد إليك {percent}% من اشتراكاتك — أكثر مما دفعت'**
-  String valueShareOver(int percent);
+  /// **'عاد إليك {percent}% مما دفعت — أكثر مما دفعت'**
+  String valueShareOver(String percent);
+
+  /// The formula under the percentage, with his own two figures, so the number can be checked by hand. Written in the RTL paragraph exactly as the association wrote it: ما استلمه ÷ ما دفعه × 100.
+  ///
+  /// In ar, this message translates to:
+  /// **'{received} ÷ {paid} × 100'**
+  String valueShareFormula(String received, String paid);
 
   /// No description provided for @valueMonths.
   ///
   /// In ar, this message translates to:
-  /// **'حركتك خلال السنة'**
+  /// **'دفعتَ واستلمتَ سنةً بسنة'**
   String get valueMonths;
 
-  /// ⚠ THE ASSOCIATION-WIDE RATIO: toMembers ÷ collected. It is NOT «what came back to YOU» — that figure is valueShareOf, and it is a different number for every man. Writing the personal wording onto this one would tell a member who received nothing that 17% of his own subscriptions came back, which is a lie the screen has no way to correct.
+  /// No description provided for @valueYearsHint.
   ///
   /// In ar, this message translates to:
-  /// **'عاد إلى العدايل {rate}% من إجمالي المحصَّل'**
-  String valueBackToMembers(String rate);
+  /// **'اضغط على السنة لترى تفاصيلها'**
+  String get valueYearsHint;
 
-  /// No description provided for @valueLargest.
+  /// The row that folds everything before the app began: his subscriptions before 2025 are one opening receipt, while his aid is spread over a decade, so the years cannot be split honestly.
   ///
   /// In ar, this message translates to:
-  /// **'أكبر ما صُرف لمشترك واحد'**
-  String get valueLargest;
+  /// **'حتى {year}'**
+  String valueOpeningYear(String year);
+
+  /// No description provided for @valueColMonth.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشهر'**
+  String get valueColMonth;
+
+  /// No description provided for @valueColYear.
+  ///
+  /// In ar, this message translates to:
+  /// **'السنة'**
+  String get valueColYear;
 
   /// No description provided for @aidColDate.
   ///
@@ -2215,126 +2227,6 @@ abstract class L {
   /// **'تم نسخ الرمز'**
   String get issueCodeCopied;
 
-  /// No description provided for @dangerZoneSection.
-  ///
-  /// In ar, this message translates to:
-  /// **'منطقة الخطر'**
-  String get dangerZoneSection;
-
-  /// No description provided for @purgeTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح البيانات المالية'**
-  String get purgeTitle;
-
-  /// No description provided for @purgeIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'يحذف نهائياً كل الاستحقاقات والتحصيلات وحركات الخزينة وسجل العمليات. يُستعمل مرة واحدة لتصفير بيانات التجربة قبل بدء العمل الفعلي.'**
-  String get purgeIntro;
-
-  /// No description provided for @purgeKeeps.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا يُحذف: المشتركون وإعدادات الجمعية وحسابات المستخدمين.'**
-  String get purgeKeeps;
-
-  /// No description provided for @purgeIrreversible.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا يمكن التراجع عن هذه العملية، ولا يبقى منها أثر في سجل العمليات.'**
-  String get purgeIrreversible;
-
-  /// No description provided for @purgeButton.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح البيانات المالية'**
-  String get purgeButton;
-
-  /// No description provided for @purgeConfirmTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح نهائي للبيانات المالية'**
-  String get purgeConfirmTitle;
-
-  /// No description provided for @purgeConfirmPrompt.
-  ///
-  /// In ar, this message translates to:
-  /// **'للتأكيد، اكتب: {phrase}'**
-  String purgeConfirmPrompt(String phrase);
-
-  /// No description provided for @purgeConfirmField.
-  ///
-  /// In ar, this message translates to:
-  /// **'عبارة التأكيد'**
-  String get purgeConfirmField;
-
-  /// No description provided for @purgeConfirmAction.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح نهائي'**
-  String get purgeConfirmAction;
-
-  /// No description provided for @purgeDone.
-  ///
-  /// In ar, this message translates to:
-  /// **'تم مسح {count} سجل، وأصبح الترقيم يبدأ من جديد'**
-  String purgeDone(int count);
-
-  /// No description provided for @purgeNothingToDo.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد بيانات مالية لمسحها'**
-  String get purgeNothingToDo;
-
-  /// No description provided for @purgeAllTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح بيانات المشتركين'**
-  String get purgeAllTitle;
-
-  /// No description provided for @purgeAllIntro.
-  ///
-  /// In ar, this message translates to:
-  /// **'يحذف نهائياً كل المشتركين، ومعهم كل البيانات المالية. تعود قاعدة البيانات فارغة تماماً كما لو أن النظام لم يُستعمل بعد.'**
-  String get purgeAllIntro;
-
-  /// No description provided for @purgeAllWhyFinancial.
-  ///
-  /// In ar, this message translates to:
-  /// **'لماذا تُحذف البيانات المالية معهم: كل استحقاق وكل إيصال مرتبط بمشترك، فلا يمكن حذف المشترك وإبقاء إيصاله.'**
-  String get purgeAllWhyFinancial;
-
-  /// No description provided for @purgeAllKeeps.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا يُحذف: إعدادات الجمعية وحسابات المستخدمين، فيبقى دخولك للتطبيق كما هو.'**
-  String get purgeAllKeeps;
-
-  /// No description provided for @purgeAllButton.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح كل البيانات'**
-  String get purgeAllButton;
-
-  /// No description provided for @purgeAllConfirmTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح نهائي لكل البيانات'**
-  String get purgeAllConfirmTitle;
-
-  /// No description provided for @purgeAllConfirmAction.
-  ///
-  /// In ar, this message translates to:
-  /// **'مسح كل البيانات'**
-  String get purgeAllConfirmAction;
-
-  /// No description provided for @purgeAllNothingToDo.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد بيانات لمسحها'**
-  String get purgeAllNothingToDo;
-
   /// No description provided for @pendingRequests.
   ///
   /// In ar, this message translates to:
@@ -2572,13 +2464,13 @@ abstract class L {
   /// Shown to an عديل whose access code was redeemed on a different handset. my_adeel_id() already refuses him; this is the sentence that keeps an empty screen from reading as a broken app.
   ///
   /// In ar, this message translates to:
-  /// **'هذا الاشتراك مرتبط بجهاز آخر'**
+  /// **'يلزمك مفتاح جديد'**
   String get deviceLockedTitle;
 
   /// No description provided for @deviceLockedBody.
   ///
   /// In ar, this message translates to:
-  /// **'رمز دخولك مفتوح على جهاز واحد فقط، وهذا ليس هو. إن كان جهازك قد تغيّر أو ضاع، راجع إدارة الجمعية لإصدار رمز جديد.'**
+  /// **'لا يُفتح التطبيق بعد تسجيل الخروج، ولا على جهاز غير الجهاز المسجّل، إلا بمفتاح جديد تستلمه من إدارة الجمعية. اطلبه ثم اكتبه في الخانة أدناه.'**
   String get deviceLockedBody;
 
   /// No description provided for @portalDetailsHint.
