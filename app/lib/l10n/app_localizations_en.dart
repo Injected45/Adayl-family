@@ -88,16 +88,6 @@ class LEn extends L {
   String get refreshedData => 'Data refreshed from the database';
 
   @override
-  String get restartApp => 'Restart the app';
-
-  @override
-  String get restartAppBody =>
-      'You return to the first screen and anything unsaved is lost.';
-
-  @override
-  String get restartConfirm => 'Restart';
-
-  @override
   String get cancel => 'Cancel';
 
   @override
@@ -660,6 +650,9 @@ class LEn extends L {
   String get kindCollective => 'Collective';
 
   @override
+  String get kindCollectiveForm => 'For the extended family';
+
+  @override
   String get expenseCategory => 'Expense heading';
 
   @override
@@ -764,11 +757,6 @@ class LEn extends L {
   @override
   String valueShareOver(String percent) {
     return '$percent% of what you paid came back — more than you paid';
-  }
-
-  @override
-  String valueShareFormula(String received, String paid) {
-    return '$received ÷ $paid × 100';
   }
 
   @override
@@ -905,6 +893,24 @@ class LEn extends L {
   String get noCashMovements => 'No treasury movements yet';
 
   @override
+  String get membersMovementTitle => 'Members\' movement';
+
+  @override
+  String get memberNetOwedToHim => 'Net balance in his favour';
+
+  @override
+  String get memberNetOwedByHim => 'Balance against him';
+
+  @override
+  String get memberNetEven => 'Even';
+
+  @override
+  String get membersNetOwedToThem => 'Net balance in their favour';
+
+  @override
+  String get membersNetOwedByThem => 'Balance against them';
+
+  @override
   String get todayLabel => 'Today';
 
   @override
@@ -999,6 +1005,15 @@ class LEn extends L {
 
   @override
   String get periodBlockedNote => 'Close the earlier month first';
+
+  @override
+  String get periodLastClosed => 'Last closed month';
+
+  @override
+  String get periodShowAll => 'Tap to show every month';
+
+  @override
+  String get periodHideAll => 'Tap to hide the list';
 
   @override
   String get fromDate => 'From';
@@ -1508,6 +1523,155 @@ class LEn extends L {
   @override
   String get notifyNoticeChannelDesc =>
       'Payments, dues, disbursements and board messages';
+
+  @override
+  String get noticeDetailTitle => 'Notification';
+
+  @override
+  String get noticePeekDismiss => 'Dismiss notification';
+
+  @override
+  String noticesMoreWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count more in the tab',
+      one: '+1 more in the tab',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bylawsTitle => 'Association bylaws';
+
+  @override
+  String get bylawsCamera => 'Take a photo';
+
+  @override
+  String get bylawsFromDevice => 'Upload from device';
+
+  @override
+  String bylawsUploading(int current, int total) {
+    return 'Uploading page $current of $total';
+  }
+
+  @override
+  String bylawsAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pages added',
+      one: '1 page added',
+      zero: 'No page added',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String bylawsAddedSomeRefused(int added, int refused) {
+    return '$added added, $refused skipped: not an image or over 3 MB';
+  }
+
+  @override
+  String get bylawsPickFailed => 'Could not open the camera or photos';
+
+  @override
+  String bylawsPageNumber(int number) {
+    return 'Page $number';
+  }
+
+  @override
+  String get bylawsDelete => 'Delete page';
+
+  @override
+  String bylawsDeleteTitle(int number) {
+    return 'Delete page $number?';
+  }
+
+  @override
+  String get bylawsDeleteConfirm => 'Delete';
+
+  @override
+  String get bylawsDeleted => 'Page deleted';
+
+  @override
+  String get bylawsEmpty => 'No bylaw pages have been uploaded yet';
+
+  @override
+  String get proposalsTitle => 'Member proposals';
+
+  @override
+  String get proposalAddTitle => 'Add a proposal';
+
+  @override
+  String get proposalTitleLabel => 'Proposal title';
+
+  @override
+  String get proposalBodyLabel => 'Proposal';
+
+  @override
+  String get proposalSend => 'Send proposal';
+
+  @override
+  String get proposalTitleEmpty => 'Write the proposal\'s title';
+
+  @override
+  String get proposalBodyEmpty => 'Write the proposal';
+
+  @override
+  String get proposalSent => 'Proposal sent to the board';
+
+  @override
+  String get myProposalsHeading => 'My proposals';
+
+  @override
+  String get myProposalsEmpty => 'You have not sent a proposal yet';
+
+  @override
+  String get proposalAccepted => 'Accepted';
+
+  @override
+  String get proposalPending => 'Under review';
+
+  @override
+  String get proposalDetailTitle => 'Proposal';
+
+  @override
+  String get proposalAccept => 'Accept';
+
+  @override
+  String get proposalReject => 'Reject';
+
+  @override
+  String get proposalRejectTitle => 'Reject this proposal?';
+
+  @override
+  String get proposalRejectBody =>
+      'The proposal will be deleted permanently, for you and for the member.';
+
+  @override
+  String get proposalAcceptedDone => 'Proposal accepted and kept';
+
+  @override
+  String get proposalRejectedDone => 'Proposal rejected and deleted';
+
+  @override
+  String get proposalsEmpty => 'No proposals';
+
+  @override
+  String proposalNewFrom(String name) {
+    return 'New proposal from $name';
+  }
+
+  @override
+  String proposalsWaitingHeading(int count) {
+    return 'Awaiting a decision ($count)';
+  }
+
+  @override
+  String proposalsAcceptedHeading(int count) {
+    return 'Accepted ($count)';
+  }
 
   @override
   String get noticesLogHeading => 'Everything sent';

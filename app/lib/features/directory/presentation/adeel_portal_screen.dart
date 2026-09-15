@@ -221,10 +221,10 @@ class AdeelPortalScreen extends ConsumerWidget {
                     // «المزيد» left this row for the capsule at the foot of
                     // the screen, where the association asked for it and where
                     // a thumb already is. What stays up here is what the staff
-                    // bar keeps up here too: the two controls that act on the
-                    // APP rather than navigate it.
+                    // bar keeps up here too: the control that acts on the APP
+                    // rather than navigates it. «إعادة التشغيل» sat beside it
+                    // and was removed on 15/09, on both bars.
                     RefreshAction(),
-                    RestartAction(),
                   ],
                 ),
               ),
@@ -597,42 +597,47 @@ class _PortalMoreSheet extends ConsumerWidget {
             AppSpacing.lg,
             AppSpacing.lg,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.inkMuted.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+          // ⚠ SCROLLS WHEN IT MUST. Six sections, the theme picker and sign-out
+          //   are taller than a small phone; unscrolled, the sign-out button
+          //   would fall off the bottom of a 640-high screen.
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.inkMuted.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              PortalSectionMenu(adeelId: adeelId),
-              const SizedBox(height: AppSpacing.md),
-              // ── شكلُ التطبيق ─────────────────────────────────────────────
-              // ⚠ A SEGMENTED CONTROL, NOT A SWITCH. «داكن / عادي» are two
-              //   named states a member picks between; a switch would need a
-              //   label saying which way is on, and «الوضع الليلي: مُطفأ» is a
-              //   sentence nobody reads twice.
-              const ThemePicker(),
-              const SizedBox(height: AppSpacing.md),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  ref.read(authControllerProvider.notifier).signOut();
-                },
-                icon: Icon(Icons.logout, color: AppColors.danger),
-                label: Text(
-                  l.signOut,
-                  style: TextStyle(color: AppColors.danger),
+                const SizedBox(height: AppSpacing.lg),
+                PortalSectionMenu(adeelId: adeelId),
+                const SizedBox(height: AppSpacing.md),
+                // ── شكلُ التطبيق ─────────────────────────────────────────────
+                // ⚠ A SEGMENTED CONTROL, NOT A SWITCH. «داكن / عادي» are two
+                //   named states a member picks between; a switch would need a
+                //   label saying which way is on, and «الوضع الليلي: مُطفأ» is a
+                //   sentence nobody reads twice.
+                const ThemePicker(),
+                const SizedBox(height: AppSpacing.md),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    ref.read(authControllerProvider.notifier).signOut();
+                  },
+                  icon: Icon(Icons.logout, color: AppColors.danger),
+                  label: Text(
+                    l.signOut,
+                    style: TextStyle(color: AppColors.danger),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

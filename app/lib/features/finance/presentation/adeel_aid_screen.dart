@@ -190,11 +190,12 @@ class _AidBody extends StatelessWidget {
 
   /// ── مطويّتان على صفحة المشترك، وواحدةٌ مفتوحة على الأكثر ─────────────
   ///
-  /// ⚠ THE MEMBER'S PAGE ONLY, AS ASKED: «في واجهة المشترك … اجعل الحاويتين
-  ///   مطوية ولا تفتح الا بامر المستخدم وعند فتح الثانية تقفل الاولي». Staff
-  ///   open this page to WORK a man's record, and folding it would put a tap
-  ///   in front of every figure they came for; a member opens his own page to
-  ///   look, and two closed headings are a calmer first screen than a ledger.
+  /// ⚠ BOTH PAGES NOW. It began on the member's page only — «في واجهة المشترك
+  ///   … اجعل الحاويتين مطوية ولا تفتح الا بامر المستخدم وعند فتح الثانية
+  ///   تقفل الاولي» — on the reasoning that staff come to WORK a record and a
+  ///   fold puts a tap in front of it. On 15/09 the association asked for the
+  ///   same on the admin's «سجل الأسلاف»: «اجعلهما منسدلتان». One rule, one
+  ///   layout, for both readers.
   final _AidSection? open;
   final ValueChanged<_AidSection> onToggle;
 
@@ -350,125 +351,54 @@ class _AidBody extends StatelessWidget {
           // Only when there is more than one year to compare: on a member helped
           // once, a single-row "by year" restates the headline and says nothing.
           if (aid.byYear.length > 1) ...<Widget>[
-            if (mine)
-              _FoldingPanel(
-                title: l.aidByYear,
-                icon: Icons.calendar_month_outlined,
-                open: open == _AidSection.byYear,
-                onTap: () => onToggle(_AidSection.byYear),
-                child: yearRows,
-              )
-            else
-              GlassPanel(
-                title: l.aidByYear,
-                icon: Icons.calendar_month_outlined,
-                child: yearRows,
-              ),
+            _FoldingPanel(
+              title: l.aidByYear,
+              icon: Icons.calendar_month_outlined,
+              open: open == _AidSection.byYear,
+              onTap: () => onToggle(_AidSection.byYear),
+              child: yearRows,
+            ),
             const SizedBox(height: AppSpacing.lg),
           ],
 
-          if (mine)
-            // ── الإجمالي، مطويّاً ─────────────────────────────────────────
-            // ⚠ THE FIGURE RIDES THE HEADING WHILE IT IS CLOSED. Two closed
-            //   headings and no number would be a page that answers nothing
-            //   until tapped; the total is the one figure this page exists
-            //   for, so it stays in sight and the ledger is what folds.
-            //
-            // ⚠ AND THE SEARCH FOLDS WITH THE TABLE IT FILTERS. A search box
-            //   above a closed container searches nothing the reader can see.
-            _FoldingPanel(
-              title: l.aidPanelTitle,
-              icon: Icons.receipt_long_outlined,
-              open: open == _AidSection.total,
-              onTap: () => onToggle(_AidSection.total),
-              trailing: Text(
-                formatMoney(aid.total),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.success,
-                ),
+          // ── الإجمالي، مطويّاً ─────────────────────────────────────────
+          // ⚠ THE FIGURE RIDES THE HEADING WHILE IT IS CLOSED. Two closed
+          //   headings and no number would be a page that answers nothing
+          //   until tapped; the total is the one figure this page exists
+          //   for, so it stays in sight and the ledger is what folds.
+          //
+          // ⚠ AND THE SEARCH FOLDS WITH THE TABLE IT FILTERS. A search box
+          //   above a closed container searches nothing the reader can see.
+          _FoldingPanel(
+            title: l.aidPanelTitle,
+            icon: Icons.receipt_long_outlined,
+            open: open == _AidSection.total,
+            onTap: () => onToggle(_AidSection.total),
+            trailing: Text(
+              formatMoney(aid.total),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: AppColors.success,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  searchField,
-                  if (needle.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      l.aidShowing(rows.length, aid.ledger.length),
-                      style: TextStyle(fontSize: 11, color: AppColors.muted),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                  AidLedger(
-                    all: aid.ledger,
-                    rows: rows,
-                    tone: AppColors.success,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                searchField,
+                if (needle.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    l.aidShowing(rows.length, aid.ledger.length),
+                    style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                 ],
-              ),
-            )
-          else ...<Widget>[
-            // The search sits ABOVE the panel it filters, and outside it. Inside
-            // the panel it would read as one more row of the record; above it,
-            // it is plainly a control acting on what follows.
-            searchField,
-            const SizedBox(height: AppSpacing.md),
-
-            // ONE container for the record: the total and the vouchers it is
-            // made of. They were two — a headline card above a ledger panel —
-            // and read as two separate things when they are one answer to one
-            // question.
-            _AidPanel(rows: rows, aid: aid, filtered: needle.isNotEmpty),
-          ],
-        ],
-      ],
-    );
-  }
-}
-
-/// The headline: what the association has given him, and nothing beside it.
-///
-/// ── WHAT WAS HERE AND IS NOT ────────────────────────────────────────────────
-/// A «2 سند» badge and a date-range picker sat under this figure. Both were
-/// removed at the association's request, and both deserved to go for the same
-/// reason: the table beneath answers them better than a chip above it can. The
-/// count is the length of a list the reader is looking at, and a period filter
-/// on a ledger of a handful of vouchers is a control operating on a problem
-/// nobody has.
-///
-/// What remains is the one figure the page exists for.
-class _AidTotalBlock extends StatelessWidget {
-  const _AidTotalBlock({required this.aid});
-
-  final AdeelAid aid;
-
-  @override
-  Widget build(BuildContext context) {
-    // ── THE FIGURE ALONE ─────────────────────────────────────────────────────
-    // «إجمالي ما صُرف» stood over it and said, in four words, what the panel it
-    // sits inside already says in one: the container is titled «الإجمالي». A
-    // label that repeats its own heading is a line the reader has to read to
-    // discover it tells him nothing.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          formatMoney(aid.total),
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w900,
-            // ⚠ RED, and every figure on this screen now is. It was briefly
-            //   green on the reasoning that the reader is the man who RECEIVED
-            //   it, so to him the money arrived. The association chose the
-            //   other reading and it is the more consistent one: this page is
-            //   «ما صُرف», one kind of money throughout, and it should not need
-            //   two colours to say so. Red is what an outgoing amount carries
-            //   on every other screen in the app.
-            color: AppColors.success,
+                const SizedBox(height: AppSpacing.md),
+                AidLedger(all: aid.ledger, rows: rows, tone: AppColors.success),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -584,7 +514,7 @@ class _AidRowState extends State<_AidRow> {
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     // Red like every other figure here: one kind of money on
-                    // one page needs one colour. See _AidTotalBlock.
+                    // one page needs one colour.
                     color: AppColors.success,
                   ),
                 ),
@@ -665,78 +595,6 @@ class _AidVoucherBrief extends StatelessWidget {
               style: const TextStyle(fontSize: 13, height: 1.5),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// THE record, in one container: the total, and the vouchers it is made of.
-///
-/// It was two — a headline card above a ledger panel — and read as two separate
-/// things when they are one answer to one question. The total now heads the
-/// panel and the table runs beneath it, so the الإجمالي column's last cell IS
-/// the closing figure and nothing is stated twice.
-///
-/// Read down that column and it answers what the association actually asked:
-/// «صُرف له 100 ثم 500، فيصبح 600» — without the reader adding anything himself.
-class _AidPanel extends StatefulWidget {
-  const _AidPanel({
-    required this.rows,
-    required this.aid,
-    required this.filtered,
-  });
-
-  final List<AidLedgerEntry> rows;
-  final AdeelAid aid;
-  final bool filtered;
-
-  @override
-  State<_AidPanel> createState() => _AidPanelState();
-}
-
-class _AidPanelState extends State<_AidPanel> {
-  @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-
-    return GlassPanel(
-      title: l.aidPanelTitle,
-      icon: Icons.receipt_long_outlined,
-      // While a search is narrowing the table, say how much of it is on screen.
-      // Without it the الإجمالي column looks broken: it jumps, because it is
-      // still the total across the WHOLE history and always should be — a
-      // ledger line's balance does not change because a reader filtered the
-      // page.
-      trailing: widget.filtered
-          ? Text(
-              l.aidShowing(widget.rows.length, widget.aid.ledger.length),
-              style: TextStyle(fontSize: 11, color: AppColors.muted),
-            )
-          : null,
-      child: Column(
-        children: <Widget>[
-          // The total stays put while a search narrows the table beneath it: it
-          // is what the association gave him, not what the box is showing.
-          _AidTotalBlock(aid: widget.aid),
-          const Divider(height: AppSpacing.lg),
-          // ⚠ THE TABLE ITSELF LIVES IN aid_ledger.dart, shared verbatim with
-          //   «أسلاف للغير». Every rule inside it was argued once — measured
-          //   columns, an ordinal that belongs to the voucher rather than to
-          //   the loop, a reversal that keeps its balance, one open row at a
-          //   time — and a second copy would be a second place for each of
-          //   them to be quietly undone, with nothing failing when it was.
-          // ⚠ GREEN, at the association's request: «اريد ان يكون لون القيم
-          //   في شاشة اسلافي جميعها باللون الاخضر». And it is the right way
-          //   round — this is what the association GAVE him. Red is the
-          //   colour of money leaving the treasury, which is true from the
-          //   fund's side and false from his: nothing on this page is a debt
-          //   of his, and الجمعية خيرية so none of it is owed back.
-          AidLedger(
-            all: widget.aid.ledger,
-            rows: widget.rows,
-            tone: AppColors.success,
-          ),
         ],
       ),
     );

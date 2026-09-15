@@ -87,15 +87,6 @@ class LAr extends L {
   String get refreshedData => 'تم تحديث البيانات من قاعدة البيانات';
 
   @override
-  String get restartApp => 'إعادة تشغيل التطبيق';
-
-  @override
-  String get restartAppBody => 'تعود إلى الشاشة الأولى ويضيع ما لم تحفظه.';
-
-  @override
-  String get restartConfirm => 'إعادة التشغيل';
-
-  @override
   String get cancel => 'إلغاء';
 
   @override
@@ -655,6 +646,9 @@ class LAr extends L {
   String get kindCollective => 'صرف جماعي';
 
   @override
+  String get kindCollectiveForm => 'صرف للأنساب';
+
+  @override
   String get expenseCategory => 'بند الصرف';
 
   @override
@@ -758,11 +752,6 @@ class LAr extends L {
   @override
   String valueShareOver(String percent) {
     return 'عاد إليك $percent% مما دفعت — أكثر مما دفعت';
-  }
-
-  @override
-  String valueShareFormula(String received, String paid) {
-    return '$received ÷ $paid × 100';
   }
 
   @override
@@ -902,6 +891,24 @@ class LAr extends L {
   String get noCashMovements => 'لم تُسجَّل أي حركة صندوق بعد';
 
   @override
+  String get membersMovementTitle => 'حركة العدايل';
+
+  @override
+  String get memberNetOwedToHim => 'صافي رصيد مستحق له';
+
+  @override
+  String get memberNetOwedByHim => 'رصيد مستحق عليه';
+
+  @override
+  String get memberNetEven => 'متعادل';
+
+  @override
+  String get membersNetOwedToThem => 'صافي رصيد مستحق لهم';
+
+  @override
+  String get membersNetOwedByThem => 'رصيد مستحق عليهم';
+
+  @override
   String get todayLabel => 'اليوم';
 
   @override
@@ -996,6 +1003,15 @@ class LAr extends L {
 
   @override
   String get periodBlockedNote => 'أقفل ما قبله أولاً';
+
+  @override
+  String get periodLastClosed => 'آخر شهر مُقفل';
+
+  @override
+  String get periodShowAll => 'اضغط لعرض كل الأشهر';
+
+  @override
+  String get periodHideAll => 'اضغط لإخفاء القائمة';
 
   @override
   String get fromDate => 'من تاريخ';
@@ -1509,6 +1525,161 @@ class LAr extends L {
   @override
   String get notifyNoticeChannelDesc =>
       'السداد والاستحقاقات والصرف ورسائل الإدارة';
+
+  @override
+  String get noticeDetailTitle => 'تفاصيل الإشعار';
+
+  @override
+  String get noticePeekDismiss => 'إخفاء الإشعار';
+
+  @override
+  String noticesMoreWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'و$count إشعار آخر في التبويب',
+      many: 'و$count إشعارًا آخر في التبويب',
+      few: 'و$count إشعارات أخرى في التبويب',
+      two: 'وإشعاران آخران في التبويب',
+      one: 'وإشعار آخر في التبويب',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bylawsTitle => 'قانون الجمعية';
+
+  @override
+  String get bylawsCamera => 'تصوير بالكاميرا';
+
+  @override
+  String get bylawsFromDevice => 'رفع من الجهاز';
+
+  @override
+  String bylawsUploading(int current, int total) {
+    return 'جارٍ رفع الصفحة $current من $total';
+  }
+
+  @override
+  String bylawsAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'أُضيفت $count صفحة',
+      many: 'أُضيفت $count صفحة',
+      few: 'أُضيفت $count صفحات',
+      two: 'أُضيفت صفحتان',
+      one: 'أُضيفت صفحة واحدة',
+      zero: 'لم تُضف أي صفحة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String bylawsAddedSomeRefused(int added, int refused) {
+    return 'أُضيفت $added وتُركت $refused: ليست صورة أو أكبر من 3 ميغابايت';
+  }
+
+  @override
+  String get bylawsPickFailed => 'تعذّر فتح الكاميرا أو الصور';
+
+  @override
+  String bylawsPageNumber(int number) {
+    return 'صفحة $number';
+  }
+
+  @override
+  String get bylawsDelete => 'حذف الصفحة';
+
+  @override
+  String bylawsDeleteTitle(int number) {
+    return 'حذف الصفحة $number؟';
+  }
+
+  @override
+  String get bylawsDeleteConfirm => 'حذف';
+
+  @override
+  String get bylawsDeleted => 'حُذفت الصفحة';
+
+  @override
+  String get bylawsEmpty => 'لم تُرفع صفحات قانون الجمعية بعد';
+
+  @override
+  String get proposalsTitle => 'مقترحات المشتركين';
+
+  @override
+  String get proposalAddTitle => 'إضافة مقترح';
+
+  @override
+  String get proposalTitleLabel => 'عنوان المقترح';
+
+  @override
+  String get proposalBodyLabel => 'المقترح';
+
+  @override
+  String get proposalSend => 'إرسال المقترح';
+
+  @override
+  String get proposalTitleEmpty => 'اكتب عنوان المقترح';
+
+  @override
+  String get proposalBodyEmpty => 'اكتب نصَّ المقترح';
+
+  @override
+  String get proposalSent => 'أُرسل المقترح إلى الإدارة';
+
+  @override
+  String get myProposalsHeading => 'مقترحاتي';
+
+  @override
+  String get myProposalsEmpty => 'لم ترسل مقترحًا بعد';
+
+  @override
+  String get proposalAccepted => 'مقبول';
+
+  @override
+  String get proposalPending => 'قيد المراجعة';
+
+  @override
+  String get proposalDetailTitle => 'المقترح';
+
+  @override
+  String get proposalAccept => 'قبول';
+
+  @override
+  String get proposalReject => 'رفض';
+
+  @override
+  String get proposalRejectTitle => 'رفض المقترح؟';
+
+  @override
+  String get proposalRejectBody =>
+      'سيُحذف المقترح نهائيًا، ويختفي من عندك ومن عند المشترك.';
+
+  @override
+  String get proposalAcceptedDone => 'قُبل المقترح وحُفظ';
+
+  @override
+  String get proposalRejectedDone => 'رُفض المقترح وحُذف';
+
+  @override
+  String get proposalsEmpty => 'لا توجد مقترحات';
+
+  @override
+  String proposalNewFrom(String name) {
+    return 'مقترح جديد من $name';
+  }
+
+  @override
+  String proposalsWaitingHeading(int count) {
+    return 'بانتظار القرار ($count)';
+  }
+
+  @override
+  String proposalsAcceptedHeading(int count) {
+    return 'المقبولة ($count)';
+  }
 
   @override
   String get noticesLogHeading => 'كل ما أُرسل';

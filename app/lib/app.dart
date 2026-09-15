@@ -9,6 +9,7 @@ import 'core/l10n/latin_digit_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/state/auto_refresh.dart';
 import 'features/call/presentation/call_ui.dart';
+import 'features/notifications/presentation/notice_peek.dart';
 import 'l10n/app_localizations.dart';
 
 class FamilyApp extends ConsumerWidget {
@@ -81,12 +82,21 @@ class FamilyApp extends ConsumerWidget {
       //   It draws nothing unless a call is actually live, so every screen —
       //   including /login and /pending, where the provider returns null before
       //   ever starting a timer — carries it for the price of a SizedBox.
+      //
+      // ── وإشعار الجمعية، فوق كل شاشة أيضاً (15/09) ────────────────────────
+      // NoticePeekHost draws the twenty-second banner and opens a notice
+      // tapped on the phone. A LAYER over the column rather than a row in it:
+      // a banner that pushed every screen down for twenty seconds and then let
+      // it jump back would be read as the app shaking.
       builder: (BuildContext context, Widget? child) => AutoRefresh(
-        child: Column(
-          children: <Widget>[
-            const IncomingCallBanner(),
-            Expanded(child: child ?? const SizedBox.shrink()),
-          ],
+        child: NoticePeekHost(
+          router: router,
+          child: Column(
+            children: <Widget>[
+              const IncomingCallBanner(),
+              Expanded(child: child ?? const SizedBox.shrink()),
+            ],
+          ),
         ),
       ),
     );

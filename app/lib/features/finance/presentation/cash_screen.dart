@@ -22,9 +22,6 @@ class CashScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final L l = L.of(context);
     final AsyncValue<CashSummaryView> summary = ref.watch(cashSummaryProvider);
-    final AsyncValue<List<CashMovementView>> movements = ref.watch(
-      cashMovementsProvider,
-    );
 
     return AppScaffold(
       title: l.navCash,
@@ -65,50 +62,12 @@ class CashScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // ── MONEY IN ─────────────────────────────────────────────────
-            // Unchanged: grouped by عديل, because one man paying five times
-            // used to be five rows and a register of forty was hundreds.
-            Text(
-              l.opsCollections,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppColors.success,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AsyncView<List<CashMovementView>>(
-              value: movements,
-              onRetry: () => ref.invalidate(cashMovementsProvider),
-              builder: (List<CashMovementView> items) {
-                // The vouchers are read here as well, because a member's card
-                // has to carry both directions and they arrive from a second
-                // provider. `valueOrNull` rather than a nested AsyncView: the
-                // collections are the subject of this list and must render the
-                // moment they land, with each man's outgoing side filling in
-                // when it does. A spinner over the whole register while one
-                // secondary query settles would be a worse trade.
-                final List<DisbursementView> vouchers =
-                    ref.watch(disbursementsProvider).valueOrNull ??
-                    const <DisbursementView>[];
-                final List<_AdeelMovements> groups = _groupByAdeel(
-                  items,
-                  vouchers,
-                );
-                if (groups.isEmpty) {
-                  return EmptyStateView(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: l.noCashMovements,
-                  );
-                }
-                return Column(
-                  children: <Widget>[
-                    for (final _AdeelMovements group in groups)
-                      _AdeelGroup(group: group),
-                  ],
-                );
-              },
-            ),
+            // ── حركة العدايل (15/09) ────────────────────────────────────
+            // Was «التحصيل», open, one card per member carrying what he PAID.
+            // The association asked for it renamed, folded, and read the way
+            // «الجدوى» reads one man: paid − received, with the total of all of
+            // them on the heading. See _MembersMovement.
+            const _MembersMovement(),
 
             // ── MONEY OUT THAT BELONGS TO NOBODY ────────────────────────
             // The treasury is one fund and this is the page that describes it,
@@ -204,20 +163,10 @@ class _AdeelMovements {
   ///   is left OUT of the collective list at the foot of the screen.
   final List<DisbursementView> vouchers = <DisbursementView>[];
 
-  /// Cancelled receipts are EXCLUDED from the total and still listed inside.
-  ///
-  /// Rule 9 keeps a voided receipt visible for ever — it is history, not a
-  /// mistake to be hidden — but a struck-through 200 must not be added to the
-  /// money the association holds. Summed as text→double at the display edge
-  /// only, which is where every other total on this screen is already read.
-  String get total {
-    double sum = 0;
-    for (final CashMovementView m in movements) {
-      if (m.status == ReceivableStatusWire.cancelled) continue;
-      sum += double.tryParse(m.amount) ?? 0;
-    }
-    return sum.toStringAsFixed(2);
-  }
+  // ⚠ NO TOTAL IS ADDED UP HERE ANY MORE (15/09). The row's figure is the
+  //   member's NET from v_member_net, summed by Postgres; a cancelled receipt
+  //   is still listed inside, struck through, and is out of that figure
+  //   because the view filters on status.
 
   int get liveCount => movements
       .where((CashMovementView m) => m.status != ReceivableStatusWire.cancelled)
@@ -266,14 +215,172 @@ List<_AdeelMovements> _groupByAdeel(
   return byAdeel.values.toList();
 }
 
-class _AdeelGroup extends StatelessWidget {
-  const _AdeelGroup({required this.group});
+/// «حركة العدايل» — folded, with the total on its heading.
+///
+/// ── WHAT IT SAYS ────────────────────────────────────────────────────────────
+/// Closed: the total of (what each member PAID − what he RECEIVED), as
+/// «صافي رصيد مستحق لهم» or «رصيد مستحق عليهم». Open: EVERY member on the
+/// register, each with his own net on the right — «صافي رصيد مستحق له» or
+/// «رصيد مستحق عليه» — and his receipts and vouchers inside his card as before.
+///
+/// ⚠ THE SAME READING AS «الجدوى», AND THE SAME NUMBERS. v_member_net sums the
+///   live receipts and the live vouchers made out to him — the rule
+///   api_member_value uses — so a man's figure here and on his own «الجدوى»
+///   screen cannot disagree. Nothing is added up in Dart.
+///
+/// ⚠ AND IT IS A READING, NOT A DEBT. This screen used to refuse to net the two
+///   directions at all, so that aid would never look like a credit against a
+///   subscription. The association asked for the reading explicitly, as it did
+///   on «الجدوى»; the rule survives where it was always enforced — a voucher
+///   writes no receivable, no payment and no allocation, and no statement or
+///   receivable can ever show this figure.
+class _MembersMovement extends ConsumerStatefulWidget {
+  const _MembersMovement();
 
-  final _AdeelMovements group;
+  @override
+  ConsumerState<_MembersMovement> createState() => _MembersMovementState();
+}
+
+class _MembersMovementState extends ConsumerState<_MembersMovement> {
+  bool _open = false;
 
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
+
+    return AsyncView<List<MemberNet>>(
+      value: ref.watch(memberNetProvider),
+      onRetry: () => ref.invalidate(memberNetProvider),
+      builder: (List<MemberNet> rows) {
+        if (rows.isEmpty) {
+          return EmptyStateView(
+            icon: Icons.account_balance_wallet_outlined,
+            title: l.noCashMovements,
+          );
+        }
+
+        final String total = rows.first.totalNet;
+        final int sign = moneySign(total);
+
+        // The receipts and vouchers that go INSIDE each card. valueOrNull: the
+        // nets are the subject of this list and render the moment they land;
+        // each card's contents fill in when their own queries settle.
+        final Map<int, _AdeelMovements> groups = <int, _AdeelMovements>{
+          for (final _AdeelMovements g in _groupByAdeel(
+            ref.watch(cashMovementsProvider).valueOrNull ??
+                const <CashMovementView>[],
+            ref.watch(disbursementsProvider).valueOrNull ??
+                const <DisbursementView>[],
+          ))
+            g.adeelId: g,
+        };
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            GlassCard(
+              margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+              onTap: () => setState(() => _open = !_open),
+              child: Semantics(
+                button: true,
+                expanded: _open,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            l.membersMovementTitle,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            sign < 0
+                                ? l.membersNetOwedByThem
+                                : sign > 0
+                                ? l.membersNetOwedToThem
+                                : l.memberNetEven,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Text(
+                          formatMoney(moneyMagnitude(total)),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: _netTone(sign),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(
+                      _open ? Icons.expand_less : Icons.expand_more,
+                      color: AppColors.muted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedSize(
+              duration: prefersReducedMotion(context)
+                  ? Duration.zero
+                  : AppMotion.base,
+              curve: AppMotion.enter,
+              alignment: AlignmentDirectional.topStart,
+              child: _open
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        for (final MemberNet row in rows)
+                          _AdeelGroup(net: row, group: groups[row.adeelId]),
+                      ],
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Green when the association holds more of his than it gave him, red when it
+/// gave him more — the colours «الجدوى» uses for the same two words.
+Color _netTone(int sign) => sign < 0
+    ? AppColors.danger
+    : sign > 0
+    ? AppColors.success
+    : AppColors.muted;
+
+class _AdeelGroup extends StatelessWidget {
+  const _AdeelGroup({required this.net, required this.group});
+
+  final MemberNet net;
+
+  /// His receipts and vouchers, or null while they load or when he has none.
+  final _AdeelMovements? group;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final _AdeelMovements? g = group;
+    final int sign = moneySign(net.net);
 
     return GlassCard(
       margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
@@ -294,66 +401,71 @@ class _AdeelGroup extends StatelessWidget {
             AppSpacing.sm,
           ),
           title: Text(
-            group.adeelName,
+            net.adeelName,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
           ),
           // The code, how many receipts are folded in, and — in red — how many
-          // vouchers. The counts are what tell a reader there is anything to
-          // open at all, and the red one is what says the card has an OUTGOING
-          // side before it is opened.
-          //
-          // ⚠ A COUNT, never an amount. Two money figures on one row invite the
-          //   reader to subtract, and الجمعية خيرية: what a man was given is
-          //   not a credit against what he paid, and nothing in this app nets
-          //   the two. The trailing figure stays what he PAID, alone.
+          // vouchers: what tells a reader there is anything to open.
           subtitle: Text.rich(
             TextSpan(
               children: <InlineSpan>[
                 TextSpan(
                   text:
-                      '${group.adeelCode} • ${l.receiptCount(group.liveCount)}',
+                      '${net.adeelCode} • ${l.receiptCount(g?.liveCount ?? 0)}',
                 ),
-                if (group.vouchers.isNotEmpty)
+                if (g != null && g.vouchers.isNotEmpty)
                   TextSpan(
-                    text: ' • ${l.voucherCount(group.vouchers.length)}',
+                    text: ' • ${l.voucherCount(g.vouchers.length)}',
                     style: TextStyle(color: AppColors.danger),
                   ),
               ],
             ),
             style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
-          // His total sits on the closed row, so the screen answers "how much
-          // has this man paid the association" without being opened.
+          // ── في مقابل اسمه: صافيه ────────────────────────────────────────
+          // «صافي رصيد مستحق له» or «رصيد مستحق عليه», and the figure without
+          // its sign — the words already say which way it runs.
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Text(
-                formatMoney(group.total),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.success,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  Text(
+                    sign < 0
+                        ? l.memberNetOwedByHim
+                        : sign > 0
+                        ? l.memberNetOwedToHim
+                        : l.memberNetEven,
+                    style: TextStyle(fontSize: 10.5, color: AppColors.muted),
+                  ),
+                  Text(
+                    formatMoney(moneyMagnitude(net.net)),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: _netTone(sign),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: AppSpacing.xs),
               Icon(Icons.expand_more, size: 20, color: AppColors.muted),
             ],
           ),
           // ── HIS RECEIPTS, THEN HIS VOUCHERS ──────────────────────────────
-          // In that order, never interleaved by date: the two are different
-          // KINDS of fact — what he gave the association and what it gave him —
-          // and a single chronological column of green and red numbers is the
-          // one arrangement that invites the eye to net them. الجمعية خيرية:
-          // aid is not a credit against a subscription, and the arithmetic of
-          // this app never subtracts one from the other.
+          // In that order, never interleaved by date: what he gave the
+          // association and what it gave him are different kinds of fact.
           children: <Widget>[
-            for (final CashMovementView movement in group.movements)
-              _MovementTile(movement: movement),
-            if (group.vouchers.isNotEmpty)
-              for (final DisbursementView v in group.vouchers)
+            if (g != null) ...<Widget>[
+              for (final CashMovementView movement in g.movements)
+                _MovementTile(movement: movement),
+              for (final DisbursementView v in g.vouchers)
                 _VoucherTile(voucher: v),
+            ],
           ],
         ),
       ),

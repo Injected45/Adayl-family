@@ -84,6 +84,9 @@ DisbursementView _voucher({
   String bankName = '',
   String bankAccountName = '',
   String bankAccountNo = '',
+  // Recorded TODAY unless a test says otherwise: since 15/09 only today's
+  // voucher offers «إلغاء الصرف».
+  bool cancellable = true,
 }) => DisbursementView(
   id: id,
   voucherNo: 'EXP-${id.toString().padLeft(2, '0')}',
@@ -98,6 +101,7 @@ DisbursementView _voucher({
   bankName: bankName,
   bankAccountName: bankAccountName,
   bankAccountNo: bankAccountNo,
+  cancellable: cancellable,
 );
 
 void main() {
@@ -210,7 +214,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, l.amount), '640.00');
     // A collective voucher, which is the shorter of the two forms to complete:
     // a heading and nothing else. The boundary is the point here, not the kind.
-    await tester.tap(find.text(l.kindCollective));
+    await tester.tap(find.text(l.kindCollectiveForm));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
@@ -269,7 +273,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // جماعي drops the member outright — the question is not asked of it.
-    await tester.tap(find.text(l.kindCollective));
+    await tester.tap(find.text(l.kindCollectiveForm));
     await tester.pumpAndSettle();
 
     expect(find.text('المهدي عبدالله محمد • A-03'), findsNothing);
@@ -285,7 +289,7 @@ void main() {
     // Nothing is preselected. Defaulting to فرح would file an unreviewed
     // voucher under a real occasion, and the report would carry it for ever.
     await openSheet(tester, sheetHost());
-    await tester.tap(find.text(l.kindCollective));
+    await tester.tap(find.text(l.kindCollectiveForm));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, l.amount), '10');
     await tester.pumpAndSettle();
@@ -416,7 +420,7 @@ void main() {
 
     await tester.tap(find.text(ExpenseCategoryWire.condolence).last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(l.kindCollective));
+    await tester.tap(find.text(l.kindCollectiveForm));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();

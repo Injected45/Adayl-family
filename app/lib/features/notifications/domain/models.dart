@@ -64,7 +64,12 @@ enum NoticeKind {
   paymentCancelled('payment_cancelled'),
   disbursement('disbursement'),
   disbursementCancelled('disbursement_cancelled'),
-  broadcast('broadcast');
+  broadcast('broadcast'),
+
+  /// ⚠ NEVER WRITTEN BY THE DATABASE — `ck_notifications_kind` does not allow
+  ///   it. The admin's in-app banner for a new proposal borrows the notice's
+  ///   banner, and this is only what gives it the proposal's icon.
+  proposal('proposal');
 
   const NoticeKind(this.wire);
 

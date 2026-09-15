@@ -62,6 +62,52 @@ CashMovementView _mv({
   occurredAt: '2026-08-1${id}T09:00:00Z',
 );
 
+/// What `v_member_net` returns for this data — every member who appears, his
+/// live receipts minus the live vouchers made out to him, and the total. Test
+/// arithmetic in whole hundredths, standing in for the server.
+List<MemberNet> _netFor(
+  List<CashMovementView> receipts,
+  List<DisbursementView> vouchers,
+) {
+  int cents(String a) => (double.parse(a) * 100).round();
+  String money(int c) =>
+      '${c < 0 ? '-' : ''}${c.abs() ~/ 100}.${(c.abs() % 100).toString().padLeft(2, '0')}';
+  final Map<int, (String, String)> who = <int, (String, String)>{};
+  final Map<int, int> net = <int, int>{};
+  for (final CashMovementView m in receipts) {
+    who[m.adeelId] = (m.adeelCode, m.adeelName);
+    net[m.adeelId] =
+        (net[m.adeelId] ?? 0) + (m.status == 'ملغي' ? 0 : cents(m.amount));
+  }
+  for (final DisbursementView v in vouchers) {
+    final int? id = v.payeeAdeelId;
+    if (id == null) continue;
+    who.putIfAbsent(id, () => (v.payeeCode, v.payeeName));
+    net[id] = (net[id] ?? 0) - (v.cancelled ? 0 : cents(v.amount));
+  }
+  final int total = net.values.fold<int>(0, (int a, int b) => a + b);
+  final List<int> ids = who.keys.toList()
+    ..sort((int a, int b) => who[a]!.$1.compareTo(who[b]!.$1));
+  return <MemberNet>[
+    for (final int id in ids)
+      MemberNet(
+        adeelId: id,
+        adeelCode: who[id]!.$1,
+        adeelName: who[id]!.$2,
+        paid: '0.00',
+        received: '0.00',
+        net: money(net[id] ?? 0),
+        totalNet: money(total),
+      ),
+  ];
+}
+
+/// «حركة العدايل» is folded since 15/09; every card is inside it.
+Future<void> _openMembers(WidgetTester tester) async {
+  await tester.tap(find.text(LAr().membersMovementTitle));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   final L l = LAr();
 
@@ -70,36 +116,39 @@ void main() {
     String outstanding = '0.00',
     List<DisbursementView> vouchers = const <DisbursementView>[],
   }) => ProviderScope(
-        overrides: <Override>[
-          authControllerProvider.overrideWith(_StubAuth.new),
-          cashMovementsProvider.overrideWith((Ref ref) async => movements),
-          // Overridden even when empty. Without it the real provider runs and
-          // reaches for a Supabase client that does not exist in a test — it
-          // fails into an error panel rather than crashing, which is worse: the
-          // assertions still pass and the screen under test is not the screen
-          // that ships.
-          disbursementsProvider.overrideWith((Ref ref) async => vouchers),
-          cashSummaryProvider.overrideWith(
-            (Ref ref) async => CashSummaryView(
-              total: '700.00',
-              cash: '450.00',
-              transfer: '250.00',
-              today: '0.00',
-              month: '700.00',
-              year: '700.00',
-              outstanding: outstanding,
-            ),
-          ),
-        ],
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: buildAppTheme(),
-          locale: const Locale('ar'),
-          localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
-          supportedLocales: L.supportedLocales,
-          home: const CashScreen(),
+    overrides: <Override>[
+      authControllerProvider.overrideWith(_StubAuth.new),
+      cashMovementsProvider.overrideWith((Ref ref) async => movements),
+      // Overridden even when empty. Without it the real provider runs and
+      // reaches for a Supabase client that does not exist in a test — it
+      // fails into an error panel rather than crashing, which is worse: the
+      // assertions still pass and the screen under test is not the screen
+      // that ships.
+      disbursementsProvider.overrideWith((Ref ref) async => vouchers),
+      memberNetProvider.overrideWith(
+        (Ref ref) async => _netFor(movements, vouchers),
+      ),
+      cashSummaryProvider.overrideWith(
+        (Ref ref) async => CashSummaryView(
+          total: '700.00',
+          cash: '450.00',
+          transfer: '250.00',
+          today: '0.00',
+          month: '700.00',
+          year: '700.00',
+          outstanding: outstanding,
         ),
-      );
+      ),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('ar'),
+      localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
+      supportedLocales: L.supportedLocales,
+      home: const CashScreen(),
+    ),
+  );
 
   Future<void> pump(WidgetTester tester, Widget w) async {
     tester.view.physicalSize = const Size(411, 2400);
@@ -121,6 +170,7 @@ void main() {
       ]),
     );
 
+    await _openMembers(tester);
     expect(find.text('المهدي عبدالله محمد'), findsOneWidget);
     expect(find.text('محمد حمد النانقا'), findsOneWidget);
     // His five receipts are folded away until the row is opened.
@@ -128,7 +178,7 @@ void main() {
     expect(find.textContaining(l.receiptCount(5)), findsOneWidget);
   });
 
-  testWidgets('his total is on the closed row, and opening lists the receipts', (
+  testWidgets('his NET is on the closed row, and opening lists the receipts', (
     WidgetTester tester,
   ) async {
     await pump(
@@ -139,8 +189,14 @@ void main() {
       ]),
     );
 
-    // Answered without opening anything: what has this man paid in.
+    // Folded, the heading carries the total for everyone (one man here).
     expect(find.text(formatMoney('300.00')), findsOneWidget);
+    expect(find.text(l.membersNetOwedToThem), findsOneWidget);
+
+    await _openMembers(tester);
+    // His own row answers without opening his card: paid 300, given nothing.
+    expect(find.text(l.memberNetOwedToHim), findsOneWidget);
+    expect(find.text(formatMoney('300.00')), findsNWidgets(2));
 
     await tester.tap(find.text('المهدي عبدالله محمد'));
     await tester.pumpAndSettle();
@@ -168,7 +224,9 @@ void main() {
       ]),
     );
 
-    expect(find.text(formatMoney('100.00')), findsOneWidget);
+    await _openMembers(tester);
+    // Heading and row both read 100: the voided 900 is out of the net.
+    expect(find.text(formatMoney('100.00')), findsNWidgets(2));
     expect(find.text(formatMoney('1000.00')), findsNothing);
     expect(find.textContaining(l.receiptCount(1)), findsOneWidget);
 
@@ -204,12 +262,14 @@ void main() {
       ]),
     );
 
+    await _openMembers(tester);
     expect(find.text('عبدالله محمد'), findsNWidgets(2));
     expect(find.text('A-07 • ${l.receiptCount(1)}'), findsOneWidget);
     expect(find.text('A-08 • ${l.receiptCount(1)}'), findsOneWidget);
     expect(find.text(formatMoney('111.00')), findsOneWidget);
     expect(find.text(formatMoney('222.00')), findsOneWidget);
-    expect(find.text(formatMoney('333.00')), findsNothing);
+    // 333 is on the heading as the TOTAL for everyone — never on one row.
+    expect(find.text(formatMoney('333.00')), findsOneWidget);
   });
 
   testWidgets('the page leads with ONE figure, not a grid of four', (
@@ -303,7 +363,8 @@ void main() {
       ),
     );
 
-    expect(find.text(l.opsCollections), findsOneWidget);
+    expect(find.text(l.membersMovementTitle), findsOneWidget);
+    expect(find.text(l.opsCollections), findsNothing);
     expect(find.text(l.kindCollective), findsOneWidget);
     expect(find.text('EXP-01'), findsOneWidget);
     // The heading it was spent under, so a reader knows what the money was for

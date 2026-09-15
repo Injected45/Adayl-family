@@ -61,6 +61,9 @@ abstract final class NotifyText {
   static String Function(String, int) noticeAndMore = (String body, int more) =>
       body;
 
+  /// «مقترح جديد من فلان» — the admin's alert when a member sends a proposal.
+  static String Function(String) proposalFrom = (String name) => name;
+
   /// Call once, from main(), before runApp.
   static void fill(L l) {
     incomingCall = l.callIncomingBody;
@@ -79,5 +82,6 @@ abstract final class NotifyText {
     noticeFallbackTitle = l.noticesTitle;
     noticeFallbackBody = l.noticeFallbackBody;
     noticeAndMore = l.noticeAndMore;
+    proposalFrom = l.proposalNewFrom;
   }
 }

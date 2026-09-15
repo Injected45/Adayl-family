@@ -63,6 +63,22 @@ void main() {
     'noticeReadStateProvider': 'device storage, not a read',
     'noticesUnreadProvider': 'polls itself, and owns its own timer',
     'noticesScreenOpenProvider': 'written by the screen, not fetched',
+    // ⚠ THE BANNER ON SCREEN AND ITS TWENTY-SECOND CLOCK. A sweep landing
+    //   while it shows would take it down early — a notice he was reading.
+    'noticePeekProvider': 'a banner and its clock, not data',
+
+    // ── قانون الجمعية والمقترحات ─────────────────────────────────────────────
+    'bylawsRepositoryProvider': 'a client, not data',
+    'proposalsRepositoryProvider': 'a client, not data',
+    'pagePickerProvider': 'the camera and the gallery, not data',
+    // ⚠ THE ADMIN'S PROPOSAL BADGE OWNS A TIMER AND A BASELINE (the newest id
+    //   already announced); a sweep would re-arm it and swallow a proposal
+    //   landing just before it. The notices' badge is exempt for the reason.
+    'proposalsWaitingProvider': 'polls itself, and owns its own timer',
+    'proposalsScreenOpenProvider': 'written by the screen, not fetched',
+    // ⚠ A PAGE IS ADDED OR DELETED, NEVER EDITED, so the bytes behind an id
+    //   never change. Sweeping it would re-download every page already read.
+    'bylawImageProvider': 'immutable bytes by id',
 
     // ⚠ NEITHER OF THESE HOLDS AN ANSWER, and throwing them away would do
     //   real harm rather than nothing. chatChimeProvider owns the audio player
@@ -163,8 +179,11 @@ void main() {
     ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
 
+      // ⚠ DIGITS ARE ALLOWED IN THE TYPE. `FutureProviderFamily<Uint8List, int>`
+      //   has an 8 in it, and a pattern without 0-9 simply did not see that
+      //   provider — the exact blind spot this test exists to close.
       for (final RegExpMatch m in RegExp(
-        r'^final\s+[A-Za-z<>,\s?]+\s+([a-zA-Z]+Provider)\s*=',
+        r'^final\s+[A-Za-z0-9<>,\s?]+\s+([a-zA-Z]+Provider)\s*=',
         multiLine: true,
       ).allMatches(e.readAsStringSync())) {
         final String name = m.group(1)!;
@@ -193,7 +212,7 @@ void main() {
     ).listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
       for (final RegExpMatch m in RegExp(
-        r'^final\s+[A-Za-z<>,\s?]+\s+([a-zA-Z]+Provider)\s*=',
+        r'^final\s+[A-Za-z0-9<>,\s?]+\s+([a-zA-Z]+Provider)\s*=',
         multiLine: true,
       ).allMatches(e.readAsStringSync())) {
         declared.add(m.group(1)!);

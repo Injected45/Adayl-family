@@ -7,6 +7,7 @@ import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/call/presentation/providers.dart';
 import '../../features/chat/presentation/unread_bell.dart';
 import '../../features/notifications/presentation/providers.dart';
+import '../../features/proposals/presentation/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../notify/background_service.dart';
 import '../notify/notify_text.dart';
@@ -139,6 +140,9 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
     //   beat, not when he next opens the app. One capped column, like the
     //   bell's — and nothing at all for an admin, for whom the notifier is 0.
     unawaited(ref.read(noticesUnreadProvider.notifier).refresh());
+    // And, for the admin, a member's new proposal — the same one capped
+    // column, so a pocket hears it within the beat too.
+    unawaited(ref.read(proposalsWaitingProvider.notifier).refresh());
   }
 
   @override

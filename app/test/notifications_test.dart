@@ -63,6 +63,9 @@ class _StubUnread extends NoticesUnread {
   Future<int> build() async => count;
   @override
   Future<void> markSeen(int newestId) async => marked.add(newestId);
+  final List<int> readOnes = <int>[];
+  @override
+  Future<void> readOne(int id) async => readOnes.add(id);
 }
 
 class _FakeReads extends NoticeReadState {
@@ -90,6 +93,13 @@ class _FakeRepo implements NotificationsRepository {
   Future<AppNotice?> newestSince(int sinceId) async => null;
   @override
   Future<int> newestId() async => 0;
+  @override
+  Future<AppNotice?> byId(int id) async {
+    for (final AppNotice n in _notices()) {
+      if (n.id == id) return n;
+    }
+    return null;
+  }
 }
 
 /// The worst case on purpose: a four-word Libyan name, a voucher note that is
@@ -263,6 +273,9 @@ void main() {
 
       expect(find.text('رسالة من الإدارة'), findsOneWidget);
       expect(find.text('صرف لك من الصندوق'), findsOneWidget);
+      // Titles only (15/09): the sentences are behind a tap.
+      expect(find.textContaining('12,345.00'), findsNothing);
+      expect(find.textContaining('اجتماع الجمعية العمومية'), findsNothing);
       expect(find.text(l.broadcastHeading), findsNothing);
       expect(find.byType(TextField), findsNothing);
       // The recipient chip is staff-only: a member knows whom his notices are for.
@@ -313,13 +326,36 @@ void main() {
         portal: false,
       );
       expect(find.text(l.broadcastHeading), findsOneWidget);
-      expect(find.text(l.noticeToEveryone), findsOneWidget);
+      expect(find.text(l.noticeNew), findsNothing);
+      expect(r.unread.marked, isEmpty, reason: 'the admin has no read mark');
+
+      // The row is the title; whom it went to is on the notice itself.
+      expect(
+        find.text('A-03 · عبدالرحمن محمد عبدالسلام الشيباني'),
+        findsNothing,
+      );
+      await tester.ensureVisible(find.text('صرف لك من الصندوق'));
+      await tester.tap(find.text('صرف لك من الصندوق'));
+      await tester.pumpAndSettle();
+      expect(find.text(l.noticeDetailTitle), findsOneWidget);
       expect(
         find.text('A-03 · عبدالرحمن محمد عبدالسلام الشيباني'),
         findsOneWidget,
       );
-      expect(find.text(l.noticeNew), findsNothing);
-      expect(r.unread.marked, isEmpty, reason: 'the admin has no read mark');
+      await tester.tap(find.text(l.backAction));
+      await tester.pumpAndSettle();
+
+      // By its row: the composer's hint says «رسالة من الإدارة» too.
+      final Finder broadcast = find.widgetWithText(
+        NoticeTile,
+        'رسالة من الإدارة',
+      );
+      await tester.ensureVisible(broadcast);
+      await tester.tap(broadcast);
+      await tester.pumpAndSettle();
+      expect(find.text(l.noticeToEveryone), findsOneWidget);
+      await tester.tap(find.text(l.backAction));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('an empty message is refused before anything is sent', (

@@ -52,6 +52,7 @@ class PaymentView {
     required this.status,
     required this.paidAt,
     required this.allocations,
+    this.cancellable = false,
   });
 
   final int id;
@@ -88,6 +89,16 @@ class PaymentView {
   final String paidAt;
   final List<PaymentAllocationView> allocations;
 
+  /// ⚠ WHETHER «إلغاء وعكس» MAY BE OFFERED, AND THE SERVER DECIDES (15/09).
+  ///   True only on the Tripoli calendar day the row was recorded, and only
+  ///   while it is not reversed — the exact test the cancel function applies,
+  ///   so the button can never offer what the database refuses. Never worked
+  ///   out from the handset's clock, which is a setting.
+  ///
+  /// ⚠ FALSE WHEN ABSENT: a database without PATCH_20260915b sends no key, and
+  ///   a missing answer to «may this be undone» must read as no.
+  final bool cancellable;
+
   factory PaymentView.fromJson(Map<String, dynamic> json) => PaymentView(
     id: _int(json['id']),
     receiptNo: _string(json['receiptNo']),
@@ -107,6 +118,7 @@ class PaymentView {
     bankAccountName: _string(json['bankAccountName']),
     status: _string(json['status']),
     paidAt: _string(json['paidAt']),
+    cancellable: json['cancellable'] == true,
     allocations: (json['allocations'] as List<dynamic>? ?? <dynamic>[])
         .map(
           (dynamic e) => PaymentAllocationView.fromJson(
@@ -323,6 +335,7 @@ class DisbursementView {
     this.bankAccountName = '',
     this.handedBy = '',
     this.note = '',
+    this.cancellable = false,
   });
 
   final int id;
@@ -372,6 +385,16 @@ class DisbursementView {
   final String status;
   final String spentAt;
 
+  /// ⚠ WHETHER «إلغاء الصرف» MAY BE OFFERED, AND THE SERVER DECIDES (15/09).
+  ///   True only on the Tripoli calendar day the row was recorded, and only
+  ///   while it is not reversed — the exact test the cancel function applies,
+  ///   so the button can never offer what the database refuses. Never worked
+  ///   out from the handset's clock, which is a setting.
+  ///
+  /// ⚠ FALSE WHEN ABSENT: a database without PATCH_20260915b sends no key, and
+  ///   a missing answer to «may this be undone» must read as no.
+  final bool cancellable;
+
   bool get cancelled => status == ReceivableStatusWire.cancelled;
 
   factory DisbursementView.fromJson(Map<String, dynamic> json) =>
@@ -393,6 +416,7 @@ class DisbursementView {
         note: _string(json['note']),
         status: _string(json['status']),
         spentAt: _string(json['spentAt']),
+        cancellable: json['cancellable'] == true,
       );
 }
 
@@ -868,4 +892,64 @@ class MemberMonth {
     paidTotal: _stringOr(json['paidTotal'], '0.00'),
     receivedTotal: _stringOr(json['receivedTotal'], '0.00'),
   );
+}
+
+/// صافي مشتركٍ واحد في «حركة العدايل»: ما دفعه، وما استلمه، والفرق — من
+/// `v_member_net` (PATCH_20260915c).
+///
+/// ⚠ EVERY FIGURE IS THE SERVER'S, INCLUDING THE TOTAL. [net] is paid − received
+///   summed in Postgres by the same rule as «الجدوى», and [totalNet] is a window
+///   sum over the same rows — so the figure on the container's heading can never
+///   disagree with the lines under it, and nothing here adds money.
+///
+/// ⚠ A LEDGER READING, NOT A DEBT. «رصيد مستحق عليه» is what the association
+///   asked to be written — as on «الجدوى» — and nothing in the schema turns it
+///   into an obligation: a voucher still writes no receivable, no payment and no
+///   allocation. الجمعية خيرية is enforced by the database, not by these words.
+class MemberNet {
+  const MemberNet({
+    required this.adeelId,
+    required this.adeelCode,
+    required this.adeelName,
+    required this.paid,
+    required this.received,
+    required this.net,
+    required this.totalNet,
+  });
+
+  factory MemberNet.fromJson(Map<String, dynamic> json) => MemberNet(
+    adeelId: _int(json['adeelId']),
+    adeelCode: _string(json['adeelCode']),
+    adeelName: _string(json['adeelName']),
+    paid: _stringOr(json['paid'], '0.00'),
+    received: _stringOr(json['received'], '0.00'),
+    net: _stringOr(json['net'], '0.00'),
+    totalNet: _stringOr(json['totalNet'], '0.00'),
+  );
+
+  final int adeelId;
+  final String adeelCode;
+  final String adeelName;
+  final String paid;
+  final String received;
+
+  /// paid − received. Positive: «صافي رصيد مستحق له».
+  final String net;
+
+  /// Σ net over every row the reader may see.
+  final String totalNet;
+}
+
+/// +1, −1 or 0 for a money string — READING its sign, never doing arithmetic.
+int moneySign(String amount) {
+  final String t = amount.trim();
+  if (!RegExp(r'[1-9]').hasMatch(t)) return 0;
+  return t.startsWith('-') ? -1 : 1;
+}
+
+/// The same string without its minus sign, for printing beside a word that
+/// already says the direction.
+String moneyMagnitude(String amount) {
+  final String t = amount.trim();
+  return t.startsWith('-') ? t.substring(1) : t;
 }

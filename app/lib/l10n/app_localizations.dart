@@ -241,24 +241,6 @@ abstract class L {
   /// **'تم تحديث البيانات من قاعدة البيانات'**
   String get refreshedData;
 
-  /// No description provided for @restartApp.
-  ///
-  /// In ar, this message translates to:
-  /// **'إعادة تشغيل التطبيق'**
-  String get restartApp;
-
-  /// No description provided for @restartAppBody.
-  ///
-  /// In ar, this message translates to:
-  /// **'تعود إلى الشاشة الأولى ويضيع ما لم تحفظه.'**
-  String get restartAppBody;
-
-  /// No description provided for @restartConfirm.
-  ///
-  /// In ar, this message translates to:
-  /// **'إعادة التشغيل'**
-  String get restartConfirm;
-
   /// No description provided for @cancel.
   ///
   /// In ar, this message translates to:
@@ -1303,6 +1285,12 @@ abstract class L {
   /// **'صرف جماعي'**
   String get kindCollective;
 
+  /// The label of the collective kind INSIDE the voucher form only (15/09, at the association's request: «يطلب تغيير المسمى الي صرف للأنساب … تغيير مسمي داخل الحاويه فقط»). The wire value stays جماعي and kindCollective keeps «صرف جماعي» on the treasury screen.
+  ///
+  /// In ar, this message translates to:
+  /// **'صرف للأنساب'**
+  String get kindCollectiveForm;
+
   /// No description provided for @expenseCategory.
   ///
   /// In ar, this message translates to:
@@ -1494,12 +1482,6 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'عاد إليك {percent}% مما دفعت — أكثر مما دفعت'**
   String valueShareOver(String percent);
-
-  /// The formula under the percentage, with his own two figures, so the number can be checked by hand. Written in the RTL paragraph exactly as the association wrote it: ما استلمه ÷ ما دفعه × 100.
-  ///
-  /// In ar, this message translates to:
-  /// **'{received} ÷ {paid} × 100'**
-  String valueShareFormula(String received, String paid);
 
   /// No description provided for @valueMonths.
   ///
@@ -1717,6 +1699,42 @@ abstract class L {
   /// **'لم تُسجَّل أي حركة صندوق بعد'**
   String get noCashMovements;
 
+  /// The treasury screen's member container (15/09), renamed from «التحصيل» and folded: its heading carries the total of paid − received over every member, and it opens onto every member with his own net. Same reading as «الجدوى»; every figure comes from v_member_net.
+  ///
+  /// In ar, this message translates to:
+  /// **'حركة العدايل'**
+  String get membersMovementTitle;
+
+  /// No description provided for @memberNetOwedToHim.
+  ///
+  /// In ar, this message translates to:
+  /// **'صافي رصيد مستحق له'**
+  String get memberNetOwedToHim;
+
+  /// No description provided for @memberNetOwedByHim.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيد مستحق عليه'**
+  String get memberNetOwedByHim;
+
+  /// No description provided for @memberNetEven.
+  ///
+  /// In ar, this message translates to:
+  /// **'متعادل'**
+  String get memberNetEven;
+
+  /// No description provided for @membersNetOwedToThem.
+  ///
+  /// In ar, this message translates to:
+  /// **'صافي رصيد مستحق لهم'**
+  String get membersNetOwedToThem;
+
+  /// No description provided for @membersNetOwedByThem.
+  ///
+  /// In ar, this message translates to:
+  /// **'رصيد مستحق عليهم'**
+  String get membersNetOwedByThem;
+
   /// No description provided for @todayLabel.
   ///
   /// In ar, this message translates to:
@@ -1878,6 +1896,24 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'أقفل ما قبله أولاً'**
   String get periodBlockedNote;
+
+  /// The folded month-closing dialog (15/09): one container holding the newest closed month; tapping it opens every month underneath. The month that can be closed stays outside the fold.
+  ///
+  /// In ar, this message translates to:
+  /// **'آخر شهر مُقفل'**
+  String get periodLastClosed;
+
+  /// No description provided for @periodShowAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط لعرض كل الأشهر'**
+  String get periodShowAll;
+
+  /// No description provided for @periodHideAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط لإخفاء القائمة'**
+  String get periodHideAll;
 
   /// No description provided for @fromDate.
   ///
@@ -2766,6 +2802,240 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'السداد والاستحقاقات والصرف ورسائل الإدارة'**
   String get notifyNoticeChannelDesc;
+
+  /// The full-screen reading view a notice opens into — from the tab, the in-app banner, or a tap on the phone notification. It closes itself after thirty idle seconds (15/09).
+  ///
+  /// In ar, this message translates to:
+  /// **'تفاصيل الإشعار'**
+  String get noticeDetailTitle;
+
+  /// No description provided for @noticePeekDismiss.
+  ///
+  /// In ar, this message translates to:
+  /// **'إخفاء الإشعار'**
+  String get noticePeekDismiss;
+
+  /// No description provided for @noticesMoreWaiting.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =1{وإشعار آخر في التبويب} =2{وإشعاران آخران في التبويب} few{و{count} إشعارات أخرى في التبويب} many{و{count} إشعارًا آخر في التبويب} other{و{count} إشعار آخر في التبويب}}'**
+  String noticesMoreWaiting(int count);
+
+  /// No description provided for @bylawsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قانون الجمعية'**
+  String get bylawsTitle;
+
+  /// No description provided for @bylawsCamera.
+  ///
+  /// In ar, this message translates to:
+  /// **'تصوير بالكاميرا'**
+  String get bylawsCamera;
+
+  /// No description provided for @bylawsFromDevice.
+  ///
+  /// In ar, this message translates to:
+  /// **'رفع من الجهاز'**
+  String get bylawsFromDevice;
+
+  /// No description provided for @bylawsUploading.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ رفع الصفحة {current} من {total}'**
+  String bylawsUploading(int current, int total);
+
+  /// No description provided for @bylawsAdded.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{لم تُضف أي صفحة} =1{أُضيفت صفحة واحدة} =2{أُضيفت صفحتان} few{أُضيفت {count} صفحات} many{أُضيفت {count} صفحة} other{أُضيفت {count} صفحة}}'**
+  String bylawsAdded(int count);
+
+  /// No description provided for @bylawsAddedSomeRefused.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُضيفت {added} وتُركت {refused}: ليست صورة أو أكبر من 3 ميغابايت'**
+  String bylawsAddedSomeRefused(int added, int refused);
+
+  /// No description provided for @bylawsPickFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر فتح الكاميرا أو الصور'**
+  String get bylawsPickFailed;
+
+  /// No description provided for @bylawsPageNumber.
+  ///
+  /// In ar, this message translates to:
+  /// **'صفحة {number}'**
+  String bylawsPageNumber(int number);
+
+  /// No description provided for @bylawsDelete.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف الصفحة'**
+  String get bylawsDelete;
+
+  /// No description provided for @bylawsDeleteTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف الصفحة {number}؟'**
+  String bylawsDeleteTitle(int number);
+
+  /// No description provided for @bylawsDeleteConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف'**
+  String get bylawsDeleteConfirm;
+
+  /// No description provided for @bylawsDeleted.
+  ///
+  /// In ar, this message translates to:
+  /// **'حُذفت الصفحة'**
+  String get bylawsDeleted;
+
+  /// No description provided for @bylawsEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تُرفع صفحات قانون الجمعية بعد'**
+  String get bylawsEmpty;
+
+  /// No description provided for @proposalsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقترحات المشتركين'**
+  String get proposalsTitle;
+
+  /// No description provided for @proposalAddTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة مقترح'**
+  String get proposalAddTitle;
+
+  /// No description provided for @proposalTitleLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'عنوان المقترح'**
+  String get proposalTitleLabel;
+
+  /// No description provided for @proposalBodyLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقترح'**
+  String get proposalBodyLabel;
+
+  /// No description provided for @proposalSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال المقترح'**
+  String get proposalSend;
+
+  /// No description provided for @proposalTitleEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب عنوان المقترح'**
+  String get proposalTitleEmpty;
+
+  /// No description provided for @proposalBodyEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب نصَّ المقترح'**
+  String get proposalBodyEmpty;
+
+  /// No description provided for @proposalSent.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُرسل المقترح إلى الإدارة'**
+  String get proposalSent;
+
+  /// No description provided for @myProposalsHeading.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقترحاتي'**
+  String get myProposalsHeading;
+
+  /// No description provided for @myProposalsEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم ترسل مقترحًا بعد'**
+  String get myProposalsEmpty;
+
+  /// No description provided for @proposalAccepted.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقبول'**
+  String get proposalAccepted;
+
+  /// No description provided for @proposalPending.
+  ///
+  /// In ar, this message translates to:
+  /// **'قيد المراجعة'**
+  String get proposalPending;
+
+  /// No description provided for @proposalDetailTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقترح'**
+  String get proposalDetailTitle;
+
+  /// No description provided for @proposalAccept.
+  ///
+  /// In ar, this message translates to:
+  /// **'قبول'**
+  String get proposalAccept;
+
+  /// No description provided for @proposalReject.
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض'**
+  String get proposalReject;
+
+  /// No description provided for @proposalRejectTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض المقترح؟'**
+  String get proposalRejectTitle;
+
+  /// No description provided for @proposalRejectBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيُحذف المقترح نهائيًا، ويختفي من عندك ومن عند المشترك.'**
+  String get proposalRejectBody;
+
+  /// No description provided for @proposalAcceptedDone.
+  ///
+  /// In ar, this message translates to:
+  /// **'قُبل المقترح وحُفظ'**
+  String get proposalAcceptedDone;
+
+  /// No description provided for @proposalRejectedDone.
+  ///
+  /// In ar, this message translates to:
+  /// **'رُفض المقترح وحُذف'**
+  String get proposalRejectedDone;
+
+  /// No description provided for @proposalsEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد مقترحات'**
+  String get proposalsEmpty;
+
+  /// No description provided for @proposalNewFrom.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقترح جديد من {name}'**
+  String proposalNewFrom(String name);
+
+  /// No description provided for @proposalsWaitingHeading.
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار القرار ({count})'**
+  String proposalsWaitingHeading(int count);
+
+  /// No description provided for @proposalsAcceptedHeading.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقبولة ({count})'**
+  String proposalsAcceptedHeading(int count);
 
   /// No description provided for @noticesLogHeading.
   ///

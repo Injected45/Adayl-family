@@ -79,7 +79,7 @@ void main() {
       expect(body, isNot(contains('double')));
     });
 
-    testWidgets('the card prints it with the formula under it', (
+    testWidgets('the card prints the ratio, and no formula under it', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -87,12 +87,10 @@ void main() {
         const MemberValueBar(paid: '8015.00', received: '1950.00'),
       );
       expect(find.text(l.valueShareOf('24.33')), findsOneWidget);
-      expect(
-        find.text(
-          l.valueShareFormula(formatMoney('1950.00'), formatMoney('8015.00')),
-        ),
-        findsOneWidget,
-      );
+      // «يكفي ظهور النسبه بدون اي ايحاء او تلميح» (15/09): nothing on the
+      // card spells out how the figure was reached.
+      expect(find.textContaining('÷'), findsNothing);
+      expect(find.textContaining('× 100'), findsNothing);
     });
 
     testWidgets('more than paid says so; exactly paid does not', (

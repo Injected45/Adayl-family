@@ -21,8 +21,10 @@ void main() {
       //
       // ⚠ THIRTEEN SINCE 13/09: الإشعارات — the admin's log of every notice,
       // and the box to write to every member.
-      expect(appDestinations.length, 13);
-      expect(_routesVisibleTo(AppRole.admin).length, 13);
+      // ⚠ FIFTEEN SINCE 15/09: قانون الجمعية and مقترحات المشتركين, both
+      // admin-only, both behind «المزيد».
+      expect(appDestinations.length, 15);
+      expect(_routesVisibleTo(AppRole.admin).length, 15);
     });
 
     test('a viewer cannot see the audit log, settings, or user management', () {

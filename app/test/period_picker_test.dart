@@ -11,6 +11,7 @@ import 'package:family_app/features/oversight/domain/models.dart';
 import 'package:family_app/features/oversight/presentation/dashboard_screen.dart';
 import 'package:family_app/features/oversight/presentation/providers.dart';
 import 'package:family_app/l10n/app_localizations.dart';
+import 'package:family_app/l10n/app_localizations_ar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,8 +63,9 @@ const DashboardData _emptyDashboard = DashboardData(
 
 List<ClosablePeriod> _fixturePeriods() =>
     (jsonDecode(
-              File('test/fixtures/supabase/closable_periods.json')
-                  .readAsStringSync(),
+              File(
+                'test/fixtures/supabase/closable_periods.json',
+              ).readAsStringSync(),
             )
             as List<dynamic>)
         .map(
@@ -78,12 +80,8 @@ void main() {
   Widget app() => ProviderScope(
     overrides: <Override>[
       authControllerProvider.overrideWith(_StubAuth.new),
-      dashboardProvider.overrideWith(
-        (Ref ref) async => _emptyDashboard,
-      ),
-      closablePeriodsProvider.overrideWith(
-        (Ref ref) async => periods,
-      ),
+      dashboardProvider.overrideWith((Ref ref) async => _emptyDashboard),
+      closablePeriodsProvider.overrideWith((Ref ref) async => periods),
     ],
     child: MaterialApp(
       theme: buildAppTheme(),
@@ -101,6 +99,11 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.event_available));
+    await tester.pumpAndSettle();
+    // ⚠ SINCE 15/09 THE PICKER OPENS FOLDED on the last closed month, with
+    //   only the closable month outside the fold (period_picker_fold_test).
+    //   Every rule below is about the FULL list, so it is opened first.
+    await tester.tap(find.text(LAr().periodLastClosed));
     await tester.pumpAndSettle();
   }
 
@@ -131,9 +134,11 @@ void main() {
     expect(find.text('يوليو 2026'), findsOneWidget);
 
     // مارس is closed. Same outcome, different reason, and the badge says which.
-    await tester.tap(find.text('مارس 2026'));
+    // (The folded header above the list names مارس too — it is the last
+    // closed month — so the row is found as a ListTile.)
+    await tester.tap(find.widgetWithText(ListTile, 'مارس 2026'));
     await tester.pumpAndSettle();
-    expect(find.text('مارس 2026'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'مارس 2026'), findsOneWidget);
   });
 
   testWidgets('the earliest open month is the one that goes through', (

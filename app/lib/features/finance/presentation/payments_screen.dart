@@ -317,7 +317,11 @@ class _PaymentCard extends ConsumerWidget {
                 ],
               ),
             ],
-            if (!cancelled && role.atLeast(AppRole.financeManager)) ...<Widget>[
+            // ⚠ TODAY'S RECEIPTS ONLY (15/09): «cancellable» is the server's
+            //   same-day test, and cancel_payment refuses anything else.
+            if (!cancelled &&
+                payment.cancellable &&
+                role.atLeast(AppRole.financeManager)) ...<Widget>[
               const SizedBox(height: AppSpacing.md),
               Align(
                 alignment: AlignmentDirectional.centerStart,
@@ -368,6 +372,7 @@ Future<void> _confirmCancel(
     ref.invalidate(paymentsProvider);
     ref.invalidate(cashSummaryProvider);
     ref.invalidate(cashMovementsProvider);
+    ref.invalidate(memberNetProvider);
     ref.invalidate(adeelsProvider(''));
     ref.invalidate(adeelDetailProvider(payment.adeelId));
     ref.invalidate(statementProvider(payment.adeelId));
@@ -515,6 +520,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
           .cancelDisbursement(widget.voucher.id, reason.trim());
       ref
         ..invalidate(disbursementsProvider)
+        ..invalidate(memberNetProvider)
         ..invalidate(expenseByCategoryProvider)
         ..invalidate(cashSummaryProvider);
       messenger.showSnackBar(SnackBar(content: Text(l.disbursementCancelled)));
@@ -620,7 +626,9 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 if (v.note.isNotEmpty)
                   _VoucherLine(label: l.notesField, value: v.note),
 
+                // ⚠ TODAY'S VOUCHERS ONLY (15/09) — see PaymentView.cancellable.
                 if (!cancelled &&
+                    v.cancellable &&
                     widget.role.atLeast(AppRole.admin)) ...<Widget>[
                   const SizedBox(height: AppSpacing.sm),
                   Align(

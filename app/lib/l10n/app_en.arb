@@ -24,9 +24,6 @@
   "retry": "Retry",
   "refreshData": "Refresh data",
   "refreshedData": "Data refreshed from the database",
-  "restartApp": "Restart the app",
-  "restartAppBody": "You return to the first screen and anything unsaved is lost.",
-  "restartConfirm": "Restart",
   "cancel": "Cancel",
   "close": "Close",
   "copy": "Copy",
@@ -225,6 +222,7 @@
   "confirmDisbursement": "Confirm disbursement",
   "kindMember": "To a member",
   "kindCollective": "Collective",
+  "kindCollectiveForm": "For the extended family",
   "expenseCategory": "Expense heading",
   "categoryRequired": "Choose an expense heading",
   "payee": "Beneficiary",
@@ -267,17 +265,6 @@
   "@valueShareOver": {
     "placeholders": {
       "percent": {
-        "type": "String"
-      }
-    }
-  },
-  "valueShareFormula": "{received} ÷ {paid} × 100",
-  "@valueShareFormula": {
-    "placeholders": {
-      "received": {
-        "type": "String"
-      },
-      "paid": {
         "type": "String"
       }
     }
@@ -325,6 +312,12 @@
   "receiptCount": "{count, plural, =0{No receipts} =1{One receipt} other{{count} receipts}}",
   "cashMovements": "Treasury movements",
   "noCashMovements": "No treasury movements yet",
+  "membersMovementTitle": "Members' movement",
+  "memberNetOwedToHim": "Net balance in his favour",
+  "memberNetOwedByHim": "Balance against him",
+  "memberNetEven": "Even",
+  "membersNetOwedToThem": "Net balance in their favour",
+  "membersNetOwedByThem": "Balance against them",
   "todayLabel": "Today",
   "thisMonthLabel": "This month",
   "movementTypeLabel": "Type",
@@ -352,6 +345,9 @@
   "periodClosedBadge": "Closed",
   "periodClosedNote": "Already closed",
   "periodBlockedNote": "Close the earlier month first",
+  "periodLastClosed": "Last closed month",
+  "periodShowAll": "Tap to show every month",
+  "periodHideAll": "Tap to hide the list",
   "fromDate": "From",
   "toDate": "To",
   "presetThisMonth": "This month",
@@ -557,6 +553,114 @@
   },
   "notifyNoticeChannel": "Association notices",
   "notifyNoticeChannelDesc": "Payments, dues, disbursements and board messages",
+  "noticeDetailTitle": "Notification",
+  "noticePeekDismiss": "Dismiss notification",
+  "noticesMoreWaiting": "{count, plural, =1{+1 more in the tab} other{+{count} more in the tab}}",
+  "@noticesMoreWaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsTitle": "Association bylaws",
+  "bylawsCamera": "Take a photo",
+  "bylawsFromDevice": "Upload from device",
+  "bylawsUploading": "Uploading page {current} of {total}",
+  "@bylawsUploading": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsAdded": "{count, plural, =0{No page added} =1{1 page added} other{{count} pages added}}",
+  "@bylawsAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsAddedSomeRefused": "{added} added, {refused} skipped: not an image or over 3 MB",
+  "@bylawsAddedSomeRefused": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "refused": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsPickFailed": "Could not open the camera or photos",
+  "bylawsPageNumber": "Page {number}",
+  "@bylawsPageNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsDelete": "Delete page",
+  "bylawsDeleteTitle": "Delete page {number}?",
+  "@bylawsDeleteTitle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsDeleteConfirm": "Delete",
+  "bylawsDeleted": "Page deleted",
+  "bylawsEmpty": "No bylaw pages have been uploaded yet",
+  "proposalsTitle": "Member proposals",
+  "proposalAddTitle": "Add a proposal",
+  "proposalTitleLabel": "Proposal title",
+  "proposalBodyLabel": "Proposal",
+  "proposalSend": "Send proposal",
+  "proposalTitleEmpty": "Write the proposal's title",
+  "proposalBodyEmpty": "Write the proposal",
+  "proposalSent": "Proposal sent to the board",
+  "myProposalsHeading": "My proposals",
+  "myProposalsEmpty": "You have not sent a proposal yet",
+  "proposalAccepted": "Accepted",
+  "proposalPending": "Under review",
+  "proposalDetailTitle": "Proposal",
+  "proposalAccept": "Accept",
+  "proposalReject": "Reject",
+  "proposalRejectTitle": "Reject this proposal?",
+  "proposalRejectBody": "The proposal will be deleted permanently, for you and for the member.",
+  "proposalAcceptedDone": "Proposal accepted and kept",
+  "proposalRejectedDone": "Proposal rejected and deleted",
+  "proposalsEmpty": "No proposals",
+  "proposalNewFrom": "New proposal from {name}",
+  "@proposalNewFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "proposalsWaitingHeading": "Awaiting a decision ({count})",
+  "@proposalsWaitingHeading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "proposalsAcceptedHeading": "Accepted ({count})",
+  "@proposalsAcceptedHeading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noticesLogHeading": "Everything sent",
   "noticesAdminRule": "Payments, dues and individual disbursements reach their member only; collective disbursements and board messages reach everyone.",
   "broadcastHeading": "Message to all members",

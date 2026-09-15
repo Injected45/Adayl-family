@@ -10,7 +10,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../directory/domain/models.dart' show AdeelListItem;
+import '../../directory/domain/models.dart' show AdeelListItem, Official;
 import '../../directory/presentation/providers.dart' as directory;
 import '../domain/models.dart';
 import 'bank_fields.dart';
@@ -90,7 +90,6 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
     super.dispose();
   }
 
-
   /// Mirrors the server's guards so the button can be dead before a round trip.
   /// The server re-reads the treasury under a lock and is the only authority;
   /// this is an affordance, not a rule.
@@ -115,7 +114,25 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
     return null;
   }
 
+  /// أمين الصندوق كما هو في الإعدادات، أو فارغ إن لم يُعيَّن.
+  ///
+  /// ⚠ «المُسلِّم» IS HIM, NOT A BOX TO TYPE INTO (15/09): «يظهر اسم امين
+  ///   الصندوق بشكل آلي لانه هو المخول بالعملية». The name is read from
+  ///   v_officials — the same snapshot the collection sheet offers — so one
+  ///   treasurer is written the same way on every voucher instead of three
+  ///   spellings across a year. With no treasurer set, the field stays a plain
+  ///   text box so a voucher can still be recorded.
+  String _treasurer() {
+    for (final Official o
+        in ref.read(directory.officialsProvider).valueOrNull ??
+            const <Official>[]) {
+      if (o.role == OfficialRoleWire.treasurer) return o.name.trim();
+    }
+    return '';
+  }
+
   Future<void> _submit(L l) async {
+    final String treasurer = _treasurer();
     setState(() {
       _submitting = true;
       _error = null;
@@ -146,7 +163,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
             bankAccountName: _method == PaymentMethodWire.bankTransfer
                 ? _bankAccountName.text.trim()
                 : null,
-            handedBy: _handedBy.text.trim(),
+            handedBy: treasurer.isNotEmpty ? treasurer : _handedBy.text.trim(),
             note: _note.text.trim(),
           );
 
@@ -154,6 +171,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
       // portal's transparency figures both read the balance this changed.
       ref
         ..invalidate(disbursementsProvider)
+        ..invalidate(memberNetProvider)
         ..invalidate(expenseByCategoryProvider)
         ..invalidate(cashSummaryProvider);
 
@@ -187,6 +205,9 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
     final AsyncValue<List<AdeelListItem>> adeels = ref.watch(
       directory.adeelsProvider(''),
     );
+    // Watched so the name appears the moment it loads; read through _treasurer.
+    ref.watch(directory.officialsProvider);
+    final String treasurer = _treasurer();
 
     return GlassSheet(
       child: SafeArea(
@@ -273,7 +294,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                       ),
                       ButtonSegment<String>(
                         value: DisbursementKindWire.collective,
-                        label: Text(l.kindCollective),
+                        label: Text(l.kindCollectiveForm),
                         icon: const Icon(Icons.groups_outlined, size: 18),
                       ),
                     ],
@@ -422,10 +443,27 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                     const SizedBox(height: AppSpacing.md),
                   ],
 
-                  TextField(
-                    controller: _handedBy,
-                    decoration: InputDecoration(labelText: l.handedBy),
-                  ),
+                  if (treasurer.isNotEmpty)
+                    InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: l.handedBy,
+                        helperText: l.treasurerSection,
+                        suffixIcon: Icon(
+                          Icons.lock_outline,
+                          size: 18,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      child: Text(
+                        treasurer,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    )
+                  else
+                    TextField(
+                      controller: _handedBy,
+                      decoration: InputDecoration(labelText: l.handedBy),
+                    ),
                   const SizedBox(height: AppSpacing.md),
                   // ── The note is what makes a line READABLE years later ─────
                   // The heading says «مولود»; the note says whose birth. On the
@@ -463,11 +501,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
                   //   will not carry. One sentence, and no figure to doubt.
                   Row(
                     children: <Widget>[
-                      Icon(
-                        Icons.schedule,
-                        size: 16,
-                        color: AppColors.muted,
-                      ),
+                      Icon(Icons.schedule, size: 16, color: AppColors.muted),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
@@ -483,10 +517,7 @@ class _DisbursementSheetState extends ConsumerState<_DisbursementSheet> {
 
                   if (_error != null) ...<Widget>[
                     const SizedBox(height: AppSpacing.md),
-                    Text(
-                      _error!,
-                      style: TextStyle(color: AppColors.danger),
-                    ),
+                    Text(_error!, style: TextStyle(color: AppColors.danger)),
                   ],
                   const SizedBox(height: AppSpacing.lg),
 

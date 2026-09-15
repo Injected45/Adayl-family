@@ -93,6 +93,11 @@ abstract final class SupabaseFailures {
     // A message that cannot be sent as written — empty, or longer than its
     // column — in the chat and in the admin's message to every member.
     'RUL18': 422,
+    // A proposal that cannot be sent or decided as asked — a title over twenty
+    // letters, an empty text, an accepted proposal someone tries to change.
+    'RUL20': 422,
+    // A page of the bylaws that is not an image, or is too large.
+    'RUL21': 422,
   };
 
   static ApiException _fromPostgrest(PostgrestException error) {

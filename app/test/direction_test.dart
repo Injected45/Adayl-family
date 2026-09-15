@@ -93,6 +93,52 @@ DisbursementView _voucher({
   payeeCode: payee == null ? '' : 'A-07',
 );
 
+/// What `v_member_net` returns for this data — every member who appears, his
+/// live receipts minus the live vouchers made out to him, and the total. Test
+/// arithmetic in whole hundredths, standing in for the server.
+List<MemberNet> _netFor(
+  List<CashMovementView> receipts,
+  List<DisbursementView> vouchers,
+) {
+  int cents(String a) => (double.parse(a) * 100).round();
+  String money(int c) =>
+      '${c < 0 ? '-' : ''}${c.abs() ~/ 100}.${(c.abs() % 100).toString().padLeft(2, '0')}';
+  final Map<int, (String, String)> who = <int, (String, String)>{};
+  final Map<int, int> net = <int, int>{};
+  for (final CashMovementView m in receipts) {
+    who[m.adeelId] = (m.adeelCode, m.adeelName);
+    net[m.adeelId] =
+        (net[m.adeelId] ?? 0) + (m.status == 'ملغي' ? 0 : cents(m.amount));
+  }
+  for (final DisbursementView v in vouchers) {
+    final int? id = v.payeeAdeelId;
+    if (id == null) continue;
+    who.putIfAbsent(id, () => (v.payeeCode, v.payeeName));
+    net[id] = (net[id] ?? 0) - (v.cancelled ? 0 : cents(v.amount));
+  }
+  final int total = net.values.fold<int>(0, (int a, int b) => a + b);
+  final List<int> ids = who.keys.toList()
+    ..sort((int a, int b) => who[a]!.$1.compareTo(who[b]!.$1));
+  return <MemberNet>[
+    for (final int id in ids)
+      MemberNet(
+        adeelId: id,
+        adeelCode: who[id]!.$1,
+        adeelName: who[id]!.$2,
+        paid: '0.00',
+        received: '0.00',
+        net: money(net[id] ?? 0),
+        totalNet: money(total),
+      ),
+  ];
+}
+
+/// «حركة العدايل» is folded since 15/09; every card is inside it.
+Future<void> _openMembers(WidgetTester tester) async {
+  await tester.tap(find.text(LAr().membersMovementTitle));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   final L l = LAr();
 
@@ -114,6 +160,9 @@ void main() {
       ),
       cashMovementsProvider.overrideWith((Ref ref) async => receipts),
       disbursementsProvider.overrideWith((Ref ref) async => vouchers),
+      memberNetProvider.overrideWith(
+        (Ref ref) async => _netFor(receipts, vouchers),
+      ),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -135,6 +184,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host(receipts: receipts, vouchers: vouchers));
     await tester.pumpAndSettle();
+    await _openMembers(tester);
     await tester.tap(find.text('المهدي عبدالله').first);
     await tester.pumpAndSettle();
   }
@@ -211,11 +261,13 @@ void main() {
     expect(colourOf(tester, '100.00'), AppColors.success);
   });
 
-  testWidgets('the closed card says there is an outgoing side inside it', (
+  testWidgets('the closed card counts its vouchers and shows his NET', (
     WidgetTester tester,
   ) async {
-    // A COUNT and never an amount: two money figures on one row invite the eye
-    // to subtract, and aid is never netted against what a member paid.
+    // Since 15/09 the card reads the way «الجدوى» reads him: paid − received,
+    // with the words saying which way it runs. The figure is the SERVER's net
+    // (v_member_net), and it is a ledger reading — no statement, receivable or
+    // payment is touched by it.
     tester.view.physicalSize = const Size(411, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -229,13 +281,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openMembers(tester);
 
     expect(find.textContaining(l.voucherCount(2)), findsOneWidget);
-    // The card's figure is what he PAID — 100 + 30 — and the 340 of vouchers
-    // did not move it in either direction.
-    expect(find.text(formatMoney('130.00')), findsOneWidget);
-    expect(find.text(formatMoney('-210.00')), findsNothing); // netted
-    expect(find.text(formatMoney('470.00')), findsNothing); // summed
+    // Paid 100 + 30, given 250 + 90: «رصيد مستحق عليه 210» — on his row and,
+    // with one member, on the heading too. The sign is carried by the words,
+    // never printed as a minus.
+    expect(find.text(l.memberNetOwedByHim), findsOneWidget);
+    expect(find.text(formatMoney('210.00')), findsNWidgets(2));
+    expect(find.text(formatMoney('-210.00')), findsNothing);
+    expect(find.text(formatMoney('470.00')), findsNothing); // never summed
   });
 
   testWidgets('a member voucher is in HIS card and NOT in the collective list', (
@@ -265,9 +320,7 @@ void main() {
     // nothing" and "he is not on this screen" look identical.
     await open(
       tester,
-      receipts: <CashMovementView>[
-        _receipt(id: 1, amount: '100.00'),
-      ],
+      receipts: <CashMovementView>[_receipt(id: 1, amount: '100.00')],
       vouchers: <DisbursementView>[
         _voucher(id: 1, amount: '250.00'),
         DisbursementView(

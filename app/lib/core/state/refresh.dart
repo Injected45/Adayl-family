@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/bylaws/presentation/providers.dart' as bylaws;
 import '../../features/call/presentation/providers.dart' as call;
 import '../../features/chat/presentation/providers.dart' as chat;
 import '../../features/directory/presentation/providers.dart' as directory;
 import '../../features/finance/presentation/providers.dart' as finance;
 import '../../features/notifications/presentation/providers.dart' as notices;
 import '../../features/oversight/presentation/providers.dart' as oversight;
+import '../../features/proposals/presentation/providers.dart' as proposals;
 
 /// Throws away every cached read so the next build refetches from the database.
 ///
@@ -58,6 +60,8 @@ void refreshAll(WidgetRef ref) {
   ref.invalidate(finance.paymentsProvider);
   ref.invalidate(finance.cashSummaryProvider);
   ref.invalidate(finance.cashMovementsProvider);
+  // «حركة العدايل» — every member's net moves with the same receipt.
+  ref.invalidate(finance.memberNetProvider);
   // Money OUT. The voucher list and the spend-by-heading panel move together
   // with every disbursement and every reversal.
   ref.invalidate(finance.disbursementsProvider);
@@ -77,6 +81,9 @@ void refreshAll(WidgetRef ref) {
   // الإشعارات — the list. Its badge has its own clock and is exempt, like the
   // chat's; the LIST is what a pull on that screen must bring back.
   ref.invalidate(notices.noticesProvider);
+
+  ref.invalidate(bylaws.bylawPagesProvider);
+  ref.invalidate(proposals.proposalsProvider);
 
   // ⚠ WHO MAY BE CALLED CHANGES WITHOUT ANYBODY ON THIS PHONE DOING
   //   ANYTHING. api_call_directory lists only men whose app is bound to a

@@ -31,6 +31,14 @@ final FutureProvider<List<ClosablePeriod>> closablePeriodsProvider =
       (Ref ref) => ref.watch(financeRepositoryProvider).closablePeriods(),
     );
 
+/// «حركة العدايل»: every member's net, summed by the server. Listed in
+/// refreshAll, and invalidated wherever a receipt or a voucher is recorded or
+/// reversed — the same places the treasury summary is.
+final FutureProvider<List<MemberNet>> memberNetProvider =
+    FutureProvider<List<MemberNet>>(
+      (Ref ref) => ref.watch(financeRepositoryProvider).memberNet(),
+    );
+
 /// Every voucher, newest first. Invalidated after a disbursement is recorded or
 /// cancelled, alongside the treasury summary it moves.
 final FutureProvider<List<DisbursementView>> disbursementsProvider =

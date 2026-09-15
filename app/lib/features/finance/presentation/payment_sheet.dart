@@ -165,6 +165,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       ref.invalidate(paymentsProvider);
       ref.invalidate(cashSummaryProvider);
       ref.invalidate(cashMovementsProvider);
+      ref.invalidate(memberNetProvider);
       ref.invalidate(adeelsProvider(''));
       ref.invalidate(adeelDetailProvider(adeel.id));
       ref.invalidate(statementProvider(adeel.id));

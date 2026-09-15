@@ -92,15 +92,10 @@ class MemberValueBar extends StatelessWidget {
                   color: share >= 1 ? AppColors.success : AppColors.danger,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              // ── والمعادلة، بأرقامه هو ─────────────────────────────────────
-              // So the figure can be checked by hand, in the order the
-              // association wrote it: ما استلمتَ ÷ ما دفعتَ × 100.
-              Text(
-                l.valueShareFormula(formatMoney(received), formatMoney(paid)),
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
+              // ⚠ NO FORMULA UNDER IT (15/09). «1,950.00 ÷ 8,015.00 × 100» sat
+              //   here and the association removed it: «يكفي ظهور النسبه بدون
+              //   اي ايحاء او تلميح». The ratio is still computed exactly the
+              //   same way — returnPercentOf — it is simply not explained.
               const SizedBox(height: AppSpacing.md),
 
               // ── The bar ───────────────────────────────────────────────────

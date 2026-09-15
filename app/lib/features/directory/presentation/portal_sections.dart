@@ -10,6 +10,8 @@ import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/vault_icon.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../bylaws/presentation/bylaws_screen.dart';
+import '../../proposals/presentation/proposal_composer.dart';
 import '../domain/models.dart';
 import 'providers.dart';
 
@@ -290,7 +292,9 @@ class SectionNote extends StatelessWidget {
 ///
 /// The MENU is generated from this list too, which is what stops the two from
 /// disagreeing about what exists.
-enum PortalSection { details, bank, officials, treasury }
+/// ⚠ ORDER IS THE MENU'S ORDER. «إضافة مقترح» sits directly under «قانون
+///   الجمعية», as asked — a member proposes having just read the rules.
+enum PortalSection { details, bank, officials, treasury, bylaws, proposal }
 
 _Section _describe(L l, PortalSection s) => switch (s) {
   PortalSection.details => _Section(
@@ -320,6 +324,23 @@ _Section _describe(L l, PortalSection s) => switch (s) {
     title: l.navCash,
     subtitle: l.portalTreasuryHint,
     tone: AppColors.warning,
+  ),
+  // ── قانون الجمعية، ثم إضافة مقترح (15/09) ─────────────────────────────
+  // ⚠ NO SUBTITLE ON EITHER, and on «قانون الجمعية» for a second reason: a line
+  //   under it would be the natural place to say «للاطلاع فقط», and the
+  //   association asked for exactly that not to be said anywhere.
+  PortalSection.bylaws => _Section(
+    icon: (Color t, double s) => Icon(Icons.gavel_outlined, color: t, size: s),
+    title: l.bylawsTitle,
+    subtitle: '',
+    tone: AppColors.dues,
+  ),
+  PortalSection.proposal => _Section(
+    icon: (Color t, double s) =>
+        Icon(Icons.lightbulb_outline, color: t, size: s),
+    title: l.proposalAddTitle,
+    subtitle: '',
+    tone: AppColors.accent,
   ),
 };
 
@@ -351,6 +372,10 @@ Widget portalSectionPage(
   int adeelId,
 ) {
   final L l = L.of(context);
+  // ⚠ THE BYLAWS ARE NOT IN THE SECTION SHELL. The shell is one ListView of
+  //   fixed children, so every page image would be built — and decoded — the
+  //   moment it opened. The pages need a lazy list, which is their own screen.
+  if (section == PortalSection.bylaws) return const BylawsScreen();
   return _PortalSectionPage(
     section: _describe(l, section),
     child: switch (section) {
@@ -358,6 +383,8 @@ Widget portalSectionPage(
       PortalSection.bank => const _BankBody(),
       PortalSection.officials => const _OfficialsBody(),
       PortalSection.treasury => const _TreasuryBody(),
+      PortalSection.bylaws => const SizedBox.shrink(),
+      PortalSection.proposal => const ProposalComposer(),
     },
   );
 }

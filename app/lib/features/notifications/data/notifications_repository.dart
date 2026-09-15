@@ -65,6 +65,15 @@ class NotificationsRepository {
         return AppNotice.fromJson((list.first as Map).cast<String, dynamic>());
       });
 
+  /// One notice — the one whose phone notification was tapped — or null when
+  /// this caller may not read it (RLS answers «no row», never «refused»).
+  Future<AppNotice?> byId(int id) => SupabaseFailures.guard(() async {
+    final dynamic rows = await _db.from(_view).select().eq('id', id).limit(1);
+    final List<dynamic> list = rows as List<dynamic>;
+    if (list.isEmpty) return null;
+    return AppNotice.fromJson((list.first as Map).cast<String, dynamic>());
+  });
+
   /// The newest id this caller can see, or 0.
   Future<int> newestId() => SupabaseFailures.guard(() async {
     final dynamic rows = await _db

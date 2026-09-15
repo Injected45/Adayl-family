@@ -5,13 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/chat/presentation/unread_bell.dart';
+import '../../features/proposals/presentation/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../config/glass.dart';
 import '../config/theme.dart';
 import '../config/theme_picker.dart';
 import '../router/destinations.dart';
 import '../state/refresh.dart';
-import '../state/restart.dart';
 import 'app_background.dart';
 import 'nav_pill_bar.dart';
 import 'stat_card.dart';
@@ -101,6 +101,9 @@ class AppScaffold extends ConsumerWidget {
     final L l = L.of(context);
     final AppUser? me = ref.watch(authControllerProvider).user;
     final AppRole role = me?.role ?? AppRole.viewer;
+    // Proposals waiting for the admin's decision — zero for anyone else.
+    final int proposalsWaiting =
+        ref.watch(proposalsWaitingProvider).valueOrNull ?? 0;
 
     // ── A MEMBER GETS NO NAVIGATION AT ALL ─────────────────────────────────
     //
@@ -141,8 +144,11 @@ class AppScaffold extends ConsumerWidget {
       // asked. The bar is on every screen, so the answer is where the question
       // is. It is hidden for anyone the room would refuse anyway.
       const ChatBell(),
+      // ⚠ «إعادة التشغيل» WAS HERE AND IS GONE (15/09), at the association's
+      //   request: «الغاء زر إعادة التشغيل وترك زر تحديث البيانات». The
+      //   refresh beside it reloads every figure, which is what anyone
+      //   pressing either was after.
       const RefreshAction(),
-      const RestartAction(),
       ...?actions,
     ];
 
@@ -275,6 +281,15 @@ class AppScaffold extends ConsumerWidget {
                     selectedIcon: Icons.grid_view,
                     label: l.navMore,
                     selected: selectedIndex < 0,
+                    // ⚠ PROPOSALS WAITING FOR HIS DECISION ride here: their tab
+                    //   lives behind «المزيد», and a count nobody sees until
+                    //   he opens the sheet is no count at all.
+                    badge:
+                        overflow.any(
+                          (AppDestination d) => d.route == AppRoutes.proposals,
+                        )
+                        ? proposalsWaiting
+                        : 0,
                     onTap: () => _showMoreSheet(context, l, overflow),
                   ),
                 ],
@@ -290,6 +305,11 @@ class AppScaffold extends ConsumerWidget {
   ) {
     showModalBottomSheet<void>(
       context: context,
+      // ⚠ SCROLL-CONTROLLED, AND THE CONTENT SCROLLS. Eleven destinations since
+      //   15/09 are four rows of tiles; a sheet left at its default cap of
+      //   nine-sixteenths of the screen overflowed a 640-high phone by 235
+      //   pixels and hid the last row and the theme picker.
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       // The content behind needs dimming, or the frost has nothing to separate
       // it from and the tap-to-dismiss area reads as inert.
@@ -304,57 +324,75 @@ class AppScaffold extends ConsumerWidget {
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.inkMuted.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.inkMuted.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(bottom: 12),
-                    child: Text(
-                      l.navMore,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    const SizedBox(height: AppSpacing.lg),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(bottom: 12),
+                      child: Text(
+                        l.navMore,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                     ),
-                  ),
-                  StatCardGrid(
-                    columns: 3,
-                    wideColumns: 3,
-                    spacing: AppSpacing.sm,
-                    children: <Widget>[
-                      for (final AppDestination destination in destinations)
-                        _MoreTile(
-                          destination: destination,
-                          onTap: () {
-                            Navigator.of(sheetContext).pop();
-                            context.go(destination.route);
-                          },
-                        ),
-                    ],
-                  ),
-                  // ── شكلُ التطبيق ──────────────────────────────────────
-                  // ⚠ THE SAME WIDGET THE MEMBER USES, not a second copy —
-                  //   see ThemePicker. And UNDER the destinations, because
-                  //   those are places to go and this is a preference: a
-                  //   segmented control among the tiles would read as a
-                  //   thirteenth screen.
-                  //
-                  // ⚠ THE SHEET IS NOT DISMISSED ON CHANGE. Every tile above
-                  //   pops because it navigates; this one repaints the sheet
-                  //   he is looking at, which IS the confirmation. Closing it
-                  //   would hide the one thing that proves the tap worked.
-                  const SizedBox(height: AppSpacing.lg),
-                  const ThemePicker(),
-                ],
+                    StatCardGrid(
+                      columns: 3,
+                      wideColumns: 3,
+                      spacing: AppSpacing.sm,
+                      children: <Widget>[
+                        for (final AppDestination destination in destinations)
+                          // A Consumer, so the count on «مقترحات المشتركين»
+                          // moves while the sheet is open.
+                          Consumer(
+                            builder:
+                                (
+                                  BuildContext _,
+                                  WidgetRef ref,
+                                  Widget? _,
+                                ) => _MoreTile(
+                                  destination: destination,
+                                  badge:
+                                      destination.route == AppRoutes.proposals
+                                      ? ref
+                                                .watch(proposalsWaitingProvider)
+                                                .valueOrNull ??
+                                            0
+                                      : 0,
+                                  onTap: () {
+                                    Navigator.of(sheetContext).pop();
+                                    context.go(destination.route);
+                                  },
+                                ),
+                          ),
+                      ],
+                    ),
+                    // ── شكلُ التطبيق ──────────────────────────────────────
+                    // ⚠ THE SAME WIDGET THE MEMBER USES, not a second copy —
+                    //   see ThemePicker. And UNDER the destinations, because
+                    //   those are places to go and this is a preference: a
+                    //   segmented control among the tiles would read as a
+                    //   thirteenth screen.
+                    //
+                    // ⚠ THE SHEET IS NOT DISMISSED ON CHANGE. Every tile above
+                    //   pops because it navigates; this one repaints the sheet
+                    //   he is looking at, which IS the confirmation. Closing it
+                    //   would hide the one thing that proves the tap worked.
+                    const SizedBox(height: AppSpacing.lg),
+                    const ThemePicker(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -395,55 +433,35 @@ class RefreshAction extends ConsumerWidget {
   }
 }
 
-/// Restarts the app in place — the whole tree, every provider, from scratch.
-///
-/// Behind a confirmation, unlike the refresh beside it: this throws away
-/// whatever the user was in the middle of, and a stray tap on a toolbar icon
-/// should not be able to do that silently. The dialog also states the one thing
-/// the button cannot do, because "I pressed restart and my change is still not
-/// there" is the misunderstanding it would otherwise invite.
-class RestartAction extends StatelessWidget {
-  const RestartAction({super.key});
+/// «مقترحات المشتركين» on the wide rail, with the count waiting on it.
+class _ProposalsRailIcon extends ConsumerWidget {
+  const _ProposalsRailIcon();
 
   @override
-  Widget build(BuildContext context) {
-    final L l = L.of(context);
-    return IconButton(
-      tooltip: l.restartApp,
-      icon: const Icon(Icons.restart_alt),
-      onPressed: () async {
-        final bool? go = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext dialogContext) => GlassDialog(
-            title: Text(l.restartApp),
-            content: Text(
-              l.restartAppBody,
-              style: const TextStyle(fontSize: 12, height: 1.6),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(l.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(l.restartConfirm),
-              ),
-            ],
-          ),
-        );
-        if (go != true || !context.mounted) return;
-        RestartWidget.restart(context);
-      },
+  Widget build(BuildContext context, WidgetRef ref) {
+    final int waiting = ref.watch(proposalsWaitingProvider).valueOrNull ?? 0;
+    return Badge(
+      isLabelVisible: waiting > 0,
+      backgroundColor: AppColors.danger,
+      textColor: AppColors.onFill,
+      label: Text(waiting > 99 ? '+99' : '$waiting'),
+      child: const Icon(Icons.lightbulb_outline),
     );
   }
 }
 
 class _MoreTile extends StatelessWidget {
-  const _MoreTile({required this.destination, required this.onTap});
+  const _MoreTile({
+    required this.destination,
+    required this.onTap,
+    this.badge = 0,
+  });
 
   final AppDestination destination;
   final VoidCallback onTap;
+
+  /// A red count on the icon — proposals waiting, on their tab's tile.
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -461,18 +479,24 @@ class _MoreTile extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.brandSoft,
-                    borderRadius: BorderRadius.circular(AppRadius.chip),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    destination.icon,
-                    size: 22,
-                    color: AppColors.brandDeep,
+                Badge(
+                  isLabelVisible: badge > 0,
+                  backgroundColor: AppColors.danger,
+                  textColor: AppColors.onFill,
+                  label: Text(badge > 99 ? '+99' : '$badge'),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.brandSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.chip),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      destination.icon,
+                      size: 22,
+                      color: AppColors.brandDeep,
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -658,7 +682,10 @@ class _WideLayout extends StatelessWidget {
                                 for (final AppDestination destination
                                     in destinations)
                                   NavigationRailDestination(
-                                    icon: Icon(destination.icon),
+                                    icon:
+                                        destination.route == AppRoutes.proposals
+                                        ? const _ProposalsRailIcon()
+                                        : Icon(destination.icon),
                                     selectedIcon: Icon(
                                       destination.selectedIcon,
                                     ),

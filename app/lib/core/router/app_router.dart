@@ -9,6 +9,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/pending_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/suspended_screen.dart';
+import '../../features/bylaws/presentation/bylaws_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/directory/presentation/adeel_detail_screen.dart';
 import '../../features/directory/presentation/adeel_form_screen.dart';
@@ -28,6 +29,7 @@ import '../../features/oversight/presentation/dashboard_screen.dart';
 import '../../features/oversight/presentation/reports_screen.dart';
 import '../../features/oversight/presentation/settings_screen.dart';
 import '../../features/oversight/presentation/users_screen.dart';
+import '../../features/proposals/presentation/proposals_screen.dart';
 import 'destinations.dart';
 
 /// Every destination now has a real screen, so the placeholder builder below
@@ -85,6 +87,14 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: AppRoutes.notifications,
         builder: (_, _) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.bylaws,
+        builder: (_, _) => const BylawsScreen(manage: true),
+      ),
+      GoRoute(
+        path: AppRoutes.proposals,
+        builder: (_, _) => const ProposalsScreen(),
       ),
 
       // ── Phase 4: the read-only screens ──────────────────────────────

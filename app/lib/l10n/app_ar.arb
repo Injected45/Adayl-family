@@ -31,9 +31,6 @@
   "retry": "إعادة المحاولة",
   "refreshData": "تحديث البيانات",
   "refreshedData": "تم تحديث البيانات من قاعدة البيانات",
-  "restartApp": "إعادة تشغيل التطبيق",
-  "restartAppBody": "تعود إلى الشاشة الأولى ويضيع ما لم تحفظه.",
-  "restartConfirm": "إعادة التشغيل",
   "cancel": "إلغاء",
   "close": "إغلاق",
   "copy": "نسخ",
@@ -333,6 +330,10 @@
   "@kindCollective": {
     "description": "The other shape: money spent on an occasion for everybody. Asks WHAT FOR, and records no payee at all — nobody receives فطور رمضان the way a member receives aid."
   },
+  "kindCollectiveForm": "صرف للأنساب",
+  "@kindCollectiveForm": {
+    "description": "The label of the collective kind INSIDE the voucher form only (15/09, at the association's request: «يطلب تغيير المسمى الي صرف للأنساب … تغيير مسمي داخل الحاويه فقط»). The wire value stays جماعي and kindCollective keeps «صرف جماعي» on the treasury screen."
+  },
   "expenseCategory": "بند الصرف",
   "categoryRequired": "اختر بند الصرف",
   "payee": "المستفيد",
@@ -411,18 +412,6 @@
     "description": "A man given more than he paid is the POINT of a تكافل fund, not an error, so it is stated plainly rather than capped and hidden.",
     "placeholders": {
       "percent": {
-        "type": "String"
-      }
-    }
-  },
-  "valueShareFormula": "{received} ÷ {paid} × 100",
-  "@valueShareFormula": {
-    "description": "The formula under the percentage, with his own two figures, so the number can be checked by hand. Written in the RTL paragraph exactly as the association wrote it: ما استلمه ÷ ما دفعه × 100.",
-    "placeholders": {
-      "received": {
-        "type": "String"
-      },
-      "paid": {
         "type": "String"
       }
     }
@@ -520,6 +509,15 @@
   },
   "cashMovements": "حركة الصندوق",
   "noCashMovements": "لم تُسجَّل أي حركة صندوق بعد",
+  "membersMovementTitle": "حركة العدايل",
+  "@membersMovementTitle": {
+    "description": "The treasury screen's member container (15/09), renamed from «التحصيل» and folded: its heading carries the total of paid − received over every member, and it opens onto every member with his own net. Same reading as «الجدوى»; every figure comes from v_member_net."
+  },
+  "memberNetOwedToHim": "صافي رصيد مستحق له",
+  "memberNetOwedByHim": "رصيد مستحق عليه",
+  "memberNetEven": "متعادل",
+  "membersNetOwedToThem": "صافي رصيد مستحق لهم",
+  "membersNetOwedByThem": "رصيد مستحق عليهم",
   "todayLabel": "اليوم",
   "thisMonthLabel": "الشهر",
   "movementTypeLabel": "النوع",
@@ -602,6 +600,12 @@
   "periodClosedBadge": "مُقفل",
   "periodClosedNote": "أُقفل من قبل",
   "periodBlockedNote": "أقفل ما قبله أولاً",
+  "periodLastClosed": "آخر شهر مُقفل",
+  "@periodLastClosed": {
+    "description": "The folded month-closing dialog (15/09): one container holding the newest closed month; tapping it opens every month underneath. The month that can be closed stays outside the fold."
+  },
+  "periodShowAll": "اضغط لعرض كل الأشهر",
+  "periodHideAll": "اضغط لإخفاء القائمة",
   "fromDate": "من تاريخ",
   "toDate": "إلى تاريخ",
   "presetThisMonth": "هذا الشهر",
@@ -908,6 +912,117 @@
   },
   "notifyNoticeChannel": "إشعارات الجمعية",
   "notifyNoticeChannelDesc": "السداد والاستحقاقات والصرف ورسائل الإدارة",
+  "noticeDetailTitle": "تفاصيل الإشعار",
+  "@noticeDetailTitle": {
+    "description": "The full-screen reading view a notice opens into — from the tab, the in-app banner, or a tap on the phone notification. It closes itself after thirty idle seconds (15/09)."
+  },
+  "noticePeekDismiss": "إخفاء الإشعار",
+  "noticesMoreWaiting": "{count, plural, =1{وإشعار آخر في التبويب} =2{وإشعاران آخران في التبويب} few{و{count} إشعارات أخرى في التبويب} many{و{count} إشعارًا آخر في التبويب} other{و{count} إشعار آخر في التبويب}}",
+  "@noticesMoreWaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsTitle": "قانون الجمعية",
+  "bylawsCamera": "تصوير بالكاميرا",
+  "bylawsFromDevice": "رفع من الجهاز",
+  "bylawsUploading": "جارٍ رفع الصفحة {current} من {total}",
+  "@bylawsUploading": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsAdded": "{count, plural, =0{لم تُضف أي صفحة} =1{أُضيفت صفحة واحدة} =2{أُضيفت صفحتان} few{أُضيفت {count} صفحات} many{أُضيفت {count} صفحة} other{أُضيفت {count} صفحة}}",
+  "@bylawsAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsAddedSomeRefused": "أُضيفت {added} وتُركت {refused}: ليست صورة أو أكبر من 3 ميغابايت",
+  "@bylawsAddedSomeRefused": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "refused": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsPickFailed": "تعذّر فتح الكاميرا أو الصور",
+  "bylawsPageNumber": "صفحة {number}",
+  "@bylawsPageNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsDelete": "حذف الصفحة",
+  "bylawsDeleteTitle": "حذف الصفحة {number}؟",
+  "@bylawsDeleteTitle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "bylawsDeleteConfirm": "حذف",
+  "bylawsDeleted": "حُذفت الصفحة",
+  "bylawsEmpty": "لم تُرفع صفحات قانون الجمعية بعد",
+  "proposalsTitle": "مقترحات المشتركين",
+  "proposalAddTitle": "إضافة مقترح",
+  "proposalTitleLabel": "عنوان المقترح",
+  "proposalBodyLabel": "المقترح",
+  "proposalSend": "إرسال المقترح",
+  "proposalTitleEmpty": "اكتب عنوان المقترح",
+  "proposalBodyEmpty": "اكتب نصَّ المقترح",
+  "proposalSent": "أُرسل المقترح إلى الإدارة",
+  "myProposalsHeading": "مقترحاتي",
+  "myProposalsEmpty": "لم ترسل مقترحًا بعد",
+  "proposalAccepted": "مقبول",
+  "proposalPending": "قيد المراجعة",
+  "proposalDetailTitle": "المقترح",
+  "proposalAccept": "قبول",
+  "proposalReject": "رفض",
+  "proposalRejectTitle": "رفض المقترح؟",
+  "proposalRejectBody": "سيُحذف المقترح نهائيًا، ويختفي من عندك ومن عند المشترك.",
+  "proposalAcceptedDone": "قُبل المقترح وحُفظ",
+  "proposalRejectedDone": "رُفض المقترح وحُذف",
+  "proposalsEmpty": "لا توجد مقترحات",
+  "proposalNewFrom": "مقترح جديد من {name}",
+  "@proposalNewFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "proposalsWaitingHeading": "بانتظار القرار ({count})",
+  "@proposalsWaitingHeading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "proposalsAcceptedHeading": "المقبولة ({count})",
+  "@proposalsAcceptedHeading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noticesLogHeading": "كل ما أُرسل",
   "noticesAdminRule": "السداد والاستحقاق والصرف الفردي تصل لصاحبها وحده، والصرف الجماعي ورسائل الإدارة تصل للجميع.",
   "@noticesAdminRule": {

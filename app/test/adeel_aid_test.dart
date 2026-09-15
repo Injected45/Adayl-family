@@ -61,6 +61,7 @@ AidLedgerEntry _entry({
   String status = 'معتمد',
   String spentAt = '2026-02-10T09:00:00Z',
   String note = '',
+
   /// Defaulted EMPTY, because that is what most vouchers carry. The prune test
   /// sets it: «المُسلِّم» renders only when recorded, so an assertion that it is
   /// absent proves nothing against a fixture that never had one.
@@ -104,7 +105,6 @@ List<AidLedgerEntry> _hundredThenFiveHundred() => <AidLedgerEntry>[
     note: 'زواج',
   ),
 ];
-
 
 /// Three births, which is the shape the association described: one heading, one
 /// figure, and the names only a note can carry.
@@ -169,6 +169,25 @@ AdeelAid _aid({
   ledger: ledger ?? _hundredThenFiveHundred(),
 );
 
+/// ── الحاويتان مطويّتان على الصفحتين (15/09) ─────────────────────────────
+/// Both «حسب السنة» and «الإجمالي» start closed for the member AND the admin,
+/// and opening one closes the other — see _foldingTests. Every test below that
+/// is about the LEDGER opens «الإجمالي» first; the ones about years open
+/// «حسب السنة» themselves.
+Future<void> _openTotal(WidgetTester tester) async {
+  final Finder heading = find.text(LAr().aidPanelTitle);
+  if (heading.evaluate().isEmpty) return; // an empty record has no fold
+  // Already open (the screen kept its state across a re-pump): leave it.
+  if (find.text(LAr().aidColCategory).evaluate().isNotEmpty) return;
+  await tester.tap(heading.first);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openYears(WidgetTester tester) async {
+  await tester.tap(find.text(LAr().aidByYear));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   _aidToneTests();
   _foldingTests();
@@ -199,6 +218,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host(aid, mine: mine));
     await tester.pumpAndSettle();
+    await _openTotal(tester);
   }
 
   // ── The model ─────────────────────────────────────────────────────────────
@@ -474,12 +494,7 @@ void main() {
         ExpenseByCategory(category: 'مولود', total: '600.00', count: 2),
       ],
       ledger: <AidLedgerEntry>[
-        _entry(
-          id: 1,
-          amount: '100.00',
-          runningTotal: '100.00',
-          note: 'حور',
-        ),
+        _entry(id: 1, amount: '100.00', runningTotal: '100.00', note: 'حور'),
         _entry(
           id: 2,
           amount: '500.00',
@@ -536,12 +551,7 @@ void main() {
     // that the record is right.
     final AdeelAid one = _aid(
       ledger: <AidLedgerEntry>[
-        _entry(
-          id: 1,
-          amount: '100.00',
-          runningTotal: '100.00',
-          note: 'حور',
-        ),
+        _entry(id: 1, amount: '100.00', runningTotal: '100.00', note: 'حور'),
       ],
       count: 1,
       total: '100.00',
@@ -553,9 +563,6 @@ void main() {
     );
 
     await open(tester, one, mine: true);
-    // The member's «الإجمالي» is folded until he opens it (14/09).
-    await tester.tap(find.text(l.aidPanelTitle));
-    await tester.pumpAndSettle();
 
     // Closed: the heading is on the line, the note is nowhere.
     expect(find.text('مولود'), findsOneWidget);
@@ -638,6 +645,8 @@ void main() {
       ),
     );
 
+    await _openYears(tester);
+
     // Closed: the heading only.
     expect(find.text('EXP-02'), findsNothing);
 
@@ -696,13 +705,17 @@ void main() {
       ),
     );
 
+    await _openYears(tester);
     await tester.tap(find.text('2026'));
     await tester.pumpAndSettle();
 
     expect(find.text('EXP-02'), findsOneWidget);
     expect(find.text('أُلغي'), findsNothing);
-    // ...and its 999 is in the ledger only, nowhere near the 100 the heading
-    // claims.
+    // ...and its 999 is nowhere near the 100 the heading claims —
+    expect(find.text(formatMoney('999.00')), findsNothing);
+    // — it is in the LEDGER, which opening «الإجمالي» shows (and which closes
+    // «حسب السنة», one container at a time).
+    await _openTotal(tester);
     expect(find.text(formatMoney('999.00')), findsOneWidget);
   });
 
@@ -727,16 +740,14 @@ void main() {
     WidgetTester tester,
   ) async {
     // They were two — a headline card above a ledger panel — and read as two
-    // separate things when they are one answer to one question. The search sits
-    // above that container and outside it, because it is a control acting on
-    // what follows rather than another row of the record.
-    // Staff: the page as it has always been — the member's folds (see
-    // _foldingTests), and its search then lives inside the panel it filters.
+    // separate things when they are one answer to one question. Since 15/09 the
+    // container folds on both pages, and the search folds WITH the table it
+    // filters: a search box above a closed container searches nothing.
     await open(tester, _aid());
 
     final Finder panel = find.ancestor(
       of: find.text(l.aidPanelTitle).first,
-      matching: find.byType(GlassPanel),
+      matching: find.byType(GlassCard),
     );
     expect(panel, findsOneWidget);
     expect(
@@ -753,7 +764,7 @@ void main() {
     );
     expect(
       find.descendant(of: panel, matching: find.byType(TextField)),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -933,6 +944,7 @@ void _wrappingTests() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
+    await _openTotal(tester);
   }
 
   testWidgets('a long heading opens a SECOND line, and a short one does not', (
@@ -1029,6 +1041,7 @@ void _elasticTests() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host(amount, running));
     await tester.pumpAndSettle();
+    await _openTotal(tester);
   }
 
   /// A header cell's width IS its column's: `_Cell` is a Text under a tight
@@ -1118,7 +1131,8 @@ void _serialTests() {
     overrides: <Override>[
       authControllerProvider.overrideWith(() => _StubAuth(AppRole.admin)),
       adeelAidProvider(1).overrideWith(
-        (Ref ref) async => _aid(ledger: _threeBirths(), byCategory: _birthsOnly()),
+        (Ref ref) async =>
+            _aid(ledger: _threeBirths(), byCategory: _birthsOnly()),
       ),
     ],
     child: MaterialApp(
@@ -1137,6 +1151,7 @@ void _serialTests() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
+    await _openTotal(tester);
   }
 
   testWidgets('the ledger is numbered, oldest first', (
@@ -1292,6 +1307,7 @@ void _columnStyleTests() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openTotal(tester);
   }
 
   testWidgets('every figure on the page is GREEN', (WidgetTester tester) async {
@@ -1424,6 +1440,7 @@ void _detailOrderTests() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openTotal(tester);
     await tester.tap(find.text('فرح'));
     await tester.pumpAndSettle();
   }
@@ -1437,7 +1454,10 @@ void _detailOrderTests() {
     await openRow(tester);
 
     // Level with each other: one line each.
-    expect((y(tester, l.voucherNo) - y(tester, l.aidColDate)).abs(), lessThan(1.5));
+    expect(
+      (y(tester, l.voucherNo) - y(tester, l.aidColDate)).abs(),
+      lessThan(1.5),
+    );
     expect((y(tester, l.method) - y(tester, l.amount)).abs(), lessThan(1.5));
 
     // And the two pairs are not on the same line as each other.
@@ -1519,6 +1539,7 @@ void _accordionTests() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openTotal(tester);
   }
 
   /// Taps the row carrying this serial number.
@@ -1624,6 +1645,7 @@ void _detailPruneTests() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openTotal(tester);
     await tester.tap(find.text('فرح'));
     await tester.pumpAndSettle();
   }
@@ -1712,6 +1734,7 @@ void _twoColumnTests() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openTotal(tester);
     await tester.tap(find.text('فرح').last);
     await tester.pumpAndSettle();
   }
@@ -1916,46 +1939,63 @@ void _foldingTests() {
       expect(find.text(l.aidColCategory), findsNothing);
     });
 
-    testWidgets('the staff page is NOT folded', (WidgetTester tester) async {
+    testWidgets('⚠ the admin page folds the same way (15/09)', (
+      WidgetTester tester,
+    ) async {
+      // «في تطبيق الادمن سجل الاسلاف حاوية حسب السنه وحاوية الاجمالي
+      // اجعلهما منسدلتان».
       await pumpAid(tester, mine: false);
+      expect(find.text(l.aidVoucherCount(1)), findsNothing);
+      expect(find.text(l.aidColCategory), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text(formatMoney('600.00')), findsOneWidget);
+
+      await tester.tap(find.text(l.aidByYear));
+      await tester.pumpAndSettle();
       expect(find.text(l.aidVoucherCount(1)), findsNWidgets(2));
+
+      await tester.tap(find.text(l.aidPanelTitle).first);
+      await tester.pumpAndSettle();
       expect(find.text(l.aidColCategory), findsOneWidget);
-      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text(l.aidVoucherCount(1)), findsNothing);
     });
 
-    for (final double width in <double>[320, 411]) {
-      testWidgets('an open container fits at ${width.toInt()}px', (
-        WidgetTester tester,
-      ) async {
-        tester.view.physicalSize = Size(width, 2600);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
-        final AdeelAid aid = twoYears();
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: <Override>[
-              authControllerProvider.overrideWith(
-                () => _StubAuth(AppRole.admin),
+    for (final bool staff in <bool>[false, true]) {
+      for (final double width in <double>[320, 411]) {
+        testWidgets(
+          'an open container fits at ${width.toInt()}px (${staff ? 'admin' : 'member'})',
+          (WidgetTester tester) async {
+            tester.view.physicalSize = Size(width, 2600);
+            tester.view.devicePixelRatio = 1.0;
+            addTearDown(tester.view.reset);
+            final AdeelAid aid = twoYears();
+            await tester.pumpWidget(
+              ProviderScope(
+                overrides: <Override>[
+                  authControllerProvider.overrideWith(
+                    () => _StubAuth(AppRole.admin),
+                  ),
+                  adeelAidProvider(1).overrideWith((Ref ref) async => aid),
+                ],
+                child: MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  theme: buildAppTheme(),
+                  locale: const Locale('ar'),
+                  localizationsDelegates: latinDigitDelegates(
+                    L.localizationsDelegates,
+                  ),
+                  supportedLocales: L.supportedLocales,
+                  home: AdeelAidScreen(adeelId: 1, mine: !staff),
+                ),
               ),
-              adeelAidProvider(1).overrideWith((Ref ref) async => aid),
-            ],
-            child: MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: buildAppTheme(),
-              locale: const Locale('ar'),
-              localizationsDelegates: latinDigitDelegates(
-                L.localizationsDelegates,
-              ),
-              supportedLocales: L.supportedLocales,
-              home: const AdeelAidScreen(adeelId: 1, mine: true),
-            ),
-          ),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(l.aidPanelTitle));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          },
         );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(l.aidPanelTitle));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-      });
+      }
     }
   });
 }

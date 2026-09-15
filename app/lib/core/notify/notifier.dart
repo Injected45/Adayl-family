@@ -96,7 +96,28 @@ class AppNotifier {
   ///   is the association speaking, not a neighbour — and Android lets a man
   ///   silence one channel from his phone's settings. Sharing the chat's would
   ///   make «mute the room» also mute «your payment was recorded».
-  static AndroidNotificationDetails get _noticeChannel =>
+  ///
+  /// ── عشرون ثانية على الشاشة، ثم في تبويب الإشعارات (15/09) ───────────────
+  /// «يظهر على شاشة الهاتف الرئيسية ويضل 20 ثانية … واذا اختفي يكون موجود في
+  /// تبويب الاشعارات». [noticeVisibleFor] is `timeoutAfter`: Android removes
+  /// the notification by itself at twenty seconds, and the notice goes on
+  /// living where it always lived — a row in `notifications`, on the tab.
+  ///
+  /// ⚠ `timeoutAfter` IS A NOTIFICATION PROPERTY, NOT A CHANNEL ONE, so it
+  ///   reaches phones that already created this channel on 13/09. Importance
+  ///   IS a channel property and was already HIGH — the level at which Android
+  ///   pops a notification over the screen — so the id stays and nothing has
+  ///   to be re-created.
+  ///
+  /// ⚠ HOW LONG THE POP-UP ITSELF STAYS DOWN OVER THE SCREEN IS ANDROID'S
+  ///   DECISION, NOT AN APP'S — a few seconds, then it folds into the status
+  ///   bar and waits there for the rest of the twenty. The only notifications
+  ///   that hold the screen longer carry a `fullScreenIntent`, and the call
+  ///   channel's note above records what that did on this app. While the app
+  ///   is OPEN the twenty seconds are exact, because the app draws its own
+  ///   banner then — see `NoticePeekHost`.
+  @visibleForTesting
+  static AndroidNotificationDetails get noticeDetails =>
       AndroidNotificationDetails(
         'association_notices',
         NotifyText.noticeChannel,
@@ -106,11 +127,61 @@ class AppNotifier {
         category: AndroidNotificationCategory.status,
         playSound: true,
         enableVibration: true,
+        timeoutAfter: noticeVisibleFor.inMilliseconds,
         // The whole sentence on the lock screen: «صُرف 400.00 د.ل — فطور
         // رمضان («…»). سند رقم EXP-62.» does not fit one line, and a
         // truncated amount is worse than none.
         styleInformation: const BigTextStyleInformation(''),
       );
+
+  /// How long a notice stays on the phone before it is only on the tab.
+  static const Duration noticeVisibleFor = Duration(seconds: 20);
+
+  /// Which notice the member tapped on his phone, waiting to be opened.
+  ///
+  /// ⚠ A VALUE, NOT AN EVENT. A tap can arrive before anything is listening —
+  ///   the app launched BY the tap has not built a widget yet — so it is held
+  ///   here until `NoticePeekHost` can open it, and cleared by whoever does.
+  static final ValueNotifier<int?> tappedNotice = ValueNotifier<int?>(null);
+
+  /// `notice:<id>` — the payload a notice notification carries.
+  @visibleForTesting
+  static String noticePayload(int id) => 'notice:$id';
+
+  /// The notice id in a payload, or null for anything else (a call, a
+  /// message, a payload from an older build that carried none).
+  @visibleForTesting
+  static int? noticeIdFromPayload(String? payload) {
+    const String prefix = 'notice:';
+    if (payload == null || !payload.startsWith(prefix)) return null;
+    final int? id = int.tryParse(payload.substring(prefix.length));
+    return id != null && id > 0 ? id : null;
+  }
+
+  /// A screen the admin's phone notification was tapped for, waiting to be
+  /// opened — a new proposal opens «مقترحات المشتركين». A value, for the
+  /// reason [tappedNotice] is one.
+  static final ValueNotifier<String?> tappedRoute = ValueNotifier<String?>(
+    null,
+  );
+
+  /// `route:<path>` — the payload of an alert that opens a screen.
+  @visibleForTesting
+  static String routePayload(String route) => 'route:$route';
+
+  @visibleForTesting
+  static String? routeFromPayload(String? payload) {
+    const String prefix = 'route:/';
+    if (payload == null || !payload.startsWith(prefix)) return null;
+    return payload.substring('route:'.length);
+  }
+
+  static void _onTap(NotificationResponse response) {
+    final int? id = noticeIdFromPayload(response.payload);
+    if (id != null) tappedNotice.value = id;
+    final String? route = routeFromPayload(response.payload);
+    if (route != null) tappedRoute.value = route;
+  }
 
   /// Ids. Fixed, so a second call REPLACES the first rather than stacking —
   /// there is only ever one live call, and two ringing notifications would be
@@ -118,6 +189,10 @@ class AppNotifier {
   static const int _callId = 1;
   static const int _chatId = 2;
   static const int _noticeId = 3;
+
+  /// ⚠ ITS OWN ID. The admin receives no member notices today, but a proposal
+  ///   alert sharing id 3 would silently replace one the day he does.
+  static const int _proposalId = 4;
 
   static Future<void> init() async {
     if (_ready) return;
@@ -129,7 +204,19 @@ class AppNotifier {
           // appear at all, silently.
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
+        // A tap on a notice while the process is alive — backgrounded, or
+        // behind the lock screen.
+        onDidReceiveNotificationResponse: _onTap,
       );
+
+      // …and a tap that STARTED the app. Asked once: the answer does not
+      // change for the life of the process.
+      final NotificationAppLaunchDetails? launch = await _plugin
+          .getNotificationAppLaunchDetails();
+      final NotificationResponse? launchedBy = launch?.notificationResponse;
+      if ((launch?.didNotificationLaunchApp ?? false) && launchedBy != null) {
+        _onTap(launchedBy);
+      }
 
       // ⚠ ANDROID 13+ REFUSES EVERY NOTIFICATION until this is granted, and
       //   refuses silently. Asked here rather than at launch: the first thing
@@ -164,18 +251,40 @@ class AppNotifier {
   static Future<void> clearMessages() async => _cancel(_chatId);
 
   /// إشعارٌ من الجمعية — a receipt, a voucher, a month, or the admin's message.
-  static Future<void> notice(String title, String body) async {
-    await _show(_noticeId, title, body, _noticeChannel);
+  /// [noticeId] makes the notification open that notice when tapped.
+  static Future<void> notice(String title, String body, {int? noticeId}) async {
+    await _show(
+      _noticeId,
+      title,
+      body,
+      noticeDetails,
+      payload: noticeId == null ? null : noticePayload(noticeId),
+    );
   }
 
   static Future<void> clearNotices() async => _cancel(_noticeId);
+
+  /// «مقترح جديد من فلان» — on the same channel, for the same twenty seconds,
+  /// opening [route] when tapped.
+  static Future<void> proposal(String title, String body, String route) async {
+    await _show(
+      _proposalId,
+      title,
+      body,
+      noticeDetails,
+      payload: routePayload(route),
+    );
+  }
+
+  static Future<void> clearProposals() async => _cancel(_proposalId);
 
   static Future<void> _show(
     int id,
     String title,
     String body,
-    AndroidNotificationDetails android,
-  ) async {
+    AndroidNotificationDetails android, {
+    String? payload,
+  }) async {
     if (!_ready) await init();
     try {
       await _plugin.show(
@@ -183,6 +292,7 @@ class AppNotifier {
         title: title,
         body: body,
         notificationDetails: NotificationDetails(android: android),
+        payload: payload,
       );
     } on Object catch (e) {
       debugPrint('notify: $e');

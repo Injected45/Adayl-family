@@ -26,6 +26,13 @@ abstract final class AppRoutes {
   /// by this route: the guard pins him to [myDues] and [chat].
   static const String notifications = '/notifications';
 
+  /// قانون الجمعية — the admin's copy, where pages are added and removed. A
+  /// member reads the same pages by a push from his «المزيد».
+  static const String bylaws = '/bylaws';
+
+  /// مقترحات المشتركين — the admin's tab of every proposal.
+  static const String proposals = '/proposals';
+
   /// The register. ONE route where there were two — `/families` listed
   /// households and `/members` listed the people inside them, and they describe
   /// the same rows now.
@@ -40,7 +47,6 @@ abstract final class AppRoutes {
   static const String settings = '/settings';
   static const String users = '/users';
 }
-
 
 /// ── WHICH ROUTES A PORTAL ACCOUNT MAY OCCUPY ────────────────────────────────
 /// An عديل is signed in and approved, so he passes every check the router makes
@@ -63,6 +69,7 @@ abstract final class AppRoutes {
 /// are where that is actually proved.
 bool portalMayOpen(String route) =>
     route == AppRoutes.myDues || route == AppRoutes.chat;
+
 class AppDestination {
   const AppDestination({
     required this.route,
@@ -133,6 +140,24 @@ const List<AppDestination> appDestinations = <AppDestination>[
     selectedIcon: Icons.notifications,
     label: _notificationsLabel,
   ),
+  // ── قانون الجمعية ومقترحات المشتركين (15/09) ─────────────────────────────
+  // Behind «المزيد», admin-only: adding and removing a page of the contract,
+  // and deciding a member's proposal, are the admin's acts. Members reach
+  // their own copies by pushes from the portal, not by these routes.
+  AppDestination(
+    route: AppRoutes.bylaws,
+    icon: Icons.gavel_outlined,
+    selectedIcon: Icons.gavel,
+    label: _bylawsLabel,
+    minimumRole: AppRole.admin,
+  ),
+  AppDestination(
+    route: AppRoutes.proposals,
+    icon: Icons.lightbulb_outline,
+    selectedIcon: Icons.lightbulb,
+    label: _proposalsLabel,
+    minimumRole: AppRole.admin,
+  ),
   AppDestination(
     route: AppRoutes.payments,
     icon: Icons.payments_outlined,
@@ -199,6 +224,8 @@ const List<AppDestination> appDestinations = <AppDestination>[
 String _homeLabel(L l) => l.navHome;
 String _chatLabel(L l) => l.navChat;
 String _notificationsLabel(L l) => l.navNotifications;
+String _bylawsLabel(L l) => l.bylawsTitle;
+String _proposalsLabel(L l) => l.proposalsTitle;
 String _registerLabel(L l) => l.navRegister;
 String _receivablesLabel(L l) => l.navReceivables;
 String _paymentsLabel(L l) => l.navPayments;

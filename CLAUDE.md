@@ -1402,7 +1402,8 @@ verified on one yet; the shrink is the floor, not the expected case.
 - **«أسلافي» على صفحة المشترك تُطوى.** «حسب السنة» and «الإجمالي» start
   closed, open on tap, and opening one closes the other (`_open` in the screen
   state, `_FoldingPanel`). The total rides the closed heading; the search folds
-  with the table. Staff's copy of the screen is NOT folded.
+  with the table. Since 15/09 the ADMIN's «سجل الأسلاف» folds the same way
+  («اجعلهما منسدلتان»); `adeel_aid_test` opens «الإجمالي» first via `_openTotal`.
 - «أسلاف للغير» is now **«أسلاف الأنساب»** (ARB value only).
 - ⚠ The Supabase SQL editor shows only the LAST result set, so a patch's
   check table now comes AFTER the `assert_*` guards, just before `COMMIT`.
@@ -1441,3 +1442,144 @@ verified on one yet; the shrink is the floor, not the expected case.
 - The admin is untouched: `my_role()` never looks at sessions.
 - Proved on a replica with `auth.sessions` stubbed: 20 checks, and the patch
   re-applied cleanly on top of the notifications and «الجدوى» patches.
+
+## الإلغاء في يوم العملية فقط (2026-09-15)
+
+`PATCH_20260915b_same_day_cancel.sql`. «إلغاء وعكس» (receipt) and «إلغاء الصرف»
+(voucher) are accepted ONLY on the Tripoli calendar day the row was recorded:
+`cancel_payment` refuses with RUL09 and `cancel_disbursement` with RUL17 once
+`(paid_at|spent_at AT TIME ZONE 'Africa/Tripoli')::date` is not today. After
+midnight a transaction is part of the books for good — «حارس مهم جدا في
+الحسابات».
+
+- ⚠ **THE DATABASE IS THE GUARD, NOT THE BUTTON.** An admin phone on an older APK
+  still shows the button and is refused. The date being compared is the
+  server-clock stamp, so no handset can make an old row «today».
+- `v_payments` and `v_disbursements` gained `cancellable` (appended last,
+  security_invoker kept, grants restated) — the same test, from `now()`. The
+  app shows each button only when the row says so and never reads the handset
+  clock; `PaymentView/DisbursementView.cancellable` default to FALSE when the
+  key is absent, so an APK built before the patch shows no cancel at all.
+- Proved on a replica: 13 checks, including a receipt moved to 23:59 yesterday
+  refused, today's receipt and voucher cancelled, and every function reading
+  those views still running. `same_day_cancel_test.dart` pins the screen half.
+
+## «حركة العدايل» في شاشة الصندوق (2026-09-15)
+
+`PATCH_20260915c_member_net.sql` adds `v_member_net` (security_invoker): per
+عديل, live receipts (`paid`), live vouchers made out to him (`received`),
+`net` = paid − received, and `totalNet` as a window sum — the same rule as
+`api_member_value`, checked equal for all eight members on a replica.
+
+The treasury screen's «التحصيل» section is now «حركة العدايل», FOLDED: the
+heading carries `totalNet` as «صافي رصيد مستحق لهم» / «رصيد مستحق عليهم», and
+opening it lists EVERY member from `v_member_net` with «صافي رصيد مستحق له» or
+«رصيد مستحق عليه» and the figure unsigned; his receipts and vouchers stay inside
+his card. `moneySign`/`moneyMagnitude` only READ the server's string.
+
+- ⚠ **THIS REVERSES A RULE THE SCREEN USED TO STATE** — «a count, never an
+  amount; aid is never netted». The association asked for the net reading here
+  as it did on «الجدوى». It is a reading, not a debt: no receivable, payment,
+  allocation or statement is touched, which is where الجمعية خيرية is enforced.
+- `memberNetProvider` is in refreshAll and invalidated beside every receipt /
+  voucher write and reversal. `members_movement_test.dart`, and the rewritten
+  `cash_grouping_test` / `direction_test`, pin it.
+
+## الإشعار عشرون ثانية، والتفاصيل ثلاثون ثانية سكون (2026-09-15 d)
+
+Dart only — no SQL, and no financial path touched: everything reads
+`v_notifications` rows the database already wrote.
+
+- **App in front → its own banner; app away → the phone's.** `NoticesUnread.
+  _announce` asks `decideNoticeDelivery(foreground, haveNotice)`. The banner is
+  `NoticePeekHost` in `MaterialApp.builder` (a LAYER over the column, so no
+  screen moves), fed by `noticePeekProvider`, whose Timer — not the widget's —
+  takes it down at exactly 20 s; a newer notice replaces it and restarts. No
+  phone notification is posted while the banner shows: Android would pop one
+  over the same screen.
+- ⚠ **The phone notification's 20 s is `timeoutAfter`**, a NOTIFICATION property,
+  so the `association_notices` channel (already HIGH = heads-up) keeps its id.
+  How long Android's heads-up pop-up itself stays down is the SYSTEM's call — a
+  few seconds, then it waits in the status bar for the rest of the 20. Only a
+  `fullScreenIntent` holds the screen longer, and the call channel's note
+  records why that is not used.
+- **A tap opens that notice.** Payload `notice:<id>`; `AppNotifier.init()` wires
+  `onDidReceiveNotificationResponse` and reads `getNotificationAppLaunchDetails`,
+  and `NoticesUnread.build` now calls `init()` for a member so a launch BY a tap
+  is heard. The id waits in `AppNotifier.tappedNotice` until the member is on
+  `/my-dues` or `/chat` (approved, key not revoked); then `byId` + push.
+  ⚠ **Drained AFTER the frame** — go_router notifies listeners before it rebuilds
+  the Navigator, so a page pushed inside that call sat on the OLD page
+  (/pending, splash) and was thrown away with it.
+- **The tab shows titles only** — icon, title, day stamp, «جديد», chevron. The
+  stamp stays because the database writes the same title for every notice of a
+  kind. Sentence, full date and (for the admin) the recipient are on
+  `NoticeDetailScreen`: full screen, «رجوع» and ✕ close at once, and it pops
+  itself after **30 s without a touch** (a tap or a scroll re-arms; if another
+  page is above it, it re-arms instead of popping the wrong one).
+- `readOne(id)` marks read from the banner/phone ONLY when that notice is the
+  only one waiting — the mark is «everything ≤ id».
+- ⚠ `NotificationsScreen.dispose` wrote `noticesScreenOpenProvider` while the
+  tree was locked and asserted in debug on every exit from the tab; it now
+  clears it in a microtask. `notice_peek_test.dart` pins all of the above.
+
+## قانون الجمعية ومقترحات المشتركين (2026-09-15 e)
+
+`PATCH_20260915d_bylaws_proposals.sql` + `features/bylaws/` + `features/proposals/`.
+No financial table, function or figure is touched (the patch's last row checks it).
+
+- **قانون الجمعية = photographs of the contract, stored IN the database**
+  (`bylaw_pages.image bytea`, ≤ 3 MB, `STORAGE EXTERNAL`), not Supabase Storage:
+  the Storage API does not carry the `x-device-id` header `my_adeel_id()` needs,
+  so a member's read there would be refused while staff's worked. Read through
+  `v_bylaw_pages` (base64 with the line breaks stripped — `encode()` wraps at 76
+  and Dart's decoder rejects them); the list selects `id,mime,sizeBytes,createdAt`
+  and each image is fetched alone by id. `add_bylaw_page` / `delete_bylaw_page`
+  are admin-only and match the type by the first BYTES, not the mime sent.
+- The admin's copy is `/bylaws` behind «المزيد» (camera or phone, via
+  `image_picker` resized to 2000 px / q80 before upload; page numbers; delete
+  with confirmation). The member's copy is pushed from his «المزيد» and shows the
+  images ONLY — no button, no number, no hint (the association's words: «للعرض
+  فقط وبدون ماتذكر ذلك في تلميح او ايحاء»). `bylaws_proposals_test` asserts the
+  member screen's only text is its title. ⚠ Lazy list, decoded at display width.
+  ⚠ `BylawViewer` shows ONE page with pinch-zoom and NO swipe between pages: on
+  the emulator a quick swipe inside a PageView was taken by InteractiveViewer
+  and the next page never came (a test reproduced it with `timedDrag`).
+- **Proposals:** `proposals` (title ≤ 20 CODE POINTS — `char_length`, and the
+  field's `CodePointLimit` counts the same way; body ≤ 2000; name/code snapshot;
+  no FK, for the purge). `submit_proposal` needs `my_adeel_id()`; the member reads
+  only his own. `accept_proposal` → kept forever: `proposals_guard` refuses every
+  edit and delete of an accepted row, even from the SQL editor. `reject_proposal`
+  → the row is DELETED («يختفي تماما» from both sides), and an accepted one cannot
+  be rejected. Errors RUL20 (proposals) / RUL21 (pages), both 422.
+- Admin tab `/proposals`: small cards (name + title), waiting first, accepted
+  below. The detail page — for both readers — is the notice's mechanism, now the
+  shared `core/widgets/idle_auto_close.dart`: 30 s without a touch closes it,
+  «رجوع»/✕ at once. Accept/Reject appear only to the admin on a waiting one;
+  reject asks first.
+- ⚠ Both «المزيد» sheets now SCROLL: six member sections and eleven admin tiles
+  overflowed a 360×640 phone (the admin's by 235 px).
+- ⚠ `refresh_coverage_test`'s scan now allows digits in the declared type —
+  `FutureProviderFamily<Uint8List, int>` was invisible to it.
+- Proved on a replica: 52 checks (member reads but cannot write pages, wrong
+  phone reads nothing, 21-letter title refused, accepted row immutable to the
+  owner, rejected row gone for both, guards pass, re-run safe). Debug APK built
+  with `image_picker` on this machine.
+- **The admin is told when a proposal arrives (15/09 f).** `ProposalsWaiting`
+  (admin only, not auto-disposed, 10 s poll + resume + background beat, no DB
+  change) reads the waiting ids and alerts by the NEWEST ID, not the count —
+  one decided and one arrived in the same tick leaves the count unchanged.
+  In front: the notice banner (`NoticePeek.route` → `router.go('/proposals')`);
+  away: `AppNotifier.proposal` (id 4, payload `route:/proposals`, drained by
+  `NoticePeekHost` only for an approved admin past the sign-in screens).
+  Nothing is announced while `proposalsScreenOpenProvider` is true. The count
+  rides «المزيد», the tab's tile and the wide rail.
+- **Camera verified on the Android emulator** (API 36, virtual scene) with the
+  REAL `BylawsScreen` + `PagePicker` over an in-memory repository: the camera
+  intent opens with no permission prompt (the merged manifest declares no
+  CAMERA), the photo returns as JPEG and is listed; the photo picker returned two
+  images. The probe entry point was deleted afterwards.
+- Live state was probed read-only with the public anon key: an existing view,
+  column or function answers 42501, a missing one 42703 / PGRST205 / PGRST202.
+  Body-only patches (14, 15) cannot be seen that way — `supabase/CHECK_PATCHES.sql`
+  (read-only, seven patches, verdict row first) answers those.

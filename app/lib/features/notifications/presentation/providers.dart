@@ -71,6 +71,80 @@ NoticeAlert decideNoticeAlert({
   return NoticeAlert.none;
 }
 
+/// Where an announced notice is shown.
+enum NoticeDelivery {
+  /// The app is in front of him: its own banner, for exactly twenty seconds,
+  /// and NO phone notification — Android would pop one over the same screen
+  /// and he would be told twice.
+  banner,
+
+  /// The app is behind something, or the screen is off: the phone's.
+  phone,
+}
+
+/// ⚠ THE BANNER NEEDS THE NOTICE ITSELF — its title, its sentence, and what to
+///   open when tapped. When the newest could not be read, the phone's generic
+///   «لديك إشعار جديد» is still better than nothing, whatever is in front.
+NoticeDelivery decideNoticeDelivery({
+  required bool foreground,
+  required bool haveNotice,
+}) => foreground && haveNotice ? NoticeDelivery.banner : NoticeDelivery.phone;
+
+/// Whether the app is the thing on his screen. A lifecycle not yet reported
+/// is the first frames of a launch — which is the app, in front.
+bool appInForeground() {
+  final AppLifecycleState? s = WidgetsBinding.instance.lifecycleState;
+  return s == null || s == AppLifecycleState.resumed;
+}
+
+/// One notice on the in-app banner, and how many more are waiting behind it.
+class NoticePeek {
+  const NoticePeek(this.notice, {this.more = 0, this.route});
+
+  final AppNotice notice;
+  final int more;
+
+  /// Where a tap goes instead of the notice's own page — the admin's alert
+  /// for a new proposal opens «مقترحات المشتركين».
+  final String? route;
+}
+
+/// The banner over every screen — «يظهر … ويضل 20 ثانية».
+///
+/// ⚠ THE CLOCK IS HERE, NOT IN THE WIDGET. The banner is drawn in
+///   MaterialApp.builder and rebuilt with everything else; a timer owned by a
+///   widget there would restart on every theme or session rebuild and the
+///   twenty seconds would stretch. A second notice REPLACES the first and
+///   restarts the count — the newest is the one worth reading.
+class NoticePeekController extends Notifier<NoticePeek?> {
+  static const Duration visibleFor = AppNotifier.noticeVisibleFor;
+
+  Timer? _timer;
+
+  @override
+  NoticePeek? build() {
+    ref.onDispose(() => _timer?.cancel());
+    return null;
+  }
+
+  void show(AppNotice notice, {int more = 0, String? route}) {
+    _timer?.cancel();
+    state = NoticePeek(notice, more: more, route: route);
+    _timer = Timer(visibleFor, dismiss);
+  }
+
+  void dismiss() {
+    _timer?.cancel();
+    _timer = null;
+    state = null;
+  }
+}
+
+final NotifierProvider<NoticePeekController, NoticePeek?> noticePeekProvider =
+    NotifierProvider<NoticePeekController, NoticePeek?>(
+      NoticePeekController.new,
+    );
+
 class _OnResume with WidgetsBindingObserver {
   _OnResume(this.onResume);
 
@@ -137,6 +211,11 @@ class NoticesUnread extends AsyncNotifier<int> {
       return 0;
     }
 
+    // ⚠ NOW, NOT ON THE FIRST NOTICE. Initialising is what hears a TAP — and
+    //   a tap that launched the app is only answered if somebody asks after
+    //   the launch. Waiting for the first notice to post would drop it.
+    unawaited(AppNotifier.init());
+
     final _OnResume resume = _OnResume(() => _tick(generation));
     WidgetsBinding.instance.addObserver(resume);
     final VoidCallback deafen = ref.read(doorbellProvider).listen((Ring r) {
@@ -190,6 +269,7 @@ class NoticesUnread extends AsyncNotifier<int> {
           _armed = true;
         case NoticeAlert.clear:
           unawaited(AppNotifier.clearNotices());
+          ref.read(noticePeekProvider.notifier).dismiss();
         case NoticeAlert.announce:
           unawaited(_announce(n, generation));
         case NoticeAlert.none:
@@ -205,28 +285,51 @@ class NoticesUnread extends AsyncNotifier<int> {
     }
   }
 
-  /// The newest notice's own words on the lock screen — the title the server
-  /// wrote, and its sentence. «و ٣ إشعارات أخرى» when more are waiting, since
-  /// Android replaces by id and shows only the newest.
+  /// The newest notice's own words — on the app's banner when he is in it, on
+  /// the phone when he is not. «و ٣ أخرى» when more are waiting, since both
+  /// show only the newest.
   Future<void> _announce(int n, int generation) async {
-    String title = NotifyText.noticeFallbackTitle;
-    String body = NotifyText.noticeFallbackBody;
+    AppNotice? newest;
     try {
-      final AppNotice? newest = await ref
+      newest = await ref
           .read(notificationsRepositoryProvider)
           .newestSince(_seen);
-      if (newest != null) {
-        title = newest.title;
-        body = n > 1
-            ? NotifyText.noticeAndMore(newest.body, n - 1)
-            : newest.body;
-      }
     } on Object {
       // Keep the generic alert: a vague notification is recoverable, a
       // missing one is not.
     }
     if (generation != _generation) return;
-    unawaited(AppNotifier.notice(title, body));
+
+    switch (decideNoticeDelivery(
+      foreground: appInForeground(),
+      haveNotice: newest != null,
+    )) {
+      case NoticeDelivery.banner:
+        ref.read(noticePeekProvider.notifier).show(newest!, more: n - 1);
+      case NoticeDelivery.phone:
+        unawaited(
+          AppNotifier.notice(
+            newest?.title ?? NotifyText.noticeFallbackTitle,
+            newest == null
+                ? NotifyText.noticeFallbackBody
+                : n > 1
+                ? NotifyText.noticeAndMore(newest.body, n - 1)
+                : newest.body,
+            noticeId: newest?.id,
+          ),
+        );
+    }
+  }
+
+  /// He read ONE notice outside the tab — from the banner or his phone.
+  ///
+  /// ⚠ ONLY WHEN IT IS THE ONLY ONE WAITING. The read mark is «everything up to
+  ///   this id», so marking the newest while two older ones wait would clear
+  ///   notices he never saw. With more than one, the badge stays until he
+  ///   opens the tab, which is where «read» has always been decided.
+  Future<void> readOne(int id) async {
+    if (id <= _seen || (state.valueOrNull ?? 0) > 1) return;
+    await markSeen(id);
   }
 
   /// اسأل الآن — from the background heartbeat and after a send.
@@ -245,6 +348,7 @@ class NoticesUnread extends AsyncNotifier<int> {
       _announced = 0;
       state = const AsyncValue<int>.data(0);
       unawaited(AppNotifier.clearNotices());
+      ref.read(noticePeekProvider.notifier).dismiss();
     } on Object {
       // The next tick corrects the badge.
     }

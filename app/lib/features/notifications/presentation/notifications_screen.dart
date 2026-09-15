@@ -16,6 +16,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
+import 'notice_detail_screen.dart';
 import 'providers.dart';
 
 /// الإشعارات — one screen, two readers.
@@ -84,7 +85,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   void dispose() {
-    _open.state = false;
+    // ⚠ AFTER THIS FRAME, NOT NOW. dispose() runs while the tree is locked,
+    //   and writing a provider there asserts in a debug build — which aborted
+    //   the rest of dispose the moment he backed out of the tab. Nobody went
+    //   back out of it often enough to see that until a notice's page began
+    //   returning him here (15/09).
+    final StateController<bool> open = _open;
+    Future<void>.microtask(() {
+      if (open.mounted) open.state = false;
+    });
     super.dispose();
   }
 
@@ -244,13 +253,20 @@ class _Empty extends StatelessWidget {
   }
 }
 
-/// One notice: what kind, the server's title and sentence, when, and — for
-/// staff — to whom.
+/// One notice on the tab: its title, and nothing of what it says.
 ///
-/// ⚠ EVERY LINE WRAPS; NOTHING IS CLIPPED OR SCROLLED SIDEWAYS. A voucher note
-///   can be a sentence, a member's name is four words, and a 320-wide phone
-///   must hold both. The meta line is a Wrap for the same reason: when the
-///   stamp, the reference and the recipient do not fit one row they take two.
+/// «اي اشعار موجود في تبويب الاشعار اجعله يظهر في حقل يظهر العنوان فقط وعند
+/// الضغط عليه يظهر تفاصيل الاشعار» (15/09). The sentence, the full date and —
+/// for the admin — whom it went to are all on [NoticeDetailScreen], one tap
+/// away.
+///
+/// ⚠ THE DAY STAMP STAYS UNDER THE TITLE, small and muted, and that is the one
+///   thing kept beside it. The database writes the SAME title for every notice
+///   of a kind — «تم تسجيل سداد» for every receipt — so without it the tab is a
+///   column of identical words with nothing to tell one from the next.
+///
+/// ⚠ THE TITLE WRAPS TO TWO LINES, THEN ENDS «…». The admin's own title may be
+///   120 characters; the whole of it is on the detail page.
 class NoticeTile extends StatelessWidget {
   const NoticeTile({
     required this.notice,
@@ -273,6 +289,7 @@ class NoticeTile extends StatelessWidget {
     NoticeKind.paymentCancelled ||
     NoticeKind.disbursementCancelled => (Icons.undo, AppColors.warning),
     NoticeKind.broadcast => (Icons.campaign_outlined, AppColors.brand),
+    NoticeKind.proposal => (Icons.lightbulb_outline, AppColors.accent),
   };
 
   @override
@@ -280,18 +297,18 @@ class NoticeTile extends StatelessWidget {
     final L l = L.of(context);
     final (IconData icon, Color tone) = look(notice.kind);
 
-    final String who = notice.toEveryone
-        ? l.noticeToEveryone
-        : <String?>[
-            notice.adeelCode,
-            notice.adeelName,
-          ].whereType<String>().where((String s) => s.isNotEmpty).join(' · ');
-
     return GlassCard(
       borderColor: fresh ? AppColors.brand : null,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push<void>(NoticeDetailScreen.route(notice, staff: staff)),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
             width: 36,
@@ -307,60 +324,32 @@ class NoticeTile extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        notice.title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                    if (fresh) ...<Widget>[
-                      const SizedBox(width: AppSpacing.sm),
-                      StatusBadge(label: l.noticeNew, tone: AppColors.brand),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
                 Text(
-                  notice.body,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.55,
-                    color: AppColors.text,
+                  notice.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    height: 1.4,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.md,
-                  runSpacing: AppSpacing.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    Text(
-                      formatDayStamp(
-                        notice.createdAt,
-                        yesterday: l.chatYesterday,
-                      ),
-                      style: TextStyle(fontSize: 11, color: AppColors.muted),
-                    ),
-                    if (staff && who.isNotEmpty)
-                      StatusBadge(
-                        label: who,
-                        tone: notice.toEveryone
-                            ? AppColors.brand
-                            : AppColors.inkMuted,
-                      ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  formatDayStamp(notice.createdAt, yesterday: l.chatYesterday),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
               ],
             ),
           ),
+          if (fresh) ...<Widget>[
+            const SizedBox(width: AppSpacing.sm),
+            StatusBadge(label: l.noticeNew, tone: AppColors.brand),
+          ],
+          const SizedBox(width: AppSpacing.xs),
+          Icon(Icons.chevron_left, size: 20, color: AppColors.muted),
         ],
       ),
     );

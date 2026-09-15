@@ -124,6 +124,15 @@ class FinanceRepository {
         return _rows(rows).map(CashMovementView.fromJson).toList();
       });
 
+  /// Every member's paid / received / net, and the total — «حركة العدايل».
+  Future<List<MemberNet>> memberNet() => SupabaseFailures.guard(() async {
+    final dynamic rows = await _db
+        .from('v_member_net')
+        .select()
+        .order('adeelCode', ascending: true);
+    return _rows(rows).map(MemberNet.fromJson).toList();
+  });
+
   Future<GenerateResultView> generatePeriod(String period) =>
       SupabaseFailures.guard(() async {
         final dynamic result = await _db.rpc<dynamic>(

@@ -61,6 +61,8 @@ const Set<String> baseTables = <String>{
   'cash_movements',
   'audit_log',
   'notifications',
+  'bylaw_pages',
+  'proposals',
 };
 
 /// Which RPC replaces a direct write, so the error says what to do instead.
@@ -75,6 +77,8 @@ const Map<String, String> writeReplacement = <String, String>{
   'profiles': 'set_user_access()',
   'audit_log': 'nothing — the audit trail is written by triggers',
   'notifications': 'send_broadcast() — every other notice is written by a trigger',
+  'bylaw_pages': 'add_bylaw_page() / delete_bylaw_page()',
+  'proposals': 'submit_proposal() / accept_proposal() / reject_proposal()',
 };
 
 class Finding {

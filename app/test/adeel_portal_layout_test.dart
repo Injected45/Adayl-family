@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:family_app/core/config/theme.dart';
 import 'package:family_app/core/format/formatters.dart';
 import 'package:family_app/core/l10n/latin_digit_localizations.dart';
@@ -754,6 +756,32 @@ void _portalCapsuleTests() {
     expect(find.text(l.navChat), findsOneWidget);
   });
 
+  // ⚠ SIX SECTIONS SINCE 15/09 — «قانون الجمعية» and «إضافة مقترح» joined the
+  //   four — and with the theme picker and sign-out that is taller than a
+  //   640-high phone. The sheet scrolls; unscrolled, sign-out fell off it.
+  testWidgets('his «المزيد» holds all six sections on a 360×640 phone', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l.navMore));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text(l.bylawsTitle), findsOneWidget);
+    expect(find.text(l.proposalAddTitle), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text(l.signOut),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text(l.signOut).hitTestable(), findsOneWidget);
+  });
+
   testWidgets('⚠ and المحادثات is there ONCE, not also on the page', (
     WidgetTester tester,
   ) async {
@@ -764,15 +792,30 @@ void _portalCapsuleTests() {
     expect(find.text(l.navChat), findsOneWidget);
   });
 
-  testWidgets('...and the header carries the two app controls', (
+  testWidgets('...and the header carries refresh, and no restart', (
     WidgetTester tester,
   ) async {
-    // Refresh and restart — the ones that act on the APP rather than navigate
-    // it, exactly as the staff bar keeps them. The association asked for the
-    // restart button by name.
+    // Refresh acts on the APP rather than navigates it, exactly as the staff
+    // bar keeps it. «إعادة التشغيل» sat beside it and was removed on 15/09:
+    // «الغاء زر إعادة التشغيل وترك زر تحديث البيانات».
     await open(tester);
-    expect(find.byIcon(Icons.restart_alt), findsOneWidget);
     expect(find.byIcon(Icons.refresh), findsOneWidget);
+    expect(find.byIcon(Icons.restart_alt), findsNothing);
+  });
+
+  test('⚠ and no restart button survives on ANY bar', () {
+    // The staff bar carried it too. Scanned rather than rendered, so a copy
+    // added to a third screen fails here as well.
+    final List<String> offenders = <String>[
+      for (final FileSystemEntity e in Directory(
+        'lib',
+      ).listSync(recursive: true))
+        if (e is File &&
+            e.path.endsWith('.dart') &&
+            e.readAsStringSync().contains('Icons.restart_alt'))
+          e.path,
+    ];
+    expect(offenders, isEmpty);
   });
 }
 
