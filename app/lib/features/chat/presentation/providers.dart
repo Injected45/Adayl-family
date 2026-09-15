@@ -231,6 +231,14 @@ class ChatController
       //   sat on the one-second tier all day. The adaptive cadence was
       //   written, documented, and then never actually reached.
       if (tail.isEmpty) {
+        // ⚠ A SWEEP THAT FINDS NOTHING MEANS ROWS WERE REMOVED. `from` is the
+        //   id of a message on screen, so an empty answer is not silence — it
+        //   is a conversation the admin cleared. The merge below would keep
+        //   every row it no longer has; a full read is the only honest answer.
+        if (sweep) {
+          await _reload();
+          return;
+        }
         _goneQuiet();
         return;
       }
@@ -323,6 +331,28 @@ class ChatController
     ref.read(doorbellProvider).ring(Ring.chat);
     _wakeUp();
     await _reload();
+  }
+
+  /// حذفٌ جزئيّ: the selected messages, together.
+  Future<void> removeMany(List<int> ids) async {
+    await ref.read(chatRepositoryProvider).deleteMany(ids);
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+  }
+
+  /// مسحُ هذه المحادثة كلِّها — a member's conversation with الإدارة. Returns
+  /// how many messages went. Nothing for المجلس, which has no thread id.
+  Future<int> clearThread() async {
+    final int? thread = arg;
+    if (thread == null) return 0;
+    final int n = await ref.read(chatRepositoryProvider).clearThread(thread);
+    // ⚠ THE RING IS WHAT EMPTIES HIS SCREEN AT ONCE: every open copy of this
+    //   room reloads on it. Without a socket the sweep still finds it.
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+    return n;
   }
 
   /// يُرسل مقطعاً صوتيّاً.
@@ -494,6 +524,11 @@ class DirectChatController
           .read(chatRepositoryProvider)
           .directRefreshFrom(from, arg);
       if (tail.isEmpty) {
+        // Rows removed — the same reasoning as ChatController._poll.
+        if (sweep) {
+          await _reload();
+          return;
+        }
         _goneQuiet();
         return;
       }
@@ -541,6 +576,13 @@ class DirectChatController
 
   Future<void> remove(int id) async {
     await ref.read(chatRepositoryProvider).delete(id);
+    ref.read(doorbellProvider).ring(Ring.chat);
+    _wakeUp();
+    await _reload();
+  }
+
+  Future<void> removeMany(List<int> ids) async {
+    await ref.read(chatRepositoryProvider).deleteMany(ids);
     ref.read(doorbellProvider).ring(Ring.chat);
     _wakeUp();
     await _reload();

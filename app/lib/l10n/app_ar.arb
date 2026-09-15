@@ -132,6 +132,71 @@
     "description": "Badge beside the name of anyone who spoke as staff. An announcement about a meeting reads differently from a member's opinion of it."
   },
   "chatDeleteTitle": "حذف الرسالة؟",
+  "chatDeleteThisMessage": "حذف هذه الرسالة",
+  "chatSelectMessages": "تحديد رسائل للحذف",
+  "chatSelectedCount": "{count} محددة",
+  "@chatSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSelectAll": "تحديد الكل",
+  "chatCancelSelection": "إلغاء التحديد",
+  "chatDeleteManyTitle": "حذف {count} رسالة؟",
+  "@chatDeleteManyTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDeletedMany": "حُذفت {count} رسالة",
+  "@chatDeletedMany": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearThread": "مسح المحادثة",
+  "chatClearThreadTitle": "مسح المحادثة مع {name}؟",
+  "@chatClearThreadTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatClearThreadBody": "ستُحذف كل الرسائل في هذه المحادثة نهائيًا، من عندك ومن عند المشترك، ولا يمكن التراجع عن ذلك.",
+  "chatClearedThread": "مُسحت المحادثة ({count} رسالة)",
+  "@chatClearedThread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearAllThreads": "مسح كل الرسائل الخاصة",
+  "chatClearAllTitle": "مسح كل الرسائل الخاصة؟",
+  "chatClearAllBody": "ستُحذف كل المحادثات بين الإدارة والمشتركين ({count} محادثة) نهائيًا، من عندك ومن عندهم، ولا يمكن التراجع عن ذلك. المحادثة الجماعية لا تتأثر.",
+  "@chatClearAllBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearedAll": "مُسحت كل الرسائل الخاصة ({count} رسالة)",
+  "@chatClearedAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearConfirm": "مسح",
   "chatDeleteBody": "ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المحادثة.",
   "navHome": "الرئيسية",
   "navReceivables": "الاستحقاقات",
@@ -1017,6 +1082,25 @@
   },
   "proposalsAcceptedHeading": "المقبولة ({count})",
   "@proposalsAcceptedHeading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticesClearAll": "مسح كل الإشعارات",
+  "noticesClearTitle": "مسح كل الإشعارات؟",
+  "noticesClearBody": "ستُحذف كل الإشعارات ({count}) نهائيًا من عندك ومن عند كل المشتركين، ولا يمكن التراجع عن ذلك.",
+  "@noticesClearBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticesClearConfirm": "مسح",
+  "noticesCleared": "حُذفت كل الإشعارات ({count})",
+  "@noticesCleared": {
     "placeholders": {
       "count": {
         "type": "int"

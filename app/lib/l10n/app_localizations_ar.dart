@@ -253,6 +253,69 @@ class LAr extends L {
   String get chatDeleteTitle => 'حذف الرسالة؟';
 
   @override
+  String get chatDeleteThisMessage => 'حذف هذه الرسالة';
+
+  @override
+  String get chatSelectMessages => 'تحديد رسائل للحذف';
+
+  @override
+  String chatSelectedCount(int count) {
+    return '$count محددة';
+  }
+
+  @override
+  String get chatSelectAll => 'تحديد الكل';
+
+  @override
+  String get chatCancelSelection => 'إلغاء التحديد';
+
+  @override
+  String chatDeleteManyTitle(int count) {
+    return 'حذف $count رسالة؟';
+  }
+
+  @override
+  String chatDeletedMany(int count) {
+    return 'حُذفت $count رسالة';
+  }
+
+  @override
+  String get chatClearThread => 'مسح المحادثة';
+
+  @override
+  String chatClearThreadTitle(String name) {
+    return 'مسح المحادثة مع $name؟';
+  }
+
+  @override
+  String get chatClearThreadBody =>
+      'ستُحذف كل الرسائل في هذه المحادثة نهائيًا، من عندك ومن عند المشترك، ولا يمكن التراجع عن ذلك.';
+
+  @override
+  String chatClearedThread(int count) {
+    return 'مُسحت المحادثة ($count رسالة)';
+  }
+
+  @override
+  String get chatClearAllThreads => 'مسح كل الرسائل الخاصة';
+
+  @override
+  String get chatClearAllTitle => 'مسح كل الرسائل الخاصة؟';
+
+  @override
+  String chatClearAllBody(int count) {
+    return 'ستُحذف كل المحادثات بين الإدارة والمشتركين ($count محادثة) نهائيًا، من عندك ومن عندهم، ولا يمكن التراجع عن ذلك. المحادثة الجماعية لا تتأثر.';
+  }
+
+  @override
+  String chatClearedAll(int count) {
+    return 'مُسحت كل الرسائل الخاصة ($count رسالة)';
+  }
+
+  @override
+  String get chatClearConfirm => 'مسح';
+
+  @override
   String get chatDeleteBody =>
       'ستختفي الكلمات نهائياً ويبقى مكانها ظاهراً في المحادثة.';
 
@@ -1679,6 +1742,25 @@ class LAr extends L {
   @override
   String proposalsAcceptedHeading(int count) {
     return 'المقبولة ($count)';
+  }
+
+  @override
+  String get noticesClearAll => 'مسح كل الإشعارات';
+
+  @override
+  String get noticesClearTitle => 'مسح كل الإشعارات؟';
+
+  @override
+  String noticesClearBody(int count) {
+    return 'ستُحذف كل الإشعارات ($count) نهائيًا من عندك ومن عند كل المشتركين، ولا يمكن التراجع عن ذلك.';
+  }
+
+  @override
+  String get noticesClearConfirm => 'مسح';
+
+  @override
+  String noticesCleared(int count) {
+    return 'حُذفت كل الإشعارات ($count)';
   }
 
   @override

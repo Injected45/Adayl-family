@@ -535,6 +535,102 @@ abstract class L {
   /// **'حذف الرسالة؟'**
   String get chatDeleteTitle;
 
+  /// No description provided for @chatDeleteThisMessage.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف هذه الرسالة'**
+  String get chatDeleteThisMessage;
+
+  /// No description provided for @chatSelectMessages.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديد رسائل للحذف'**
+  String get chatSelectMessages;
+
+  /// No description provided for @chatSelectedCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} محددة'**
+  String chatSelectedCount(int count);
+
+  /// No description provided for @chatSelectAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديد الكل'**
+  String get chatSelectAll;
+
+  /// No description provided for @chatCancelSelection.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء التحديد'**
+  String get chatCancelSelection;
+
+  /// No description provided for @chatDeleteManyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف {count} رسالة؟'**
+  String chatDeleteManyTitle(int count);
+
+  /// No description provided for @chatDeletedMany.
+  ///
+  /// In ar, this message translates to:
+  /// **'حُذفت {count} رسالة'**
+  String chatDeletedMany(int count);
+
+  /// No description provided for @chatClearThread.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح المحادثة'**
+  String get chatClearThread;
+
+  /// No description provided for @chatClearThreadTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح المحادثة مع {name}؟'**
+  String chatClearThreadTitle(String name);
+
+  /// No description provided for @chatClearThreadBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستُحذف كل الرسائل في هذه المحادثة نهائيًا، من عندك ومن عند المشترك، ولا يمكن التراجع عن ذلك.'**
+  String get chatClearThreadBody;
+
+  /// No description provided for @chatClearedThread.
+  ///
+  /// In ar, this message translates to:
+  /// **'مُسحت المحادثة ({count} رسالة)'**
+  String chatClearedThread(int count);
+
+  /// No description provided for @chatClearAllThreads.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح كل الرسائل الخاصة'**
+  String get chatClearAllThreads;
+
+  /// No description provided for @chatClearAllTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح كل الرسائل الخاصة؟'**
+  String get chatClearAllTitle;
+
+  /// No description provided for @chatClearAllBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستُحذف كل المحادثات بين الإدارة والمشتركين ({count} محادثة) نهائيًا، من عندك ومن عندهم، ولا يمكن التراجع عن ذلك. المحادثة الجماعية لا تتأثر.'**
+  String chatClearAllBody(int count);
+
+  /// No description provided for @chatClearedAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'مُسحت كل الرسائل الخاصة ({count} رسالة)'**
+  String chatClearedAll(int count);
+
+  /// No description provided for @chatClearConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح'**
+  String get chatClearConfirm;
+
   /// No description provided for @chatDeleteBody.
   ///
   /// In ar, this message translates to:
@@ -3036,6 +3132,36 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'المقبولة ({count})'**
   String proposalsAcceptedHeading(int count);
+
+  /// No description provided for @noticesClearAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح كل الإشعارات'**
+  String get noticesClearAll;
+
+  /// No description provided for @noticesClearTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح كل الإشعارات؟'**
+  String get noticesClearTitle;
+
+  /// No description provided for @noticesClearBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستُحذف كل الإشعارات ({count}) نهائيًا من عندك ومن عند كل المشتركين، ولا يمكن التراجع عن ذلك.'**
+  String noticesClearBody(int count);
+
+  /// No description provided for @noticesClearConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح'**
+  String get noticesClearConfirm;
+
+  /// No description provided for @noticesCleared.
+  ///
+  /// In ar, this message translates to:
+  /// **'حُذفت كل الإشعارات ({count})'**
+  String noticesCleared(int count);
 
   /// No description provided for @noticesLogHeading.
   ///

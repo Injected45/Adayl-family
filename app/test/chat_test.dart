@@ -327,6 +327,10 @@ void main() {
     ], user: _admin);
     await tester.longPress(_body('كلام يحتاج حذفاً'));
     await tester.pumpAndSettle();
+    // Since 15/09 the admin's long press offers this message alone, or a
+    // selection of several — the first is the single delete it always was.
+    await tester.tap(find.text(l.chatDeleteThisMessage));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, l.delete));
     await tester.pumpAndSettle();
     expect(chat.deleted, 9);
@@ -1013,8 +1017,7 @@ void _timeInlineTests() {
     // sentence. Bottom drops it a couple of pixels — «أسفل منها بمليمترات».
     await _openAs(tester, <ChatMessage>[_msg(id: 1, body: 'تمام')]);
 
-    final WidgetSpan clock =
-        leaves(spanOf(tester, 'تمام')).last as WidgetSpan;
+    final WidgetSpan clock = leaves(spanOf(tester, 'تمام')).last as WidgetSpan;
     expect(clock.alignment, PlaceholderAlignment.bottom);
   });
 

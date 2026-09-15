@@ -86,6 +86,18 @@ class NotificationsRepository {
     return ((list.first as Map)['id'] as num).toInt();
   });
 
+  /// مسح كل الإشعارات — عند الأدمن وعند كل المشتركين. Returns how many went.
+  ///
+  /// ⚠ ADMIN-ONLY IN THE DATABASE: `clear_notifications` calls
+  ///   `require_role('admin')` first, deletes without restarting the numbering
+  ///   (every member's phone remembers the last id it saw), and writes the act
+  ///   to the audit trail.
+  Future<int> clearAll() => SupabaseFailures.guard(() async {
+    final dynamic result = await _db.rpc<dynamic>('clear_notifications');
+    final Object? deleted = result is Map ? result['deleted'] : null;
+    return deleted is num ? deleted.toInt() : 0;
+  });
+
   /// رسالة من الإدارة إلى كل المشتركين.
   ///
   /// ⚠ ADMIN-ONLY IN THE DATABASE, not here: `send_broadcast` calls

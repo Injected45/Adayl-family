@@ -9,6 +9,7 @@ import '../../../core/config/glass.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/format/formatters.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/realtime/doorbell.dart';
 import '../../../core/router/destinations.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../../core/widgets/async_view.dart';
@@ -78,6 +79,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scroll = ScrollController();
   bool _sending = false;
   _Room _room = _Room.hall;
+
+  /// الرسائل المحدَّدة للحذف الجزئيّ — empty is «not selecting».
+  ///
+  /// ⚠ CLEARED WHENEVER THE ROOM CHANGES. An id selected in one conversation
+  ///   and deleted from another screen would be a message nobody meant.
+  final Set<int> _selected = <int>{};
 
   /// المسجِّل، وحالتُه على الشاشة.
   ///
@@ -369,6 +376,171 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  /// A red «are you sure», for every deletion that is more than one message.
+  Future<bool> _confirmRed(String title, String body, String confirm) async {
+    final bool? sure = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => GlassDialog(
+        destructive: true,
+        icon: const Icon(Icons.delete_sweep_outlined),
+        title: Text(title),
+        content: Text(body, style: const TextStyle(height: 1.5)),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(L.of(dialogContext).cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(confirm),
+          ),
+        ],
+      ),
+    );
+    return sure == true && mounted;
+  }
+
+  /// الضغطُ المطوّل عند الأدمن: هذه الرسالة وحدها، أو تحديدُ عدّة رسائل.
+  ///
+  /// ⚠ «حذف هذه الرسالة» IS THE SINGLE DELETE HE ALREADY HAD, dialog and all —
+  ///   the menu only adds the second door. A member's long press is unchanged.
+  Future<void> _adminMenu(L l, ChatMessage message) async {
+    final String? choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: AppColors.ink.withValues(alpha: 0.22),
+      builder: (BuildContext sheet) => GlassSurface(
+        lifted: true,
+        fill: GlassColors.overlay,
+        margin: const EdgeInsets.all(AppSpacing.md),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.delete_outline, color: AppColors.danger),
+                  title: Text(l.chatDeleteThisMessage),
+                  onTap: () => Navigator.of(sheet).pop('one'),
+                ),
+                ListTile(
+                  leading: Icon(Icons.checklist, color: AppColors.brand),
+                  title: Text(l.chatSelectMessages),
+                  onTap: () => Navigator.of(sheet).pop('many'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'one') await _delete(l, message);
+    if (choice == 'many') {
+      setState(
+        () => _selected
+          ..clear()
+          ..add(message.id),
+      );
+    }
+  }
+
+  void _toggle(ChatMessage message) => setState(() {
+    if (!_selected.remove(message.id)) _selected.add(message.id);
+  });
+
+  /// Every message on screen that can still be deleted.
+  void _selectAll() {
+    final List<ChatMessage> all =
+        ref.read(chatProvider(_key)).valueOrNull ?? const <ChatMessage>[];
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(<int>[
+          for (final ChatMessage m in all)
+            if (!m.deleted) m.id,
+        ]);
+    });
+  }
+
+  /// حذفٌ جزئيّ: the selected messages, after one red question.
+  Future<void> _deleteSelected(L l) async {
+    final List<int> ids = _selected.toList();
+    if (ids.isEmpty) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    if (!await _confirmRed(
+      l.chatDeleteManyTitle(ids.length),
+      l.chatDeleteBody,
+      l.delete,
+    )) {
+      return;
+    }
+    try {
+      await _notifier.removeMany(ids);
+      if (mounted) setState(_selected.clear);
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.chatDeletedMany(ids.length))),
+      );
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
+    }
+  }
+
+  /// مسحٌ كلّيّ لمحادثة هذا المشترك مع الإدارة.
+  Future<void> _clearThread(L l) async {
+    final int? thread = _thread;
+    if (thread == null) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    if (!await _confirmRed(
+      l.chatClearThreadTitle(_threadName),
+      l.chatClearThreadBody,
+      l.chatClearConfirm,
+    )) {
+      return;
+    }
+    try {
+      final int n = await ref.read(chatProvider(thread).notifier).clearThread();
+      ref.invalidate(chatThreadsProvider);
+      ref.invalidate(threadUnreadProvider);
+      ref.invalidate(roomUnreadProvider);
+      if (mounted) {
+        setState(() {
+          _selected.clear();
+          _thread = null;
+        });
+      }
+      messenger.showSnackBar(SnackBar(content: Text(l.chatClearedThread(n))));
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
+    }
+  }
+
+  /// مسحُ كل محادثات المشتركين مع الإدارة.
+  Future<void> _clearAllThreads(L l, int threads) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    if (!await _confirmRed(
+      l.chatClearAllTitle,
+      l.chatClearAllBody(threads),
+      l.chatClearConfirm,
+    )) {
+      return;
+    }
+    try {
+      final int n = await ref.read(chatRepositoryProvider).clearAllThreads();
+      // Every open copy of every thread reloads on the ring.
+      ref.read(doorbellProvider).ring(Ring.chat);
+      ref.invalidate(chatThreadsProvider);
+      ref.invalidate(chatProvider);
+      ref.invalidate(threadUnreadProvider);
+      ref.invalidate(roomUnreadProvider);
+      messenger.showSnackBar(SnackBar(content: Text(l.chatClearedAll(n))));
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
+    }
+  }
+
   /// The other man name, for the header.
   ///
   /// ⚠ READ OFF THE INBOX RATHER THAN FETCHED. api_direct_threads already
@@ -590,6 +762,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               showSelectedIcon: false,
               onSelectionChanged: (Set<_Room> value) => setState(() {
                 _room = value.first;
+                _selected.clear();
                 // Back to the inbox each time staff leave the private side, so
                 // a conversation opened yesterday is not still on screen with
                 // no indication of whose it is.
@@ -631,7 +804,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             )
           else if (inbox)
-            Expanded(child: _Inbox(onOpen: _openThread))
+            Expanded(
+              child: _Inbox(
+                onOpen: _openThread,
+                // The admin's red «مسح كل الرسائل الخاصة».
+                onClearAll: isAdmin
+                    ? (int threads) => _clearAllThreads(l, threads)
+                    : null,
+              ),
+            )
           else ...<Widget>[
             if (_room == _Room.direct && _peer != null)
               _ThreadHeader(
@@ -650,7 +831,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             if (_room == _Room.private && _peer == null && _thread != null)
               _ThreadHeader(
                 name: isMember ? l.chatToBoard : _threadName,
-                onBack: () => setState(() => _thread = null),
+                onBack: () => setState(() {
+                  _thread = null;
+                  _selected.clear();
+                }),
+                // مسحٌ كلّيّ — the admin's, on a member's conversation only.
+                onClear: isAdmin && !isMember ? () => _clearThread(l) : null,
               ),
 
             Expanded(
@@ -736,7 +922,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               formatDate(prev.createdAt) !=
                                   formatDate(m.createdAt),
                           canDelete: m.mine || isAdmin,
-                          onDelete: () => _delete(l, m),
+                          onDelete: isAdmin
+                              ? () => _adminMenu(l, m)
+                              : () => _delete(l, m),
+                          // While selecting, a tap on any live message
+                          // toggles it; a tombstone has nothing to delete.
+                          selected: _selected.contains(m.id),
+                          onToggle: _selected.isNotEmpty && !m.deleted
+                              ? () => _toggle(m)
+                              : null,
                           // ⚠ STAFF ONLY, IN THE OPEN ROOM, AND ONLY FOR A
                           //   MESSAGE THAT HAS AN عديل BEHIND IT.
                           //
@@ -763,16 +957,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 },
               ),
             ),
-            _Composer(
-              recording: _recording,
-              recordedFor: _recFor,
-              onMic: () => _startRec(l),
-              onStopRec: () => _stopRec(l),
-              onCancelRec: _cancelRec,
-              controller: _input,
-              sending: _sending,
-              onSend: () => _send(l),
-            ),
+            if (_selected.isNotEmpty)
+              _SelectionBar(
+                count: _selected.length,
+                onCancel: () => setState(_selected.clear),
+                onSelectAll: _selectAll,
+                onDelete: () => _deleteSelected(l),
+              )
+            else
+              _Composer(
+                recording: _recording,
+                recordedFor: _recFor,
+                onMic: () => _startRec(l),
+                onStopRec: () => _stopRec(l),
+                onCancelRec: _cancelRec,
+                controller: _input,
+                sending: _sending,
+                onSend: () => _send(l),
+              ),
           ],
         ],
       ),
@@ -782,6 +984,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String _threadName = '';
 
   void _openThread(ChatThread thread) => setState(() {
+    _selected.clear();
     _thread = thread.adeelId;
     _threadName = thread.adeelName;
   });
@@ -830,11 +1033,20 @@ class _Bubble extends StatelessWidget {
     required this.canDelete,
     required this.onDelete,
     this.onOpenThread,
+    this.selected = false,
+    this.onToggle,
   });
 
   final ChatMessage message;
   final bool showAuthor;
   final bool dayBreak;
+
+  /// Whether this message is among those selected for deletion.
+  final bool selected;
+
+  /// Non-null while selecting: a tap anywhere on the row toggles it, and every
+  /// gesture inside — opening a thread, playing a clip — waits until he is done.
+  final VoidCallback? onToggle;
 
   /// Whether the «رسائل جديدة» line belongs above this one.
   final bool firstUnread;
@@ -850,6 +1062,39 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget row = _row(context);
+    final VoidCallback? toggle = onToggle;
+    if (toggle == null) return row;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: toggle,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsetsDirectional.only(start: AppSpacing.xs),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.brand.withValues(alpha: 0.12) : null,
+            borderRadius: BorderRadius.circular(AppRadius.control),
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(
+                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                size: 20,
+                color: selected ? AppColors.brand : AppColors.muted,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(child: AbsorbPointer(child: row)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _row(BuildContext context) {
     final bool mine = message.mine;
 
     return Column(
@@ -1507,9 +1752,12 @@ class _ComposerState extends State<_Composer> {
 /// written appears nowhere. An inbox listing every عديل with «لا رسائل» beside
 /// him is a register, and the association already has one.
 class _Inbox extends ConsumerWidget {
-  const _Inbox({required this.onOpen});
+  const _Inbox({required this.onOpen, this.onClearAll});
 
   final void Function(ChatThread) onOpen;
+
+  /// «مسح كل الرسائل الخاصة» — the admin's, given how many conversations.
+  final void Function(int threads)? onClearAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1533,12 +1781,26 @@ class _Inbox extends ConsumerWidget {
             title: l.chatInboxEmpty,
           );
         }
+        final void Function(int)? clearAll = onClearAll;
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.lg),
-          itemCount: threads.length,
+          itemCount: threads.length + (clearAll == null ? 0 : 1),
           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-          itemBuilder: (BuildContext context, int i) {
-            final ChatThread t = threads[i];
+          itemBuilder: (BuildContext context, int index) {
+            // ⚠ RED, FIRST, AND IT ASKS BEFORE ANYTHING GOES. Alone in its
+            //   row: a filled button is full width in this theme.
+            if (clearAll != null && index == 0) {
+              return FilledButton.icon(
+                onPressed: () => clearAll(threads.length),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  foregroundColor: AppColors.onFill,
+                ),
+                icon: const Icon(Icons.delete_sweep_outlined),
+                label: Text(l.chatClearAllThreads),
+              );
+            }
+            final ChatThread t = threads[index - (clearAll == null ? 0 : 1)];
             // WAITING is the question an inbox is opened with, and it is one
             // boolean: the last word was his, so nobody has answered yet.
             final bool waiting = !t.lastFromStaff;
@@ -1619,10 +1881,13 @@ class _Inbox extends ConsumerWidget {
 /// actually written, and an unanswered conversation would otherwise be a column
 /// of one man's words with nothing saying who he is.
 class _ThreadHeader extends StatelessWidget {
-  const _ThreadHeader({required this.name, required this.onBack});
+  const _ThreadHeader({required this.name, required this.onBack, this.onClear});
 
   final String name;
   final VoidCallback onBack;
+
+  /// «مسح المحادثة» — red, the admin's, on a member's conversation.
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -1648,7 +1913,92 @@ class _ThreadHeader extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
+          if (onClear != null)
+            TextButton.icon(
+              onPressed: onClear,
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: Text(L.of(context).chatClearThread),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// Instead of the composer while messages are selected: how many, all, and a
+/// red «حذف».
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.onCancel,
+    required this.onSelectAll,
+    required this.onDelete,
+  });
+
+  final int count;
+  final VoidCallback onCancel;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
+        child: GlassCard(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.xs,
+            AppSpacing.xs,
+            AppSpacing.sm,
+            AppSpacing.xs,
+          ),
+          child: Row(
+            children: <Widget>[
+              IconButton(
+                onPressed: onCancel,
+                tooltip: l.chatCancelSelection,
+                icon: const Icon(Icons.close),
+              ),
+              Expanded(
+                child: Text(
+                  l.chatSelectedCount(count),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                onPressed: onSelectAll,
+                tooltip: l.chatSelectAll,
+                icon: const Icon(Icons.select_all),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              // ⚠ A FIXED WIDTH: a filled button is full width in this theme
+              //   and asserts inside a Row without one.
+              SizedBox(
+                width: 104,
+                child: FilledButton.icon(
+                  onPressed: onDelete,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                    foregroundColor: AppColors.onFill,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: Text(l.delete),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1718,6 +2068,7 @@ abstract class ChatWriter {
   ///   clip to be filed into المجلس.
   Future<void> sendVoice(File file, int ms);
   Future<void> remove(int id);
+  Future<void> removeMany(List<int> ids);
   Future<void> refresh();
 }
 
@@ -1731,6 +2082,8 @@ class _RoomWriter implements ChatWriter {
   @override
   Future<void> remove(int id) => _n.remove(id);
   @override
+  Future<void> removeMany(List<int> ids) => _n.removeMany(ids);
+  @override
   Future<void> refresh() => _n.refresh();
 }
 
@@ -1743,6 +2096,8 @@ class _DirectWriter implements ChatWriter {
   Future<void> sendVoice(File file, int ms) => _n.sendVoice(file, ms);
   @override
   Future<void> remove(int id) => _n.remove(id);
+  @override
+  Future<void> removeMany(List<int> ids) => _n.removeMany(ids);
   @override
   Future<void> refresh() => _n.refresh();
 }

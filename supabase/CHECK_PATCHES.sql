@@ -1,5 +1,5 @@
 -- ============================================================================
---  جمعية العدايل — فحصُ الملفات السبعة بعد تشغيلها (للقراءة فقط).
+--  جمعية العدايل — فحصُ الملفات التسعة بعد تشغيلها (للقراءة فقط).
 --
 --  لا يكتب شيئًا ولا يغيّر شيئًا: استعلامٌ واحد يقرأ ما أضافه كلُّ ملف ويتأكد
 --  أنه يعمل، ثم يكتب الخلاصة في أول صف.
@@ -183,21 +183,44 @@ WITH c(ord, patch, file, label, ok, detail) AS (
             WHERE tgname = 'trg_proposals_guard' AND NOT tgisinternal),
    NULL),
 
+  -- ── 8. زرّ مسح الإشعارات ─────────────────────────────────────────────
+  (81, '8 · مسح الإشعارات', 'PATCH_20260915e_clear_notifications.sql',
+   'زرُّ «مسح كل الإشعارات» متاحٌ للأدمن',
+   CASE WHEN to_regprocedure('public.clear_notifications()') IS NULL THEN false
+        ELSE has_function_privilege('authenticated',
+               'public.clear_notifications()', 'EXECUTE') END,
+   NULL),
+
+  -- ── 9. حذف رسائل المحادثات ───────────────────────────────────────────
+  (91, '9 · حذف الرسائل', 'PATCH_20260915f_chat_delete_control.sql',
+   'الحذفُ الجزئيّ ومسحُ المحادثة ومسحُ الكل متاحةٌ للتطبيق',
+   (SELECT bool_and(to_regprocedure(f) IS NOT NULL
+                    AND has_function_privilege('authenticated', f, 'EXECUTE'))
+      FROM unnest(ARRAY['public.delete_chat_messages(bigint[])',
+                        'public.clear_chat_thread(bigint)',
+                        'public.clear_all_board_threads()']) f),
+   NULL),
+  (92, '9 · حذف الرسائل', 'PATCH_20260915f_chat_delete_control.sql',
+   'المشترك لا يستطيع حذف رسالة غيره (الثغرة مُغلقة)',
+   coalesce((SELECT prosrc LIKE '%coalesce(v_role = ''admin''%'
+               FROM pg_proc WHERE oid = to_regprocedure('public.delete_chat_message(bigint)')), false),
+   NULL),
+
   -- ── عامّ ────────────────────────────────────────────────────────────────
-  (91, 'عامّ', NULL,
+  (95, 'عامّ', NULL,
    'الأدمن ما زال يدخل',
    EXISTS (SELECT 1 FROM public.profiles WHERE role = 'admin' AND status = 'approved'),
    NULL),
-  (92, 'عامّ', NULL,
+  (96, 'عامّ', NULL,
    'لا أحد في الداخل بلا مفتاح وليس أدمن',
    NOT EXISTS (SELECT 1 FROM public.profiles
                 WHERE status = 'approved' AND adeel_id IS NULL AND role <> 'admin'),
    NULL),
-  (93, 'عامّ', NULL,
+  (97, 'عامّ', NULL,
    'رصيدُ الجمعية الآن',
    NULL,
    (SELECT balance FROM public.v_cash_summary)),
-  (94, 'عامّ', NULL,
+  (98, 'عامّ', NULL,
    'عددُ الإشعارات المسجّلة حتى الآن',
    NULL,
    CASE WHEN to_regclass('public.notifications') IS NULL THEN NULL
@@ -216,7 +239,7 @@ SELECT '' AS "الملف",
          (SELECT 'ناقص: ' || x.label
             FROM c x WHERE x.ok IS FALSE
            ORDER BY x.ord LIMIT 1),
-         'الملفات السبعة مطبّقة وتعمل') AS "التفاصيل",
+         'الملفات التسعة مطبّقة وتعمل') AS "التفاصيل",
        0 AS "#"
   FROM c
 UNION ALL

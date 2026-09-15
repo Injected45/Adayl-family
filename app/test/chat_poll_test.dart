@@ -36,11 +36,16 @@ class _Repo implements ChatRepository {
   int polls = 0;
 
   @override
-  Future<List<ChatMessage>> messages({int? threadAdeelId, int limit = 200}) async =>
-      List<ChatMessage>.of(room);
+  Future<List<ChatMessage>> messages({
+    int? threadAdeelId,
+    int limit = 200,
+  }) async => List<ChatMessage>.of(room);
 
   @override
-  Future<List<ChatMessage>> refreshFrom(int fromId, {int? threadAdeelId}) async {
+  Future<List<ChatMessage>> refreshFrom(
+    int fromId, {
+    int? threadAdeelId,
+  }) async {
     polls++;
     return room.where((ChatMessage m) => m.id >= fromId).toList();
   }
@@ -143,7 +148,8 @@ void main() {
       expect(
         slow,
         lessThan(10),
-        reason: 'ten seconds of silence still cost ten polls — the demotion '
+        reason:
+            'ten seconds of silence still cost ten polls — the demotion '
             'never fired',
       );
 
@@ -162,6 +168,34 @@ void main() {
         repo.polls - afterWake,
         greaterThan(slow),
         reason: 'a message arrived and the room did not speed back up',
+      );
+    });
+  });
+
+  // ── مسحُ المحادثة يصل إلى الشاشة المفتوحة عند الطرف الآخر (15/09) ─────────
+  //
+  // ⚠ A CLEARED CONVERSATION USED TO STAY ON THE OTHER SIDE'S OPEN SCREEN. The
+  //   sweep re-reads the window from an id that is on screen; when the admin
+  //   has deleted every row, that answer is EMPTY — and an empty answer was
+  //   read as silence, so every message he cleared stayed where it was.
+  test('⚠ a sweep that finds the window gone empties the room', () {
+    fakeAsync((FakeAsync async) {
+      final _Repo repo = _Repo();
+      final ProviderContainer c = _container(repo);
+      addTearDown(c.dispose);
+      c.listen(chatProvider(3), (_, _) {});
+      async.elapse(const Duration(milliseconds: 10));
+      expect(c.read(chatProvider(3)).value, hasLength(2));
+
+      // The admin cleared the conversation.
+      repo.room = <ChatMessage>[];
+      // Long enough for at least one sweep on the fast tier.
+      async.elapse(ChatController.live * (ChatController.sweepEvery + 2));
+
+      expect(
+        c.read(chatProvider(3)).value,
+        isEmpty,
+        reason: 'the cleared messages stayed on the open screen',
       );
     });
   });

@@ -58,6 +58,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   /// what marks them read.
   int? _seenAtOpen;
   int _markedUpTo = 0;
+  bool _clearing = false;
 
   @override
   void initState() {
@@ -109,6 +110,53 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     });
   }
 
+  /// «مسح كل الإشعارات» — asks first, in red, with the count, then clears
+  /// them for everyone.
+  Future<void> _clearAll(int count) async {
+    final L l = L.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    final bool? sure = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => GlassDialog(
+        destructive: true,
+        icon: const Icon(Icons.delete_sweep_outlined),
+        title: Text(l.noticesClearTitle),
+        content: Text(
+          l.noticesClearBody(count),
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l.noticesClearConfirm),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+
+    setState(() => _clearing = true);
+    try {
+      final int deleted = await ref
+          .read(notificationsRepositoryProvider)
+          .clearAll();
+      ref.invalidate(noticesProvider);
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.noticesCleared(deleted))),
+      );
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
+    } finally {
+      if (mounted) setState(() => _clearing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
@@ -133,6 +181,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             staff: !widget.portal,
             seenAtOpen: widget.portal ? _seenAtOpen : null,
             header: canBroadcast ? const _BroadcastComposer() : null,
+            // The admin's red button, only while there is anything to clear.
+            onClearAll: canBroadcast && notices.isNotEmpty
+                ? (_clearing ? null : () => _clearAll(notices.length))
+                : null,
+            showClearAll: canBroadcast && notices.isNotEmpty,
           );
         },
       ),
@@ -162,12 +215,19 @@ class _NoticeList extends StatelessWidget {
     required this.staff,
     required this.seenAtOpen,
     this.header,
+    this.onClearAll,
+    this.showClearAll = false,
   });
 
   final List<AppNotice> notices;
   final bool staff;
   final int? seenAtOpen;
   final Widget? header;
+
+  /// «مسح كل الإشعارات». Null while a clear is running — the button stays,
+  /// greyed, so a second tap cannot send it twice.
+  final VoidCallback? onClearAll;
+  final bool showClearAll;
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +255,22 @@ class _NoticeList extends StatelessWidget {
             style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.muted),
           ),
           const SizedBox(height: AppSpacing.md),
+          // ── مسح كل الإشعارات ──────────────────────────────────────────
+          // ⚠ RED, AND IT ASKS FIRST: it empties every member's list too, and
+          //   nothing brings a deleted notice back. Alone in the column —
+          //   a filled button is full width in this theme and asserts in a Row.
+          if (showClearAll) ...<Widget>[
+            FilledButton.icon(
+              onPressed: onClearAll,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: AppColors.onFill,
+              ),
+              icon: const Icon(Icons.delete_sweep_outlined),
+              label: Text(l.noticesClearAll),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
         ],
         if (notices.isEmpty)
           Padding(

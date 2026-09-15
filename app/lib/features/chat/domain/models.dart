@@ -112,7 +112,8 @@ class ChatMessage {
     room: json['room'] is String && (json['room'] as String).isNotEmpty
         ? json['room'] as String
         : 'hall',
-    voicePath: json['voicePath'] is String && (json['voicePath'] as String).isNotEmpty
+    voicePath:
+        json['voicePath'] is String && (json['voicePath'] as String).isNotEmpty
         ? json['voicePath'] as String
         : null,
     voiceMs: json['voiceMs'] is num ? (json['voiceMs'] as num).toInt() : null,

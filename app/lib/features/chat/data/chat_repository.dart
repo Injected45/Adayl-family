@@ -260,6 +260,38 @@ class ChatRepository {
       params: <String, dynamic>{'p_id': id},
     );
   });
+
+  /// حذفٌ جزئيّ — several at once, by the single delete's own rule, all or
+  /// nothing. Each leaves «حُذفت الرسالة» behind, as one would.
+  Future<int> deleteMany(List<int> ids) => SupabaseFailures.guard(() async {
+    final dynamic r = await _db.rpc<dynamic>(
+      'delete_chat_messages',
+      params: <String, dynamic>{'p_ids': ids},
+    );
+    return _deleted(r);
+  });
+
+  /// مسحٌ كلّيّ لمحادثة مشترك واحد مع الإدارة. Admin-only in the database; the
+  /// rows go, so the conversation is empty rather than a column of tombstones.
+  Future<int> clearThread(int adeelId) => SupabaseFailures.guard(() async {
+    final dynamic r = await _db.rpc<dynamic>(
+      'clear_chat_thread',
+      params: <String, dynamic>{'p_thread_adeel_id': adeelId},
+    );
+    return _deleted(r);
+  });
+
+  /// مسحُ كل محادثات المشتركين مع الإدارة. Admin-only. The group room and the
+  /// members' private conversations are not touched.
+  Future<int> clearAllThreads() => SupabaseFailures.guard(() async {
+    final dynamic r = await _db.rpc<dynamic>('clear_all_board_threads');
+    return _deleted(r);
+  });
+
+  static int _deleted(dynamic r) {
+    final Object? n = r is Map ? r['deleted'] : null;
+    return n is num ? n.toInt() : 0;
+  }
 }
 
 /// How many messages sit above [sinceId], for the badge.

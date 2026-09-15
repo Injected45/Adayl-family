@@ -73,6 +73,71 @@
   "chatDeleted": "Message deleted",
   "chatFromBoard": "Board",
   "chatDeleteTitle": "Delete this message?",
+  "chatDeleteThisMessage": "Delete this message",
+  "chatSelectMessages": "Select messages to delete",
+  "chatSelectedCount": "{count} selected",
+  "@chatSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSelectAll": "Select all",
+  "chatCancelSelection": "Cancel selection",
+  "chatDeleteManyTitle": "Delete {count} messages?",
+  "@chatDeleteManyTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDeletedMany": "{count} messages deleted",
+  "@chatDeletedMany": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearThread": "Clear conversation",
+  "chatClearThreadTitle": "Clear the conversation with {name}?",
+  "@chatClearThreadTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatClearThreadBody": "Every message in this conversation will be deleted permanently, for you and for the member. This cannot be undone.",
+  "chatClearedThread": "Conversation cleared ({count} messages)",
+  "@chatClearedThread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearAllThreads": "Clear all private messages",
+  "chatClearAllTitle": "Clear all private messages?",
+  "chatClearAllBody": "Every conversation between the board and the members ({count}) will be deleted permanently, for you and for them. This cannot be undone. The group conversation is not affected.",
+  "@chatClearAllBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearedAll": "All private messages cleared ({count} messages)",
+  "@chatClearedAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatClearConfirm": "Clear",
   "chatDeleteBody": "The words go permanently; the gap stays visible in the conversation.",
   "navHome": "Home",
   "navReceivables": "Receivables",
@@ -655,6 +720,25 @@
   },
   "proposalsAcceptedHeading": "Accepted ({count})",
   "@proposalsAcceptedHeading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticesClearAll": "Clear all notifications",
+  "noticesClearTitle": "Clear all notifications?",
+  "noticesClearBody": "All notifications ({count}) will be deleted permanently, for you and for every member. This cannot be undone.",
+  "@noticesClearBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticesClearConfirm": "Clear",
+  "noticesCleared": "All notifications cleared ({count})",
+  "@noticesCleared": {
     "placeholders": {
       "count": {
         "type": "int"

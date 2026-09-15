@@ -93,6 +93,13 @@ class _FakeRepo implements NotificationsRepository {
   Future<AppNotice?> newestSince(int sinceId) async => null;
   @override
   Future<int> newestId() async => 0;
+  int cleared = 0;
+  @override
+  Future<int> clearAll() async {
+    cleared++;
+    return _notices().length;
+  }
+
   @override
   Future<AppNotice?> byId(int id) async {
     for (final AppNotice n in _notices()) {
@@ -278,6 +285,8 @@ void main() {
       expect(find.textContaining('اجتماع الجمعية العمومية'), findsNothing);
       expect(find.text(l.broadcastHeading), findsNothing);
       expect(find.byType(TextField), findsNothing);
+      // The red button is the admin's alone.
+      expect(find.text(l.noticesClearAll), findsNothing);
       // The recipient chip is staff-only: a member knows whom his notices are for.
       expect(find.text(l.noticeToEveryone), findsNothing);
       expect(find.textContaining('A-03'), findsNothing);
@@ -356,6 +365,60 @@ void main() {
       expect(find.text(l.noticeToEveryone), findsOneWidget);
       await tester.tap(find.text(l.backAction));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('⚠ «مسح كل الإشعارات» is red, and asks before deleting', (
+      WidgetTester tester,
+    ) async {
+      final ({_StubUnread unread, _FakeRepo repo}) r = await _pump(
+        tester,
+        user: _admin,
+        portal: false,
+      );
+      final Finder button = find.widgetWithText(
+        FilledButton,
+        l.noticesClearAll,
+      );
+      expect(button, findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(button)
+            .style
+            ?.backgroundColor
+            ?.resolve(<WidgetState>{}),
+        AppColors.danger,
+      );
+
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(find.text(l.noticesClearTitle), findsOneWidget);
+      expect(find.text(l.noticesClearBody(3)), findsOneWidget);
+      await tester.tap(find.text(l.cancel));
+      await tester.pumpAndSettle();
+      expect(r.repo.cleared, 0, reason: 'cancelling deletes nothing');
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Dialog),
+          matching: find.text(l.noticesClearConfirm),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(r.repo.cleared, 1);
+      expect(find.text(l.noticesCleared(3)), findsOneWidget);
+    });
+
+    testWidgets('nothing to clear, no button', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        user: _admin,
+        portal: false,
+        notices: const <AppNotice>[],
+      );
+      expect(find.text(l.noticesClearAll), findsNothing);
     });
 
     testWidgets('an empty message is refused before anything is sent', (

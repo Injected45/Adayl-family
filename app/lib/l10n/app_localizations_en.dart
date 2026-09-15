@@ -254,6 +254,69 @@ class LEn extends L {
   String get chatDeleteTitle => 'Delete this message?';
 
   @override
+  String get chatDeleteThisMessage => 'Delete this message';
+
+  @override
+  String get chatSelectMessages => 'Select messages to delete';
+
+  @override
+  String chatSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get chatSelectAll => 'Select all';
+
+  @override
+  String get chatCancelSelection => 'Cancel selection';
+
+  @override
+  String chatDeleteManyTitle(int count) {
+    return 'Delete $count messages?';
+  }
+
+  @override
+  String chatDeletedMany(int count) {
+    return '$count messages deleted';
+  }
+
+  @override
+  String get chatClearThread => 'Clear conversation';
+
+  @override
+  String chatClearThreadTitle(String name) {
+    return 'Clear the conversation with $name?';
+  }
+
+  @override
+  String get chatClearThreadBody =>
+      'Every message in this conversation will be deleted permanently, for you and for the member. This cannot be undone.';
+
+  @override
+  String chatClearedThread(int count) {
+    return 'Conversation cleared ($count messages)';
+  }
+
+  @override
+  String get chatClearAllThreads => 'Clear all private messages';
+
+  @override
+  String get chatClearAllTitle => 'Clear all private messages?';
+
+  @override
+  String chatClearAllBody(int count) {
+    return 'Every conversation between the board and the members ($count) will be deleted permanently, for you and for them. This cannot be undone. The group conversation is not affected.';
+  }
+
+  @override
+  String chatClearedAll(int count) {
+    return 'All private messages cleared ($count messages)';
+  }
+
+  @override
+  String get chatClearConfirm => 'Clear';
+
+  @override
   String get chatDeleteBody =>
       'The words go permanently; the gap stays visible in the conversation.';
 
@@ -1671,6 +1734,25 @@ class LEn extends L {
   @override
   String proposalsAcceptedHeading(int count) {
     return 'Accepted ($count)';
+  }
+
+  @override
+  String get noticesClearAll => 'Clear all notifications';
+
+  @override
+  String get noticesClearTitle => 'Clear all notifications?';
+
+  @override
+  String noticesClearBody(int count) {
+    return 'All notifications ($count) will be deleted permanently, for you and for every member. This cannot be undone.';
+  }
+
+  @override
+  String get noticesClearConfirm => 'Clear';
+
+  @override
+  String noticesCleared(int count) {
+    return 'All notifications cleared ($count)';
   }
 
   @override

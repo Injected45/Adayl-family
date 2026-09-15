@@ -1583,3 +1583,38 @@ No financial table, function or figure is touched (the patch's last row checks i
   column or function answers 42501, a missing one 42703 / PGRST205 / PGRST202.
   Body-only patches (14, 15) cannot be seen that way — `supabase/CHECK_PATCHES.sql`
   (read-only, seven patches, verdict row first) answers those.
+- **«مسح كل الإشعارات» — a red button in the admin's notifications tab (15/09 g).**
+  `PATCH_20260915e_clear_notifications.sql` adds `clear_notifications()`:
+  `require_role('admin')`, `DELETE FROM notifications` (⚠ never TRUNCATE …
+  RESTART IDENTITY — each member's phone stores the last notice id it saw, and a
+  restarted numbering would make every new notice count as already read, with no
+  alert and no badge), an audit entry `notifications.clear` with the count, and
+  `{deleted: n}`. The button shows only to the admin and only while the list has
+  rows; it asks first in a destructive dialog naming the count. A member's open
+  list empties on the next sweep or pull. `supabase/CLEAR_NOTIFICATIONS.sql` is the
+  same act for the SQL editor. `CHECK_PATCHES.sql` now covers eight patches.
+- **حذف رسائل المحادثات: فرديّ، جزئيّ، كلّيّ (15/09 h).**
+  `PATCH_20260915f_chat_delete_control.sql`. ⚠ **IT CLOSES A HOLE THAT WAS LIVE:**
+  `delete_chat_message` tested `AND NOT (v_role = 'admin' AND peer_a IS NULL)`;
+  for a portal member `my_role()` is NULL, the whole expression is NULL, and
+  `IF NULL` does not raise — so any member could tombstone the admin's messages
+  and other members' board messages by id (the app never offered it). Now
+  `NOT coalesce(…, false)`, body lifted from `PATCH_20260826a` otherwise intact;
+  proved on a replica before and after. **Any new rule written against
+  `my_role()` must coalesce it for exactly this reason.**
+  - فرديّ: unchanged tombstone. The admin's long press now opens a sheet —
+    «حذف هذه الرسالة» (the old dialog) or «تحديد رسائل للحذف»; a member's long
+    press is the old dialog.
+  - جزئيّ: `delete_chat_messages(bigint[])` — the single delete's rule per row,
+    ALL OR NOTHING, ≤ 500, tombstones. Selection mode: tap toggles, the
+    composer gives way to a bar (count, select-all, red «حذف», ✕), red confirm.
+  - كلّيّ: `clear_chat_thread(bigint)` (one member's conversation with الإدارة,
+    red «مسح المحادثة» in its header) and `clear_all_board_threads()` (red
+    button atop the admin inbox). Admin-only, HARD delete (a cleared room is
+    empty, not a column of tombstones), never the hall, never a peer thread.
+    Every act audited (`chat.delete` / `chat.clear`). Voice files of cleared
+    rows stay in the bucket but are inaudible — `voice_read` joins the message.
+  - ⚠ The room's sweep treated an EMPTY answer as silence, so a cleared
+    conversation stayed on the other side's open screen. A sweep that finds its
+    window gone now reloads (`ChatController` and `DirectChatController`);
+    `chat_poll_test` pins it. The client also rings `Ring.chat` after each act.
