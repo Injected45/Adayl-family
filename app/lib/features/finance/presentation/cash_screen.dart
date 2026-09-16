@@ -89,42 +89,11 @@ class CashScreen extends ConsumerWidget {
             //   arriving, an outgoing amount in the same green reads as a
             //   second collection. Colour carries the direction before the
             //   number is read at all.
+            // ⚠ FOLDED, like «حركة العدايل» above it (16/09, at the
+            //   association's request). The treasury page is opened to read the
+            //   balance, and two open lists pushed it off the first screen.
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              l.kindCollective,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppColors.danger,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AsyncView<List<DisbursementView>>(
-              value: ref.watch(disbursementsProvider),
-              onRetry: () => ref.invalidate(disbursementsProvider),
-              builder: (List<DisbursementView> vouchers) {
-                final List<DisbursementView> collective = vouchers
-                    .where((DisbursementView v) => v.payeeAdeelId == null)
-                    .toList();
-                if (collective.isEmpty) {
-                  return EmptyStateView(
-                    icon: Icons.north_east,
-                    title: l.noDisbursements,
-                  );
-                }
-                return GlassCard(
-                  margin: const EdgeInsetsDirectional.only(
-                    bottom: AppSpacing.sm,
-                  ),
-                  child: Column(
-                    children: <Widget>[
-                      for (final DisbursementView v in collective)
-                        _VoucherTile(voucher: v),
-                    ],
-                  ),
-                );
-              },
-            ),
+            const _CollectiveSpending(),
           ],
         ),
       ),
@@ -352,6 +321,120 @@ class _MembersMovementState extends ConsumerState<_MembersMovement> {
                       ],
                     )
                   : const SizedBox(width: double.infinity),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// «صرف جماعي» — money out that belongs to nobody, behind a heading that opens.
+///
+/// ⚠ THE HEADING CARRIES A COUNT, NOT AN AMOUNT, and that is deliberate. The
+///   fold above it prints a figure because the SERVER computes that figure for
+///   exactly the rows underneath (`v_member_net.totalNet`). There is no server
+///   total for the collective vouchers alone — `v_cash_summary.disbursed` is
+///   ALL money out, individual aid included — so a figure here would be either
+///   a sum added up in Dart (money on binary floating point, forbidden) or the
+///   wrong number under the right heading, which is worse than no number.
+///   `payments_screen`'s «الإنفاق حسب الوجه» is where the outgoing totals live.
+class _CollectiveSpending extends ConsumerStatefulWidget {
+  const _CollectiveSpending();
+
+  @override
+  ConsumerState<_CollectiveSpending> createState() =>
+      _CollectiveSpendingState();
+}
+
+class _CollectiveSpendingState extends ConsumerState<_CollectiveSpending> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+
+    return AsyncView<List<DisbursementView>>(
+      value: ref.watch(disbursementsProvider),
+      onRetry: () => ref.invalidate(disbursementsProvider),
+      builder: (List<DisbursementView> vouchers) {
+        final List<DisbursementView> collective = vouchers
+            .where((DisbursementView v) => v.payeeAdeelId == null)
+            .toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            GlassCard(
+              margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.sm),
+              onTap: () => setState(() => _open = !_open),
+              child: Semantics(
+                button: true,
+                expanded: _open,
+                child: Row(
+                  children: <Widget>[
+                    // Red, as every outgoing figure on this page is: on a page
+                    // where everything else is money arriving, the colour says
+                    // which direction before a word is read.
+                    Icon(Icons.north_east, size: 18, color: AppColors.danger),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            l.kindCollective,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            l.voucherCount(collective.length),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(
+                      _open ? Icons.expand_less : Icons.expand_more,
+                      color: AppColors.muted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedSize(
+              duration: prefersReducedMotion(context)
+                  ? Duration.zero
+                  : AppMotion.base,
+              curve: AppMotion.enter,
+              alignment: AlignmentDirectional.topStart,
+              child: !_open
+                  ? const SizedBox(width: double.infinity)
+                  : collective.isEmpty
+                  ? EmptyStateView(
+                      icon: Icons.north_east,
+                      title: l.noDisbursements,
+                    )
+                  : GlassCard(
+                      margin: const EdgeInsetsDirectional.only(
+                        bottom: AppSpacing.sm,
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          for (final DisbursementView v in collective)
+                            _VoucherTile(voucher: v),
+                        ],
+                      ),
+                    ),
             ),
           ],
         );

@@ -1763,7 +1763,7 @@ class LEn extends L {
       'Payments, dues and individual disbursements reach their member only; collective disbursements and board messages reach everyone.';
 
   @override
-  String get broadcastHeading => 'Message to all members';
+  String get broadcastHeading => 'Message to members';
 
   @override
   String get broadcastTitleLabel => 'Title (optional)';
@@ -1789,4 +1789,49 @@ class LEn extends L {
 
   @override
   String get broadcastSent => 'Message sent to all members';
+
+  @override
+  String get noticeToAll => 'All members';
+
+  @override
+  String get noticeToPicked => 'Chosen members';
+
+  @override
+  String get noticePickMembers => 'Choose members';
+
+  @override
+  String noticePickedCount(int count) {
+    return '$count chosen';
+  }
+
+  @override
+  String get noticePickNone => 'Choose at least one member';
+
+  @override
+  String get noticeSendTitle => 'Send to the chosen members?';
+
+  @override
+  String noticeSendBody(int count) {
+    return 'This message reaches $count member(s) and nobody else, and cannot be withdrawn once sent.';
+  }
+
+  @override
+  String noticeSentTo(int count) {
+    return 'Message sent to $count member(s)';
+  }
+
+  @override
+  String get noticePickerTitle => 'Choose members';
+
+  @override
+  String get noticePickerSearch => 'Search by name or number';
+
+  @override
+  String get noticePickerAll => 'Select all';
+
+  @override
+  String get noticePickerNone => 'Clear selection';
+
+  @override
+  String get noticePickerDone => 'Done';
 }

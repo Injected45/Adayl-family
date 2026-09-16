@@ -305,6 +305,13 @@ void main() {
       ],
     );
 
+    // ⚠ The collective section folds (16/09), so its heading is what is on the
+    //   page until it is asked for.
+    expect(find.text(l.kindCollective), findsOneWidget);
+    expect(find.text('EXP-02'), findsNothing);
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+
     // Exactly once each: the member's under his name, the collective one under
     // its own heading. A voucher on screen twice can be counted twice.
     expect(find.text('EXP-01'), findsOneWidget);

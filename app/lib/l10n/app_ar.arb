@@ -1112,7 +1112,7 @@
   "@noticesAdminRule": {
     "description": "Printed above the admin's log so the privacy rule is stated in words: an individual voucher is never announced to everyone, matching read_collective_disbursements."
   },
-  "broadcastHeading": "رسالة إلى جميع المشتركين",
+  "broadcastHeading": "رسالة إلى المشتركين",
   "broadcastTitleLabel": "العنوان (اختياري)",
   "broadcastTitleHint": "رسالة من الإدارة",
   "broadcastBodyLabel": "نص الرسالة",
@@ -1120,5 +1120,40 @@
   "broadcastEmpty": "اكتب نصّ الرسالة أولاً",
   "broadcastConfirmTitle": "إرسال إلى الجميع؟",
   "broadcastConfirmBody": "ستصل هذه الرسالة إلى جميع المشتركين فوراً، ولا يمكن سحبها بعد الإرسال.",
-  "broadcastSent": "أُرسلت الرسالة إلى جميع المشتركين"
+  "broadcastSent": "أُرسلت الرسالة إلى جميع المشتركين",
+
+  "noticeToAll": "كل المشتركين",
+  "noticeToPicked": "مشتركون محدَّدون",
+  "noticePickMembers": "اختيار المشتركين",
+  "noticePickedCount": "{count} مشترك محدَّد",
+  "@noticePickedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticePickNone": "حدِّد مشتركاً واحداً على الأقل",
+  "noticeSendTitle": "إرسال إلى المحدَّدين؟",
+  "noticeSendBody": "ستصل هذه الرسالة إلى {count} من المشتركين وحدهم، ولا يراها غيرهم، ولا يمكن سحبها بعد الإرسال.",
+  "@noticeSendBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticeSentTo": "أُرسلت الرسالة إلى {count} من المشتركين",
+  "@noticeSentTo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticePickerTitle": "اختر المشتركين",
+  "noticePickerSearch": "ابحث بالاسم أو الرقم",
+  "noticePickerAll": "تحديد الكل",
+  "noticePickerNone": "مسح التحديد",
+  "noticePickerDone": "تم"
 }

@@ -1771,7 +1771,7 @@ class LAr extends L {
       'السداد والاستحقاق والصرف الفردي تصل لصاحبها وحده، والصرف الجماعي ورسائل الإدارة تصل للجميع.';
 
   @override
-  String get broadcastHeading => 'رسالة إلى جميع المشتركين';
+  String get broadcastHeading => 'رسالة إلى المشتركين';
 
   @override
   String get broadcastTitleLabel => 'العنوان (اختياري)';
@@ -1797,4 +1797,49 @@ class LAr extends L {
 
   @override
   String get broadcastSent => 'أُرسلت الرسالة إلى جميع المشتركين';
+
+  @override
+  String get noticeToAll => 'كل المشتركين';
+
+  @override
+  String get noticeToPicked => 'مشتركون محدَّدون';
+
+  @override
+  String get noticePickMembers => 'اختيار المشتركين';
+
+  @override
+  String noticePickedCount(int count) {
+    return '$count مشترك محدَّد';
+  }
+
+  @override
+  String get noticePickNone => 'حدِّد مشتركاً واحداً على الأقل';
+
+  @override
+  String get noticeSendTitle => 'إرسال إلى المحدَّدين؟';
+
+  @override
+  String noticeSendBody(int count) {
+    return 'ستصل هذه الرسالة إلى $count من المشتركين وحدهم، ولا يراها غيرهم، ولا يمكن سحبها بعد الإرسال.';
+  }
+
+  @override
+  String noticeSentTo(int count) {
+    return 'أُرسلت الرسالة إلى $count من المشتركين';
+  }
+
+  @override
+  String get noticePickerTitle => 'اختر المشتركين';
+
+  @override
+  String get noticePickerSearch => 'ابحث بالاسم أو الرقم';
+
+  @override
+  String get noticePickerAll => 'تحديد الكل';
+
+  @override
+  String get noticePickerNone => 'مسح التحديد';
+
+  @override
+  String get noticePickerDone => 'تم';
 }

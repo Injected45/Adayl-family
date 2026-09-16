@@ -30,14 +30,18 @@ import 'package:flutter_test/flutter_test.dart';
 /// the one disagreement a register must not display.
 
 class _StubAuth extends AuthController {
+  _StubAuth([this.role = AppRole.admin]);
+
+  final AppRole role;
+
   @override
-  AuthState build() => const AuthState(
+  AuthState build() => AuthState(
     stage: AuthStage.signedIn,
     user: AppUser(
       id: '00000000-0000-0000-0000-0000000000f1',
       email: 'staff@fam.test',
       displayName: 'المهدي',
-      role: AppRole.admin,
+      role: role,
       status: AccountStatus.approved,
     ),
   );
@@ -141,5 +145,75 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(find.text(l.totalOutstanding), findsOneWidget);
     expect(find.text(formatMoney('4900.00')), findsOneWidget);
+  });
+
+  // ── «إضافة مشترك» IS PUT AWAY ───────────────────────────────────────────────
+  // «اجعله مخفي، فالأعلى جنب الجرس، نضغط عليه فيظهر اذا احتجت له». The register
+  // is read every day and added to a few times a year.
+  testWidgets('the add button is away until the bar switch asks for it', (
+    WidgetTester tester,
+  ) async {
+    await pump(tester, host());
+
+    expect(
+      find.byType(FloatingActionButton),
+      findsNothing,
+      reason: 'the register opens without it',
+    );
+
+    await tester.tap(find.byIcon(Icons.person_add_alt_1_outlined));
+    await tester.pumpAndSettle();
+    expect(
+      find.widgetWithText(FloatingActionButton, l.addAdeel),
+      findsOneWidget,
+    );
+
+    // And it goes away again, so it cannot be left standing over the reading.
+    await tester.tap(find.byIcon(Icons.person_add_alt_1));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsNothing);
+  });
+
+  testWidgets('⚠ and the switch is nobody else\'s', (
+    WidgetTester tester,
+  ) async {
+    // Hiding it is the third layer, not the only one — the route guard and the
+    // RPC both refuse. But a viewer must not even be offered the switch.
+    await pump(
+      tester,
+      ProviderScope(
+        overrides: <Override>[
+          authControllerProvider.overrideWith(() => _StubAuth(AppRole.viewer)),
+          adeelSearchProvider.overrideWith((Ref ref) => ''),
+          adeelsProvider('').overrideWith(
+            (Ref ref) async => <AdeelListItem>[
+              _adeel(1, 'المهدي العدولي', '100.00'),
+            ],
+          ),
+          cashSummaryProvider.overrideWith(
+            (Ref ref) async => const CashSummaryView(
+              total: '700.00',
+              cash: '450.00',
+              transfer: '250.00',
+              today: '0.00',
+              month: '700.00',
+              year: '700.00',
+              outstanding: '4900.00',
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          locale: const Locale('ar'),
+          localizationsDelegates: latinDigitDelegates(L.localizationsDelegates),
+          supportedLocales: L.supportedLocales,
+          home: const AdeelsScreen(),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.person_add_alt_1_outlined), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNothing);
   });
 }

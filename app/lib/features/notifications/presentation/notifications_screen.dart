@@ -15,6 +15,9 @@ import '../../../core/widgets/async_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../directory/domain/models.dart';
+import '../../directory/presentation/providers.dart' as directory;
+import '../data/notifications_repository.dart';
 import '../domain/models.dart';
 import 'notice_detail_screen.dart';
 import 'providers.dart';
@@ -453,11 +456,40 @@ class _BroadcastComposerState extends ConsumerState<_BroadcastComposer> {
   final TextEditingController _body = TextEditingController();
   bool _sending = false;
 
+  /// ── إلى مَن ────────────────────────────────────────────────────────────────
+  /// «كل المشتركين» أو «مشتركون محدَّدون». The association asked for the second
+  /// to demand a subscription from one man without telling the other seven, and
+  /// the first is untouched: two different RPCs, `send_broadcast` writing ONE
+  /// row for everybody and `send_notice` writing one row per man.
+  bool _toAll = true;
+
+  /// Ids, not names: the RPC takes ids and the register is the only thing that
+  /// turns one into the other. Kept here rather than in a provider so leaving
+  /// the tab forgets a half-made selection.
+  final Set<int> _picked = <int>{};
+
   @override
   void dispose() {
     _title.dispose();
     _body.dispose();
     super.dispose();
+  }
+
+  /// The picker, over the register the admin already reads.
+  Future<void> _pick(L l, List<AdeelListItem> members) async {
+    final Set<int>? chosen = await showModalBottomSheet<Set<int>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) =>
+          _MemberPickerSheet(members: members, initial: _picked),
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _picked
+        ..clear()
+        ..addAll(chosen);
+    });
   }
 
   Future<void> _send(L l) async {
@@ -466,14 +498,23 @@ class _BroadcastComposerState extends ConsumerState<_BroadcastComposer> {
       messenger.showSnackBar(SnackBar(content: Text(l.broadcastEmpty)));
       return;
     }
+    if (!_toAll && _picked.isEmpty) {
+      // ⚠ Cleared first: a second refusal queues behind the first and is read
+      //   as the button doing nothing.
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(l.noticePickNone)));
+      return;
+    }
 
+    final int count = _picked.length;
     final bool? sure = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => GlassDialog(
-        icon: const Icon(Icons.campaign_outlined),
-        title: Text(l.broadcastConfirmTitle),
+        icon: Icon(_toAll ? Icons.campaign_outlined : Icons.person_outline),
+        title: Text(_toAll ? l.broadcastConfirmTitle : l.noticeSendTitle),
         content: Text(
-          l.broadcastConfirmBody,
+          _toAll ? l.broadcastConfirmBody : l.noticeSendBody(count),
           style: const TextStyle(height: 1.5),
         ),
         actions: <Widget>[
@@ -492,14 +533,28 @@ class _BroadcastComposerState extends ConsumerState<_BroadcastComposer> {
 
     setState(() => _sending = true);
     try {
-      await ref
-          .read(notificationsRepositoryProvider)
-          .sendBroadcast(title: _title.text, body: _body.text);
+      final NotificationsRepository repo = ref.read(
+        notificationsRepositoryProvider,
+      );
+      if (_toAll) {
+        await repo.sendBroadcast(title: _title.text, body: _body.text);
+      } else {
+        await repo.sendNotice(
+          adeelIds: _picked.toList(),
+          title: _title.text,
+          body: _body.text,
+        );
+      }
       if (!mounted) return;
       _title.clear();
       _body.clear();
+      setState(_picked.clear);
       ref.invalidate(noticesProvider);
-      messenger.showSnackBar(SnackBar(content: Text(l.broadcastSent)));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_toAll ? l.broadcastSent : l.noticeSentTo(count)),
+        ),
+      );
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(describeApiFailure(l, e))));
     } finally {
@@ -510,6 +565,13 @@ class _BroadcastComposerState extends ConsumerState<_BroadcastComposer> {
   @override
   Widget build(BuildContext context) {
     final L l = L.of(context);
+    // The register, read only to turn a tick into an id and a name onto a chip.
+    // The admin already holds it; this adds no endpoint and no provider.
+    final AsyncValue<List<AdeelListItem>> members = ref.watch(
+      directory.adeelsProvider(''),
+    );
+    final List<AdeelListItem> list =
+        members.valueOrNull ?? const <AdeelListItem>[];
 
     return GlassCard(
       child: Column(
@@ -527,6 +589,63 @@ class _BroadcastComposerState extends ConsumerState<_BroadcastComposer> {
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.md),
+
+          // ── إلى مَن ──────────────────────────────────────────────────────
+          // Explicit, never inferred from whether anyone is ticked: a message
+          // meant for one man and sent to eight cannot be recalled.
+          SegmentedButton<bool>(
+            segments: <ButtonSegment<bool>>[
+              ButtonSegment<bool>(
+                value: true,
+                label: Text(l.noticeToAll),
+                icon: const Icon(Icons.groups_outlined, size: 18),
+              ),
+              ButtonSegment<bool>(
+                value: false,
+                label: Text(l.noticeToPicked),
+                icon: const Icon(Icons.person_outline, size: 18),
+              ),
+            ],
+            selected: <bool>{_toAll},
+            showSelectedIcon: false,
+            onSelectionChanged: _sending
+                ? null
+                : (Set<bool> v) => setState(() => _toAll = v.first),
+          ),
+          if (!_toAll) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            // ⚠ Alone in the column: an outlined button is full width in this
+            //   theme and asserts inside a Row. See CLAUDE.md.
+            OutlinedButton.icon(
+              onPressed: _sending || list.isEmpty ? null : () => _pick(l, list),
+              icon: const Icon(Icons.checklist_rtl),
+              label: Text(
+                _picked.isEmpty
+                    ? l.noticePickMembers
+                    : l.noticePickedCount(_picked.length),
+              ),
+            ),
+            if (_picked.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: list
+                    .where((AdeelListItem a) => _picked.contains(a.id))
+                    .map(
+                      (AdeelListItem a) => InputChip(
+                        label: Text(a.fullName),
+                        isEnabled: !_sending,
+                        onDeleted: _sending
+                            ? null
+                            : () => setState(() => _picked.remove(a.id)),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
           const SizedBox(height: AppSpacing.md),
           TextField(
             controller: _title,
@@ -571,6 +690,187 @@ class _BroadcastComposerState extends ConsumerState<_BroadcastComposer> {
             label: Text(l.broadcastSend),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// «اختر المشتركين» — the register with a tick beside each man.
+///
+/// ⚠ IT OWNS ITS OWN COPY AND RETURNS IT ON «تم». Ticking rows that write
+///   straight into the composer's set would leave a half-made selection behind
+///   when the sheet is dismissed by a swipe, and the admin would then send to
+///   whoever he happened to have touched. Cancel means cancel.
+///
+/// ⚠ The search FILTERS and never unticks: a man ticked before a search is
+///   still ticked after it, even while he is off screen — which is what the
+///   count above the list is there to say.
+class _MemberPickerSheet extends StatefulWidget {
+  const _MemberPickerSheet({required this.members, required this.initial});
+
+  final List<AdeelListItem> members;
+  final Set<int> initial;
+
+  @override
+  State<_MemberPickerSheet> createState() => _MemberPickerSheetState();
+}
+
+class _MemberPickerSheetState extends State<_MemberPickerSheet> {
+  late final Set<int> _chosen = <int>{...widget.initial};
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<AdeelListItem> get _shown {
+    final String q = _query.trim();
+    if (q.isEmpty) return widget.members;
+    return widget.members
+        .where(
+          (AdeelListItem a) =>
+              a.fullName.contains(q) ||
+              a.adeelCode.contains(q) ||
+              a.phone.contains(q),
+        )
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final L l = L.of(context);
+    final List<AdeelListItem> shown = _shown;
+
+    return GlassSheet(
+      child: SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            l.noticePickerTitle,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        // ⚠ IconButton, not a text button: a filled/outlined
+                        //   button is full width in this theme and asserts in
+                        //   a Row.
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: _search,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search),
+                        hintText: l.noticePickerSearch,
+                      ),
+                      onChanged: (String v) => setState(() => _query = v),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            l.noticePickedCount(_chosen.length),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                        // ⚠ ONE BUTTON THAT TURNS OVER, not two side by side:
+                        //   «تحديد الكل» and «مسح التحديد» together overflowed
+                        //   a 320-wide phone by 91px, and the second is only
+                        //   ever wanted once the first has been used.
+                        TextButton(
+                          onPressed: () => setState(() {
+                            if (_chosen.length == widget.members.length) {
+                              _chosen.clear();
+                            } else {
+                              _chosen
+                                ..clear()
+                                ..addAll(
+                                  widget.members.map((AdeelListItem a) => a.id),
+                                );
+                            }
+                          }),
+                          child: Text(
+                            _chosen.length == widget.members.length
+                                ? l.noticePickerNone
+                                : l.noticePickerAll,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    AppSpacing.sm,
+                    0,
+                    AppSpacing.sm,
+                    AppSpacing.sm,
+                  ),
+                  itemCount: shown.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final AdeelListItem a = shown[index];
+                    return CheckboxListTile(
+                      value: _chosen.contains(a.id),
+                      onChanged: (bool? on) => setState(() {
+                        if (on ?? false) {
+                          _chosen.add(a.id);
+                        } else {
+                          _chosen.remove(a.id);
+                        }
+                      }),
+                      title: Text(a.fullName),
+                      subtitle: Text(
+                        a.adeelCode,
+                        style: TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(_chosen),
+                  icon: const Icon(Icons.check),
+                  label: Text(l.noticePickerDone),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

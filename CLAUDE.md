@@ -1618,3 +1618,118 @@ No financial table, function or figure is touched (the patch's last row checks i
     conversation stayed on the other side's open screen. A sweep that finds its
     window gone now reloads (`ChatController` and `DirectChatController`);
     `chat_poll_test` pins it. The client also rings `Ring.chat` after each act.
+
+## رسالة إلى مشتركٍ بعينه، و«[21000]» الذي لا يقول شيئًا (2026-09-16)
+
+`PATCH_20260916_notices_fix_and_targeted.sql`. No financial table, function or
+figure is touched (the patch's last row checks it).
+
+- **«مسح كل الإشعارات» answered `[21000]` on the admin's phone**, and nothing in
+  the repository explained it: `clear_notifications()` re-applied to a replica
+  built from the live ledger cleared its notices and passed every guard.
+  21000 is `cardinality_violation`, which is normally a scalar subquery
+  returning more than one row — and the only sub-selects in that call tree
+  (`my_role()` inlined, `write_audit`'s name lookup) are keyed by `profiles.id`,
+  the primary key. **The real answer was not in that family at all — see
+  PATCH_20260916b below — and it could not have been found from here**: so the
+  patch did two things rather than guess:
+  - **It asks the live database.** §1 puts on the admin's own identity —
+    `set_config('request.jwt.claims', …)` + `SET LOCAL ROLE authenticated`, the
+    same shape `PROBE_21000C` used in August — calls the OLD function inside a
+    sub-transaction, and prints the SQLSTATE, the message and the first line of
+    `PG_EXCEPTION_CONTEXT` in the result table. ⚠ The capture uses
+    `set_config(…, false)`: a local setting written inside the failing block is
+    rolled back with it, and the diagnosis would vanish with the error.
+  - **And it removes the suspects.** The rewritten function asks «is he admin?»
+    with `EXISTS` (a yes/no that cannot raise 21000 however many rows match)
+    instead of `require_role`, keeps the DELETE, and puts `write_audit` in its
+    own `EXCEPTION` block — clearing is the act, and a failed audit line must
+    not undo it; the result says `audit` when one is skipped.
+  - ⚠ **AND ANY REMAINING FAILURE NOW SPEAKS ARABIC.** The DELETE is wrapped so
+    a raw SQLSTATE is re-raised as `RUL18` carrying its code and context, because
+    `describeApiFailure` prints the server's sentence for a `RUL*` code and only
+    the bare number for anything else. «حدث خطأ … [21000]» is unactionable for
+    the association and for whoever reads it next.
+- **`send_notice(bigint[], text, text)` — «مطالبة بالسداد» to one man, or a few.**
+  «من الممكن ان ارسل رسالة لمشترك لمطالبته بالسداد. لا اريد ارسالها للكل».
+  `send_broadcast` is untouched and still writes ONE row for everybody.
+  ⚠ **One row per man, not one row carrying a list**: the member policy admits
+  `adeel_id = my_adeel_id()`, so a separate row is what makes the notice private
+  with no new policy and no edit to an existing one. Kind `broadcast` (it is
+  from the board, not from a movement of money); audience `member`. Admin-only
+  by the same `EXISTS`; refuses an empty selection, more than 200, a body that
+  is empty or over 1000, a title over 120, and any id not on the register —
+  all RUL18, all-or-nothing. Audited as `notifications.send`.
+- In Dart the composer gained a `SegmentedButton` — «كل المشتركين» /
+  «مشتركون محدَّدون» — and a picker sheet over `adeelsProvider('')` (search,
+  one turn-over button, chips of the chosen names beneath the switch).
+  ⚠ The audience is EXPLICIT, never inferred from whether anyone is ticked:
+  sending with nobody chosen refuses and does **not** fall back to everyone,
+  which is the one mistake this feature could make and cannot take back.
+  ⚠ `noticePickerAll`/`noticePickerNone` share ONE button that turns over —
+  side by side they overflowed a 320-wide phone by 91px, and the test that
+  caught it opens the picker at 320/360/411 in both themes.
+- **«إضافة مشترك» is put away** (`AdeelsScreen` is now stateful): the register is
+  read daily and added to a few times a year, so the button lives behind a small
+  switch beside the bell — «اجعله مخفي، فالأعلى جنب الجرس، نضغط عليه فيظهر اذا
+  احتجت له». Screen state, not a provider: it must start closed every time.
+  ⚠ `bottom_reach_test` reveals it first — the FAB band is only reserved while
+  the button is showing, which is the state those two tests are about.
+- Proved on a replica: 25 checks (a member cannot send, a second member cannot
+  read the first man's demand, every refusal, the broadcast still one row for
+  everyone, the clear still not restarting the numbering, no financial figure
+  moved, and the patch re-applied cleanly).
+
+## `DELETE` بلا شرطٍ يرفضه حسابُ التطبيق وحدَه (2026-09-16 b)
+
+`PATCH_20260916b_where_clause.sql`. **The Arabic message paid for itself within
+the hour**: the very next tap printed the whole cause on the admin's screen —
+
+> تعذّر مسحُ الإشعارات (الرمز 21000): DELETE requires a WHERE clause — عند: SQL
+> statement "DELETE FROM public.notifications"
+
+- ⚠ **The project runs `safeupdate` on the API role, and it is invisible from
+  everywhere a patch is normally tested.** It refuses any UPDATE or DELETE whose
+  PLAN carries no qualifier — a guard against a typo that empties a table. It is
+  loaded into the app's session, not into the SQL editor (which connects as
+  `postgres`) and not into a portable local Postgres. So the statement passed
+  `probe.sh`, passed every replica run, passed the patch's own impersonated
+  self-check — and failed on the one session that matters. **A replica proves
+  the SQL; it does not prove the platform** (the two-layer rule in Testing model
+  has always said so — this is what it looks like when only the first layer is
+  available).
+- The fix is one clause in two functions: `clear_notifications()` →
+  `DELETE FROM public.notifications WHERE id > 0`, and
+  `revoke_all_adeel_access()` → `DELETE FROM public.adeel_access_codes WHERE
+  adeel_id > 0`. **Both were found by scanning every client-callable function's
+  body**, not by fixing the reported one — «مسح دخول المشتركين» had never been
+  pressed and would have failed identically.
+- ⚠ **`> 0`, NEVER `IS NOT NULL`.** The planner DROPS a qualifier it can prove is
+  always true, and `id IS NOT NULL` on a NOT NULL column is exactly that: the
+  statement then reaches the guard with an empty qual list and is refused again,
+  for a reason the source no longer shows. `WHERE id > 0` survives into the plan
+  — verified with `EXPLAIN`, which is what the guard actually inspects. An index
+  condition counts too, so `WHERE id = 1` (update_settings) was always fine.
+- ⚠ **A semicolon inside a `--` comment truncates a naive scan** and made
+  `update_settings` look unqualified when its `WHERE id = 1` was simply further
+  down. Strip comments before scanning a `prosrc`, or the scan invents work.
+- `CHECK_PATCHES.sql` row 111 now runs that scan against the live database, so
+  the next unqualified DML is reported before somebody presses the button.
+  **Any new patch that writes a DELETE or an UPDATE inside a client-callable
+  function must give it a qualifier that survives planning.**
+
+## «صرف جماعي» تُطوى في شاشة الصندوق (2026-09-16 c)
+
+Dart only. The collective vouchers at the foot of الصندوق now sit behind a
+heading that opens and closes on tap — the same `GlassCard` + `AnimatedSize`
+fold as «حركة العدايل» above them («اجعله في حاوية منطوية تفتح وتغلق بالضغط»).
+The page is opened to read a balance, and two open lists pushed it off the first
+screen.
+
+⚠ **Its heading carries a COUNT, not an amount**, unlike the fold above it. That
+one prints `v_member_net.totalNet`, which the SERVER computes for exactly the
+rows underneath. There is no server total for collective vouchers alone —
+`v_cash_summary.disbursed` is ALL money out, individual aid included — so a
+figure here would be either a sum added up in Dart (money on binary floating
+point) or the wrong number under the right heading. «الإنفاق حسب الوجه» on the
+الصرف tab is where the outgoing totals live.

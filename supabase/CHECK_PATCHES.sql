@@ -1,5 +1,5 @@
 -- ============================================================================
---  جمعية العدايل — فحصُ الملفات التسعة بعد تشغيلها (للقراءة فقط).
+--  جمعية العدايل — فحصُ الملفات الأحد عشر بعد تشغيلها (للقراءة فقط).
 --
 --  لا يكتب شيئًا ولا يغيّر شيئًا: استعلامٌ واحد يقرأ ما أضافه كلُّ ملف ويتأكد
 --  أنه يعمل، ثم يكتب الخلاصة في أول صف.
@@ -206,6 +206,41 @@ WITH c(ord, patch, file, label, ok, detail) AS (
                FROM pg_proc WHERE oid = to_regprocedure('public.delete_chat_message(bigint)')), false),
    NULL),
 
+  -- ── 10. الرسالة الموجَّهة، والزرّ المُصلَح ──────────────────────────────
+  (101, '10 · رسالة لمشترك', 'PATCH_20260916_notices_fix_and_targeted.sql',
+   'إرسالُ رسالةٍ إلى مشتركٍ بعينه متاحٌ للأدمن',
+   CASE WHEN to_regprocedure('public.send_notice(bigint[],text,text)') IS NULL THEN false
+        ELSE has_function_privilege('authenticated',
+               'public.send_notice(bigint[],text,text)', 'EXECUTE') END,
+   NULL),
+  (102, '10 · رسالة لمشترك', 'PATCH_20260916_notices_fix_and_targeted.sql',
+   'وزرُّ المسح على النسخة التي تسمّي خطأها بالعربيّة',
+   coalesce((SELECT prosrc LIKE '%تعذّر مسحُ الإشعارات%'
+               FROM pg_proc WHERE oid = to_regprocedure('public.clear_notifications()')), false),
+   NULL),
+
+  -- ── 11. الشرط الذي يطلبه حارسُ سوبابيز ──────────────────────────────────
+  -- ⚠ حسابُ التطبيق يرفض أيَّ حذفٍ أو تعديلٍ بلا WHERE، ولا أثرَ للحارس في
+  --   المحرّر ولا في نسخة الاختبار — فلا يُكتشف إلا على الهاتف. هذا الصفُّ
+  --   يسأل عنه قبل ذلك. التعليقاتُ تُنزع أولًا: فاصلةٌ منقوطة داخل تعليقٍ
+  --   تقطع الأمرَ فتجعله يبدو بلا شرط.
+  (111, '11 · شرطُ الحذف', 'PATCH_20260916b_where_clause.sql',
+   'لا حذفَ ولا تعديلَ بلا شرط في دالّةٍ يناديها التطبيق',
+   NOT EXISTS (
+     SELECT 1
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+      CROSS JOIN LATERAL (
+        SELECT (regexp_matches(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'),
+                  '(DELETE\s+FROM\s+[^;]*;|UPDATE\s+[a-zA-Z_."]+\s+SET\s+[^;]*;)',
+                  'gi'))[1] AS s
+      ) m
+      WHERE n.nspname = 'public'
+        AND replace(ltrim(replace(p.oid::regprocedure::text, 'public.', ''), ' '), ' ', '')
+            = ANY (SELECT replace(a, ' ', '') FROM unnest(public.client_callable_functions()) a)
+        AND m.s !~* 'where'),
+   NULL),
+
   -- ── عامّ ────────────────────────────────────────────────────────────────
   (95, 'عامّ', NULL,
    'الأدمن ما زال يدخل',
@@ -239,7 +274,7 @@ SELECT '' AS "الملف",
          (SELECT 'ناقص: ' || x.label
             FROM c x WHERE x.ok IS FALSE
            ORDER BY x.ord LIMIT 1),
-         'الملفات التسعة مطبّقة وتعمل') AS "التفاصيل",
+         'الملفات الأحد عشر مطبّقة وتعمل') AS "التفاصيل",
        0 AS "#"
   FROM c
 UNION ALL

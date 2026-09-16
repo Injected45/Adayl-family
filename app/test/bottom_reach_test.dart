@@ -70,8 +70,9 @@ void main() {
     overrides: <Override>[
       authControllerProvider.overrideWith(() => _StubAuth(role)),
       adeelsProvider('').overrideWith(
-        (Ref ref) async =>
-            <AdeelListItem>[for (int i = 1; i <= 30; i++) _adeel(i)],
+        (Ref ref) async => <AdeelListItem>[
+          for (int i = 1; i <= 30; i++) _adeel(i),
+        ],
       ),
     ],
     child: MaterialApp(
@@ -96,6 +97,11 @@ void main() {
     WidgetTester tester,
   ) async {
     await sized(tester, const AdeelsScreen());
+    // ⚠ The add button is put away until the bar switch asks for it (16/09), so
+    //   the band it needs is only reserved while it is SHOWING — which is the
+    //   state this test is about.
+    await tester.tap(find.byIcon(Icons.person_add_alt_1_outlined));
+    await tester.pumpAndSettle();
 
     // To the true end of the list. A single large drag is enough — the list
     // clamps at its maximum extent — and settling lets the ballistic scroll
@@ -126,11 +132,16 @@ void main() {
     // the FAB one doubled, so the pill is asserted on its own terms: the whole
     // card, not just its name, ends above where the pill starts.
     await sized(tester, const AdeelsScreen());
+    await tester.tap(find.byIcon(Icons.person_add_alt_1_outlined));
+    await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -6000));
     await tester.pumpAndSettle();
 
     final Rect card = tester.getRect(
-      find.ancestor(of: find.text('العديل رقم 30'), matching: find.byType(Card)),
+      find.ancestor(
+        of: find.text('العديل رقم 30'),
+        matching: find.byType(Card),
+      ),
     );
     final Rect fab = tester.getRect(find.byType(FloatingActionButton));
 
@@ -178,7 +189,11 @@ void main() {
       ),
     );
 
-    expect(withoutFab, greaterThan(0), reason: 'the pill must still be paid for');
+    expect(
+      withoutFab,
+      greaterThan(0),
+      reason: 'the pill must still be paid for',
+    );
     // 56 of button plus the 16 Scaffold keeps between it and the pill.
     expect(withFab - withoutFab, 72);
   });

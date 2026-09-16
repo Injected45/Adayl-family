@@ -115,4 +115,35 @@ class NotificationsRepository {
           },
         );
       });
+
+  /// رسالة من الإدارة إلى مشترك بعينه أو أكثر — المطالبة بالسداد وما أشبهها.
+  ///
+  /// ⚠ ONE ROW PER MEMBER, WRITTEN BY THE DATABASE, and that is what makes it
+  ///   private: the member policy admits `adeel_id = my_adeel_id()`, so a
+  ///   notice addressed to one man is unreadable by the next even from outside
+  ///   the app. A single row carrying a list of ids would have needed a new
+  ///   policy to hide it.
+  ///
+  /// ⚠ ADMIN-ONLY IN THE DATABASE, not here: `send_notice` asks the same
+  ///   question `my_role()` asks and refuses an empty selection, a man who is
+  ///   not on the register, and the same limits a broadcast has — RUL18, whose
+  ///   Arabic sentence reaches the screen as it is.
+  Future<int> sendNotice({
+    required List<int> adeelIds,
+    required String body,
+    String? title,
+  }) => SupabaseFailures.guard(() async {
+    final dynamic result = await _db.rpc<dynamic>(
+      'send_notice',
+      params: <String, dynamic>{
+        'p_adeel_ids': adeelIds,
+        'p_title': (title == null || title.trim().isEmpty)
+            ? null
+            : title.trim(),
+        'p_body': body,
+      },
+    );
+    final Object? sent = result is Map ? result['sent'] : null;
+    return sent is num ? sent.toInt() : 0;
+  });
 }

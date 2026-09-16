@@ -3178,7 +3178,7 @@ abstract class L {
   /// No description provided for @broadcastHeading.
   ///
   /// In ar, this message translates to:
-  /// **'رسالة إلى جميع المشتركين'**
+  /// **'رسالة إلى المشتركين'**
   String get broadcastHeading;
 
   /// No description provided for @broadcastTitleLabel.
@@ -3228,6 +3228,84 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'أُرسلت الرسالة إلى جميع المشتركين'**
   String get broadcastSent;
+
+  /// No description provided for @noticeToAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل المشتركين'**
+  String get noticeToAll;
+
+  /// No description provided for @noticeToPicked.
+  ///
+  /// In ar, this message translates to:
+  /// **'مشتركون محدَّدون'**
+  String get noticeToPicked;
+
+  /// No description provided for @noticePickMembers.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختيار المشتركين'**
+  String get noticePickMembers;
+
+  /// No description provided for @noticePickedCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} مشترك محدَّد'**
+  String noticePickedCount(int count);
+
+  /// No description provided for @noticePickNone.
+  ///
+  /// In ar, this message translates to:
+  /// **'حدِّد مشتركاً واحداً على الأقل'**
+  String get noticePickNone;
+
+  /// No description provided for @noticeSendTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال إلى المحدَّدين؟'**
+  String get noticeSendTitle;
+
+  /// No description provided for @noticeSendBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستصل هذه الرسالة إلى {count} من المشتركين وحدهم، ولا يراها غيرهم، ولا يمكن سحبها بعد الإرسال.'**
+  String noticeSendBody(int count);
+
+  /// No description provided for @noticeSentTo.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُرسلت الرسالة إلى {count} من المشتركين'**
+  String noticeSentTo(int count);
+
+  /// No description provided for @noticePickerTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر المشتركين'**
+  String get noticePickerTitle;
+
+  /// No description provided for @noticePickerSearch.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث بالاسم أو الرقم'**
+  String get noticePickerSearch;
+
+  /// No description provided for @noticePickerAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديد الكل'**
+  String get noticePickerAll;
+
+  /// No description provided for @noticePickerNone.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح التحديد'**
+  String get noticePickerNone;
+
+  /// No description provided for @noticePickerDone.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم'**
+  String get noticePickerDone;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

@@ -7,6 +7,9 @@ import 'package:family_app/core/supabase/supabase_failures.dart';
 import 'package:family_app/core/widgets/nav_pill_bar.dart';
 import 'package:family_app/features/auth/domain/app_user.dart';
 import 'package:family_app/features/auth/presentation/auth_controller.dart';
+import 'package:family_app/features/directory/domain/models.dart';
+import 'package:family_app/features/directory/presentation/providers.dart'
+    as directory;
 import 'package:family_app/features/notifications/data/notice_read_state.dart';
 import 'package:family_app/features/notifications/data/notifications_repository.dart';
 import 'package:family_app/features/notifications/domain/models.dart';
@@ -81,9 +84,24 @@ class _FakeRepo implements NotificationsRepository {
   final List<({String? title, String body})> sent =
       <({String? title, String body})>[];
 
+  /// What a targeted send asked for — ids included, since «to whom» is the
+  /// whole of what this feature adds.
+  final List<({List<int> ids, String? title, String body})> aimed =
+      <({List<int> ids, String? title, String body})>[];
+
   @override
   Future<void> sendBroadcast({required String body, String? title}) async =>
       sent.add((title: title, body: body));
+
+  @override
+  Future<int> sendNotice({
+    required List<int> adeelIds,
+    required String body,
+    String? title,
+  }) async {
+    aimed.add((ids: adeelIds, title: title, body: body));
+    return adeelIds.length;
+  }
 
   @override
   Future<List<AppNotice>> list({int limit = 200}) async => _notices();
@@ -147,6 +165,40 @@ List<AppNotice> _notices() => <AppNotice>[
   }),
 ];
 
+/// Three men on the register, with the names the picker has to fit.
+final List<AdeelListItem> _members = <AdeelListItem>[
+  AdeelListItem.fromJson(<String, dynamic>{
+    'id': 3,
+    'adeelCode': 'A-03',
+    'fullName': 'عبدالرحمن محمد عبدالسلام الشيباني',
+    'phone': '0911111111',
+    'membershipStatus': 'نشط',
+    'debt': '100.00',
+    'issued': '400.00',
+    'monthlyExpected': '100.00',
+  }),
+  AdeelListItem.fromJson(<String, dynamic>{
+    'id': 5,
+    'adeelCode': 'A-05',
+    'fullName': 'عبدالعزيز عطية حمد يونس الخشبي',
+    'phone': '0922222222',
+    'membershipStatus': 'نشط',
+    'debt': '0.00',
+    'issued': '400.00',
+    'monthlyExpected': '100.00',
+  }),
+  AdeelListItem.fromJson(<String, dynamic>{
+    'id': 8,
+    'adeelCode': 'A-08',
+    'fullName': 'رزق المبروك جلجال',
+    'phone': '0933333333',
+    'membershipStatus': 'نشط',
+    'debt': '250.00',
+    'issued': '400.00',
+    'monthlyExpected': '100.00',
+  }),
+];
+
 Future<({_StubUnread unread, _FakeRepo repo})> _pump(
   WidgetTester tester, {
   required AppUser user,
@@ -169,6 +221,10 @@ Future<({_StubUnread unread, _FakeRepo repo})> _pump(
         noticeReadStateProvider.overrideWithValue(_FakeReads(seen)),
         notificationsRepositoryProvider.overrideWithValue(repo),
         noticesProvider.overrideWith((Ref ref) async => notices ?? _notices()),
+        // The register the picker reads. The composer watches it for the admin
+        // only, and takes it as empty while it loads or fails — so this is what
+        // makes «مشتركون محدَّدون» reachable at all.
+        directory.adeelsProvider('').overrideWith((Ref ref) async => _members),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -472,6 +528,152 @@ void main() {
     });
   });
 
+  // ── إلى مشتركٍ بعينه أو أكثر ───────────────────────────────────────────────
+  // «من الممكن ان ارسل رسالة لمشترك لمطالبته بالسداد. لا اريد ارسالها للكل».
+  //
+  // ⚠ WHO CAN READ A TARGETED NOTICE IS PROVED IN POSTGRES, not here: one row
+  //   per man with his own adeel_id, and the member policy admits only his own
+  //   — twenty-five checks on a replica, including a second member reading the
+  //   first man's demand and getting nothing.
+  group('a message to chosen members', () {
+    testWidgets('⚠ nobody chosen sends nothing, to nobody', (
+      WidgetTester tester,
+    ) async {
+      final ({_StubUnread unread, _FakeRepo repo}) r = await _pump(
+        tester,
+        user: _admin,
+        portal: false,
+      );
+      await tester.enterText(find.byType(TextField).last, 'يرجى سداد الاشتراك');
+      await tester.tap(find.text(l.noticeToPicked));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.broadcastSend));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l.noticePickNone), findsOneWidget);
+      expect(r.repo.aimed, isEmpty);
+      // ⚠ AND IT DID NOT FALL BACK TO EVERYONE. That is the failure this
+      //   feature exists to prevent.
+      expect(r.repo.sent, isEmpty);
+    });
+
+    testWidgets('two men are chosen, and only those two are written to', (
+      WidgetTester tester,
+    ) async {
+      final ({_StubUnread unread, _FakeRepo repo}) r = await _pump(
+        tester,
+        user: _admin,
+        portal: false,
+      );
+      await tester.enterText(find.byType(TextField).last, 'يرجى سداد الاشتراك');
+      await tester.tap(find.text(l.noticeToPicked));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.noticePickMembers));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l.noticePickerTitle), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(CheckboxListTile, 'رزق المبروك جلجال'),
+      );
+      await tester.tap(
+        find.widgetWithText(CheckboxListTile, 'عبدالعزيز عطية حمد يونس الخشبي'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.noticePickerDone));
+      await tester.pumpAndSettle();
+
+      // What was chosen is on screen as names, not as a bare count.
+      expect(
+        find.widgetWithText(InputChip, 'رزق المبروك جلجال'),
+        findsOneWidget,
+      );
+      expect(find.text(l.noticePickedCount(2)), findsOneWidget);
+
+      await tester.tap(find.text(l.broadcastSend));
+      await tester.pumpAndSettle();
+      expect(find.text(l.noticeSendTitle), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Dialog),
+          matching: find.text(l.broadcastSend),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(r.repo.aimed.single.ids, unorderedEquals(<int>[5, 8]));
+      expect(r.repo.aimed.single.body, 'يرجى سداد الاشتراك');
+      expect(r.repo.sent, isEmpty, reason: 'nobody else was written to');
+      expect(find.text(l.noticeSentTo(2)), findsOneWidget);
+      // The selection goes with the message, so the next one starts clean.
+      expect(find.text(l.noticePickMembers), findsOneWidget);
+    });
+
+    testWidgets('⚠ leaving the picker by ✕ keeps the earlier choice', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, user: _admin, portal: false);
+      await tester.tap(find.text(l.noticeToPicked));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l.noticePickMembers));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.noticePickerAll));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.noticePickerDone));
+      await tester.pumpAndSettle();
+      expect(find.text(l.noticePickedCount(3)), findsOneWidget);
+
+      // Untick everything, then leave without «تم».
+      await tester.tap(find.text(l.noticePickedCount(3)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.noticePickerNone));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      expect(find.text(l.noticePickedCount(3)), findsOneWidget);
+    });
+
+    testWidgets('the search narrows the list and unticks nobody', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, user: _admin, portal: false);
+      await tester.tap(find.text(l.noticeToPicked));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l.noticePickMembers));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(CheckboxListTile, 'رزق المبروك جلجال'),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.ancestor(
+          of: find.byIcon(Icons.search),
+          matching: find.byType(TextField),
+        ),
+        'A-05',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckboxListTile), findsOneWidget);
+      // Off screen, still ticked — which is what the count above says.
+      expect(find.text(l.noticePickedCount(1)), findsOneWidget);
+      await tester.tap(find.text(l.noticePickerDone));
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(InputChip, 'رزق المبروك جلجال'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a member is offered none of it', (WidgetTester tester) async {
+      await _pump(tester, user: _member, portal: true);
+      expect(find.text(l.noticeToPicked), findsNothing);
+      expect(find.text(l.noticeToAll), findsNothing);
+      expect(find.text(l.noticePickMembers), findsNothing);
+    });
+  });
+
   // ⚠ THE MEMBER'S BAR WENT FROM THREE ITEMS TO FOUR. At 320px that is 72px a
   //   slot, with «الإشعارات» the longest label on it and a «+99» badge riding
   //   the icon — the case that would break first.
@@ -563,6 +765,35 @@ void main() {
           );
         });
       }
+    }
+
+    // The same rule for what only appears once «مشتركون محدَّدون» is chosen: the
+    // picker sheet, the names on it, and the chips they leave behind.
+    for (final AppThemeMode mode in AppThemeMode.values) {
+      testWidgets(
+        'اختيار المشتركين fits at ${width.toInt()}px in ${mode.name}',
+        (WidgetTester tester) async {
+          applyAppTheme(mode);
+          final L l = LAr();
+          await _pump(tester, user: _admin, portal: false, width: width);
+
+          await tester.tap(find.text(l.noticeToPicked));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(l.noticePickMembers));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(l.noticePickerAll));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(l.noticePickerDone));
+          await tester.pumpAndSettle();
+
+          expect(find.text(l.noticePickedCount(3)), findsOneWidget);
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'the picker left the frame at ${width.toInt()}px',
+          );
+        },
+      );
     }
   }
 }

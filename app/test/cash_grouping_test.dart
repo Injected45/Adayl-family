@@ -366,6 +366,13 @@ void main() {
     expect(find.text(l.membersMovementTitle), findsOneWidget);
     expect(find.text(l.opsCollections), findsNothing);
     expect(find.text(l.kindCollective), findsOneWidget);
+    // ⚠ FOLDED since 16/09: the heading is on the page from the start, the
+    //   vouchers appear when it is opened. The count says there is something
+    //   inside before anything is tapped.
+    expect(find.text('EXP-01'), findsNothing);
+    expect(find.text(l.voucherCount(1)), findsOneWidget);
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
     expect(find.text('EXP-01'), findsOneWidget);
     // The heading it was spent under, so a reader knows what the money was for
     // without opening anything.
@@ -409,11 +416,51 @@ void main() {
       ),
     );
 
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+
     final Text struck = tester.widget<Text>(find.text(formatMoney('900.00')));
     expect(struck.style?.decoration, TextDecoration.lineThrough);
     expect(struck.style?.color, AppColors.danger);
     // And the arrow becomes an undo, so the row is legible as a reversal even
     // where the strike-through is hard to see.
     expect(find.byIcon(Icons.undo), findsOneWidget);
+  });
+
+  testWidgets('«صرف جماعي» opens and closes again on the heading', (
+    WidgetTester tester,
+  ) async {
+    // «اجعله في حاوية منطوية تفتح وتغلق بالضغط». The page is opened to read a
+    // balance; two open lists pushed it off the first screen.
+    await pump(
+      tester,
+      app(
+        <CashMovementView>[
+          _mv(id: 1, adeelId: 3, name: 'المهدي عبدالله محمد', amount: '100.00'),
+        ],
+        vouchers: <DisbursementView>[
+          const DisbursementView(
+            id: 1,
+            voucherNo: 'EXP-01',
+            amount: '60.00',
+            kind: 'جماعي',
+            category: 'فطور رمضان',
+            method: 'نقداً',
+            status: 'معتمد',
+            spentAt: '2026-08-15T09:00:00Z',
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('EXP-01'), findsNothing);
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+    expect(find.text('EXP-01'), findsOneWidget);
+    await tester.tap(find.text(l.kindCollective));
+    await tester.pumpAndSettle();
+    expect(find.text('EXP-01'), findsNothing);
+    // The heading never leaves, so there is always something to press.
+    expect(find.text(l.kindCollective), findsOneWidget);
   });
 }

@@ -24,11 +24,29 @@ import 'providers.dart';
 /// sons; `MembersScreen` listed every person with a relation badge and the
 /// household they hung off. Both described the same people through a hierarchy
 /// that no longer exists, so they collapsed into this.
-class AdeelsScreen extends ConsumerWidget {
+class AdeelsScreen extends ConsumerStatefulWidget {
   const AdeelsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdeelsScreen> createState() => _AdeelsScreenState();
+}
+
+class _AdeelsScreenState extends ConsumerState<AdeelsScreen> {
+  /// ── «إضافة مشترك» IS PUT AWAY ─────────────────────────────────────────────
+  /// The register is READ many times a day and added to a handful of times a
+  /// year, and the association asked for the button to stop standing over every
+  /// reading of it: «اجعله مخفي، فالأعلى جنب الجرس، نضغط عليه فيظهر اذا احتجت
+  /// له». So the bar carries a small icon that REVEALS the add button rather
+  /// than a second way to reach the form — one tap to show it, one to put it
+  /// back, and nothing changes about who may use it.
+  ///
+  /// ⚠ Screen state, deliberately not a provider: it must start closed every
+  ///   time the register is opened. A provider would remember it was showing
+  ///   from three screens ago, which is the thing being removed.
+  bool _showAdd = false;
+
+  @override
+  Widget build(BuildContext context) {
     final L l = L.of(context);
     // ── THE SEARCH BOX IS GONE ────────────────────────────────────────────
     // Removed at the association's request. The repository still takes a query
@@ -49,10 +67,30 @@ class AdeelsScreen extends ConsumerWidget {
     return AppScaffold(
       title: l.navRegister,
       currentRoute: AppRoutes.adeels,
+      // The switch that reveals it, beside the bell. Semantics rather than a
+      // Tooltip: the same rule the call banner taught — a label reaches
+      // TalkBack and needs no Overlay above it.
+      actions: role.atLeast(AppRole.financeManager)
+          ? <Widget>[
+              Semantics(
+                label: l.addAdeel,
+                button: true,
+                child: IconButton(
+                  onPressed: () => setState(() => _showAdd = !_showAdd),
+                  icon: Icon(
+                    _showAdd
+                        ? Icons.person_add_alt_1
+                        : Icons.person_add_alt_1_outlined,
+                  ),
+                  color: _showAdd ? AppColors.brand : null,
+                ),
+              ),
+            ]
+          : null,
       // Entering an عديل is a finance-manager act; the RPC refuses anyone else
       // and the router guards the route, so hiding the button is the third layer
       // rather than the only one.
-      floatingActionButton: role.atLeast(AppRole.financeManager)
+      floatingActionButton: role.atLeast(AppRole.financeManager) && _showAdd
           ? FloatingActionButton.extended(
               onPressed: () => context.go('${AppRoutes.adeels}/new'),
               icon: const Icon(Icons.add),
@@ -174,11 +212,7 @@ class _AdeelCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_left,
-                    color: AppColors.muted,
-                    size: 20,
-                  ),
+                  Icon(Icons.chevron_left, color: AppColors.muted, size: 20),
                 ],
               ),
 

@@ -747,7 +747,7 @@
   },
   "noticesLogHeading": "Everything sent",
   "noticesAdminRule": "Payments, dues and individual disbursements reach their member only; collective disbursements and board messages reach everyone.",
-  "broadcastHeading": "Message to all members",
+  "broadcastHeading": "Message to members",
   "broadcastTitleLabel": "Title (optional)",
   "broadcastTitleHint": "A message from the board",
   "broadcastBodyLabel": "Message",
@@ -755,5 +755,40 @@
   "broadcastEmpty": "Write the message first",
   "broadcastConfirmTitle": "Send to everyone?",
   "broadcastConfirmBody": "This message reaches every member at once and cannot be withdrawn once sent.",
-  "broadcastSent": "Message sent to all members"
+  "broadcastSent": "Message sent to all members",
+
+  "noticeToAll": "All members",
+  "noticeToPicked": "Chosen members",
+  "noticePickMembers": "Choose members",
+  "noticePickedCount": "{count} chosen",
+  "@noticePickedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticePickNone": "Choose at least one member",
+  "noticeSendTitle": "Send to the chosen members?",
+  "noticeSendBody": "This message reaches {count} member(s) and nobody else, and cannot be withdrawn once sent.",
+  "@noticeSendBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticeSentTo": "Message sent to {count} member(s)",
+  "@noticeSentTo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noticePickerTitle": "Choose members",
+  "noticePickerSearch": "Search by name or number",
+  "noticePickerAll": "Select all",
+  "noticePickerNone": "Clear selection",
+  "noticePickerDone": "Done"
 }
