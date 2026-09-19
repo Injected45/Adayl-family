@@ -43,9 +43,11 @@ flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000/api/v1
 ```bash
 flutter analyze                 # 0 issues
 dart run tool/rtl_lint.dart     # RTL + hard-coded-Arabic checks
-flutter test                    # 27 tests
-flutter build web --release
-flutter build apk --debug
+dart run tool/supabase_lint.dart # no base-table reads, no PostgREST writes
+dart run tool/patch_lint.dart   # every supabase/PATCH_*.sql
+dart run tool/rpc_lint.dart     # every .rpc() against the SQL that defines it
+flutter test                    # the whole suite
+..\build_apk.bat                # the release APK, with the project's keys
 ```
 
 ---

@@ -13,7 +13,7 @@
 --  للتشغيل: SQL Editor ← New query ← الصق هذا كلَّه ← Run.
 -- ============================================================================
 
-WITH c(ord, patch, file, label, ok, detail) AS (
+WITH base(ord, patch, file, label, ok, detail) AS (
   VALUES
   -- ── 1. الإشعارات ─────────────────────────────────────────────────────────
   (11, '1 · الإشعارات', 'PATCH_20260913c_notifications.sql',
@@ -262,6 +262,93 @@ WITH c(ord, patch, file, label, ok, detail) AS (
         ELSE (xpath('/row/c/text()', query_to_xml(
                $q$SELECT count(*) AS c FROM public.notifications$q$,
                false, true, '')))[1]::text END)
+),
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  قبل الإطلاق: هل تستطيع هذه القاعدة أن تخدم التطبيق كلَّه؟
+--
+--  ⚠ الصفّان التاليان يسألان سؤالًا لا يسأله شيءٌ آخر. كلُّ ما سبق يفحص ملفًّا
+--    بعينه؛ وهذان يفحصان **التطبيق**: كلُّ نداءٍ يناديه، وكلُّ قائمةٍ يقرؤها.
+--    نداءٌ ناقصٌ أو غيرُ مسموح لا يظهر في أيّ اختبار — يظهر على هاتف مشتركٍ
+--    بعد الإطلاق، برسالةٍ لا تقول شيئًا. القائمتان مستخرجتان من شيفرة التطبيق
+--    نفسِها (dart run tool/rpc_lint.dart يحرس الأسماء في المستودع).
+-- ═══════════════════════════════════════════════════════════════════════════
+app_fn(f) AS (VALUES
+  ('public.accept_proposal(bigint)'), ('public.add_bylaw_page(text,text)'),
+  ('public.api_adeel_aid(bigint)'), ('public.api_adeel_detail(bigint)'),
+  ('public.api_adeel_statement(bigint,date,date)'), ('public.api_aid_others(bigint)'),
+  ('public.api_arrears_board()'), ('public.api_association_finance()'),
+  ('public.api_call_directory()'), ('public.api_closable_periods()'),
+  ('public.api_dashboard()'), ('public.api_direct_threads()'),
+  ('public.api_financial_report(date,date)'), ('public.api_ice_servers()'),
+  ('public.api_me()'), ('public.api_member_value(bigint)'),
+  ('public.api_receivables(text)'), ('public.api_settings()'),
+  ('public.api_touch_login()'), ('public.auto_close_periods()'),
+  ('public.cancel_disbursement(bigint,text)'), ('public.cancel_payment(bigint,text)'),
+  ('public.clear_all_board_threads()'), ('public.clear_chat_thread(bigint)'),
+  ('public.clear_notifications()'), ('public.delete_adeel(bigint)'),
+  ('public.delete_bylaw_page(bigint)'), ('public.delete_chat_message(bigint)'),
+  ('public.delete_chat_messages(bigint[])'), ('public.end_call(bigint,boolean)'),
+  ('public.generate_period(character)'), ('public.heartbeat_call(bigint)'),
+  ('public.issue_adeel_code(bigint)'), ('public.join_call(bigint)'),
+  ('public.leave_call(bigint)'), ('public.redeem_adeel_code(text,text)'),
+  ('public.reject_proposal(bigint)'),
+  ('public.register_payment(bigint,numeric,pay_method,text,text,text,text,text,text)'),
+  ('public.register_disbursement(numeric,disbursement_kind,pay_method,bigint,expense_category,text,text,text,text,text,text,date)'),
+  ('public.save_adeel(bigint,jsonb)'), ('public.send_broadcast(text,text)'),
+  ('public.send_chat_message(text,bigint,bigint,text,integer)'),
+  ('public.send_notice(bigint[],text,text)'), ('public.send_signal(bigint,text,jsonb,uuid)'),
+  ('public.set_user_access(uuid,app_role,app_status)'), ('public.start_call(bigint,bigint)'),
+  ('public.submit_proposal(text,text)'), ('public.unbind_adeel(bigint)'),
+  ('public.update_settings(jsonb)')
+),
+app_view(v) AS (VALUES
+  ('v_adeels'), ('v_audit'), ('v_bylaw_pages'), ('v_call_participants'),
+  ('v_call_signals'), ('v_calls'), ('v_cash_movements'), ('v_cash_summary'),
+  ('v_chat_messages'), ('v_chat_threads'), ('v_disbursements'),
+  ('v_expense_by_category'), ('v_member_net'), ('v_notifications'),
+  ('v_officials'), ('v_payments'), ('v_proposals'), ('v_settings'), ('v_users')
+),
+launch(ord, patch, file, label, ok, detail) AS (
+  SELECT 121, 'قبل الإطلاق'::text, NULL::text,
+         'كلُّ نداءٍ يناديه التطبيق موجودٌ ومسموحٌ له'::text,
+         NOT EXISTS (SELECT 1 FROM app_fn a
+                      WHERE to_regprocedure(a.f) IS NULL
+                         OR NOT has_function_privilege('authenticated', a.f, 'EXECUTE')),
+         coalesce((SELECT string_agg(a.f, '، ') FROM app_fn a
+                    WHERE to_regprocedure(a.f) IS NULL
+                       OR NOT has_function_privilege('authenticated', a.f, 'EXECUTE')),
+                  (SELECT count(*)::text || ' نداءً، كلُّها متاحة' FROM app_fn))
+  UNION ALL
+  SELECT 122, 'قبل الإطلاق', NULL,
+         'وكلُّ قائمةٍ يقرؤها موجودةٌ ويقرؤها المسجَّل وحدَه',
+         NOT EXISTS (SELECT 1 FROM app_view w
+                      WHERE to_regclass('public.' || w.v) IS NULL
+                         OR NOT has_table_privilege('authenticated', 'public.' || w.v, 'SELECT')
+                         OR has_table_privilege('anon', 'public.' || w.v, 'SELECT')),
+         coalesce((SELECT string_agg(w.v, '، ') FROM app_view w
+                    WHERE to_regclass('public.' || w.v) IS NULL
+                       OR NOT has_table_privilege('authenticated', 'public.' || w.v, 'SELECT')
+                       OR has_table_privilege('anon', 'public.' || w.v, 'SELECT')),
+                  (SELECT count(*)::text || ' قائمة، كلُّها سليمة' FROM app_view))
+  UNION ALL
+  -- ⚠ حسابُ التطوير admin@fam.test: كلمتُه في تاريخ المستودع العلنيّ، ومفتاحُ
+  --   القراءة علنيٌّ بالتصميم — فمن قرأهما دخل بحساب أدمن بلا تطبيق. حذفُ
+  --   السطر من الملفّ لا يكفي؛ يلزم تعطيلُ الحساب أو تغييرُ كلمته.
+  SELECT 123, 'قبل الإطلاق', NULL,
+         'ولا حسابَ تطويرٍ معتمَدًا بصلاحية أدمن',
+         -- ⚠ كلُّ بريدٍ ينتهي بـ .test حسابُ تجربة بحكم التعريف (نطاقٌ محجوز لا
+         --   يملكه أحد)، فلا يُعقل أن يكون أدمنًا معتمَدًا في مشروعٍ حيّ.
+         NOT EXISTS (SELECT 1 FROM public.profiles
+                      WHERE role = 'admin' AND status = 'approved'
+                        AND email LIKE '%.test'),
+         coalesce((SELECT string_agg(email, '، ') FROM public.profiles
+                    WHERE role = 'admin' AND status = 'approved'
+                      AND email LIKE '%.test'),
+                  'لا شيء')
+),
+c(ord, patch, file, label, ok, detail) AS (
+  SELECT * FROM base UNION ALL SELECT * FROM launch
 )
 SELECT '' AS "الملف",
        'الخلاصة' AS "الفحص",

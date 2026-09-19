@@ -1,182 +1,132 @@
-# Operations runbook — جمعية العائلة
+# دليل التشغيل — جمعية العدايل
 
-Everything an administrator needs to run the system day to day. See
-[`MIGRATION_PLAN.md`](MIGRATION_PLAN.md) for the architecture and
-[`../api/README.md`](../api/README.md) for development setup.
+هذا الملفّ لمن يُشغّل التطبيق، لا لمن يكتبه. كلُّ خطوةٍ فيه جُرّبت على نسخةٍ
+محلّية مبنيّة من دفتر الجمعية نفسِه في 2026-09-19، ولا يُذكر هنا شيءٌ لم يُجرَّب.
 
-All commands run from `api/`. For first-time deployment see
-[`DEPLOYMENT.md`](DEPLOYMENT.md).
-
----
-
-## Daily
-
-| | |
-|---|---|
-| `npm run backup` | Dump the database and prune old dumps |
-| `npm run reconcile` | Check the ledger adds up; exits non-zero on any breach |
-
-Both are safe to schedule and both exit non-zero on failure, so a scheduler can
-alert on them.
-
-**Windows Task Scheduler** — one task per command, daily:
-
-```
-Program:   C:\Program Files\nodejs\npm.cmd
-Arguments: run backup
-Start in:  D:\forward\rhalla\Family_App\api
-```
-
-**cron**, if the server is Linux:
-
-```cron
-15 2 * * *  cd /srv/family-app/api && npm run backup   >> /var/log/family-backup.log 2>&1
-30 2 * * *  cd /srv/family-app/api && npm run reconcile >> /var/log/family-reconcile.log 2>&1
-```
-
-### What the reconciler checks
-
-Ten invariants the schema cannot express on its own — that each receivable's
-`paid` equals its live allocations, that lines sum to the total, that every
-approved payment has exactly one approved cash movement, that a cancelled
-payment leaves no live cash, that no family has two live receivables for one
-period, that statuses agree with amounts, and that the treasury equals
-collections. If it ever fails, **stop and investigate before taking more
-payments** — something has diverged and further activity makes it harder to
-unwind.
+> ⚠ ما كان في هذا الملفّ قبل اليوم كان يصف معماريةً أخرى — خادمَ Node وقاعدةً
+> على جهازٍ خاصّ و`npm run restore-test`. لا وجود لشيءٍ من ذلك: التطبيق يتحدّث
+> إلى سوبابيز مباشرةً ولا خادمَ بينهما. حُذف كلُّ ذلك بدل تركه يُضلّل.
 
 ---
 
-## Weekly: prove the backups work
+## ١. قبل الإطلاق — سبع خطوات بالترتيب
 
-```bash
-npm run restore-test
-```
-
-A backup nobody has restored is not a backup. This restores the newest dump into
-a throwaway database, checks the row counts came back, checks all **10 triggers**
-and **3 generated columns** survived, confirms a `DELETE` on the restored copy is
-still refused, runs the reconciler against it, and drops it. The live database is
-never touched.
-
-The trigger check matters more than it looks: triggers carry business rules 5
-(receivables are immutable) and 9 (nothing financial is deleted). A dump that
-restored the data but not the triggers would give a database that silently
-permits what this one forbids — a successful-looking restore that has quietly
-lost the rules.
-
-Retention defaults to 14 dumps (`BACKUP_RETENTION`). **Copy them somewhere other
-than the server**; a backup on the same disk as the database protects against
-almost nothing.
-
----
-
-## Hardening the database account
-
-Development runs as `root` with no password, which is XAMPP's default and fine on
-a laptop. Before this touches real data, create a least-privilege account:
-
-```bash
-npm run print-grants
-```
-
-It prints ready-to-paste SQL with a freshly generated password. It **prints
-rather than executes** — creating a MySQL user changes the whole server, not just
-this database, and on a shared instance that should be deliberate.
-
-The grants deliberately withhold two things:
-
-- **No blanket `DELETE`.** Rule 9 says nothing financial is ever hard-deleted.
-  Triggers enforce that against anyone with a SQL console, but the application
-  account should not even hold the privilege, so a bug cannot reach for it.
-  `DELETE` is granted only on `members` (removing a son, which the prototype also
-  does — the financial history survives in the snapshotted receivable lines) and
-  `refresh_tokens` (pruning expired sessions).
-- **No `DROP`,** so `TRUNCATE` is impossible. This means the *forced re-import*
-  path cannot run as the application user — which is intended. Cutover is a CLI
-  operation run once with administrator credentials, not something the running
-  app can do.
-
-Verify afterwards that this fails:
-
-```sql
-DELETE FROM family_app.payments LIMIT 1;
-```
-
----
-
-## Cutover: importing the association's existing data
-
-Full detail in [`../api/README.md`](../api/README.md). In short:
-
-```bash
-npm run backup                                        # first, always
-npm run import-legacy -- ../backup.json --dry-run     # validates, writes nothing
-npm run import-legacy -- ../backup.json
-```
-
-Then **compare the treasury total it prints against what `index.html` shows on
-its الصندوق screen**. If they differ the migration has failed whatever else
-succeeded — restore and investigate.
-
-Keep `index.html` untouched and available read-only until the new system has run
-a full billing month.
-
----
-
-## Release builds
-
-```bash
-cd ../app
-flutter build web --release
-flutter build appbundle --release          # what you upload to Google Play
-flutter build apk --release --split-per-abi # for direct install
-```
-
-Current sizes: web bundle ~3.5 MB, app bundle ~43 MB, per-ABI APKs 17–20 MB
-(a device downloads one of those, not the 53 MB fat APK).
-
-### Signing
-
-Release signing reads `android/key.properties`, which is gitignored along with
-the keystore. Copy `android/key.properties.example` and follow the instructions
-in it. Without that file the release build falls back to debug keys so
-`flutter run --release` still works — but a store upload needs the real keystore.
-
-**Keep the keystore backed up and outside the repository.** If it is lost, the
-app can never be updated on Google Play under the same identity.
-
-**Register the release certificate's SHA-1 with your Google OAuth client** as
-well as the debug one, or sign-in works in development and fails in the store
-build. This is the single most common cause of "it worked yesterday".
-
----
-
-## Configuration worth reviewing before production
-
-| Setting | Default | Change it when |
+| # | الخطوة | كيف تعرف أنها تمّت |
 |---|---|---|
-| `TRUST_PROXY` | `0` | The API sits behind nginx/Cloudflare. Leave at 0 otherwise — trusting a forwarded header nothing sets lets a caller spoof their address and bypass rate limiting |
-| `CORS_ORIGINS` | `*` | Always, in production: list the web app's real origin |
-| `AUTH_RATE_LIMIT` | 20/min | Rarely |
-| `WRITE_RATE_LIMIT` | 120/min | If a legitimate burst of payments is being throttled |
-| `NODE_ENV` | `development` | Set to `production`: it enables HSTS and blocks `db:reset` |
-| `JWT_SECRET` | — | Rotate it and every session ends. That is the emergency "sign everyone out" lever |
+| ١ | شغّل `supabase/CHECK_PATCHES.sql` في SQL Editor | الصفُّ الأول «الخلاصة» ✅ |
+| ٢ | إن قال صفُّ «حساب تطوير» ❌ فشغّل `supabase/LAUNCH_CLOSE_DEV_ACCOUNT.sql` | يعيد الفحصُ ✅ |
+| ٣ | خذ نسخةً احتياطية: `supabase/BACKUP_EXPORT.sql` | ملفٌّ محفوظ خارج الحاسوب |
+| ٤ | ابنِ النسخة: `build_apk.bat` | أربعةُ ملفات في مجلّد `apk\` |
+| ٥ | ثبّت `adayl-arm64-v8a-release.apk` على هاتفك وادخل | تفتح الشاشةُ الرئيسية |
+| ٦ | أصدر مفتاحًا لمشتركٍ واحد وجرّبه على هاتفه | يرى اشتراكَه ورصيدَه |
+| ٧ | وزّع الملفَّ نفسَه على البقيّة | — |
+
+⚠ **وزّع `adayl-arm64-v8a-release.apk`** (34 م.ب) لا `adayl-release.apk` (98 م.ب):
+الأول يناسب كلَّ هاتفٍ حديث، والثاني يحمل معالجاتٍ لا يستعملها أحد.
 
 ---
 
-## Still outstanding
+## ٢. النسخ الاحتياطي — أهمُّ عادةٍ في التشغيل
 
-Three things are not done, and none of them can be finished without a decision or
-a file from the association:
+سوبابيز في الخطّة المجانية **لا يحفظ نسخًا يوميّة يمكنك الرجوع إليها**. لو أخطأ
+أحدٌ بأمرٍ واحد في محرّر SQL، فما تحتفظ به أنت هو كلُّ ما يبقى.
 
-1. **Google OAuth client IDs.** Nobody can sign in until these exist.
-   Walkthrough: [`GOOGLE_SIGNIN.md`](GOOGLE_SIGNIN.md).
-2. **Hosting and off-site backups** — open decision D1 in the plan. Every
-   realistic option implies a paid service, which was left to the association.
-   Note that **MariaDB 10.4 is end-of-life** (risk R13) and should not be what
-   production runs on merely because XAMPP ships it.
-3. **PDF export** for statements, receipts and reports. Blocked on an
-   openly-licensed Arabic font in `app/assets/fonts/` — Noto Naskh Arabic, Amiri
-   or Cairo. The `pdf` package ships no Arabic glyphs, and Tahoma (which the
-   prototype's CSS names) is a Microsoft font that cannot be redistributed.
+**مرّةً في الأسبوع، وقبل تشغيل أيِّ ملفٍّ جديد:**
+
+1. SQL Editor ← الصق `supabase/BACKUP_EXPORT.sql` ← Run.
+2. انقر الخانة الناتجة وانسخها.
+3. احفظها باسم `adayl-backup-YYYY-MM-DD.json` **خارج الحاسوب** — أرسلها لبريدك
+   يكفي.
+4. اقرأ رأسَ الملفّ: «المشتركون ٨ … رصيد_الجمعية 4230.00». إن خالف ما تعرفه
+   فالنسخةُ مبتورة ولا تُحفظ.
+
+النسخة تحمل: المشتركين، والاستحقاقات، والإيصالات وتوزيعَها، وحركةَ الصندوق،
+وسنداتِ الصرف، والأشهرَ المُقفلة، والإعدادات، وسجلَّ العمليات، والحسابات
+وارتباطَها بالمشتركين، والمقترحات. ولا تحمل صورَ القانون ولا الرسائل ولا
+الإشعارات.
+
+### نسخةُ البنية (مرّةً واحدة، وبعد كلِّ ملفٍّ تُشغّله)
+
+النسخة أعلاه تحفظ **الأرقام**؛ وهذه تحفظ **البنية** — الجداول والدوال والسياسات:
+
+```bash
+# الرابط من: Supabase → Project Settings → Database → Connection string (URI)
+pg_dump "postgresql://postgres:[PASSWORD]@db.xxxx.supabase.co:5432/postgres" ^
+        --schema=public --no-owner --no-privileges > adayl-schema-YYYY-MM-DD.sql
+```
+
+`pg_dump.exe` موجودٌ عندك في `%LOCALAPPDATA%\family_app_localpg\pgsql\bin`.
+
+---
+
+## ٣. الاستعادة — ما يعمل وما لا يعمل
+
+⚠ **لا تُعِد بناء المشروع بـ `APPLY_TO_SUPABASE.sql` ثم الترقيعات.** جُرّب هذا
+في 2026-09-19 على قاعدةٍ فارغة وفشل: الحزمةُ أحدثُ من الترقيعات القديمة في
+القوائم وأقدمُ منها في الدوالّ، فترفض ترقيعاتُ أغسطس أن تُطبَّق فوقها
+(«cannot drop columns from view»، ثم انهيارُ سلسلةٍ كاملة). الترقيعاتُ **سجلُّ
+تاريخٍ لا قائمةُ إعادة تشغيل**. إعادةُ طيِّها في `supabase/migrations/` وتوليدُ
+حزمةٍ جديدة عملٌ لما بعد الإطلاق، ولا يُقدَم عليه في أسبوعه.
+
+**المسار الذي يعمل**، بالترتيب:
+
+1. مشروعٌ جديد في سوبابيز، ثمّ `psql < adayl-schema-YYYY-MM-DD.sql` (نسخةُ البنية).
+2. `supabase/bootstrap_first_admin.sql` بعد تغيير البريد إلى بريدك أنت.
+   ⚠ فيه بريدٌ افتراضيٌّ على نطاق `.test`؛ تركُه يُنشئ حسابَ أدمنٍ تجريبيًّا
+   يكشفه الفحصُ في الخطوة ٤.
+3. أعد الأرقامَ من نسخة JSON.
+4. `supabase/CHECK_PATCHES.sql` ← يجب أن يقول ✅.
+
+⚠ **ولا تُعِد `MIGRATE_FULL_HISTORY.sql` على قاعدةٍ فارغة**: هو يعيد بناء
+الجداول الماليّة فقط ويشترط وجودَ المشتركين الثمانية مسبقًا — يرفض بـ «السجلّ
+يحمل 0 عديلاً لا ثمانية».
+
+---
+
+## ٤. بناءُ النسخة وتوزيعُها
+
+```bat
+build_apk.bat            :: release، بمفاتيح المشروع
+build_apk.bat --debug    :: للتجربة فقط
+```
+
+⚠ **لا تُنشئ مفتاحَ توقيعٍ جديدًا.** الهواتفُ عند المشتركين تقبل التحديثَ فقط
+إذا كان موقَّعًا بالمفتاح نفسِه (`app/android/dev-debug.keystore` في المستودع).
+مفتاحٌ جديد يعني: «التطبيق غير مثبَّت» عند كلِّ مشترك، وحذفَ التطبيق وإعادةَ
+تثبيته، و**مفتاحَ دخولٍ جديدًا لكلِّ مشترك** (لأنّ الحذف يُنشئ جلسةً جديدة)،
+وتعطُّلَ الدخول بـ Google حتى تُسجّل بصمةَ المفتاح الجديد في لوحة Google.
+
+---
+
+## ٥. تشغيل ملفٍّ جديد على القاعدة
+
+1. خذ نسخةً احتياطية (القسم ٢).
+2. SQL Editor ← New query ← الصق الملفَّ كلَّه ← Run.
+3. اقرأ جدولَ النتيجة في آخره: كلُّ صفٍّ يجب أن يقول `true`.
+4. شغّل `CHECK_PATCHES.sql` بعده.
+
+كلُّ ملفٍّ معاملةٌ واحدة: إمّا أن يتمَّ كلُّه أو لا يتغيّر شيء. وتكرارُ تشغيله آمن.
+
+---
+
+## ٦. ما يُراجَع من حينٍ لآخر
+
+- **رصيدُ الجمعية** في التطبيق = ما في الصندوق فعلًا.
+- **«فحص مسار الاتصال»** في الإعدادات: إن لم يظهر `relay` فالمكالماتُ تعمل على
+  الواي-فاي وتفشل على بيانات الهاتف — والعلاجُ سطرُ إعدادٍ واحد في القاعدة
+  (`association_settings.ice_servers`) لا نسخةٌ جديدة من التطبيق.
+- **مفاتيحُ المشتركين**: المفتاحُ يصلح سبعةَ أيّام، ويُبطله إصدارُ مفتاحٍ جديد،
+  و**خمسُ محاولاتٍ خاطئة في الساعة تُوقف المحاولةَ ساعةً كاملة** — فلا تُملِ
+  المفتاحَ على المشترك هاتفيًّا حرفًا حرفًا، أرسله مكتوبًا.
+- **الإشعاراتُ في الخلفية**: أندرويد ١٥ يوقف خدمةَ الخلفية بعد ست ساعاتٍ من
+  التشغيل المتصل في اليوم. التطبيقُ يظلّ سليمًا عند فتحه؛ ما يتأخّر هو التنبيهُ
+  والتطبيقُ مغلق. لا علاجَ لهذا إلا خدمةُ دفعٍ (Firebase) وهي خارج المشروع اليوم.
+
+---
+
+## ٧. ما لم يُبنَ بعد، عن قصد
+
+- لا خدمةَ دفع (push)، فلا يرنّ شيءٌ والتطبيقُ مغلقٌ تمامًا.
+- لا مكالماتٍ بين مشتركَين (`docs/MEMBER_TO_MEMBER_CALLS.md`).
+- لا دخولَ بالهاتف/واتساب — بُني وأُلغي في 2026-09-13 لأنّه يحتاج حسابَ أعمالٍ
+  في واتساب معتمَدًا من Meta.

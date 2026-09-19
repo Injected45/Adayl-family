@@ -527,9 +527,10 @@ This dictates the data-access shape — do not deviate from it:
   every RPC amount is sent from Dart as a `String` (not a number). Putting a treasury
   on binary floating point is the bug this prevents.
 
-## Three custom lints enforce the invariants the Dart analyzer can't
+## Four custom lints enforce the invariants the Dart analyzer can't
 
-Run both from `app/`; they exit non-zero on violation and are part of the build gate.
+Run all four from `app/`; they exit non-zero on violation and are part of the
+build gate.
 
 - **`dart run tool/supabase_lint.dart`** — fails if Dart reads a base table (money
   would come back as `double`) or writes through PostgREST (`.insert/.update/.delete`
@@ -562,6 +563,31 @@ Run both from `app/`; they exit non-zero on violation and are part of the build 
   They were RENAMED to their true dates rather than exempted: this lint keeps
   no allow-list, because the moment one exists the list is the real rule and
   the check is decoration.
+
+- **`dart run tool/rpc_lint.dart`** — reads every `.rpc()` in `lib/` and the
+  argument names of every `CREATE FUNCTION` in `supabase/`, and fails when a
+  call cannot REACH its function.
+
+  ⚠ **PostgREST resolves a function by its name AND the set of named parameters
+  it was handed.** Send `p_adeel_ids` to a function whose argument is `p_ids`
+  and it does not call it with an argument missing — it answers **PGRST202,
+  «function not found»**, indistinguishable from a patch that was never run.
+  Nothing else here could see that: `flutter analyze` sees a map of strings,
+  every widget test fakes the repository so no test has ever sent a real
+  parameter name, `supabase_lint` asks only WHERE a write goes, and the SQL
+  suites call the functions from psql where argument names are optional. The
+  one layer that would notice is a handset — which is how the `WHERE`-less
+  DELETE reached the association on 16/09.
+
+  ⚠ It reads DROP and CREATE **in source order**: a patch that changes a
+  signature writes `DROP` then `CREATE` in one file, and applying every CREATE
+  first reported `api_adeel_statement` — live and working — as missing. It also
+  follows `params: someMap` to the map's declaration, and counts a key written
+  `if (x != null) 'p_to':` as one the call MIGHT send but cannot be relied on
+  for an argument that has no DEFAULT.
+
+  It is a NAME check, not a type check: it proves a call can reach a function,
+  not that Postgres will like the value.
 
 **Arabic strings have exactly two homes.** User-facing text → `app/lib/l10n/app_ar.arb`
 (the ARB template; `en` is the translation). Arabic *wire values* the DB stores
@@ -1102,6 +1128,7 @@ flutter analyze
 dart run tool/rtl_lint.dart
 dart run tool/supabase_lint.dart
 dart run tool/patch_lint.dart   # every PATCH_*.sql, before it is handed over
+dart run tool/rpc_lint.dart     # every .rpc() call against the SQL that defines it
 
 # Database / SQL verification (from repo root)
 bash supabase/tests/local_pg.sh start   # provision a local PostgreSQL
@@ -1238,6 +1265,33 @@ bundles all of it into one self-verifying transaction for a fresh project. The f
 admin needs a deliberate manual step (`supabase/bootstrap_first_admin.sql`) because
 every profile is created `viewer`/`pending` and the first person has nobody to approve
 them. See `docs/SUPABASE_SETUP.md`.
+
+⚠ **BUT «BUNDLE THEN THE PATCHES» IS NOT A REBUILD PATH ANY MORE, and that was
+proved rather than assumed (2026-09-19).** A virgin database took the bundle and
+the bootstrap cleanly, and then **21 of the 51 patches refused**. The first
+refusal is the whole story: `PATCH_20260816` does `CREATE OR REPLACE VIEW` with
+fewer columns than the bundle's view already has — «cannot drop columns from
+view» — because the migrations were updated for the VIEWS as those patches
+landed and never for the functions and tables. So the bundle is simultaneously
+NEWER than August's patches (its views) and OLDER (no `assert_two_doors_only`,
+no `peer_a`, no notifications), and no ordering of the two can be consistent.
+
+Everything after that first refusal is a cascade, and the guards behaved
+correctly throughout — each patch refused a database it did not fit rather than
+half-applying. **The patches are a historical ledger, not a replay list.**
+
+What this costs: the documented disaster-recovery path does not work, so the
+real one is a `pg_dump` of the live project plus `supabase/BACKUP_EXPORT.sql`
+for the rows — both written down in `docs/OPERATIONS.md`, which was rewritten
+the same day because it still described the Node-server architecture this app
+has not had for months (`npm run restore-test` against a database nobody runs).
+
+Folding the patch chain back into `migrations/` and regenerating the bundle is
+the fix, and it is a POST-LAUNCH job: doing it badly produces a bundle that
+looks authoritative and rebuilds the wrong schema, which is worse than a bundle
+everyone knows is stale. ⚠ Also `MIGRATE_FULL_HISTORY.sql` cannot start an
+empty project — it rebuilds the seven financial tables and refuses unless the
+eight عدايل already exist («السجلّ يحمل 0 عديلاً لا ثمانية»).
 
 ## Security notes (deliberately committed)
 
@@ -1717,6 +1771,39 @@ the hour**: the very next tap printed the whole cause on the admin's screen —
   the next unqualified DML is reported before somebody presses the button.
   **Any new patch that writes a DELETE or an UPDATE inside a client-callable
   function must give it a qualifier that survives planning.**
+
+## استلامُ المشروع قبل الإطلاق — ما فُحص وما وُجد (2026-09-19)
+
+A delivery review before the association goes live. What it found, in the order
+it matters:
+
+- **`tool/rpc_lint.dart` is new** and is the fourth lint — see «Four custom
+  lints». Every one of the app's **51 `.rpc()` call sites** was checked against
+  the SQL that defines it: names, argument names, optional-vs-required. All
+  pass; the tool was proved to bite by renaming one key.
+- **Every view the app reads (19) and every column it filters or orders by** was
+  checked against a replica of the live schema: all present, all granted to
+  `authenticated`, none readable by `anon`, all `security_invoker`.
+- **The empty-list crash class was looked for and is not there**: the four Dart
+  casts with no null fallback (`movements`, `items`, `topDebtors`, `payments`)
+  are all fed by `coalesce(…, '[]')` on the SQL side, verified by calling each
+  function with parameters that return nothing.
+- **The release APK was built, installed and run** — not merely built. R8 and
+  resource shrinking are ON, and that is the one configuration no test exercises:
+  it starts clean, draws the Arabic sign-in screen, carries its Supabase
+  credentials, shows no dev-login button, and every plugin survives in the DEX
+  (notifications, foreground service, audioplayers, webrtc, google-sign-in,
+  secure-storage).
+- **`CHECK_PATCHES.sql` gained a «قبل الإطلاق» group** that asks what nothing
+  else asks: can the LIVE database serve the app? All 49 RPC signatures callable,
+  all 19 views readable, and no approved admin on a `.test` domain — the last
+  one closes the `run_emulator.bat` password that is still in git history.
+  `supabase/LAUNCH_CLOSE_DEV_ACCOUNT.sql` is the remedy, and it refuses to run
+  if it would leave the association with no admin at all (both paths tested).
+- **`supabase/BACKUP_EXPORT.sql`** — the whole ledger as one JSON cell (366 KB
+  for the live-sized data), because the free tier keeps no restorable daily
+  backup and one wrong statement in the SQL editor is otherwise final.
+- The 497-check SQL suite, `flutter analyze`, all four lints and 832 tests pass.
 
 ## «صرف جماعي» تُطوى في شاشة الصندوق (2026-09-16 c)
 
