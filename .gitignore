@@ -65,3 +65,11 @@ Thumbs.db
 # app/test/fixtures/    real wire JSON the contract tests parse
 # .claude/              the skills this project was built with
 # index.html            the original prototype, still the parity oracle
+
+# ── أرشيف المنظومة القديمة (SQL Server) ────────────────────────────────────
+# نسخٌ احتياطية بكلّ بيانات الجمعية: أسماء المشتركين وأرقامهم وحساباتهم. كلّها
+# مصدرُ MIGRATE_FULL_HISTORY.sql وتبقى على القرص، لكن المستودع علنيّ، فلا
+# يُودَع منها شيء. دخلت مرّةً بـ git add . (١.٤ جيجا، ٢٦٤ ملفًّا) ورفضها GitHub
+# بحجمها — ولو كانت أصغر لمرّت ونُشرت.
+# THE LEGACY ACCOUNTING DATABASE. Real member data in a PUBLIC repository.
+قاعدة بيانات الصرافة بها بيانات الجمعية/
