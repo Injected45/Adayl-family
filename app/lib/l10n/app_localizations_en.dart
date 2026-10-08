@@ -1189,7 +1189,7 @@ class LEn extends L {
 
   @override
   String get familyCodeBody =>
-      'If an administrator gave you an access code, type it here to see your own subscription straight away.';
+      'If an administrator gave you an access code, scan it with the camera or type it here to see your own subscription straight away.';
 
   @override
   String get familyCodeField => 'Subscription code';
@@ -1199,6 +1199,24 @@ class LEn extends L {
 
   @override
   String get familyCodeAction => 'Sign in with a subscription code';
+
+  @override
+  String get familyCodeScan => 'Scan the code';
+
+  @override
+  String get familyCodeScanFailed =>
+      'The code could not be read. Hold the camera closer and steadier, or type the key below.';
+
+  @override
+  String get familyCodeScanHint =>
+      'Point the camera at the code on the administrator\'s phone';
+
+  @override
+  String get familyCodeScanForeign => 'That is not an association access code';
+
+  @override
+  String get familyCodeScanNoCamera =>
+      'The app was not allowed to use the camera. Allow it in the phone settings, or type the key below.';
 
   @override
   String get myFamilyTitle => 'My subscription';
@@ -1267,6 +1285,10 @@ class LEn extends L {
 
   @override
   String get issueCodeCopied => 'Code copied';
+
+  @override
+  String get issueCodeScanHint =>
+      'The member can scan this from his own app instead of typing the key.';
 
   @override
   String get pendingRequests => 'Pending requests';

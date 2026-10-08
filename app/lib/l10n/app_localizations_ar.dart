@@ -1187,7 +1187,7 @@ class LAr extends L {
 
   @override
   String get familyCodeBody =>
-      'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، اكتبه هنا لترى بيانات اشتراكك مباشرة.';
+      'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، امسحه بالكاميرا أو اكتبه هنا لترى بيانات اشتراكك مباشرة.';
 
   @override
   String get familyCodeField => 'رمز الاشتراك';
@@ -1197,6 +1197,24 @@ class LAr extends L {
 
   @override
   String get familyCodeAction => 'دخول برمز الاشتراك';
+
+  @override
+  String get familyCodeScan => 'امسح الرمز بالكاميرا';
+
+  @override
+  String get familyCodeScanFailed =>
+      'لم أتمكّن من قراءة الرمز. قرّب الكاميرا من الرمز وثبّت اليد، أو اكتب المفتاح بالأسفل.';
+
+  @override
+  String get familyCodeScanHint =>
+      'صوّب الكاميرا نحو الرمز الظاهر في هاتف المسؤول';
+
+  @override
+  String get familyCodeScanForeign => 'هذا ليس رمز دخول للجمعية';
+
+  @override
+  String get familyCodeScanNoCamera =>
+      'لم يُسمح للتطبيق باستخدام الكاميرا. اسمح له من إعدادات الهاتف، أو اكتب المفتاح بالأسفل.';
 
   @override
   String get myFamilyTitle => 'اشتراكي';
@@ -1265,6 +1283,10 @@ class LAr extends L {
 
   @override
   String get issueCodeCopied => 'تم نسخ الرمز';
+
+  @override
+  String get issueCodeScanHint =>
+      'يستطيع المشترك مسح هذا الرمز من تطبيقه بدل كتابة المفتاح.';
 
   @override
   String get pendingRequests => 'طلبات معلقة';

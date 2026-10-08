@@ -19,6 +19,7 @@ import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../finance/presentation/payment_sheet.dart';
 import '../domain/models.dart';
+import 'access_code_view.dart';
 import 'providers.dart';
 
 /// Issues a fresh access code for this عديل and shows it once, with a copy
@@ -119,25 +120,7 @@ Future<void> _showAccessCode(
       context: context,
       builder: (BuildContext dialogContext) => GlassDialog(
         title: Text(l.issueCodeTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              l.issueCodeBody,
-              style: const TextStyle(fontSize: 12, height: 1.6),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SelectableText(
-              code,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
+        content: AccessCodeView(code: code),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -801,11 +784,7 @@ class _FoldingSection extends StatelessWidget {
                   children: <Widget>[
                     trailing!,
                     const SizedBox(width: AppSpacing.xs),
-                    Icon(
-                      Icons.expand_more,
-                      size: 20,
-                      color: AppColors.muted,
-                    ),
+                    Icon(Icons.expand_more, size: 20, color: AppColors.muted),
                   ],
                 ),
           children: <Widget>[child],

@@ -9,6 +9,7 @@ import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
+import 'key_scanner_screen.dart';
 
 /// A first-class state, not an error.
 ///
@@ -86,6 +87,43 @@ class _FamilyCodeBoxState extends ConsumerState<_FamilyCodeBox> {
     super.dispose();
   }
 
+  /// «امسح الرمز» — يصوّر رمزَ الأدمن ويقرؤه بدل أن يكتبه.
+  ///
+  /// ⚠ The photograph is taken through the same `image_picker` path the bylaws
+  ///   use, so no CAMERA permission is declared and none is asked for — see
+  ///   `key_qr.dart` for why a live scanner was refused.
+  ///
+  /// ⚠ And it REDEEMS straight away rather than filling the box and waiting.
+  ///   The man who scanned has said what he wanted; a second button under a
+  ///   code he never typed is a step that exists only because the code has to
+  ///   live somewhere.
+  Future<void> _scan(L l) async {
+    if (_busy) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    String? key;
+    try {
+      key = await Navigator.of(context).push<String>(
+        MaterialPageRoute<String>(
+          builder: (BuildContext _) => const KeyScannerScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+    } on Object {
+      if (!mounted) return;
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(l.familyCodeScanFailed)));
+      return;
+    }
+
+    // He closed the camera himself. Nothing to say.
+    if (key == null || !mounted) return;
+
+    _code.text = key;
+    await _redeem(l);
+  }
+
   Future<void> _redeem(L l) async {
     final String typed = _code.text.trim();
     if (typed.isEmpty || _busy) return;
@@ -153,6 +191,14 @@ class _FamilyCodeBoxState extends ConsumerState<_FamilyCodeBox> {
                   )
                 : const Icon(Icons.login, size: 18),
             label: Text(l.familyCodeAction),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // ⚠ Alone in the column: an outlined button is full width in this
+          //   theme and asserts inside a Row. See CLAUDE.md.
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _scan(l),
+            icon: const Icon(Icons.qr_code_scanner, size: 18),
+            label: Text(l.familyCodeScan),
           ),
         ],
       ),

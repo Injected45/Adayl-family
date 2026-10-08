@@ -176,6 +176,14 @@ echo.
 echo   Compiling. A clean release build can take a few minutes.
 echo.
 
+REM NOTE: and clear what the LAST build left in flutter's own output folder.
+REM Cleaning only the apk folder is not enough: --split writes three files
+REM and leaves app-release.apk from the previous plain build beside them,
+REM the copy loop below matches it too, and `copy` keeps the SOURCE
+REM timestamp - so a six-week-old universal APK reappears in a folder
+REM that says "Build finished". Found on 03/10 by building twice and
+REM reading the dates.
+del /q "build\app\outputs\flutter-apk\*.apk" >nul 2>&1
 call flutter build apk %MODE% !SPLIT! !DEFINES!
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" (
@@ -199,6 +207,15 @@ set "APKDIR=%ROOT%apk"
 if not exist "%APKDIR%" mkdir "%APKDIR%"
 
 set /a COPIED=0
+
+REM NOTE: clear this mode's old copies FIRST, or a build that produces one
+REM file lists four and three of them are from another day. The split and
+REM the universal builds write different names, so without this the
+REM listing below shows whichever you built LAST TIME beside what you
+REM built now - and the association distributes an APK from August.
+REM Same lesson as bundle.sh deleting RESET_AND_APPLY.sql: a generated
+REM file that survives into the next run is a trap, not a convenience.
+del /q "%APKDIR%\adayl-*%MODENAME%*.apk" >nul 2>&1
 for %%F in ("%OUTDIR%\*%MODENAME%*.apk") do (
   REM --split emits app-arm64-v8a-release.apk and friends, so the ABI stays in
   REM the name and the three do not overwrite one another.
@@ -226,7 +243,14 @@ echo.
 for %%F in ("%APKDIR%\*.apk") do echo     %%~nxF   (%%~zF bytes)
 echo.
 echo   Install on a connected device or running emulator with:
-echo     adb install -r "%APKDIR%\adayl-%MODENAME%.apk"
+REM The split build writes no adayl-release.apk, so naming one here sent
+REM whoever followed it to a file that is not there - or, before the
+REM cleanup above, to one left from an older build.
+if defined SPLIT (
+  echo     adb install -r "%APKDIR%\adayl-arm64-v8a-%MODENAME%.apk"
+) else (
+  echo     adb install -r "%APKDIR%\adayl-%MODENAME%.apk"
+)
 echo.
 endlocal & exit /b 0
 :help

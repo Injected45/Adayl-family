@@ -51,6 +51,17 @@ abstract final class AppColors {
   /// For labels ON a saturated flat fill.
   static Color onFill = Color(0xFFFFFFFF);
 
+  // ── رمز QR: الوحيدان اللذان لا يتبدّلان مع الوضع الليلي ──────────────────────
+  /// ⚠ FIXED, AND THAT IS THE POINT — these two are not «a white and a black
+  ///   somebody forgot to tokenise», they are the one pair in the app that must
+  ///   NOT follow the palette. A QR is read by a camera, not by a person: the
+  ///   decoder needs dark modules on a light quiet zone, and a square that
+  ///   politely inverted itself in الوضع الليلي is a square no phone can read.
+  ///   `applyAppTheme` deliberately leaves them alone, and they live here so
+  ///   that stays a decision rather than two literals in a widget.
+  static const Color qrPaper = Color(0xFFFFFFFF);
+  static const Color qrInk = Color(0xFF0B1220);
+
   // ── Brand ──────────────────────────────────────────────────────────────────
   static Color brand = Color(0xFF0F766E);
   static Color brandDeep = Color(0xFF0B5A54);

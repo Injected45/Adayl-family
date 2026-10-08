@@ -1772,6 +1772,106 @@ the hour**: the very next tap printed the whole cause on the admin's screen —
   **Any new patch that writes a DELETE or an UPDATE inside a client-callable
   function must give it a qualifier that survives planning.**
 
+## المفتاح كرمز QR — بابٌ ثانٍ للمفتاح نفسِه، لا بابٌ ثالث (2026-10-03)
+
+`features/auth/data/key_qr.dart` + `features/directory/presentation/access_code_view.dart`.
+**No SQL, no patch, no policy, no grant.** The QR carries the SAME code
+`issue_adeel_code` already returns and `redeem_adeel_code` is untouched: the
+database still expires the key after seven days, still counts five attempts an
+hour, still binds the handset and the login that redeemed it. What goes away is
+DICTATION — eight characters read down a Libyan phone line, mistyped twice, and
+the man locked out for an hour on the day he was being set up.
+
+⚠ **It is therefore exactly as secret as the spoken code.** Whoever photographs
+the admin's screen holds what whoever overhears the call holds. Nothing here
+adds a protection and nothing removes one.
+
+- **The admin's dialog shows the code AND the square**, in that order. The text
+  is what still works when the key goes out by WhatsApp, when the camera will
+  not focus, and when the man is not in the room.
+- ⚠ **IT IS A LIVE SCANNER, AND THE FIRST BUILD'S REFUSAL TO BE ONE WAS WRONG.**
+  The reasoning was sound and the result was unusable. The argument: any live
+  scanner merges `<uses-permission android:name="android.permission.CAMERA"/>`
+  into the manifest, and Android then REFUSES `ACTION_IMAGE_CAPTURE` until that
+  permission is granted at run time — so photographing a bylaw page, which
+  today opens the camera with no prompt at all, would start asking. Rather than
+  spend that, the member PHOTOGRAPHED the square through `image_picker` and
+  `zxing2` decoded it in Dart.
+
+  It was tested end to end — encode, render, rotate 18°, add noise, crush to
+  JPEG quality 60, decode — and every case passed. Then the association ran it
+  once: «تفتح كاميرا عاديه بكامل الشاشه ولا تلتقط الـQR ولا تسجل الدخول».
+  **Nobody takes a PICTURE of a code.** They point the phone at it. The decoder
+  was never the problem; the interaction was, and no amount of decoding proof
+  touches that. ⚠ **A complete test of the wrong interaction proves nothing
+  about the feature** — which is why `key_qr_test` keeps the story in its header
+  rather than quietly deleting it.
+
+  So `mobile_scanner` is in, the camera permission with it, `zxing2`/`image`/
+  `qr` are OUT (nothing inert left behind), and `key_qr.dart` is now the payload
+  contract alone. ⚠ The cost is real and accepted: **photographing a bylaw page
+  now asks for the camera once**. `image_picker` requests it itself when the
+  manifest declares it, so no permission package is involved — `permission_handler`
+  still does not build against this project's Gradle and is still not needed.
+- **The payload is prefixed `adayl-key:`** and `keyFromQrPayload` refuses
+  anything else. ⚠ Without the prefix every QR in the world — a receipt, a wifi
+  card — would be fed to `redeem_adeel_code`, spending one of the five attempts
+  an hour and answering «المفتاح غير صحيح» about something that was never a key.
+- The scanner reads **QR only**, with `DetectionSpeed.noDuplicates`: narrowing
+  the formats is what keeps the barcode on a tin of tomatoes from being read as
+  a key, and the duplicate guard is what stops one square firing thirty times a
+  second while the member holds the phone still. A QR that is not ours says so
+  and **keeps scanning** rather than closing the camera on a man who pointed it
+  at the wrong thing; a refused camera draws a sentence and the way out, never
+  a black rectangle that reads as a broken app. `_done` latches on the first
+  key, because `onDetect` goes on arriving while the page is popping and a
+  second pop would take the screen underneath it.
+- ⚠ **`AppColors.qrPaper` / `qrInk` are the only tokens `applyAppTheme` leaves
+  alone.** A QR is read by a camera, not a person: it needs dark modules on a
+  light quiet zone, and a square that politely inverted itself in الوضع الليلي
+  is a square no phone can read. They are tokens rather than literals because
+  `dark_render_test`'s sweep forbids a literal colour in a screen — and it was
+  right to: the exception belongs in the palette where it can be read, not in a
+  widget where it looks like an oversight.
+- ⚠ **AND REBUILDING FOR IT EXPOSED A TRAP IN `build_apk.bat`.** The script
+  printed «Build finished. 4 APK file(s) here» and listed every `.apk` in the
+  folder — including three left by a `--split` build six weeks earlier. A plain
+  `build_apk.bat` produces only the universal APK, so following the runbook's
+  «distribute the arm64 one» after it would have put an August build on eight
+  handsets. It now deletes that mode's previous copies before it copies, which
+  is the same rule `bundle.sh` learned about `RESET_AND_APPLY.sql`: a generated
+  file that survives into the next run is a trap, not a convenience. The runbook
+  now says `build_apk.bat --split` and to look at the file's date anyway.
+
+  ⚠ **AND CLEARING `apk\` WAS HALF THE FIX.** Flutter's own output folder keeps
+  the previous build's artifacts too, the copy loop globs `*release*.apk` there,
+  and **`copy` preserves the SOURCE timestamp** — so a universal APK from an
+  earlier run reappeared in a freshly-cleaned folder wearing its old date. The
+  script now clears `build\app\outputs\flutter-apk\*.apk` BEFORE the build as
+  well, and the proof is the folder: three files, all stamped this minute, and
+  the count says three rather than four. The closing «adb install» line also
+  named `adayl-release.apk` after a `--split` build that never writes one.
+
+  ⚠ **AND DO NOT EDIT A `.bat` WHILE IT IS RUNNING.** cmd reads a batch file
+  line by line AS IT EXECUTES, from a byte offset — rewriting the file under it
+  made it resume mid-line and try to run `NES`. Twice, on the same afternoon.
+  The build itself had already succeeded both times; only the script's tail
+  died, which is a confusing way to learn this.
+- `test/key_qr_test.dart` pins **the contract, which is all a test can reach
+  now**: the prefix both ways, a foreign QR refused, and — the one that matters
+  — that what the admin's widget DRAWS is what the scanner accepts. Reading the
+  square belongs to the phone's camera and no widget test owns one.
+- **What WAS verified on a handset**, with a throwaway entry point
+  (`lib/main_scan_probe.dart`, built, run, then deleted — the same method the
+  bylaws camera was checked with in September): the scanner screen opens, the
+  Arabic aiming frame and hint draw over the preview, **Android asks for the
+  camera once** and the live preview runs after it is granted. ⚠ What could NOT
+  be shown there is the READ: the emulator's virtual scene takes a poster image
+  (`-virtualscene-poster wall=…`) but its camera cannot be aimed at it from the
+  command line, and nothing else on that machine can hold a code in front of a
+  lens. ML Kit decoding a standard QR is not the risk; the permission flow and
+  the preview were, and both are now seen working.
+
 ## استلامُ المشروع قبل الإطلاق — ما فُحص وما وُجد (2026-09-19)
 
 A delivery review before the association goes live. What it found, in the order
@@ -1794,6 +1894,15 @@ it matters:
   credentials, shows no dev-login button, and every plugin survives in the DEX
   (notifications, foreground service, audioplayers, webrtc, google-sign-in,
   secure-storage).
+
+  ⚠ **CORRECTION (2026-10-03): the file installed that day was six weeks old.**
+  `build_apk.bat` without `--split` writes only the universal APK, so
+  `adayl-x86_64-release.apk` — the one installed on the emulator, and the one
+  whose DEX was searched for plugin classes — was left over from an August
+  build. The conclusions happen to still hold (today's build was installed and
+  run on a device, dark mode included, with a clean log), but the method was
+  wrong: **a check that names a FILE must confirm the file's date.** The script
+  now deletes stale copies, which is the fix that keeps this from recurring.
 - **`CHECK_PATCHES.sql` gained a «قبل الإطلاق» group** that asks what nothing
   else asks: can the LIVE database serve the app? All 49 RPC signatures callable,
   all 19 views readable, and no approved admin on a `.test` domain — the last

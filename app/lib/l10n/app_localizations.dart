@@ -2212,7 +2212,7 @@ abstract class L {
   /// No description provided for @familyCodeBody.
   ///
   /// In ar, this message translates to:
-  /// **'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، اكتبه هنا لترى بيانات اشتراكك مباشرة.'**
+  /// **'إن أعطاك مسؤول الجمعية رمز دخول خاصاً بك، امسحه بالكاميرا أو اكتبه هنا لترى بيانات اشتراكك مباشرة.'**
   String get familyCodeBody;
 
   /// No description provided for @familyCodeField.
@@ -2232,6 +2232,36 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'دخول برمز الاشتراك'**
   String get familyCodeAction;
+
+  /// No description provided for @familyCodeScan.
+  ///
+  /// In ar, this message translates to:
+  /// **'امسح الرمز بالكاميرا'**
+  String get familyCodeScan;
+
+  /// No description provided for @familyCodeScanFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم أتمكّن من قراءة الرمز. قرّب الكاميرا من الرمز وثبّت اليد، أو اكتب المفتاح بالأسفل.'**
+  String get familyCodeScanFailed;
+
+  /// No description provided for @familyCodeScanHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'صوّب الكاميرا نحو الرمز الظاهر في هاتف المسؤول'**
+  String get familyCodeScanHint;
+
+  /// No description provided for @familyCodeScanForeign.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا ليس رمز دخول للجمعية'**
+  String get familyCodeScanForeign;
+
+  /// No description provided for @familyCodeScanNoCamera.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُسمح للتطبيق باستخدام الكاميرا. اسمح له من إعدادات الهاتف، أو اكتب المفتاح بالأسفل.'**
+  String get familyCodeScanNoCamera;
 
   /// No description provided for @myFamilyTitle.
   ///
@@ -2358,6 +2388,12 @@ abstract class L {
   /// In ar, this message translates to:
   /// **'تم نسخ الرمز'**
   String get issueCodeCopied;
+
+  /// No description provided for @issueCodeScanHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'يستطيع المشترك مسح هذا الرمز من تطبيقه بدل كتابة المفتاح.'**
+  String get issueCodeScanHint;
 
   /// No description provided for @pendingRequests.
   ///
